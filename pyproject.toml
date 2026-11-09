@@ -1,0 +1,32 @@
+[project]
+name = "kitden-agents"
+version = "0.1.0"
+description = "The AI agents that review pull requests of the Kitden project."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "ruff>=0.16",
+    "pyyaml>=6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["scripts", "evals", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts", "evals"]

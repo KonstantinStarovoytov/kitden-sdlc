@@ -1,0 +1,17 @@
+# Rules for every agent workflow
+
+Every workflow that runs an AI agent must follow these eight rules.
+
+1. No job holds untrusted text, a secret and write permission together. The model reads; a
+   step without a model posts, or the action's own comment tool is allowed by its exact name.
+2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
+   the actor is a bot, and when the switch is off.
+3. `permissions: {}` at the top; each job lists the least it needs.
+4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag.
+5. Every agent job has `timeout-minutes`, a turn limit and `concurrency` with one run per pull
+   request, where a newer run cancels the older.
+6. Tools are allowed by exact name. Reviewers get no Bash, no web tools and no MCP server; the
+   only file writes go to the findings folder on the runner.
+7. A secret reaches a job as a named input and is never printed. The Claude token and the
+   OpenAI key are never in the same job.
+8. An agent's comment starts with one line saying it is automated and which model wrote it.
