@@ -8,13 +8,14 @@
     "new_surface": {"type": "array", "items": {"type": "string"}},
     "findings": {
       "type": "array",
+      "maxItems": 10,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["path", "line", "kind", "text"],
         "properties": {
           "path": {"type": "string"},
-          "line": {"type": "integer"},
+          "line": {"type": "integer", "minimum": 1},
           "kind": {"type": "string", "enum": ["bug", "rule"]},
           "text": {"type": "string"}
         }

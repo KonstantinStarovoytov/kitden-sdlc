@@ -83,18 +83,23 @@ jobs:
           path: .review/findings.json
           include-hidden-files: true
           if-no-files-found: ignore
-      # Last step of the job: the action's sandbox cannot be undone for later steps.
-      # The sandbox is read-only, so the findings come back as the final message.
+      # Last step of the job: the action drops sudo for the rest of the job.
+      # `drop-sudo` (the default) keeps the OpenAI key out of the model's reach; the
+      # read-only profile means no writes and no network, so the findings come back as
+      # the final message. The pull request's own AGENTS.md is not loaded, and web
+      # search is off.
       - name: Review
         id: luna
         if: steps.prepare.outputs.skip != 'true'
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         with:
           openai-api-key: ${{ secrets.openai_api_key }}
+          codex-version: "0.167.0"
           model: gpt-6-luna
           prompt-file: .kitden-agents/prompts/review-luna.md
           output-schema-file: .kitden-agents/schemas/findings.openai.schema.json
-          safety-strategy: read-only
+          permission-profile: ":read-only"
+          codex-args: '["-c", "project_doc_max_bytes=0", "-c", "web_search=\"disabled\""]'
 
   post:
     needs: review

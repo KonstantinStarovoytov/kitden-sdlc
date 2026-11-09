@@ -9,10 +9,13 @@ Every workflow that runs an AI agent must follow these eight rules.
 3. `permissions: {}` at the top; each job lists the least it needs.
 4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag.
 5. Every agent job has `timeout-minutes`, a turn limit and `concurrency` with one run per pull
-   request, where a newer run cancels the older.
+   request, where a newer run cancels the older. Codex (Luna) has no turn limit, only the
+   15-minute timeout.
 6. Tools are allowed by exact name. Reviewers get no Bash, no web tools and no MCP server. They
    read only the checkout (not `.git`, the home folder or `/proc`) and write only the findings
-   folder. Their text is refused if it looks like a secret.
+   folder. Their text is refused if it looks like a secret. Codex can run shell commands, but only
+   inside a read-only sandbox with no network, and the files it can read are not limited to
+   the checkout.
 7. A secret reaches a job as a named input and is never printed. The Claude token and the
    OpenAI key are never in the same job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it.
