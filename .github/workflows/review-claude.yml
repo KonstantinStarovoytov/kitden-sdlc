@@ -85,8 +85,8 @@ jobs:
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max_turns }}
             --plugin-dir .kitden-agents/plugins/kitden-agents
-            --allowedTools "Read,Grep,Glob,Write(.review/**),Edit(.review/**)"
-            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task"
+            --allowedTools "Read(./**),Edit(./.review/**)"
+            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-agents/**),Read(~/.*),Read(~/.*/**),Read(//proc/**)"
       - name: Keep the findings
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

@@ -302,3 +302,60 @@ def test_gh_api_lists_join_all_pages(monkeypatch):
     comments = post_findings.GhApi().list_review_comments("o/r", 7)
     assert [c["id"] for c in comments] == [1, 2, 3]
     assert "--paginate" in run.commands[0]
+
+
+SECRET_TEXTS = [
+    "sk-ant-api03-abc",
+    "ghp_" + "a" * 36,
+    "gho_abc",
+    "ghu_abc",
+    "ghs_abc",
+    "ghr_abc",
+    "github_pat_11AAA",
+    "https://x-access-token:abc@github.com",
+    "key sk-" + "a1" * 12,
+]
+
+
+@pytest.mark.parametrize("secret", SECRET_TEXTS)
+def test_secret_like_text_is_never_posted(secret):
+    for rep in (
+        report(summary=f"Token {secret}"),
+        report(new_surface=[secret]),
+        report([finding(text=f"Leaks {secret}")]),
+        report([finding(path=secret)]),
+    ):
+        api = FakeApi()
+        with pytest.raises(post_findings.SecretLikeError):
+            run_post(api, rep)
+        assert api.calls == []
+
+
+def test_ordinary_text_is_not_taken_for_a_secret():
+    text = "The task-runner and risk-score checks, rights_check, sk-short, high_ghs"
+    api = FakeApi()
+    run_post(api, report([finding(text=text)], summary=text))
+    assert api.calls
+
+
+def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
+    def no_gh(*args, **kwargs):
+        raise AssertionError("gh must not be called")
+
+    monkeypatch.setattr(post_findings.subprocess, "run", no_gh)
+    path = write(
+        tmp_path,
+        {"summary": "ok ghp_" + "a" * 36, "new_surface": [], "findings": []},
+    )
+    argv = ["--report", str(path), "--repo", "o/r", "--pr", "7", "--head-sha", "abc"]
+    argv += ["--reviewer", "claude", "--model", "m"]
+    assert main(argv) == 1
+    assert capsys.readouterr().err.strip() == "claude refused: output looked like a secret"
+
+
+def test_dry_run_reports_a_secret(tmp_path, capsys):
+    path = write(tmp_path, {"summary": "sk-ant-oops", "new_surface": [], "findings": []})
+    assert main(["--report", str(path), "--dry-run"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "claude refused: output looked like a secret"

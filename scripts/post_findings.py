@@ -15,6 +15,8 @@ FINDINGS_MAX = 10
 KINDS = ("bug", "rule")
 TOP_KEYS = {"summary", "new_surface", "findings"}
 FINDING_KEYS = {"path", "line", "kind", "text"}
+# Text that looks like a token. The model must never be able to publish one.
+SECRET_LIKE = re.compile(r"sk-ant-|(?<!\w)gh[pousr]_|github_pat_|x-access-token|(?<!\w)sk-\w{20,}")
 
 
 @dataclass
@@ -36,6 +38,10 @@ class Report:
 class Plan:
     inline: list[Finding]
     overflow: list[Finding]
+
+
+class SecretLikeError(Exception):
+    """The report holds text that looks like a token, so nothing may be posted."""
 
 
 class ApiError(Exception):
@@ -93,6 +99,18 @@ def load_report(path: Path) -> Report | None:
         new_surface=data["new_surface"],
         findings=[Finding(**item) for item in data["findings"]],
     )
+
+
+# --- Keeping secrets out ---
+
+
+def refuse_secret_like(report: Report) -> None:
+    """Raise SecretLikeError when any text that would be posted looks like a token."""
+    texts = [report.summary, *report.new_surface]
+    for f in report.findings:
+        texts += [f.path, f.text]
+    if any(SECRET_LIKE.search(text) for text in texts):
+        raise SecretLikeError
 
 
 # --- Building the comments ---
@@ -241,6 +259,7 @@ def post(
     model: str,
     limit: int = 5,
 ) -> None:
+    refuse_secret_like(report)  # before any call to GitHub
     done = posted_keys(api.list_review_comments(repo, pr), reviewer)
     plan = plan_posts(report, done, limit)
     outside_diff: list[Finding] = []
@@ -286,17 +305,25 @@ def main(argv: list[str]) -> int:
     if report is None:
         return 0  # a missing or broken file must not fail the job
 
-    if args.dry_run:
-        plan = plan_posts(report, set(), args.limit)
-        out = {
-            "inline": [asdict(f) for f in plan.inline],
-            "overflow": [asdict(f) for f in plan.overflow],
-            "summary": summary_body(report, args.reviewer, args.model, plan.overflow, []),
-        }
-        print(json.dumps(out, indent=2, ensure_ascii=False))
-        return 0
-
-    post(report, GhApi(), args.repo, args.pr, args.head_sha, args.reviewer, args.model, args.limit)
+    try:
+        if args.dry_run:
+            refuse_secret_like(report)
+            plan = plan_posts(report, set(), args.limit)
+            out = {
+                "inline": [asdict(f) for f in plan.inline],
+                "overflow": [asdict(f) for f in plan.overflow],
+                "summary": summary_body(report, args.reviewer, args.model, plan.overflow, []),
+            }
+            print(json.dumps(out, indent=2, ensure_ascii=False))
+        else:
+            post(
+                report, GhApi(), args.repo, args.pr, args.head_sha,
+                args.reviewer, args.model, args.limit,
+            )  # fmt: skip
+    except SecretLikeError:
+        # Not the missing-report case: fail loud so the job turns red.
+        print(f"{args.reviewer} refused: output looked like a secret", file=sys.stderr)
+        return 1
     return 0
 
 

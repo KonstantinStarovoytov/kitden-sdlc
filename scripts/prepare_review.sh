@@ -19,10 +19,25 @@ BASE_REF="$2"
 MAX_BYTES=300000
 OUT="${GITHUB_OUTPUT:-/dev/stdout}"
 
-mkdir -p .review
+# Start from nothing. The pull request's own files are in this folder, so a committed
+# .review (a folder, a symlink, or a ready-made findings.json) must not survive.
+# rm removes a symlink itself, never what it points to. After this, every file in
+# .review was written by this script or by the reviewer in this run.
+rm -rf .review
+mkdir .review
+
+# Report a change the reviewer will not read, and stop.
+skip_with() {
+  printf '{"summary":"%s","new_surface":[],"findings":[]}\n' "$1" > .review/findings.json
+  echo "skip=true" >> "$OUT"
+  exit 0
+}
 
 # The change itself, the names of the changed files, and the pull request text.
-gh pr diff "$PR" > .review/diff.patch
+# GitHub refuses to return a very large diff; that counts as too large.
+if ! gh pr diff "$PR" > .review/diff.patch; then
+  skip_with "Diff too large to review (GitHub would not return it)"
+fi
 gh pr diff "$PR" --name-only > .review/files.txt
 gh pr view "$PR" --json title,body --jq '"# " + .title + "\n\n" + (.body // "")' > .review/pr.md
 
@@ -39,9 +54,7 @@ done
 bytes="$(wc -c < .review/diff.patch | tr -d '[:space:]')"
 binary="$(grep -c '^Binary files' .review/diff.patch || true)"
 if [ "$bytes" -gt "$MAX_BYTES" ] || [ "$binary" -gt 0 ]; then
-  printf '{"summary":"Diff too large to review (%s bytes)","new_surface":[],"findings":[]}\n' \
-    "$bytes" > .review/findings.json
-  echo "skip=true" >> "$OUT"
+  skip_with "Diff too large to review ($bytes bytes)"
 else
   echo "skip=false" >> "$OUT"
 fi

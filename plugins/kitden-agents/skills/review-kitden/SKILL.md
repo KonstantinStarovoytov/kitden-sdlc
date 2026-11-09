@@ -1,7 +1,7 @@
 ---
 name: review-kitden
 description: Review a Kitden pull request from the files in .review and write findings.json
-allowed-tools: Read, Grep, Glob, Write(.review/**), Edit(.review/**)
+allowed-tools: Read(./**), Edit(./.review/**)
 ---
 
 # Review a Kitden pull request
