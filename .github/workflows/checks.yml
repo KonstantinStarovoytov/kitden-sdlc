@@ -20,6 +20,7 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run pytest -q
+      - run: uv run python scripts/check_agent_workflows.py .github/workflows
       - run: uvx zizmor==1.32.0 .github/workflows
       - run: >-
           docker run --rm -v "$PWD:/repo" -w /repo
