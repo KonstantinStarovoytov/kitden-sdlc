@@ -135,14 +135,22 @@ def first_line(reviewer: str, model: str) -> str:
     return f"Automated review by Kitden's {reviewer} reviewer ({model}). 👍 useful · 👎 wrong"
 
 
+MARKER = re.compile(r"<!-- kitden-agents:([^:\s]+):(.+?) -->\s*\Z")
+
+
+def read_marker(body: str) -> tuple[str, str] | None:
+    """Return (reviewer, key) from the marker at the very end of a comment, or None."""
+    found = MARKER.search(body)
+    return (found.group(1), found.group(2)) if found else None
+
+
 def posted_keys(review_comments: list[dict], reviewer: str) -> set[str]:
     """Keys of findings already posted. Only a marker at the very end of a comment counts."""
-    pattern = re.compile(rf"<!-- kitden-agents:{re.escape(reviewer)}:(.+?) -->\s*\Z")
     keys = set()
     for comment in review_comments:
-        found = pattern.search(comment.get("body") or "")
-        if found:
-            keys.add(found.group(1))
+        found = read_marker(comment.get("body") or "")
+        if found and found[0] == reviewer:
+            keys.add(found[1])
     return keys
 
 
