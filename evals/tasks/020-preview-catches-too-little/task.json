@@ -1,0 +1,12 @@
+{
+  "id": "020-preview-catches-too-little",
+  "base": "30ec4e036a208005f4d59809bf8ddce22f07b5e1",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Preview refuses a target it cannot read instead of failing",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 469,
+    "text": "Only FileNotFoundError is caught; no access (PermissionError) or a folder in place of a file (IsADirectoryError) still fail with an error, not a refusal."
+  }
+}

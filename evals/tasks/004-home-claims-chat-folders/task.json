@@ -1,0 +1,13 @@
+{
+  "id": "004-home-claims-chat-folders",
+  "base": "9c7e20859b88d4545af37e8ac8a76877130564c1",
+  "source": "commit:113393f",
+  "kind": "defect",
+  "title": "Gateway: find the project of a session",
+  "defect": {
+    "path": "src/kitden/local_gateway/project.py",
+    "line": 65,
+    "text": "A known project that is the home folder contains every folder under it, so a Codex per-chat folder is matched to the home project; home and / should match only themselves."
+  },
+  "fix": "1ef635e2e874d90341affe339d5285fbaeed7aa9"
+}

@@ -1,0 +1,64 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index f6914fe..de4a085 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -16,6 +16,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **Gateway settings kept:** adding a gateway when Kitden's own `settings.json` cannot be read
+   is refused with "Kitden could not read its settings, so it saved nothing." instead of
+   replacing the file.
++- **Preview refuses, never fails:** a file or folder that a change would read but cannot (no
++  access, a folder in place of a file) gives "Kitden could not read …" instead of an error 500.
+ 
+ ### 0.5.0
+ 
+@@ -425,7 +427,6 @@ Ask before starting each one.
+   change and look for such records at start.
+ - A client command that times out can leave a child process holding the pipes and the write
+   lock: start it with no stdin, in its own process group, and stop the whole group.
+-- Some file errors in Preview answer 500 instead of a plain refusal.
+ - Secrets typed for a preview that is cancelled stay in memory.
+ - Server details from a third-party `.mcp.json` follow the same local-address rule as the
+   sign-in checks.
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 70e349e..d339847 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -461,8 +461,16 @@ class Engine:
+         """Read each target, fill in the before state and a masked diff. Writes nothing.
+ 
+         Several steps may edit one file (research R2 of feature 002), but never the same entry
+-        or an entry inside another one.
++        or an entry inside another one. A target that cannot be read (no access, a folder in
++        place of a file) refuses the change, so the page shows why instead of an error.
+         """
++        try:
++            return self._preview(action, steps)
++        except FileNotFoundError as error:
++            place = error.filename or "a file this change reads"
++            raise ChangeRefusedError(f"Kitden could not read {place}.") from None
++
++    def _preview(self, action: str, steps: list[Step]) -> Change:
+         if not steps:
+             raise ChangeRefusedError("Nothing to change.")
+         for step in steps:
+diff --git a/tests/unit/test_engine.py b/tests/unit/test_engine.py
+index 12ac3dd..0f56f71 100644
+--- a/tests/unit/test_engine.py
++++ b/tests/unit/test_engine.py
+@@ -240,6 +240,16 @@ def test_hard_linked_file_is_refused(tmp_path, config):
+         )
+ 
+ 
++def test_a_target_that_cannot_be_read_is_refused_not_an_error(tmp_path):
++    # The page answers a refusal with its words; any other error would be a 500.
++    folder = tmp_path / "config.toml"
++    folder.mkdir()
++    with pytest.raises(ChangeRefusedError, match="could not read"):
++        make_engine(tmp_path).preview(
++            "gateway.connect", [toml_step(folder, ("mcp_servers", "gw"), GATEWAY)]
++        )
++
++
+ def test_nothing_to_change_is_refused(tmp_path, config):
+     with pytest.raises(ChangeRefusedError, match="nothing to change"):
+         make_engine(tmp_path).preview(

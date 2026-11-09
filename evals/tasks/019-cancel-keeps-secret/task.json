@@ -1,0 +1,12 @@
+{
+  "id": "019-cancel-keeps-secret",
+  "base": "8677334e29e2012a77c1ce4a706ba97f6cd4f7b2",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Cancelling a preview forgets the secrets typed for it",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 633,
+    "text": "The condition is reversed: when redact hid a secret the entry keeps the secret, so a cancelled preview still holds the typed value."
+  }
+}

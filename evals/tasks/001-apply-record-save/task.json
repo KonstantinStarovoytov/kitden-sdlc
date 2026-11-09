@@ -1,0 +1,13 @@
+{
+  "id": "001-apply-record-save",
+  "base": "f0667d0d0435ad906397f525015a2c82725c7528",
+  "source": "commit:efb66e6",
+  "kind": "defect",
+  "title": "A crash during Apply leaves a record that says so",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 754,
+    "text": "The change is moved to Applying before its record is saved; when the save fails (disk full, no access) the error is not handled and the change stays stuck in Applying. Apply should refuse and leave it previewed."
+  },
+  "fix": "d4c18cd6dfca25dc2e9a2763ef3fbc915db6264f"
+}

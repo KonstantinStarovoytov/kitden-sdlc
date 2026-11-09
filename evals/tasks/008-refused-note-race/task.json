@@ -1,0 +1,13 @@
+{
+  "id": "008-refused-note-race",
+  "base": "6d56f28edad611e1d8a2737fb9b371c4bc1e4596",
+  "source": "commit:00e8cad",
+  "kind": "defect",
+  "title": "Add access to a server in the gateway, and say when it needs a token",
+  "defect": {
+    "path": "src/kitden/local_gateway/proxy.py",
+    "line": 274,
+    "text": "_turned is shared by all calls to a server and cleared at the start of each; calls to one server can run at once, so one call clears or sets the 401/403 note of another and the wrong message is given."
+  },
+  "fix": "e928ccd73ccf50972f9b6cfc7e45426c28b96b95"
+}

@@ -1,0 +1,216 @@
+diff --git a/src/kitden/changes/actions.py b/src/kitden/changes/actions.py
+index fa553ad..342af83 100644
+--- a/src/kitden/changes/actions.py
++++ b/src/kitden/changes/actions.py
+@@ -11,7 +11,7 @@ import urllib.request
+ from collections.abc import Callable
+ from dataclasses import replace
+ from pathlib import Path
+-from typing import Any
++from typing import TYPE_CHECKING, Any
+ from urllib.parse import urlsplit
+ 
+ from kitden.changes import json_splice, toml_edit
+@@ -45,6 +45,10 @@ from kitden.model import (
+     Step,
+ )
+ from kitden.redact import redact
++from kitden.views.setup_server import is_own_entry
++
++if TYPE_CHECKING:
++    from kitden.views.inventory import Inventory
+ 
+ GATEWAY_CONNECT = "gateway.connect"
+ GATEWAY_MOVE = "gateway.move"
+@@ -57,6 +61,8 @@ CLIENT_WORDS = {"claude_code": "Claude Code", "codex": "Codex", "cursor": "Curso
+ SETUP_SERVER_UPDATE = "setup_server.update"
+ # Turns a client's `kitden` entry back on, where its docs name the switch (views/setup_server.py).
+ SETUP_SERVER_ENABLE = "setup_server.enable"
++# Takes the `kitden` entry out of a client: the client is then not connected to Kitden.
++CLIENT_DISCONNECT = "client.disconnect"
+ NEEDS_COMMAND = "The setup server needs the absolute path of the kitden command"
+ ENTRY_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+ 
+@@ -308,6 +314,30 @@ def setup_server_steps(
+     return steps
+ 
+ 
++def disconnect_steps(
++    adapters: dict[str, ClientAdapter], inventory: "Inventory", clients: list[str]
++) -> list[Step]:
++    """Remove the user-scope `kitden` entry from each chosen client, with that client's own
++    remove step. An entry a plugin provides stays: the plugin is how to turn it off."""
++    if not clients:
++        raise ValueError("Choose at least one client")
++    steps = []
++    for client in dict.fromkeys(clients):
++        words = CLIENT_WORDS.get(client, client)
++        entries = [i for i in inventory.items if is_own_entry(i)]
++        mine = next((i for i in entries if i.scope is Scope.USER), None)
++        adapter = adapters.get(client)
++        if mine is None or adapter is None:
++            if entries:
++                raise ValueError(
++                    f"{words} gets Kitden from the Claude Code plugin. "
++                    "Turn the plugin off to disconnect it."
++                )
++            raise ValueError(f"{words} is not connected to Kitden.")
++        steps.append(adapter.remove_step(mine))
++    return steps
++
++
+ def update_steps(
+     adapters: dict[str, ClientAdapter],
+     items: list[Item],
+diff --git a/src/kitden/views/words.py b/src/kitden/views/words.py
+index c65471d..5fe4296 100644
+--- a/src/kitden/views/words.py
++++ b/src/kitden/views/words.py
+@@ -50,6 +50,7 @@ AFTER_WORDS: dict[str, tuple[str, str]] = {
+     "setup_server.register": ("on", "Added"),
+     "setup_server.update": ("on", "Updated"),
+     "setup_server.enable": ("on", STATE_WORDS["on"]),
++    "client.disconnect": ("off", "Removed"),
+ }
+ 
+ # The tag a cell carries in a project view: "This project" when the project's own settings
+diff --git a/src/kitden/web/app.py b/src/kitden/web/app.py
+index 57959ce..d5fbcec 100644
+--- a/src/kitden/web/app.py
++++ b/src/kitden/web/app.py
+@@ -20,6 +20,7 @@ from starlette.staticfiles import StaticFiles
+ 
+ from kitden import __version__
+ from kitden.changes.actions import (
++    CLIENT_DISCONNECT,
+     CLIENT_WORDS,
+     GATEWAY_CONNECT,
+     GATEWAY_KEYCHAIN,
+@@ -41,6 +42,7 @@ from kitden.changes.actions import (
+     SKILL_INSTALL,
+     add_server_steps,
+     connect_steps,
++    disconnect_steps,
+     install_steps,
+     keychain_steps,
+     local_move_steps,
+@@ -462,8 +464,8 @@ class State:
+ 
+ 
+ # The actions that add something: a refusal into a file Kitden could not read says "add". The
+-# page's ADDS (review.js) names their scope in the review; it leaves out PROJECT_ALIGN and
+-# SETUP_SERVER_UPDATE, which say their place another way.
++# page's ADDS (review.js) names their scope in the review; it leaves out PROJECT_ALIGN,
++# SETUP_SERVER and SETUP_SERVER_UPDATE, which say their place another way.
+ ADD_ACTIONS = frozenset(
+     {
+         MCP_ADD,
+@@ -1079,6 +1081,9 @@ def create_app(
+             if entry is None or entry["state"] != "added" or entry["enabled"] is not False:
+                 raise ValueError("The kitden entry there is not turned off.")
+             steps = enable_steps(adapters, clients[0])
++        elif action == CLIENT_DISCONNECT:
++            clients = [str(t.get("client")) for t in targets if isinstance(t, dict)]
++            steps = disconnect_steps(adapters, state.inventory, clients)
+         elif action == GATEWAY_MOVE and params.get("gateway") == KITDEN_GATEWAY:
+             ids = [str(t.get("item")) for t in targets if isinstance(t, dict)]
+             items = [_item(i) for i in ids]
+diff --git a/src/kitden/web/static/js/parts.js b/src/kitden/web/static/js/parts.js
+index 51a3749..6d0e446 100644
+--- a/src/kitden/web/static/js/parts.js
++++ b/src/kitden/web/static/js/parts.js
+@@ -11,7 +11,7 @@ export const GONE_PROJECT = "This project is no longer on the list.";
+ export const folderName = (path) => (path ? path.split("/").filter(Boolean).pop() || path : "");
+ 
+ // Actions whose title names its place already, or has none: no place words are added.
+-export const PLACE_IN_TITLE = ["gateway.rule", "gateway.rules", "gateway.strict", "project.align", "setup_server.update", "setup_server.enable", "gateway.remove", "gateway.keychain"];
++export const PLACE_IN_TITLE = ["gateway.rule", "gateway.rules", "gateway.strict", "project.align", "setup_server.register", "setup_server.update", "setup_server.enable", "client.disconnect", "gateway.remove", "gateway.keychain"];
+ 
+ // Where a change's steps go (`target`, from the server), as a title ends: " in website",
+ // " for all projects", " for all projects except website" (that project's own definition wins
+@@ -598,7 +598,8 @@ const ACTION_WORDS = {
+   "plugin.disable": "Turned off",
+   "plugin.remove": "Removed",
+   "skill.remove": "Removed",
+-  "setup_server.register": "Added show my setup",
++  "setup_server.register": "Connected to Kitden",
++  "client.disconnect": "Disconnected from Kitden",
+   "setup_server.update": "Updated show my setup to Kitden",
+   "setup_server.enable": "Turned on the kitden entry",
+   "gateway.rule": "Changed the rule for",
+@@ -703,7 +704,7 @@ export function changeTitle(entry) {
+   }
+   // A plugin's skills can be many; the line counts them, the change lists them.
+   if (entry.action === "plugin.skills") return `${verb} ${plural(names.length, "skill", "skills")}${place} · ${clients.join(", ")}`;
+-  const whole = ["gateway.connect", "gateway.switch", "setup_server.register", "setup_server.update", "setup_server.enable", "project.align"].includes(entry.action);
++  const whole = ["gateway.connect", "gateway.switch", "setup_server.register", "setup_server.update", "setup_server.enable", "client.disconnect", "project.align"].includes(entry.action);
+   const what = whole ? "" : ` ${names.join(", ")}`;
+   if (kitden) return `${verb}${what} into the Kitden gateway${place} · ${clients.join(", ")}`;
+   return `${verb}${what}${place} · ${clients.join(", ")}`;
+diff --git a/src/kitden/web/static/js/review.js b/src/kitden/web/static/js/review.js
+index 41c7c6f..3f3f498 100644
+--- a/src/kitden/web/static/js/review.js
++++ b/src/kitden/web/static/js/review.js
+@@ -17,7 +17,7 @@ export { changeOutcome };
+ const DONE_WORDS = {
+   "plugin.disable": "Turned off", "plugin.enable": "Turned on", "mcp.remove_direct": "Removed", "plugin.remove": "Removed",
+   "skill.remove": "Removed",
+-  "gateway.connect": "Connected the gateway", "setup_server.register": "Added show my setup",
++  "gateway.connect": "Connected the gateway", "setup_server.register": "Connected", "client.disconnect": "Disconnected",
+   "setup_server.update": "Updated show my setup to Kitden", "gateway.move": "Moved",
+   "setup_server.enable": "Turned on the kitden entry",
+   "gateway.switch": "Switched the gateway", "plugin.install": "Added", "marketplace.add": "Added the marketplace",
+@@ -28,11 +28,11 @@ const DONE_WORDS = {
+ 
+ // Actions whose words say "from" a client.
+ const REMOVES = ["mcp.remove_direct", "plugin.remove", "skill.remove"];
+-// Actions that add an item: the review names where it goes before the click. A marketplace, the
+-// setup entry, a gateway's entry and a server put back always go to all projects. app.py's
+-// ADD_ACTIONS has two more: Add missing names its project in its title already, and
+-// setup_server.update changes an entry where it is.
+-export const ADDS = ["mcp.add", "skill.install", "plugin.install", "plugin.skills", "marketplace.add", "setup_server.register", "gateway.connect", "gateway.put_back"];
++// Actions that add an item: the review names where it goes before the click. A marketplace, a
++// gateway's entry and a server put back always go to all projects. app.py's ADD_ACTIONS has
++// three more: Add missing names its project in its title already, setup_server.update changes an
++// entry where it is, and setup_server.register says "to Kitden".
++export const ADDS = ["mcp.add", "skill.install", "plugin.install", "plugin.skills", "marketplace.add", "gateway.connect", "gateway.put_back"];
+ // Where the steps go, as the title ends (parts.js, so the Changes page says it too).
+ export { PLACE_IN_TITLE, targetWords };
+ // No promise of Undo for every change: the server names the known limit (`undo_note`).
+@@ -102,7 +102,8 @@ export function changeWords(change, previewBody) {
+     "plugin.skills": `Add ${plugin}'s skills to ${clients}`,
+     // Each client's last step adds the new entry; it is named after the gateway.
+     "gateway.switch": `Use ${steps.length ? steps[steps.length - 1].name : "the new gateway"} in ${clients}`,
+-    "setup_server.register": `Add “show my setup” to ${clients}`,
++    "setup_server.register": `Connect ${clients} to Kitden`,
++    "client.disconnect": `Disconnect ${clients} from Kitden`,
+     "setup_server.update": `Update “show my setup” to Kitden in ${clients}`,
+     "setup_server.enable": `Turn on the kitden entry in ${clients}`,
+     "gateway.remove": `Remove ${server} from the Kitden gateway`,
+@@ -122,8 +123,12 @@ export function changeWords(change, previewBody) {
+     what = `${verb} ${joinWords([...new Set(steps.filter((s) => s.name.includes("@")).map((s) => s.name.split("@")[0]))])} to ${clients}`;
+   } else if (["marketplace.add", "skill.install", "mcp.add"].includes(change.action)) {
+     what = `${verb} ${short} to ${clients}`;
+-  } else if (["gateway.connect", "gateway.switch", "setup_server.register", "setup_server.update", "setup_server.enable"].includes(change.action)) {
++  } else if (["gateway.connect", "gateway.switch", "setup_server.update", "setup_server.enable"].includes(change.action)) {
+     what = `${verb} ${["setup_server.update", "setup_server.enable", "gateway.switch"].includes(change.action) ? "in" : "to"} ${clients}`;
++  } else if (change.action === "setup_server.register") {
++    what = `${verb} ${clients} to Kitden`;
++  } else if (change.action === "client.disconnect") {
++    what = `${verb} ${clients} from Kitden`;
+   } else if (change.action === "gateway.move") {
+     what = `${verb} ${short} into ${kitden ? "the Kitden gateway" : "the gateway"}`;
+   } else if (change.action === "gateway.remove") {
+diff --git a/src/kitden/web/static/js/tray.js b/src/kitden/web/static/js/tray.js
+index ec2a051..0ddfcb3 100644
+--- a/src/kitden/web/static/js/tray.js
++++ b/src/kitden/web/static/js/tray.js
+@@ -101,7 +101,7 @@ export function keyFor(body) {
+ const REMOVES = ["mcp.remove_direct", "plugin.remove", "skill.remove", "gateway.remove"];
+ const SWITCHES = ["gateway.rule", "gateway.rules", "gateway.strict", "plugin.enable", "plugin.disable", "setup_server.enable"];
+ const MOVES = ["gateway.move", "gateway.put_back", "gateway.keychain"];
+-const PLUGS = ["gateway.connect", "gateway.switch", "setup_server.register", "setup_server.update"];
++const PLUGS = ["gateway.connect", "gateway.switch", "setup_server.register", "setup_server.update", "client.disconnect"];
+ const ADDS = ["mcp.add", "plugin.install", "plugin.skills", "skill.install", "marketplace.add"];
+ 
+ // The icon of a row in the bar.

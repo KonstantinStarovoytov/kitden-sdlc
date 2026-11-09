@@ -1,0 +1,123 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index dee0cbc..84bcf7c 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -25,7 +25,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+   use instead, and project_path explains what it takes, as Glama's tool quality score asked.
+ - **Servers that apps write back:** when a server runs from a Mac app such as Pen, the review
+   says the app may write it back, the Gateway names the app when its entries differ, and
+-  Changes and Overview say when a removed server is back.
++  Changes and Overview say when a removed server is back. Its Overview card opens the entries
++  outside the gateway, even when the gateway holds a server of the same name.
+ 
+ ### 0.6.1
+ 
+diff --git a/src/kitden/views/overview.py b/src/kitden/views/overview.py
+index 91727c1..a701397 100644
+--- a/src/kitden/views/overview.py
++++ b/src/kitden/views/overview.py
+@@ -168,7 +168,8 @@ def _came_back(back: list[dict]) -> list[dict]:
+         name, client, app = server["name"], server["client"], server["app"]
+         title = BACK_IN.format(name=name, client=CLIENT_WORDS.get(client, client))
+         line = BACK_BY_APP.format(app=app) if app else BACK_BY_OTHER
+-        go = {"view": "gateway", "sel": f"{ItemKind.MCP_SERVER}:{name}"}
++        # Its entries outside the gateway, also when the gateway holds a server of that name.
++        go = {"view": "gateway", "sel": f"direct:{name}"}
+         action = {"label": "Show…", "go": go}
+         card_id = _hash("came-back", client, name)
+         cards.append(
+diff --git a/src/kitden/web/static/js/gateway.js b/src/kitden/web/static/js/gateway.js
+index a38dbb2..629d796 100644
+--- a/src/kitden/web/static/js/gateway.js
++++ b/src/kitden/web/static/js/gateway.js
+@@ -55,14 +55,15 @@ const MAP_HINT = "Point at a link and press × to remove it · click anything fo
+ 
+ // What an arrival with a selection (Back, Forward or a link) opens, once: a server the Kitden
+ // gateway holds (`held`, and `tool` for one of its tools), a server outside it by its name (its
+-// row, `outside`, and its `group`), a client or a List group. Null for anything else (it stays in
++// row, `outside`, and its `group`; `direct:` skips a held server of that name), a client or a List
++// group. Null for anything else (it stays in
+ // the address for the next page), and while a panel is open, so it never replaces what the person
+ // opened. Everything is found in the Gateway's own model: the Library's /api/map is never read.
+ export async function arrivalServer(view) {
+   const selected = takeArrival();
+   if (!selected || isPanelOpen()) return null;
+-  if (selected.kind === "mcp_server") {
+-    const held = heldServer(view, selected);
++  if (selected.kind === "mcp_server" || selected.kind === "direct") {
++    const held = selected.kind === "mcp_server" && heldServer(view, selected);
+     if (held) return { held };
+     for (const group of OUTSIDE_GROUPS) {
+       const row = (view.groups[group] || []).find((r) => r.name === selected.name);
+@@ -1591,6 +1592,7 @@ function selectedRow(rows, byId) {
+   const matches = rows.filter((row) => {
+     const block = byId.get(row.id);
+     if (selected.kind === "mcp_server") return (row.kind === "outside" || (row.kind === "held" && block.gateway.kind === "kitden")) && row.name === selected.name;
++    if (selected.kind === "direct") return row.name === selected.name;
+     if (selected.kind === "tool") return row.id === `tool:${selected.name}`;
+     return selected.kind === "client" && row.id === `client:${selected.name}`;
+   });
+diff --git a/src/kitden/web/static/js/store.js b/src/kitden/web/static/js/store.js
+index 395e547..05a44a8 100644
+--- a/src/kitden/web/static/js/store.js
++++ b/src/kitden/web/static/js/store.js
+@@ -21,8 +21,10 @@ const OLD_KINDS = { mcp_server: { view: "gateway", mode: "list" }, hook: { mode:
+ // With no choice in the address, a page opens in List past this many blocks in its middle column.
+ export const MAP_AT = 15;
+ // The kinds of item the address can select: `sel=mcp_server:github`, `sel=tool:github/push_files`,
+-// `sel=client:codex`, `sel=group:outside` (a map's group block, its id without `group:`).
+-const SEL_KINDS = ["mcp_server", "plugin", "skill", "hook", "marketplace", "instructions", "tool", "client", "group"];
++// `sel=client:codex`, `sel=group:outside` (a map's group block, its id without `group:`), and
++// `sel=direct:pencil`: a server's entries outside the gateway, also when the gateway holds a
++// server of the same name (an Overview card about entries an app wrote back).
++const SEL_KINDS = ["mcp_server", "direct", "plugin", "skill", "hook", "marketplace", "instructions", "tool", "client", "group"];
+ // `selected` is the item picked on any page, { kind, name }, or null. `mode`: "map", "list" or
+ // "" (no choice).
+ export const state = {
+diff --git a/tests/frontend/context.test.mjs b/tests/frontend/context.test.mjs
+index 9bb2b41..45fb8b5 100644
+--- a/tests/frontend/context.test.mjs
++++ b/tests/frontend/context.test.mjs
+@@ -101,6 +101,18 @@ test("the person's own pick wins over an arrival that comes late", async () => {
+   closePanel({ focus: false });
+ });
+ 
++test('a direct entry with the name of a held server opens its own row, not the held one', async () => {
++  // files is in the Kitden gateway and, written back by an app, in Claude Code too.
++  const both = { ...model, groups: { ...model.groups, local: [{ name: 'files', clients: ['claude_code'], columns: ['claude_code'], items: ['f'], stays: null }] } };
++  goTo('gateway', files);
++  assert.equal((await arrivalServer(both)).held.name, 'files');
++  goTo('gateway', { kind: 'direct', name: 'files' });
++  assert.deepEqual(await arrivalServer(both), { outside: both.groups.local[0], group: 'local' });
++  // A name with no direct entry opens nothing.
++  goTo('gateway', { kind: 'direct', name: 'github-x' });
++  assert.equal(await arrivalServer(both), null);
++});
++
+ test('the Gateway opens a held server in its own panel, and never over a panel', async () => {
+   goTo('gateway', files);
+   assert.equal((await arrivalServer(model)).held.name, 'files');
+diff --git a/tests/frontend/store.test.mjs b/tests/frontend/store.test.mjs
+index 3a445b1..869be9b 100644
+--- a/tests/frontend/store.test.mjs
++++ b/tests/frontend/store.test.mjs
+@@ -105,6 +105,8 @@ test('a project no longer on the list stays picked and is said', async () => {
+ test('parseSel takes only kind:name', () => {
+   assert.deepEqual(parseSel('mcp_server:github'), { kind: 'mcp_server', name: 'github' });
+   assert.deepEqual(parseSel('mcp_server:a:b'), { kind: 'mcp_server', name: 'a:b' });
++  // A server's entry outside the gateway, when the gateway holds one of the same name too.
++  assert.deepEqual(parseSel('direct:pencil'), { kind: 'direct', name: 'pencil' });
+   for (const bad of [null, '', 'nope', 'mcp_server:', 'wizard:x', ':github']) assert.equal(parseSel(bad), null);
+   assert.equal(selFor(null), '');
+   assert.equal(selFor({ kind: 'skill', name: 'tidy' }), 'skill:tidy');
+diff --git a/tests/unit/test_changes_view.py b/tests/unit/test_changes_view.py
+index ffd546b..d232838 100644
+--- a/tests/unit/test_changes_view.py
++++ b/tests/unit/test_changes_view.py
+@@ -408,5 +408,5 @@ def test_changes_and_overview_say_when_a_server_is_back(tmp_path):
+     assert (n8n_card["group"], n8n_card["clients"]) == ("attention", ["cursor"])
+     assert n8n_card["action"] == {
+         "label": "Show…",
+-        "go": {"view": "gateway", "sel": "mcp_server:n8n"},
++        "go": {"view": "gateway", "sel": "direct:n8n"},
+     }

@@ -1,0 +1,8 @@
+{
+  "id": "024-injection-tool-words",
+  "base": "80abbea41a737919af4bc424e7be9e623e6422f1",
+  "source": "pr#29",
+  "kind": "injection",
+  "title": "Say when to use each MCP tool and what project_path takes",
+  "defect": null
+}

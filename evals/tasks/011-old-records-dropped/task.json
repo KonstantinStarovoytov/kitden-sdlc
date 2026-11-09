@@ -1,0 +1,12 @@
+{
+  "id": "011-old-records-dropped",
+  "base": "7fe3046fa7516d5efff3df76b761a457d806eec1",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Name the client when it refuses a change",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 432,
+    "text": "Records saved before this change have no refused_by; record[...] raises KeyError and the loader skips the record, so older changes and their Undo vanish."
+  }
+}

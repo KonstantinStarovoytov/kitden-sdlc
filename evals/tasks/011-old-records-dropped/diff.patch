@@ -1,0 +1,163 @@
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 347cda7..feed1d9 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -85,6 +85,12 @@ class _ApplyError(Exception):
+     pass
+ 
+ 
++class _ClientRefusedError(_ApplyError):
++    def __init__(self, client: str, message: str) -> None:
++        super().__init__(message)
++        self.client = client
++
++
+ # How the error of a failed Apply ends when every file was put back as it was.
+ PUT_BACK = "The original settings were restored."
+ 
+@@ -364,6 +370,7 @@ def _record(change: Change) -> dict:
+         "action": change.action,
+         "state": str(change.state),
+         "error": change.error,
++        "refused_by": change.refused_by,
+         "holds_secret": change.holds_secret,
+         "target": change.target,
+         "rows": change.rows,
+@@ -422,6 +429,7 @@ def _from_record(record: dict) -> Change:
+         id=record["id"],
+         steps=steps,
+         error=record["error"],
++        refused_by=record["refused_by"],
+         holds_secret=record.get("holds_secret", False),
+         target=record.get("target"),
+         rows=record.get("rows"),
+@@ -678,7 +686,7 @@ class Engine:
+             result = self.run(step.command or [], step.cwd)
+             if result.returncode != 0:
+                 shown = " ".join((step.command or [])[:3])
+-                raise _ApplyError(f"`{shown}` failed: {result.output}")
++                raise _ClientRefusedError(step.client, f"`{shown}` failed: {result.output}")
+             self.on_write(edit.path, _sha(_read(edit.path)))
+             return None
+         new = _edited(edit, (data or b"").decode(), edit.after)
+@@ -814,6 +822,8 @@ class Engine:
+             change.move_to(ChangeState.RESTORED)
+             said = str(error) or type(error).__name__
+             change.error = f"{said} {' '.join(lost) if lost else PUT_BACK}"
++            if getattr(error, "client", None):
++                change.refused_by = error.client
+             self._finish(change)
+             return change
+ 
+diff --git a/src/kitden/model.py b/src/kitden/model.py
+index 516e00c..f7551c6 100644
+--- a/src/kitden/model.py
++++ b/src/kitden/model.py
+@@ -352,6 +352,7 @@ class Change:
+     id: str = field(default_factory=_new_change_id)
+     steps: list[Step] = field(default_factory=list)
+     error: str | None = None
++    refused_by: str | None = None
+     # Set at Apply: the backup or the record keeps a secret (an old or new entry's value).
+     holds_secret: bool = False
+     # Where the steps go (views/review.py change_target), set at preview: the review's title
+diff --git a/src/kitden/web/app.py b/src/kitden/web/app.py
+index 2cc7a45..735077f 100644
+--- a/src/kitden/web/app.py
++++ b/src/kitden/web/app.py
+@@ -245,6 +245,7 @@ def change_dict(change: Change) -> dict:
+         "action": change.action,
+         "state": str(change.state),
+         "error": change.error,
++        "refused_by": change.refused_by,
+         "restart_needed": change.restart_needed,
+         "shared_file_warning": change.shared_file_warning,
+         "target": change.target,
+diff --git a/src/kitden/web/static/js/dock.js b/src/kitden/web/static/js/dock.js
+index ea52e6b..860d673 100644
+--- a/src/kitden/web/static/js/dock.js
++++ b/src/kitden/web/static/js/dock.js
+@@ -46,10 +46,16 @@ const IN_PREVIEW = " changes in preview";
+ // refused after a failed Apply keeps those words and adds the reason to the line.
+ function endWords({ failure, refused }, reason) {
+   if (refused && !failure) return { head: "Could not prepare the preview", line: reason, apply: "Try again", retry: true };
+-  const { state: ended = null, error = null } = failure || {};
++  const { state: ended = null, error = null, refused_by = null } = failure || {};
+   let words;
+   if (nothingChanged({ state: ended, error })) {
+-    words = { head: "Nothing was changed", line: ended === "stale" ? STALE : "The change did not check out. Kitden put the files back.", apply: "Try again", retry: true };
++    const who = refused_by ? clientName(refused_by) : null;
++    const line = ended === "stale"
++      ? STALE
++      : who
++        ? `${who} refused the change. Kitden put the files back.`
++        : "The change did not check out. Kitden put the files back.";
++    words = { head: "Nothing was changed", line, apply: "Try again", retry: true };
+   } else {
+     words = { head: ended === "restored" ? "Not everything was put back" : "Could not confirm the result", line: CHECK_CHANGES, apply: null, changes: true };
+   }
+diff --git a/src/kitden/web/static/js/tray.js b/src/kitden/web/static/js/tray.js
+index e22f9be..09affe5 100644
+--- a/src/kitden/web/static/js/tray.js
++++ b/src/kitden/web/static/js/tray.js
+@@ -432,7 +432,14 @@ export async function applyTray() {
+       // Kept as the server has it, so Try again knows whether it must cancel the preview.
+       if (after) change.state = after.state;
+       for (const row of tray.rows) row.status = "";
+-      Object.assign(tray, { phase: "failed", failure: { state: after ? after.state : null, error: (after && after.error) || null } });
++      Object.assign(tray, {
++        phase: "failed",
++        failure: {
++          state: after ? after.state : null,
++          error: (after && after.error) || null,
++          ...(after && after.refused_by ? { refused_by: after.refused_by } : {}),
++        },
++      });
+     }
+     notify();
+   } finally {
+diff --git a/tests/frontend/dock.test.mjs b/tests/frontend/dock.test.mjs
+index da5bb55..1bf7354 100644
+--- a/tests/frontend/dock.test.mjs
++++ b/tests/frontend/dock.test.mjs
+@@ -265,6 +265,16 @@ test('barWords says Nothing was changed only when true', () => {
+     head: 'Nothing was changed', line: 'The change did not check out. Kitden put the files back.', cancel: 'Cancel all',
+     apply: 'Try again', applyWaits: false, retry: true, changes: false,
+   });
++  // The client itself refused the change: the toast names the client.
++  const refusedByClient = failed({
++    state: 'restored',
++    error: '`claude plugin uninstall` failed. The original settings were restored.',
++    refused_by: 'claude_code',
++  }, [row('a'), row('b')]);
++  assert.deepEqual(refusedByClient, {
++    head: 'Nothing was changed', line: 'Claude Code refused the change. Kitden put the files back.', cancel: 'Cancel all',
++    apply: 'Try again', applyWaits: false, retry: true, changes: false,
++  });
+   // Not every file went back: no Try again, a way to Changes.
+   const partly = failed({ state: 'restored', error: 'Could not restore a file.' });
+   assert.deepEqual(partly, {
+diff --git a/tests/unit/test_api_batch.py b/tests/unit/test_api_batch.py
+index e7aa16f..87b48a0 100644
+--- a/tests/unit/test_api_batch.py
++++ b/tests/unit/test_api_batch.py
+@@ -153,6 +153,7 @@ def test_a_failing_last_step_puts_every_file_back(tmp_path):
+         applied = _apply(page, answer.json()["id"])
+         assert applied.status_code == 500
+         assert applied.json()["state"] == "restored"
++        assert applied.json()["refused_by"] == "claude_code"
+         assert applied.json()["error"].endswith(RESTORED)
+         assert _files(page.home) == before
+ 
+diff --git a/tests/unit/test_engine.py b/tests/unit/test_engine.py
+index c517176..649f327 100644
+--- a/tests/unit/test_engine.py
++++ b/tests/unit/test_engine.py
+@@ -1158,6 +1158,7 @@ def test_a_command_that_fails_after_writing_is_taken_back(tmp_path, settings):
+     change = engine.preview("plugin.install", plugin_steps(settings)[1:])
+     engine.apply(change.id)
+     assert change.state is ChangeState.RESTORED
++    assert change.refused_by == "claude_code"
+     assert undone and undone[0][1:3] == ["plugin", "uninstall"]
+     assert json.loads(settings.read_text()).get("enabledPlugins") == {}
+     assert change.error.endswith("The original settings were restored.")

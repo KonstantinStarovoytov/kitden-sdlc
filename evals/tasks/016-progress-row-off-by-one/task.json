@@ -1,0 +1,12 @@
+{
+  "id": "016-progress-row-off-by-one",
+  "base": "deda130f9cc9acea0cfa2d30666f6f97333ca6a6",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Tray: progress names the row of each step",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 911,
+    "text": "Step indexes start at 1, but step_rows keys rows by 0-based step index, so each progress event names the row of the next step."
+  }
+}

@@ -1,0 +1,201 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 84bcf7c..aa30f4d 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -9,6 +9,9 @@ What Kitden does today and what comes next. Ideas and bugs:
+ 
+ ### Not released yet
+ 
++- **A server that starts in its own folder can move into the gateway:** the gateway starts it
++  in that folder, so it works in every client, also in Cursor, which has no start folder setting. A folder
++  the client fills in, or one that is not on this computer, still stays direct, with the reason.
+ - **A fast Apply no longer flickers:** when the write ends within 300 ms, the bar keeps its
+   words and goes straight to Applied, instead of flashing "Applying…" and resizing twice.
+ - **Clearer reasons a server stays outside the gateway:** "needs values its client fills in
+diff --git a/docs/guide.md b/docs/guide.md
+index 07e50b6..287d72a 100644
+--- a/docs/guide.md
++++ b/docs/guide.md
+@@ -40,6 +40,8 @@ See [online sources](discovery.md) for formats and limits.
+ 
+ Open **Gateway** to share MCP servers and turn individual tools on or off for each project.
+ Pick several with a band or Shift-click and drag them in together. Library works on its own.
++A server that must start in its own folder starts there in the gateway, so it also works in
++Cursor, which has no such setting.
+ 
+ ## Review a change. Apply it. Undo it.
+ 
+diff --git a/src/kitden/clients/entries.py b/src/kitden/clients/entries.py
+index 9ca4c05..efbdddc 100644
+--- a/src/kitden/clients/entries.py
++++ b/src/kitden/clients/entries.py
+@@ -30,10 +30,11 @@ IN_APP = re.compile(r"(?:^|/)([^/]+)\.app/Contents/")
+ 
+ 
+ def gateway_entry(entry: dict) -> dict:
+-    """What the Kitden gateway runs: command, args and env, or url and headers. Keys only the
+-    client reads (type, on/off, tool lists, timeouts) stay behind; local_move_steps adds a
+-    Codex entry's own start time."""
+-    server = {key: entry[key] for key in ("command", "args", "env", "url") if entry.get(key)}
++    """What the Kitden gateway runs: command, args, env and a start folder, or url and headers.
++    Keys only the client reads (type, on/off, tool lists, timeouts) stay behind;
++    local_move_steps adds a Codex entry's own start time."""
++    keys = ("command", "args", "env", "cwd", "url")
++    server = {key: entry[key] for key in keys if entry.get(key)}
+     headers = entry.get("headers") or entry.get("http_headers")
+     if headers:
+         server["headers"] = headers
+@@ -69,15 +70,13 @@ def reads_elsewhere(entry: dict, server: dict) -> bool:
+ def entry_refusal(name: str, entry: dict) -> str | None:
+     """Why the Kitden gateway cannot run this entry, so it stays direct; None when it can."""
+     server = gateway_entry(entry)
++    if "cwd" in entry:
++        why = _folder_refusal(name, entry["cwd"])
++        if why is not None:
++            return why
+     if reads_elsewhere(entry, server):
+         # A variable, an env file or a helper command the client reads as it starts the server.
+         return f"{name} needs values its client fills in when it starts; it stays direct for now."
+-    if "cwd" in entry:
+-        # The gateway starts a local server in the project or home folder instead. A plain folder
+-        # is named by its base name; one the client fills in ("${CLAUDE_PLUGIN_ROOT}") is not.
+-        folder = str(entry["cwd"])
+-        where = "a folder of its own" if "${" in folder else f"its own folder, {Path(folder).name}"
+-        return f"{name} must start in {where}; it stays direct for now."
+     # The gateway speaks streamable HTTP; Claude Code also has `sse` and `ws` (checked
+     # 2026-10-21). Without a type, an address that ends in /sse is SSE, as Cursor reads it.
+     kind = entry.get("type")
+@@ -94,6 +93,24 @@ def entry_refusal(name: str, entry: dict) -> str | None:
+     return None
+ 
+ 
++def _folder_refusal(name: str, folder: Any) -> str | None:
++    """Why the gateway cannot start a server in its own folder; None when it can: a full path
++    to a folder on this computer. One the client fills in ("${CLAUDE_PLUGIN_ROOT}") is not
++    named; a plain one is named by its base name. The gateway is the only way such a server
++    runs in Cursor: its docs list command, args, env and envFile, no cwd (checked 2026-11-09)."""
++    if not isinstance(folder, str):
++        return f"{name} could not be read from its file."
++    if "${" in folder:
++        return f"{name} must start in a folder of its own; it stays direct for now."
++    where = f"its own folder, {Path(folder).name}"
++    if not Path(folder).is_absolute():
++        return f"{name} must start in {where}; it stays direct for now."
++    if not Path(folder).is_dir():
++        gone = f"{where}, which is not on this computer"
++        return f"{name} must start in {gone}; it stays direct for now."
++    return None
++
++
+ def app_of(entry: dict) -> str | None:
+     """The Mac app a server's command runs from ("Pen" for Pen.app), else None. Such an app
+     may write its entry again when it starts: pen.dev "sets up supported MCP integrations when
+diff --git a/src/kitden/local_gateway/proxy.py b/src/kitden/local_gateway/proxy.py
+index df7b0d6..1c8b12f 100644
+--- a/src/kitden/local_gateway/proxy.py
++++ b/src/kitden/local_gateway/proxy.py
+@@ -5,8 +5,8 @@ Kitden's own read-only tools and the tools turned on for the session's project,
+ are unique, the same in every project, and short enough for every client. It finds the session's
+ folder, its projects and the tool list at the first `tools/list` and keeps them for the session.
+ On each call of an upstream tool it reads the rules again and refuses a tool that is off now.
+-A local server starts in that folder when one of its tools is first called, or at that first
+-`tools/list` when its tool list is not known yet.
++A local server starts in that folder (or in its own start folder, `cwd`) when one of its tools
++is first called, or at that first `tools/list` when its tool list is not known yet.
+ 
+ MCP SDK facts this relies on (mcp 2.3.0, checked 2026-10-21):
+ - `MCPServer` keeps its low-level server in a private attribute. So the gateway is its own
+@@ -414,7 +414,9 @@ class Upstreams:
+             command=entry["command"],
+             args=[fill_placeholders(str(arg), folder) for arg in entry.get("args") or []],
+             env=self._env(entry),
+-            cwd=folder,
++            # A server with a start folder of its own starts there; a project folder in its
++            # arguments is still the session's.
++            cwd=folder or entry.get("cwd"),
+         )
+ 
+     def _env(self, entry: dict) -> dict[str, str]:
+diff --git a/tests/unit/test_local_gateway_move.py b/tests/unit/test_local_gateway_move.py
+index 1dba7af..03d207f 100644
+--- a/tests/unit/test_local_gateway_move.py
++++ b/tests/unit/test_local_gateway_move.py
+@@ -335,9 +335,12 @@ def test_project_file_entries_and_shell_values_are_refused_with_reasons(home):
+     ):
+         refused(home, (client, name), shell.format(name))
+ 
+-    add_codex(home, "folder", 'command = "npx"\ncwd = "/opt/app"')
++    add_codex(home, "folder", 'command = "npx"\ncwd = "app"')
+     own = "folder must start in its own folder, app; it stays direct for now."
+     refused(home, ("codex", "folder"), own)
++    add_codex(home, "gone", 'command = "npx"\ncwd = "/opt/gone"')
++    gone = "gone must start in its own folder, gone, which is not on this computer; "
++    refused(home, ("codex", "gone"), gone + "it stays direct for now.")
+ 
+     add_claude(home, "stream", {"type": "sse", "url": "https://s.invalid/sse"})
+     refused(
+@@ -362,6 +365,16 @@ def test_project_file_entries_and_shell_values_are_refused_with_reasons(home):
+     assert steps[0].edit.after == {"command": "npx", "args": ["p-mcp", "${workspaceFolder}"]}
+ 
+ 
++def test_a_server_with_a_start_folder_on_this_computer_moves_with_it(home):
++    # Cursor has no start folder setting, so the gateway is where such a server can run.
++    folder = home / "work/agents"
++    folder.mkdir(parents=True)
++    entry = {"command": "uv", "args": ["run", "python", "run_mcp.py"], "cwd": str(folder)}
++    add_cursor(home, "agents", entry)
++    steps = move(home, ("cursor", "agents"))
++    assert steps[0].edit.after == entry
++
++
+ def test_two_different_entries_with_one_name_are_refused(home):
+     add_claude(home, "files", {"type": "stdio", **FILES})
+     add_codex(home, "files", CODEX_FILES.replace('["files-mcp"]', '["files-mcp", "--fast"]'))
+diff --git a/tests/unit/test_local_gateway_proxy.py b/tests/unit/test_local_gateway_proxy.py
+index 5bd8add..a50ca9a 100644
+--- a/tests/unit/test_local_gateway_proxy.py
++++ b/tests/unit/test_local_gateway_proxy.py
+@@ -215,6 +215,21 @@ async def test_kitdens_own_tools_see_the_servers_in_the_gateway(home, monkeypatc
+     assert [f["id"] for f in found.structured_content["findings"]] == [f["id"] for f in shown]
+ 
+ 
++async def test_a_server_with_a_start_folder_starts_there(home):
++    website, own = home / "work/website", home / "work/agents"
++    own.mkdir(parents=True)
++    write_settings(home, {"echo": {**echo("echo", "${workspaceFolder}"), "cwd": str(own)}})
++    save_tools(home, "echo", [tool("where")])
++    env = {"CLAUDE_PROJECT_DIR": str(website)}
++
++    async with gateway(home, env=env) as client:
++        where = json.loads(text(await client.call_tool("where", {})))
++
++    # It starts in its own folder; a project folder in its arguments is still the project's.
++    assert Path(where["cwd"]).resolve() == own.resolve()
++    assert where["args"][1:] == [str(website)]
++
++
+ async def test_a_call_reaches_the_upstream_server(home):
+     website = home / "work/website"
+     entry = echo("echo", "${workspaceFolder}", "${CLAUDE_PROJECT_DIR}", "${CLAUDE_PROJECT_DIR:-.}")
+diff --git a/tests/unit/test_market_servers.py b/tests/unit/test_market_servers.py
+index df8bfc3..1c5af40 100644
+--- a/tests/unit/test_market_servers.py
++++ b/tests/unit/test_market_servers.py
+@@ -24,6 +24,7 @@ BUNDLE = "{} comes as a bundle; Kitden can't run it yet."
+ CANNOT_FILL = "{} needs values its client fills in when it starts."
+ OWN_FOLDER = "{} must start in a folder of its own."
+ OWN_FOLDER_NAMED = "{} must start in its own folder, tool."
++NO_FOLDER = "{} must start in its own folder, tool, which is not on this computer."
+ UNREADABLE = "{} could not be read from its file."
+ IN_FOLDER = "{} runs a file inside its plugin folder; Kitden can't run it from the gateway."
+ ORIGIN = "http://127.0.0.1:47800"
+@@ -110,7 +111,8 @@ def test_entries_the_gateway_cannot_run_are_refused(home, entry, why):
+             {"command": "node", "args": ["dist/index.js"], "cwd": "${CLAUDE_PLUGIN_ROOT}"},
+             OWN_FOLDER,
+         ),
+-        ({"command": "uvx", "cwd": "/srv/tool"}, OWN_FOLDER_NAMED),
++        ({"command": "uvx", "cwd": "tool"}, OWN_FOLDER_NAMED),
++        ({"command": "uvx", "cwd": "/srv/tool"}, NO_FOLDER),
+         ({"command": "uvx", "args": "mcp-x"}, UNREADABLE),
+         ({"command": "uvx", "env": ["A=1"]}, UNREADABLE),
+         ({"command": 5}, UNREADABLE),

@@ -1,0 +1,8 @@
+{
+  "id": "021-announce-copy",
+  "base": "ab25d4256a4ae1b93f2650500f2c9b98b83360c1",
+  "source": "pr#14",
+  "kind": "clean",
+  "title": "Announce command copy results",
+  "defect": null
+}

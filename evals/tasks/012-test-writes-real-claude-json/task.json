@@ -1,0 +1,12 @@
+{
+  "id": "012-test-writes-real-claude-json",
+  "base": "d2b4b5d677f9450442377a373544cdd870d177d8",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Remove a plugin when Claude Code was started in the home folder",
+  "defect": {
+    "path": "tests/unit/test_claude_code_settings.py",
+    "line": 322,
+    "text": "The test writes ~/.claude.json in the real home folder, overwriting the user's Claude Code file, instead of the sandbox home."
+  }
+}

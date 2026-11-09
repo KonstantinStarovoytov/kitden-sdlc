@@ -1,0 +1,92 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 0d811a2..5fa6186 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -7,6 +7,13 @@ What Kitden does today and what comes next. Ideas and bugs:
+ 
+ ## Done
+ 
++### Not released yet
++
++- **Remove works for plugins when Claude Code was started in the home folder:** Kitden no
++  longer reads `~/.claude/settings.json` a second time as that "project's" file, so a user
++  plugin, hook or skill has no project copy. Remove ran `uninstall -s project` on that copy,
++  and Claude Code refused it.
++
+ ### 0.6.1
+ 
+ - **Ready for the MCP Registry:** the package carries the name the official MCP Registry
+diff --git a/src/kitden/clients/claude_code.py b/src/kitden/clients/claude_code.py
+index 884f71d..fb044b8 100644
+--- a/src/kitden/clients/claude_code.py
++++ b/src/kitden/clients/claude_code.py
+@@ -673,8 +673,11 @@ class ClaudeCodeAdapter(ClientAdapter):
+                     enabled=state,
+                 )
+             )
++        # When the project is the home folder, its `.claude/settings.json` and skills are the
++        # user's own, already read as user items; reading them again made a project copy.
++        at_home = is_home(root, self.home)
+         settings_path = root / ".claude/settings.json"
+-        settings = as_dict(read.json(settings_path))
++        settings = {} if at_home else as_dict(read.json(settings_path))
+         # The local files, the winning one last; each plugin key comes from the last that has it.
+         locals_ = [(path, as_dict(read.json(path))) for path in local_files(root, self.home)]
+         # checked 2026-10-26 (code.claude.com/docs/en/plugins/loading, "Find where a plugin is
+@@ -713,16 +716,17 @@ class ClaudeCodeAdapter(ClientAdapter):
+         )
+         read_files = [settings_path, *(p for p, _ in locals_)]
+         known = user_known and not any(read.failed(p) for p in read_files)
+-        items += _apply_rules(
+-            skill_items(CLIENT, root / ".claude/skills", Scope.PROJECT, CLIENT, project=path),
+-            rules,
+-            known,
+-        )
++        if not at_home:
++            items += _apply_rules(
++                skill_items(CLIENT, root / ".claude/skills", Scope.PROJECT, CLIENT, project=path),
++                rules,
++                known,
++            )
+         # checked 2026-10-22 (code.claude.com/docs/en/memory): a project's CLAUDE.md and
+         # CLAUDE.local.md at its root, besides the files in its `.claude` folder. When the
+         # project is the home folder, its `.claude` files are the user's own and are skipped.
+         files = [(root / "CLAUDE.md", "instructions"), (root / "CLAUDE.local.md", "instructions")]
+-        if not is_home(root, self.home):
++        if not at_home:
+             files += _instruction_files(root / ".claude")
+         items += instruction_items(CLIENT, files, Scope.PROJECT, CLIENT, project=path)
+         return items, (rules if known else None)
+diff --git a/tests/unit/test_claude_code_settings.py b/tests/unit/test_claude_code_settings.py
+index 0b6b009..37b5b6a 100644
+--- a/tests/unit/test_claude_code_settings.py
++++ b/tests/unit/test_claude_code_settings.py
+@@ -1,6 +1,7 @@
+ """Claude Code's local settings and `skillOverrides` (checked 2026-10-26, see claude_code.py)."""
+ 
+ import json
++from pathlib import Path
+ 
+ import kitden.clients.claude_code as claude_code
+ from kitden.clients.claude_code import ClaudeCodeAdapter, git_root
+@@ -310,3 +311,20 @@ def test_git_root_follows_only_a_repository_folder_the_user_owns(tmp_path, monke
+     (tmp_path / ".git").mkdir()
+     (repo / ".git").rmdir()
+     assert git_root(web, home) is None
++
++
++def test_the_home_folder_as_a_project_does_not_read_the_user_settings_twice(tmp_path, no_version):
++    # Claude Code started in the home folder records it as a project. Its `.claude/settings.json`
++    # and skills are then the user's own: one user item each, no project copy. A project copy of
++    # a user plugin made Remove run `uninstall -s project`, which Claude Code refuses.
++    hook = {"hooks": [{"type": "command", "command": "true"}]}
++    home, _ = _home(tmp_path, user={"enabledPlugins": {PLUGIN: False}, "hooks": {"Stop": [hook]}})
++    _write(Path.home() / ".claude.json", {"projects": {str(home): {}}})
++    items = _scan(home, no_version)
++    assert _plugin_rows(items) == {("user", "off", "user")}
++    kinds = (ItemKind.PLUGIN, ItemKind.HOOK, ItemKind.SKILL)
++    assert not [i for i in items if i.kind in kinds and i.project == str(home)]
++    # The home folder's local file is still its own project file.
++    _write(home / ".claude/settings.local.json", {"enabledPlugins": {PLUGIN: True}})
++    rows = _plugin_rows(_scan(home, no_version))
++    assert rows == {("user", "off", "user"), ("local", "on", "local")}

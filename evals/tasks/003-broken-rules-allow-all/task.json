@@ -1,0 +1,13 @@
+{
+  "id": "003-broken-rules-allow-all",
+  "base": "9ce19e0982109cc208505aac1f14785ae49bb3cd",
+  "source": "commit:86cb57d",
+  "kind": "defect",
+  "title": "Gateway: refuse a switched-off tool at once",
+  "defect": {
+    "path": "src/kitden/local_gateway/settings.py",
+    "line": 136,
+    "text": "is_allowed uses load_settings, which reads a missing or broken file as empty; with no rules every tool is on, so a broken settings file lets switched-off tools be called."
+  },
+  "fix": "2edbf7aed044bc60518ca70dd07935f8ba8f3acd"
+}

@@ -1,0 +1,155 @@
+diff --git a/src/kitden/local_gateway/proxy.py b/src/kitden/local_gateway/proxy.py
+index 3d175d1..3224e00 100644
+--- a/src/kitden/local_gateway/proxy.py
++++ b/src/kitden/local_gateway/proxy.py
+@@ -4,6 +4,7 @@ A client starts `kitden mcp` once per session. When the gateway settings hold se
+ Kitden's own read-only tools and the tools turned on for the session's project, under names that
+ are unique, the same in every project, and short enough for every client. It finds the session's
+ folder, its projects and the tool list at the first `tools/list` and keeps them for the session.
++On each call of an upstream tool it reads the rules again and refuses a tool that is off now.
+ A local server starts in that folder when one of its tools is first called, or at that first
+ `tools/list` when its tool list is not known yet.
+ 
+@@ -14,6 +15,7 @@ MCP SDK facts this relies on (mcp 2.3.0, checked 2026-10-21):
+ - The server handles each request in its own task, so a slow call does not hold up the others.
+ - `ServerSession.list_roots()` warns on every call that roots are deprecated (protocol
+   2026-07-28); the gateway sends the same `roots/list` request with `send_request`.
++- `ServerSession.send_tool_list_changed()` sends `notifications/tools/list_changed`.
+ - `Client` with `StdioServerParameters` puts the given env over HOME, LOGNAME, PATH, SHELL, TERM
+   and USER of this process.
+ """
+@@ -56,11 +58,14 @@ from mcp_types import (
+     Tool,
+ )
+ 
++from kitden.gateways import data_dir
+ from kitden.local_gateway.project import project_chain, session_folder
+ from kitden.local_gateway.settings import (
+     PLACEHOLDERS,
++    SETTINGS_FILE,
+     START_TIME,
+     allowed_tools,
++    is_allowed,
+     load_settings,
+     load_tools,
+     save_tools,
+@@ -359,6 +364,8 @@ class _Gateway:
+         self.upstreams = Upstreams(home, self.settings)
+         self.names: dict[str, tuple[str, str]] = {}
+         self.tools: list[Tool] | None = None
++        self.chain: list[str] = []
++        self.rules_time: int | None = None  # when the rules file last changed, as last seen
+         self._lock = anyio.Lock()
+ 
+     async def list_tools(
+@@ -374,6 +381,10 @@ class _Gateway:
+             await self._offered(ctx)
+             target = self.names.get(params.name)
+             if target is not None:
++                await self._tell_new_list(ctx)
++                # The rules are read again on each call: a tool turned off is refused at once.
++                if not await anyio.to_thread.run_sync(is_allowed, self.home, self.chain, *target):
++                    return _answer(f"{params.name} is turned off in Kitden.")
+                 return await self.upstreams.call(*target, arguments)
+         try:
+             return await self.own.call_tool(params.name, arguments)
+@@ -393,6 +404,8 @@ class _Gateway:
+         roots = await _roots(ctx)
+         known = await anyio.to_thread.run_sync(self._known)
+         folder, chain = _session(roots, known, self.home)
++        self.chain = chain
++        self.rules_time = await anyio.to_thread.run_sync(self._rules_time)
+         # Local servers start in the session's folder; the rules follow its chain.
+         self.upstreams.folder = folder
+         tools = load_tools(self.home)
+@@ -409,6 +422,33 @@ class _Gateway:
+         self.names = {name: key for name, key in names.items() if key in found}
+         return [_tool(name, found[key]) for name, key in self.names.items()]
+ 
++    async def _tell_new_list(self, ctx: ServerRequestContext) -> None:
++        """Best effort: when the rules file changed and the tools it allows now differ from the
++        offered ones, tell the client once that the tool list changed. The offered list stays as
++        the session found it. This never fails a call."""
++        try:
++            changed = await anyio.to_thread.run_sync(self._rules_time)
++            if changed == self.rules_time:
++                return
++            self.rules_time = changed
++            if await anyio.to_thread.run_sync(self._allowed_now) != set(self.names.values()):
++                # mcp 2.3.0 ServerSession.send_tool_list_changed sends
++                # notifications/tools/list_changed (checked 2026-10-21).
++                await ctx.session.send_tool_list_changed()
++        except Exception:
++            return  # the client keeps its list until a new session
++
++    def _rules_time(self) -> int | None:
++        try:
++            return (data_dir(self.home) / SETTINGS_FILE).stat().st_mtime_ns
++        except OSError:
++            return None
++
++    def _allowed_now(self) -> set[tuple[str, str]]:
++        """The tools the rules allow now, from the known tool lists; no server is asked."""
++        allowed = allowed_tools(load_settings(self.home), load_tools(self.home), self.chain)
++        return {(server, t["name"]) for server, listed in allowed.items() for t in listed}
++
+     def _known(self) -> list[str]:
+         try:
+             return self.known()
+diff --git a/src/kitden/local_gateway/settings.py b/src/kitden/local_gateway/settings.py
+index 2f98e28..751412e 100644
+--- a/src/kitden/local_gateway/settings.py
++++ b/src/kitden/local_gateway/settings.py
+@@ -130,6 +130,15 @@ def state_in(settings: dict, chain: Sequence[str], server: str, tool: str | None
+     return "on" if _is_on(_scopes(settings, chain), server, tool, strict) else "off"
+ 
+ 
++def is_allowed(home: Path, chain: Sequence[str], server: str, tool: str) -> bool:
++    """Whether a tool can be called now: the settings file is read again, and the server and
++    the tool must both be on along the chain."""
++    settings = load_settings(home)
++    return state_in(settings, chain, server, None) == "on" and (
++        state_in(settings, chain, server, tool) == "on"
++    )
++
++
+ def deciding_project(
+     settings: dict, chain: Sequence[str], server: str, tool: str | None
+ ) -> str | None:
+diff --git a/tests/unit/test_local_gateway_settings.py b/tests/unit/test_local_gateway_settings.py
+index e5b49c0..9996865 100644
+--- a/tests/unit/test_local_gateway_settings.py
++++ b/tests/unit/test_local_gateway_settings.py
+@@ -13,6 +13,7 @@ from kitden.local_gateway.settings import (
+     SETTINGS_FILE,
+     TOOLS_FILE,
+     allowed_tools,
++    is_allowed,
+     load_settings,
+     load_tools,
+     rule_step,
+@@ -380,3 +381,24 @@ def test_a_saved_tool_keeps_what_the_client_is_shown_and_nothing_else(tmp_path):
+         },
+         {"name": "ping", "description": "", "inputSchema": {"type": "object"}},
+     ]
++
++
++def test_is_allowed_reads_the_file_again(tmp_path):
++    write_settings(tmp_path, {"servers": {"github": {}}, "rules": {"global": {}, "projects": {}}})
++    assert is_allowed(tmp_path, [], "github", "echo") is True
++    off = {"github": {"tools": {"echo": "off"}}}
++    write_settings(tmp_path, {"servers": {"github": {}}, "rules": {"global": off, "projects": {}}})
++    assert is_allowed(tmp_path, [], "github", "echo") is False
++
++
++def test_a_tool_on_under_a_server_off_is_refused(tmp_path):
++    rules = {"global": {"github": {"server": "off", "tools": {"echo": "on"}}}, "projects": {}}
++    write_settings(tmp_path, {"servers": {"github": {}}, "rules": rules})
++    assert is_allowed(tmp_path, [], "github", "echo") is False
++
++
++def test_is_allowed_follows_strict_mode(tmp_path):
++    rules = {"global": {"github": {"mode": "strict", "tools": {"echo": "on"}}}, "projects": {}}
++    write_settings(tmp_path, {"servers": {"github": {}}, "rules": rules})
++    assert is_allowed(tmp_path, [], "github", "echo") is True
++    assert is_allowed(tmp_path, [], "github", "other") is False

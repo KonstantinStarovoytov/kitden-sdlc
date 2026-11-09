@@ -1,0 +1,71 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index d335413..ba33351 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -21,6 +21,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **Client commands end cleanly:** a client's own command runs with no input and in a process
+   group of its own; when it takes longer than 60 seconds, the whole group is stopped, so no
+   helper it started keeps the pipes or the write lock.
++- **Cancel forgets secrets:** cancelling a preview clears the secrets typed for it: Keychain
++  values, and the secret parts of new file entries and gateway servers.
+ 
+ ### 0.5.0
+ 
+@@ -428,6 +430,5 @@ Ask before starting each one.
+ - Undo removes gateway servers last, not first; an Undo that was blocked can be tried again.
+ - A crash in the middle of Apply leaves no record: save the record as Applying before the first
+   change and look for such records at start.
+-- Secrets typed for a preview that is cancelled stay in memory.
+ - Server details from a third-party `.mcp.json` follow the same local-address rule as the
+   sign-in checks.
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 6579a52..5ae24f0 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -622,8 +622,18 @@ class Engine:
+             removal.masked_diff = "\n".join(f"-{f}" for f in files)
+ 
+     def cancel(self, change_id: str) -> Change:
++        """Cancel a previewed change. The secrets typed for it go: Keychain values are cleared,
++        and new entries keep only what `redact` lets through."""
+         change = self.changes[change_id]
+         change.move_to(ChangeState.CANCELLED)
++        self._forget_secrets(change)
++        for step in change.steps:
++            if step.edit is not None:
++                shown, hid = redact(step.edit.after)
++                step.edit.after = step.edit.after if hid else shown
++            if step.gateway is not None:
++                shown, hid = redact(step.gateway.server)
++                step.gateway.server = shown if hid else step.gateway.server
+         return change
+ 
+     # Apply -------------------------------------------------------------------------------
+diff --git a/tests/unit/test_engine.py b/tests/unit/test_engine.py
+index 0f56f71..f8a48fc 100644
+--- a/tests/unit/test_engine.py
++++ b/tests/unit/test_engine.py
+@@ -1174,6 +1174,23 @@ def test_a_failed_apply_puts_back_the_old_keychain_value(tmp_path, config):
+     assert step.keychain[0].old is None and step.keychain[0].value == ""
+ 
+ 
++def test_a_cancelled_change_forgets_the_secrets_typed_for_it(tmp_path, config):
++    import dataclasses
++
++    from kitden.model import KeychainItem
++
++    engine, _ = keychain_engine(tmp_path)
++    typed = "sk-live-SENTINEL0123456789"
++    step = toml_step(
++        config, ("mcp_servers", "gw"), {**GATEWAY, "http_headers": {"Authorization": typed}}
++    )
++    step.keychain = [KeychainItem("gw", "GW_KEY", typed)]
++    change = engine.preview("gateway.connect", [step])
++    engine.cancel(change.id)
++    assert change.state is ChangeState.CANCELLED
++    assert typed not in json.dumps(dataclasses.asdict(change), default=str)
++
++
+ # The client writes its file during Apply (review 2026-11-03) --------------------------------
+ 
+ 

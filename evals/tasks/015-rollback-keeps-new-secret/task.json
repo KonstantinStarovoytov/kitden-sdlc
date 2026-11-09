@@ -1,0 +1,12 @@
+{
+  "id": "015-rollback-keeps-new-secret",
+  "base": "7a645e5552de4d1e102e5bcb85a55b6df9718e31",
+  "source": "hand",
+  "kind": "defect",
+  "title": "A failed Apply puts back the old Keychain value",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 824,
+    "text": "The rollback writes item.value (the new secret) instead of item.old, so a failed Apply leaves the new value in the Keychain."
+  }
+}

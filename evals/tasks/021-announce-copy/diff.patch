@@ -1,0 +1,96 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index c68fbcd..a5ec885 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -12,6 +12,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **README in four parts:** the map, find and add, the gateway, and why it is safe. It shows a
+   search of the catalogs and names the Claude Code plugin.
+ - **Ticks in line:** in the add panel, each agent's tick under Add to starts at the same edge.
++- **Copy announcements:** screen readers hear whether copying a command worked or failed,
++  including repeated attempts.
+ 
+ ### 0.6.0
+ 
+@@ -445,7 +447,6 @@ Left for later in the alignment plan's phase notes:
+ - Library: "See it on the map" opens a Library item in the List, since the map has no arrival yet.
+ - Library, smaller: a refusal can go stale during a drag, nested imports name only the top file, a
+   fold outlives a retyped search in the List, and the find chip can flash while rows land.
+-- Screen readers: announce "Copied" after Copy.
+ - Overview: one Update… for every old entry, so its card says In preview for an Agents-page row
+   too; read the gateway settings and the notes fewer times.
+ - Changes: Redo… stays hidden while a later verified change has the same request, even if a still
+diff --git a/src/kitden/web/static/js/library-details.js b/src/kitden/web/static/js/library-details.js
+index 64aff3d..8a869e7 100644
+--- a/src/kitden/web/static/js/library-details.js
++++ b/src/kitden/web/static/js/library-details.js
+@@ -14,6 +14,7 @@ import { copyBodies, offBodies, onBodies, removeBodies, skillOffBodies, skillRul
+ import { closePanel, drawQuietly, followTray, isPanelOpen, keepFrom, panelState, review, stepTo, swapContent, technical } from "./panel.js";
+ import { ALL_PROJECTS, byClientOrder, CLIENT_NAMES, folderName, mark, menuItems, ORIGIN_WORDS, STATE_WORDS } from "./parts.js";
+ import { data, projectPath, state } from "./store.js";
++import { say } from "./toast.js";
+ import { inTray, keyFor, trayRow } from "./tray.js";
+ 
+ const OFF_ALL = "Turn off for all projects…";
+@@ -474,9 +475,9 @@ function commandRow(command) {
+   return row;
+ }
+ 
+-// Copy a command to the clipboard; the button says whether it worked.
++// Copy a command to the clipboard; the button and live region say whether it worked.
+ function copyText(text, node) {
+-  const said = (words) => { node.textContent = words; };
++  const said = (words) => { node.textContent = words; say(words); };
+   const clipboard = globalThis.navigator && navigator.clipboard;
+   if (!clipboard) return Promise.resolve(said(NOT_COPIED));
+   return clipboard.writeText(text).then(() => said(COPIED), () => said(NOT_COPIED));
+diff --git a/tests/frontend/library-details.test.mjs b/tests/frontend/library-details.test.mjs
+index e3ccb96..c2039f3 100644
+--- a/tests/frontend/library-details.test.mjs
++++ b/tests/frontend/library-details.test.mjs
+@@ -902,3 +902,46 @@ test('Commands… shows the commands to run yourself, each with Copy, and Done g
+     await reset();
+   }
+ });
++
++for (const outcome of ['copied', 'rejected', 'unavailable']) {
++  test(`Copy announces ${outcome}, including a repeated attempt`, async (t) => {
++    await reset();
++    const copied = [];
++    Object.defineProperty(globalThis, 'navigator', {
++      value: outcome === 'unavailable' ? {} : { clipboard: { writeText: async (text) => {
++        copied.push(text);
++        if (outcome === 'rejected') throw new Error('Clipboard denied');
++      } } }, configurable: true, writable: true,
++    });
++    try {
++      const box = await showMap();
++      press(node(box, 'block:item:p2'));
++      await flush();
++      press(node(drawer, 'action:Commands…'));
++      await flush();
++      commandsAsked.length = 0;
++      const copy = walk(drawer).find((n) => n.tagName === 'BUTTON' && n.textContent === 'Copy');
++      const words = outcome === 'copied' ? 'Copied' : 'Could not copy';
++      t.mock.timers.enable({ apis: ['setTimeout'] });
++      pages['#said'].textContent = '';
++      copy.focus();
++      for (let attempt = 0; attempt < 2; attempt++) {
++        press(copy);
++        await flush();
++        assert.equal(copy.textContent, words);
++        assert.equal(pages['#said'].textContent, '');
++        t.mock.timers.tick(1);
++        assert.equal(pages['#said'].textContent, words);
++        assert.equal(document.activeElement, copy);
++        assert.equal(copy.getAttribute('aria-label'), 'Copy Update in Claude Code');
++      }
++      assert.deepEqual(copied, outcome === 'unavailable' ? [] : Array(2).fill('claude plugin update superpowers@demo-market'));
++      assert.equal(tray.rows.length, 0);
++      assert.deepEqual(sent, []);
++    } finally {
++      t.mock.timers.reset();
++      delete globalThis.navigator;
++      await reset();
++    }
++  });
++}

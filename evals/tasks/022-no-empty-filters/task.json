@@ -1,0 +1,8 @@
+{
+  "id": "022-no-empty-filters",
+  "base": "2fb9d2e5213baa2c17d720e5cadf14875c2a47a8",
+  "source": "pr#20",
+  "kind": "clean",
+  "title": "No empty filters row in the MCP add panel",
+  "defect": null
+}

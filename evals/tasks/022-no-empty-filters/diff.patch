@@ -1,0 +1,68 @@
+diff --git a/src/kitden/web/static/js/discovery.js b/src/kitden/web/static/js/discovery.js
+index f22f103..ff510f3 100644
+--- a/src/kitden/web/static/js/discovery.js
++++ b/src/kitden/web/static/js/discovery.js
+@@ -237,7 +237,11 @@ export async function openDiscovery(kind = "all", options = {}) {
+   const hint = el("p", "muted discovery-hint", kind === "mcp"
+     ? "Click to review · drag onto the gateway"
+     : "Click to review · drag onto a client");
+-  body.append(form, filters, sourceLabel, sourceButtons, more, hint, status, workspace);
++  body.append(form);
++  if (kind !== "mcp") {
++    body.append(filters);
++  }
++  body.append(sourceLabel, sourceButtons, more, hint, status, workspace);
+   if (saved?.answer) draw(saved.answer);
+   else runSearch();
+   input.focus();
+diff --git a/tests/frontend/gateway-add.test.mjs b/tests/frontend/gateway-add.test.mjs
+index 5282981..cf71696 100644
+--- a/tests/frontend/gateway-add.test.mjs
++++ b/tests/frontend/gateway-add.test.mjs
+@@ -775,6 +775,18 @@ test('the catalog hint has no final period', async () => {
+   } finally { page.restore(); }
+ });
+ 
++test('MCP discovery does not render an empty filters row', async () => {
++  const page = await catalog(okAnswer);
++  try {
++    const filters = find((n) =>
++      n.classList.contains('discovery-filters')
++    );
++    assert.equal(filters.length, 0);
++  } finally {
++    page.restore();
++  }
++});
++
+ test('a new token refused for another reason does not say Token works for the old row', async () => {
+   let answers = 0;
+   const page = await catalog((body) => {
+diff --git a/tests/frontend/library-add.test.mjs b/tests/frontend/library-add.test.mjs
+index 0406664..0c48374 100644
+--- a/tests/frontend/library-add.test.mjs
++++ b/tests/frontend/library-add.test.mjs
+@@ -666,3 +666,22 @@ test('the map ends Plugins and skills with an Add a plugin card that opens the c
+     await done();
+   }
+ });
++
++test('Library discovery keeps its plugin and skill filters', async () => {
++  const original = globalThis.fetch;
++  const { openDiscovery } = await import('../../src/kitden/web/static/js/discovery.js');
++
++  try {
++    await openDiscovery('all');
++    await flush();
++
++    const filters = find((n) =>
++      n.classList.contains('discovery-filters')
++    );
++
++    assert.equal(filters.length, 1);
++  } finally {
++    globalThis.fetch = original;
++    await done();
++  }
++});
+\ No newline at end of file

@@ -1,0 +1,120 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 513c5d3..dc7f575 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -29,6 +29,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+   halfway is taken back too. "The original settings were restored" is said only when every
+   file reads back as it was; otherwise the error names each file that is not.
+   A secret that was already in the Keychain gets its old value back.
++  Each file is read again just before it is written, so a client that rewrites its file
++  during Apply (Claude Code does) keeps its change; if the entry itself changed, Apply stops.
+ - **Calm Apply:** while a change is written, Apply never narrows and widens with one glide,
+   so Cancel beside it no longer jumps as the words change.
+ 
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 791fcb5..d5a9c20 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -718,10 +718,7 @@ class Engine:
+             self._log(change)
+             return change
+ 
+-        saved = self.store.backup(change.id, current)
+-        for step in file_steps:
+-            copy = saved[step.edit.path]
+-            step.edit.backup_path = str(copy) if copy else None
++        self._back_up(change.id, file_steps, current)
+         self.store.prune()
+         change.move_to(ChangeState.APPLYING)
+         tick = self._counter(change)
+@@ -743,8 +740,20 @@ class Engine:
+             # Steps on one file run in order, each on the result of the one before.
+             working = dict(current)
+             expected: dict[str, bytes | None] = {}
++            written: set[str] = set()
+             for step in file_steps:
+                 path = step.edit.path
++                fresh = _read(path)
++                if fresh != working[path]:
++                    # The client wrote the file during Apply (Claude Code rewrites its file
++                    # often). Kitden goes on from those bytes only if the entry is still as
++                    # previewed; a file Kitden has not written yet is restored to them.
++                    if path not in written:
++                        current[path] = fresh
++                    if reason := self._stale(step, fresh):
++                        raise _ApplyError(reason)
++                    working[path] = fresh
++                written.add(path)
+                 ran.append(step)  # first: a command that fails halfway is taken back too
+                 result = self._apply_step(step, working[path])
+                 working[path] = result if result is not None else _read(path)
+@@ -771,6 +780,15 @@ class Engine:
+         self._finish(change)
+         return change
+ 
++    def _back_up(
++        self, change_id: str, file_steps: list[Step], current: dict[str, bytes | None]
++    ) -> None:
++        """Save each file's bytes as the change's backup, which Undo restores."""
++        saved = self.store.backup(change_id, current)
++        for step in file_steps:
++            copy = saved[step.edit.path]
++            step.edit.backup_path = str(copy) if copy else None
++
+     def _roll_back(
+         self,
+         current: dict[str, bytes | None],
+diff --git a/tests/unit/test_engine.py b/tests/unit/test_engine.py
+index 954b2cb..12ac3dd 100644
+--- a/tests/unit/test_engine.py
++++ b/tests/unit/test_engine.py
+@@ -1162,3 +1162,49 @@ def test_a_failed_apply_puts_back_the_old_keychain_value(tmp_path, config):
+     assert change.state is ChangeState.RESTORED
+     assert json.loads(items.read_text()) == {"kitden gw/GW_KEY": "A"}
+     assert step.keychain[0].old is None and step.keychain[0].value == ""
++
++
++# The client writes its file during Apply (review 2026-11-03) --------------------------------
++
++
++def test_a_client_write_during_apply_is_kept(tmp_path, fake, claude_json):
++    engine, gateway = gateway_engine(tmp_path, fake)
++    edit = FileEdit(
++        path=str(claude_json), fmt="json", key=("mcpServers", "old"), after=ABSENT, check="entry"
++    )
++    step = Step(client="claude_code", scope=Scope.USER, name="old", edit=edit)
++    change = engine.preview("gateway.move", [gateway_step(gateway), step])
++    real = engine._apply_gateway
++
++    def apply_gateway(steps, tick):  # Claude Code writes its file meanwhile
++        real(steps, tick)
++        data = json.loads(claude_json.read_text())
++        data["numStartups"] = 2
++        claude_json.write_text(json.dumps(data, indent=2))
++
++    engine._apply_gateway = apply_gateway
++    engine.apply(change.id)
++    assert change.state is ChangeState.VERIFIED, change.error
++    assert json.loads(claude_json.read_text()) == {"numStartups": 2, "mcpServers": {}}
++
++
++def test_a_client_write_to_the_entry_during_apply_stops_it(tmp_path, fake, claude_json):
++    engine, gateway = gateway_engine(tmp_path, fake)
++    edit = FileEdit(
++        path=str(claude_json), fmt="json", key=("mcpServers", "old"), after=ABSENT, check="entry"
++    )
++    step = Step(client="claude_code", scope=Scope.USER, name="old", edit=edit)
++    change = engine.preview("gateway.move", [gateway_step(gateway), step])
++    real = engine._apply_gateway
++    newer = {"numStartups": 2, "mcpServers": {"old": {"command": "y"}}}
++
++    def apply_gateway(steps, tick):
++        real(steps, tick)
++        claude_json.write_text(json.dumps(newer))
++
++    engine._apply_gateway = apply_gateway
++    engine.apply(change.id)
++    assert change.state is ChangeState.RESTORED
++    assert "changed since preview" in change.error
++    assert json.loads(claude_json.read_text()) == newer
++    assert fake.held_names() == []

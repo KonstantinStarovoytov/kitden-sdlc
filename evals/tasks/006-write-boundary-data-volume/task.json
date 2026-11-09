@@ -1,0 +1,13 @@
+{
+  "id": "006-write-boundary-data-volume",
+  "base": "e138939e2a3ed830e679fd7392b1fbd2aafc8998",
+  "source": "commit:7824297",
+  "kind": "defect",
+  "title": "Changes: a tighter write boundary",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 127,
+    "text": "A stop is only / or a parent of home by identity; /System/Volumes/Data is neither but holds Users/<name>, so a project known there makes the whole data volume writable."
+  },
+  "fix": "4deb596f1027b4e9e9d937d7d859511d4d843e21"
+}

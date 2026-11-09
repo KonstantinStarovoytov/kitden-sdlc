@@ -1,0 +1,139 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index de4a085..d335413 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -18,6 +18,9 @@ What Kitden does today and what comes next. Ideas and bugs:
+   replacing the file.
+ - **Preview refuses, never fails:** a file or folder that a change would read but cannot (no
+   access, a folder in place of a file) gives "Kitden could not read …" instead of an error 500.
++- **Client commands end cleanly:** a client's own command runs with no input and in a process
++  group of its own; when it takes longer than 60 seconds, the whole group is stopped, so no
++  helper it started keeps the pipes or the write lock.
+ 
+ ### 0.5.0
+ 
+@@ -425,8 +428,6 @@ Ask before starting each one.
+ - Undo removes gateway servers last, not first; an Undo that was blocked can be tried again.
+ - A crash in the middle of Apply leaves no record: save the record as Applying before the first
+   change and look for such records at start.
+-- A client command that times out can leave a child process holding the pipes and the write
+-  lock: start it with no stdin, in its own process group, and stop the whole group.
+ - Secrets typed for a preview that is cancelled stay in memory.
+ - Server details from a third-party `.mcp.json` follow the same local-address rule as the
+   sign-in checks.
+diff --git a/src/kitden/changes/client_cli.py b/src/kitden/changes/client_cli.py
+index e4a1dcb..8ee2f7d 100644
+--- a/src/kitden/changes/client_cli.py
++++ b/src/kitden/changes/client_cli.py
+@@ -1,7 +1,9 @@
+ """Run a client's own command (FR-021), for example `claude mcp add-json`. Output is redacted."""
+ 
++import contextlib
+ import os
+ import shutil
++import signal
+ import subprocess  # noqa: S404 - runs fixed client commands without a shell
+ from dataclasses import dataclass
+ from pathlib import Path
+@@ -43,16 +45,39 @@ class CommandRunner:
+         if binary is None:
+             return CommandResult(127, f"{command[0]} was not found")
+         env = {**os.environ, "HOME": str(self.home)}
++        # No stdin, so a question never waits on the page's input; a group of its own, so a
++        # timeout stops the helpers it started too and nothing keeps the pipes open.
+         try:
+-            done = subprocess.run(  # noqa: S603 - fixed client command, no shell
++            process = subprocess.Popen(  # noqa: S603 - fixed client command, no shell
+                 [binary, *command[1:]],
+                 cwd=cwd,
+                 env=env,
+-                capture_output=True,
++                stdin=subprocess.DEVNULL,
++                stdout=subprocess.PIPE,
++                stderr=subprocess.PIPE,
+                 text=True,
+-                timeout=TIMEOUT_SECONDS,
+-                check=False,
++                start_new_session=True,
+             )
+-        except (OSError, subprocess.TimeoutExpired) as error:
++        except OSError as error:
+             return CommandResult(1, redact_text(str(error)))
+-        return CommandResult(done.returncode, redact_text((done.stdout + done.stderr).strip()))
++        try:
++            out, err = process.communicate(timeout=TIMEOUT_SECONDS)
++        except subprocess.TimeoutExpired:
++            _stop_group(process)
++            return CommandResult(1, f"{command[0]} did not finish in {TIMEOUT_SECONDS:g} seconds")
++        return CommandResult(process.returncode, redact_text((out + err).strip()))
++
++
++def _stop_group(process: subprocess.Popen) -> None:
++    """Stop the command and everything it started, then collect it. A helper that left the
++    group can still hold the pipes: after a few seconds they are closed instead."""
++    with contextlib.suppress(ProcessLookupError, PermissionError):
++        os.killpg(process.pid, signal.SIGKILL)
++    process.kill()
++    try:
++        process.communicate(timeout=5)
++    except subprocess.TimeoutExpired:
++        for pipe in (process.stdout, process.stderr):
++            if pipe is not None:
++                pipe.close()
++        process.wait()
+diff --git a/tests/unit/test_client_cli.py b/tests/unit/test_client_cli.py
+index d2672b3..215d4ad 100644
+--- a/tests/unit/test_client_cli.py
++++ b/tests/unit/test_client_cli.py
+@@ -22,3 +22,51 @@ def test_codex_inside_the_chatgpt_app_is_found_when_it_is_not_on_path(
+ def test_an_unknown_command_is_not_found(tmp_path, monkeypatch):
+     monkeypatch.setattr(shutil, "which", lambda name: None)
+     assert find_command("nothing", tmp_path) is None
++
++
++def test_a_command_that_times_out_is_stopped_with_its_children(tmp_path, monkeypatch):
++    # A client command can start a helper that keeps the output pipes open; when the command
++    # times out, the whole group goes, so nothing keeps holding them.
++    import os
++    import time
++    from pathlib import Path
++
++    from kitden.changes import client_cli
++
++    monkeypatch.setattr(client_cli, "TIMEOUT_SECONDS", 1.0)
++    pid_file = Path.home() / "child.pid"
++    script = f"sleep 60 & echo $! > {pid_file}; sleep 60"
++    started = time.monotonic()
++    result = client_cli.CommandRunner(tmp_path)(["sh", "-c", script], None)
++    assert result.returncode != 0
++    assert time.monotonic() - started < 10
++    child = int(pid_file.read_text())
++    for _ in range(50):
++        try:
++            os.kill(child, 0)
++        except ProcessLookupError:
++            break
++        time.sleep(0.1)
++    else:
++        os.kill(child, 9)
++        raise AssertionError("the child of a timed-out command was left running")
++
++
++def test_a_command_never_reads_the_page_input(tmp_path):
++    # A command that asks a question must not wait on, or eat, what the page reads.
++    import os
++
++    from kitden.changes import client_cli
++
++    read_end, write_end = os.pipe()
++    os.write(write_end, b"yes\n")
++    os.close(write_end)
++    saved = os.dup(0)
++    os.dup2(read_end, 0)
++    try:
++        result = client_cli.CommandRunner(tmp_path)(["sh", "-c", "read line && echo got"], None)
++    finally:
++        os.dup2(saved, 0)
++        os.close(saved)
++        os.close(read_end)
++    assert "got" not in result.output

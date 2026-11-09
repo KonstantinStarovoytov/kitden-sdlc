@@ -1,0 +1,12 @@
+{
+  "id": "009-own-folder-ignored",
+  "base": "14a68a46e6870ae43b1da770be82e5931ec77555",
+  "source": "hand",
+  "kind": "defect",
+  "title": "A server that starts in its own folder can move into the gateway",
+  "defect": {
+    "path": "src/kitden/local_gateway/proxy.py",
+    "line": 419,
+    "text": "The session folder wins over the server's own start folder, so a moved server with its own cwd still starts in the project or home folder."
+  }
+}

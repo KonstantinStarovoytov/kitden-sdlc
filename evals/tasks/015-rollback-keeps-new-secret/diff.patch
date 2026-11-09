@@ -1,0 +1,128 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index e58ec53..513c5d3 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -28,6 +28,7 @@ What Kitden does today and what comes next. Ideas and bugs:
+   and one restore action that fails no longer stops the others. A client command that fails
+   halfway is taken back too. "The original settings were restored" is said only when every
+   file reads back as it was; otherwise the error names each file that is not.
++  A secret that was already in the Keychain gets its old value back.
+ - **Calm Apply:** while a change is written, Apply never narrows and widens with one glide,
+   so Cancel beside it no longer jumps as the words change.
+ 
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 34bf6ad..3a94cb9 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -819,14 +819,13 @@ class Engine:
+             lost.append(f"{names} may still be in the gateway.")
+         store = secret_store_name()
+         for item in reversed(stored):
+-            if item.existed:
+-                # Its old value is recorded nowhere.
+-                lost.append(f"{item.server}/{item.key} in your {store} keeps the new value.")
+-                continue
+             try:
+-                keychain.delete(item.ref, run=self._security())
++                if item.old is not None:
++                    keychain.store(item.server, item.key, item.value, run=self._security())
++                else:
++                    keychain.delete(item.ref, run=self._security())
+             except Exception:  # noqa: BLE001
+-                lost.append(f"{item.server}/{item.key} stays in your {store}.")
++                lost.append(f"{item.server}/{item.key} in your {store} was not put back.")
+         # Say "restored" only for files that read back as they were.
+         for path in current:
+             if not self._as_before(path, current[path], ran, by_command):
+@@ -866,10 +865,13 @@ class Engine:
+         )
+ 
+     def _store_secrets(self, change: Change, stored: list[KeychainItem]) -> None:
+-        """Write each secret to the Keychain; `store` reads it back."""
++        """Write each secret to the Keychain; `store` reads it back. The value there before
++        is read first, so a failed Apply can put it back."""
+         for step in change.steps:
+             for item in step.keychain:
+-                stored.append(item)  # first: a write that fails halfway is taken back too
++                item.old = keychain.read(item.ref, run=self._security())
++                item.existed = item.old is not None
++                stored.append(item)  # before the write: one that fails halfway is taken back
+                 keychain.store(item.server, item.key, item.value, run=self._security())
+ 
+     @staticmethod
+@@ -878,6 +880,7 @@ class Engine:
+         for step in change.steps:
+             for item in step.keychain:
+                 item.value = ""
++                item.old = None
+ 
+     def _stale_copy(self, step: Step) -> str | None:
+         copy = step.copy
+diff --git a/src/kitden/model.py b/src/kitden/model.py
+index 2021740..7bdf9dc 100644
+--- a/src/kitden/model.py
++++ b/src/kitden/model.py
+@@ -294,7 +294,10 @@ class KeychainItem:
+     server: str
+     key: str
+     value: str = field(default="", repr=False)
+-    existed: bool = False  # read at preview; Undo deletes only an item the change created
++    existed: bool = False  # read at preview and again at Apply; Undo deletes only new items
++    # The value the item had before Apply, held in memory only until Apply ends, so a failed
++    # Apply can write it back.
++    old: str | None = field(default=None, repr=False)
+ 
+     @property
+     def ref(self) -> dict:
+diff --git a/tests/unit/test_engine.py b/tests/unit/test_engine.py
+index 350b13e..954b2cb 100644
+--- a/tests/unit/test_engine.py
++++ b/tests/unit/test_engine.py
+@@ -1142,3 +1142,23 @@ def test_a_command_that_fails_after_writing_is_taken_back(tmp_path, settings):
+     assert change.state is ChangeState.RESTORED
+     assert f"{settings} is not as it was before." in change.error
+     assert "restored" not in change.error
++
++
++def test_a_failed_apply_puts_back_the_old_keychain_value(tmp_path, config):
++    from kitden.model import KeychainItem
++
++    engine, items = keychain_engine(tmp_path)
++    items.write_text(json.dumps({"kitden gw/GW_KEY": "OLD"}))
++    step = toml_step(config, ("mcp_servers", "gw"), GATEWAY)
++    step.keychain = [KeychainItem("gw", "GW_KEY", "SENTINEL_SECRET_NEW")]
++    change = engine.preview("gateway.connect", [step])
++    items.write_text(json.dumps({"kitden gw/GW_KEY": "A"}))  # rotated since the preview
++
++    def verify(step, expected, exact=None):
++        raise RuntimeError("the entry did not read back")
++
++    engine._verify = verify
++    engine.apply(change.id)
++    assert change.state is ChangeState.RESTORED
++    assert json.loads(items.read_text()) == {"kitden gw/GW_KEY": "A"}
++    assert step.keychain[0].old is None and step.keychain[0].value == ""
+diff --git a/tests/unit/test_local_gateway_move.py b/tests/unit/test_local_gateway_move.py
+index d133593..da60835 100644
+--- a/tests/unit/test_local_gateway_move.py
++++ b/tests/unit/test_local_gateway_move.py
+@@ -1285,7 +1285,7 @@ def test_a_keychain_item_that_cannot_be_deleted_after_undo_is_named(
+     assert client_files(home) == before
+ 
+ 
+-def test_a_restore_says_an_item_that_was_there_keeps_the_new_value(home, fake_keychain):
++def test_a_restore_puts_back_the_old_value_of_an_item_that_was_there(home, fake_keychain):
+     fake_keychain.write_text(json.dumps({"kitden files/FILES_TOKEN": "OLD"}))
+     add_claude(home, "files", {"type": "stdio", **FILES})
+     before = client_files(home)
+@@ -1293,8 +1293,8 @@ def test_a_restore_says_an_item_that_was_there_keeps_the_new_value(home, fake_ke
+     change = engine.preview("gateway.move", move(home, ("claude_code", "files")))
+     engine.apply(change.id)
+     assert str(change.state) == "restored"
+-    assert change.error.endswith(" files/FILES_TOKEN in your Keychain keeps the new value.")
+-    assert "The original settings were restored." not in change.error
++    assert change.error.endswith("The original settings were restored.")
++    assert keychain_items(fake_keychain) == {"kitden files/FILES_TOKEN": "OLD"}
+     assert client_files(home) == before
+ 
+ 

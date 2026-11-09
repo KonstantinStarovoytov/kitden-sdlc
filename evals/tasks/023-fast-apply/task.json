@@ -1,0 +1,8 @@
+{
+  "id": "023-fast-apply",
+  "base": "7e2c0a8308ae4002742d036ada0033e17eecfdcd",
+  "source": "pr#30",
+  "kind": "clean",
+  "title": "A fast Apply goes straight to Applied",
+  "defect": null
+}

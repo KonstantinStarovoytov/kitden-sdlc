@@ -1,0 +1,13 @@
+{
+  "id": "002-undo-keychain-first",
+  "base": "b19baf98b298531ecb590067d0df1339061956d4",
+  "source": "commit:a5bd391",
+  "kind": "defect",
+  "title": "A move keeps secrets in the Keychain",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 855,
+    "text": "Undo deletes the Keychain items the change created before it puts the files back; if Undo then stops, the settings still name a deleted item and the secret is gone."
+  },
+  "fix": "625318d1758c086a3bb44d328e7925262f3f1d65"
+}

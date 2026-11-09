@@ -1,0 +1,12 @@
+{
+  "id": "018-disconnect-other-client",
+  "base": "55309732cdd3b4dcb65696ce1a40f4bfaf148c24",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Gateway: disconnect a client from Kitden",
+  "defect": {
+    "path": "src/kitden/changes/actions.py",
+    "line": 327,
+    "text": "The entries are not limited to the chosen client, so the first user kitden entry of any client is taken and the chosen client's adapter removes another client's entry."
+  }
+}

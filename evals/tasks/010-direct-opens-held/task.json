@@ -1,0 +1,12 @@
+{
+  "id": "010-direct-opens-held",
+  "base": "18ecdfacd05935df82258bf8436e7276e0373ec3",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Show\u2026 on a server that is back opens its direct entries",
+  "defect": {
+    "path": "src/kitden/web/static/js/gateway.js",
+    "line": 1595,
+    "text": "A direct: selection matches any row of that name, also the held server's, so the List can select the gateway's server instead of the direct entries."
+  }
+}

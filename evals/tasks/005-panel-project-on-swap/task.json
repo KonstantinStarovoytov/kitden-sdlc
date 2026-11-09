@@ -1,0 +1,13 @@
+{
+  "id": "005-panel-project-on-swap",
+  "base": "e735f9a7ca7a340541ed3eaa29e12c8051dab9fc",
+  "source": "commit:9c7d5da",
+  "kind": "defect",
+  "title": "Panel: picking another project closes it",
+  "defect": {
+    "path": "src/kitden/web/static/js/panel.js",
+    "line": 60,
+    "text": "openedIn is set only when the panel opens fresh; content swapped into an open panel keeps the old project, so closeForProject compares against the wrong one."
+  },
+  "fix": "2821d6c0455a876a30e517fc2d742d5c4e224dc2"
+}

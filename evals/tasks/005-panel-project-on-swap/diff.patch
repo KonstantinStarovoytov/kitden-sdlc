@@ -1,0 +1,157 @@
+diff --git a/docs/design.md b/docs/design.md
+index 5557d3a..6a0b214 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -71,7 +71,7 @@ The Gateway page lists the Kitden gateway first, then any registered gateway (Ob
+ | Part | Look |
+ | --- | --- |
+ | Kitden gateway card | The kicker "Kitden gateway · On this Mac", the route diagram (a wire to each client whose `kitden` entry is on), then "In the gateway · N": a name, a Local or Remote flag, a quiet "12 tools" when Kitden knows its tools, an Off flag where it is off, and Details. Its Details, and an MCP server's Details in the Library, show the same count once; a server outside the gateway shows none. A client without the entry gets a quiet line, "Codex does not use it yet.", and "Set up in Codex…". |
+-| Tool switches | In the Details of a server in the gateway: "Tools · {project folder}" or "Tools · All projects", then "Whole server" first and one row with a switch per tool (name in mono, description cut at two lines). A project row that differs shows what it would follow without its own setting, "Differs from all projects" or "Differs from {project around it}", and a "Use all projects" or "Use {project}" button. |
++| Tool switches | In the Details of a server in the gateway: "Tools · {project folder}" or "Tools · All projects", then "Whole server" first and one row with a switch per tool (name in mono, description cut at two lines). A project row that differs shows what it would follow without its own setting, "Differs from all projects" or "Differs from {project around it}", and a "Use all projects" or "Use {project}" button. Picking another project, also by Back or an edited address, closes the panel and cancels an open review, so a switch never acts on a project it does not name. |
+ | A switch changes | It rests half-way while the preview loads, then opens the review. The switch flips only after `verified`: Details stays open and is drawn again in the new state, the thumb slides once (`.switch.flipped`), focus is on that switch, and the toast has Undo. Cancel, or a refused preview (a callout says why), also comes back to Details, with focus on the control you pressed (for "Use …", that button). |
+ | Move choice | "Move into the gateway…" asks only when there is a choice: "Move into the Kitden gateway…" first (primary), a registered gateway second (plain). With one choice the review opens at once. A local server can go only into the Kitden gateway. |
+ 
+diff --git a/src/kitden/web/static/js/app.js b/src/kitden/web/static/js/app.js
+index a7c5fa1..ba3001a 100644
+--- a/src/kitden/web/static/js/app.js
++++ b/src/kitden/web/static/js/app.js
+@@ -7,7 +7,7 @@ import { renderChanges } from "./changes.js";
+ import { renderGateway } from "./gateway.js";
+ import { loadLibrary, loadLibraryFor, morphOnNextRender, raceSlow, renderLibrary, settleRows, snapshotRows } from "./library.js";
+ import { renderOverview } from "./overview.js";
+-import { closePanel, initPanel, isPanelOpen } from "./panel.js";
++import { closeForProject, closePanel, initPanel, isPanelOpen } from "./panel.js";
+ import { demoTag, latestChanges, scanLine, versionsOpened } from "./parts.js";
+ import {
+   busy, current, data, followAddress, freshness, go, loadShared, OLD_VIEWS, onIdle, parseHash, reload, setRenderer, setState, state, VIEWS,
+@@ -244,6 +244,7 @@ function fromAddress() {
+   const same = ["view", "project", "kind", "show", "category", "attention", "q"].every((key) => next[key] === state[key]);
+   const newProject = next.project !== state.project;
+   if (!same) followAddress(next);
++  closeForProject();
+   if (old) setState({});
+   if (!same && newProject) refresh().catch(reportError);
+ }
+@@ -270,6 +271,7 @@ function start() {
+   });
+   $("#where").addEventListener("change", (event) => {
+     setState({ project: event.target.value, selected: null });
++    closeForProject();
+     // On the Library, each cell turns into its state in the new scope instead of jumping.
+     if (state.view === "library") morphOnNextRender();
+     // The old project's page stays until the new one is read, faded and marked as waiting.
+diff --git a/src/kitden/web/static/js/panel.js b/src/kitden/web/static/js/panel.js
+index d3b88ca..bc932a4 100644
+--- a/src/kitden/web/static/js/panel.js
++++ b/src/kitden/web/static/js/panel.js
+@@ -35,6 +35,8 @@ const WRITING = "Writing the change. It can't stop halfway: if a step fails, Kit
+ let current = null;
+ let opener = null;
+ let openerKey = null;
++// The project the open panel was opened in: its switches and reviews are for that project.
++let openedIn = null;
+ 
+ const clientName = (id) => CLIENT_NAMES[id] || id;
+ 
+@@ -55,6 +57,7 @@ export function openPanel(content, { instant = false } = {}) {
+   const drawer = $("#drawer");
+   if (isPanelOpen()) { swapContent(content); return; }
+   drawer.replaceChildren(...content);
++  openedIn = state.project;
+   opener = document.activeElement;
+   const row = opener && opener.closest ? opener.closest("tr[data-key]") : null;
+   openerKey = row ? row.dataset.key : state.selected;
+@@ -81,6 +84,12 @@ export function closePanel({ instant = false, keepSelection = false, focus = tru
+   if (focus) restoreFocus();
+ }
+ 
++// Another project picked (at the top, or by Back or an edited address) closes the panel, and an
++// open review is cancelled as Cancel does: a switch in it never acts on a project it does not name.
++export function closeForProject() {
++  if (isPanelOpen() && openedIn !== state.project) closePanel({ focus: false });
++}
++
+ // A review left without Apply: the server forgets its preview.
+ function cancelPreview() {
+   if (current && current.type === "review" && current.change && current.change.state === "previewed") {
+diff --git a/tests/frontend/panel.test.mjs b/tests/frontend/panel.test.mjs
+index 5b2a7a7..f06e251 100644
+--- a/tests/frontend/panel.test.mjs
++++ b/tests/frontend/panel.test.mjs
+@@ -5,9 +5,9 @@ import { test } from 'node:test';
+ globalThis.matchMedia = () => ({ matches: false });
+ // Node before 21 has no navigator; panel.js must load there too.
+ delete globalThis.navigator;
+-const { afterParts, alignGroups, canShowReview, countedDefinition, changeOutcome, chosenKeys, callsText, changeWords, footerActions, heldActions, offerLabel, layerState, leftOutText, kindWord, loadsLede, moveFor, moveTargets, plainSecrets, toolRows, writingToolsOn } = await import('../../src/kitden/web/static/js/panel.js');
++const { afterParts, alignGroups, canShowReview, closeForProject, countedDefinition, changeOutcome, chosenKeys, callsText, changeWords, footerActions, heldActions, isPanelOpen, offerLabel, layerState, leftOutText, kindWord, loadsLede, moveFor, moveTargets, openPanel, plainSecrets, toolRows, writingToolsOn } = await import('../../src/kitden/web/static/js/panel.js');
+ const { addOptions, whyNoAction } = await import('../../src/kitden/web/static/js/offer.js');
+-const { data } = await import('../../src/kitden/web/static/js/store.js');
++const { data, state } = await import('../../src/kitden/web/static/js/store.js');
+ 
+ const github = { kind: 'mcp_server', name: 'github' };
+ const direct = { name: 'github', items: ['entry-1', 'entry-2'] };
+@@ -544,3 +544,45 @@ test('an Add missing list with nothing chosen shows as a review, not an error',
+   assert.equal(canShowReview({ ok: false, data: { detail: 'Unknown project.' } }), false);
+   assert.equal(canShowReview(null), false);
+ });
++
++// Just enough of a page for the panel to open and close: the drawer and its scrim.
++function fakePanelPage() {
++  const node = () => {
++    const classes = new Set();
++    return {
++      classList: {
++        add: (name) => classes.add(name),
++        remove: (name) => classes.delete(name),
++        toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)),
++        contains: (name) => classes.has(name),
++      },
++      replaceChildren() {}, focus() {}, contains: () => false,
++    };
++  };
++  const nodes = { '#drawer': node(), '#scrim': node() };
++  globalThis.document = {
++    activeElement: null,
++    documentElement: { classList: { remove() {} } },
++    querySelector: (selector) => nodes[selector] ?? null,
++    querySelectorAll: () => [],
++  };
++}
++
++test('picking another project closes the panel, so a switch never acts on a project it does not name', () => {
++  fakePanelPage();
++  try {
++    state.project = 'atlas';
++    openPanel([]);
++    closeForProject();
++    assert.equal(isPanelOpen(), true); // the same project keeps it open
++    state.project = 'web';
++    closeForProject();
++    assert.equal(isPanelOpen(), false);
++    openPanel([]); // opened again, it belongs to the project now picked
++    closeForProject();
++    assert.equal(isPanelOpen(), true);
++  } finally {
++    state.project = '';
++    delete globalThis.document;
++  }
++});
+diff --git a/tests/unit/test_page_words.py b/tests/unit/test_page_words.py
+index da20c95..8c94b5c 100644
+--- a/tests/unit/test_page_words.py
++++ b/tests/unit/test_page_words.py
+@@ -393,6 +393,14 @@ def test_the_rail_time_follows_every_render_not_only_a_refresh():
+     assert "#scanned" not in refresh
+ 
+ 
++def test_another_project_closes_the_panel():
++    # Picked at the top, or by Back or an edited address (panel.test.mjs tests closeForProject).
++    app = script("app.js")
++    picker = app.split('$("#where").addEventListener("change"')[1].split("\n  });\n")[0]
++    address = app.split("function fromAddress()")[1].split("\n}\n")[0]
++    assert "closeForProject();" in picker and "closeForProject();" in address
++
++
+ def test_a_project_switch_marks_the_old_page_as_waiting():
+     app = script("app.js")
+     assert 'main.classList.add("pending")' in app

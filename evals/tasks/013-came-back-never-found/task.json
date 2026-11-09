@@ -1,0 +1,12 @@
+{
+  "id": "013-came-back-never-found",
+  "base": "b395c114b9ea415144f4c2da8509448a7e66640d",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Say when an app writes a server back",
+  "defect": {
+    "path": "src/kitden/views/changes_view.py",
+    "line": 216,
+    "text": "key[-1:] holds one part and never equals (table, name), so no removal or move counts as taken out and a server written back is never shown."
+  }
+}

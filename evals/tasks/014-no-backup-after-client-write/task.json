@@ -1,0 +1,12 @@
+{
+  "id": "014-no-backup-after-client-write",
+  "base": "6c5daa2385bbf9960c3f4f06626c68f6b9494f12",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Keep a client's own changes made during Apply",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 752,
+    "text": "When the client rewrote the file during Apply, the fresh bytes are not saved as the backup again, so a rollback or Undo restores the older backup and drops the client's own changes."
+  }
+}

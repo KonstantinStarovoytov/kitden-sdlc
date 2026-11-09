@@ -1,0 +1,191 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index c5bf548..7608e71 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -9,6 +9,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+ 
+ ### Not released yet
+ 
++- **A fast Apply no longer flickers:** when the write ends within 300 ms, the bar keeps its
++  words and goes straight to Applied, instead of flashing "Applying…" and resizing twice.
+ - **Remove works for plugins when Claude Code was started in the home folder:** Kitden no
+   longer reads `~/.claude/settings.json` a second time as that "project's" file, so a user
+   plugin, hook or skill has no project copy. Remove ran `uninstall -s project` on that copy,
+diff --git a/docs/design.md b/docs/design.md
+index c7cc241..b654827 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -179,7 +179,7 @@ Tray on the map: the Gateway map has no review of its own; it draws every row of
+ 
+ Preview tray: every change waits in one tray, in the dock at the bottom left of the page (`dock.js` draws it; `tray.js` holds the state). A button, switch, card, ×, drag or Add missing's "Add to preview" only adds a row; nothing writes before Apply. It stays across places and project switches, and each row keeps the project it was asked in. The bar is 380 px wide on the panel fill, over the map. One change shows its title, one outcome line ("Codex: Added.", read out when it changes), a quiet "Show changes" button, Cancel and Apply. Two or more show "3 changes in preview" (the number rolls), "Nothing is written until you Apply." (on the Gateway's Map, not its List, also "Click one on the map to take it out."), a list, "Cancel all" and "Apply all". A row has the dashed preview edge on the preview fill, its icon, title and line, a `file-text` button ("Show changes: <title>"), a status place and a × ("Take it out of the preview"). The list scrolls above 212 px. Only a row that has its words is drawn. While a preview is on its way Apply takes no press, so it always writes what the bar shows. "Show changes" opens that row's review in Details with no Apply of its own ("Take it out" and Close), so one change never has two Apply buttons; while Apply runs "Take it out" is off and does nothing, as the × is; closing it asks the server nothing, and it closes with its row. An Add missing row's review shows its ticks: a changed tick adds the row again with the new choice (it keeps its place in the bar while it is asked), and with none ticked it says "Choose at least one item." and the row stays. × takes one row out and the rest are previewed again; Cancel and Cancel all forget the preview. All rows are one change on the server, so Apply all writes everything or nothing and the toast offers one Undo: "Applied 3 changes" with "Undo all"; one change says its own words with "Undo".
+ 
+-While Apply runs, Cancel and every × are off, Apply keeps its place (it never narrows; it widens with one glide, so Cancel does not jump) and counts the steps ("Applying 2 of 5"), the line names the clients being written, and the first row spins until the whole change is verified. Then every row checks together, Apply turns green and says "Applied" ("All applied"), and a moment later the page reads everything again, the bar leaves and the toast takes its place. An end that is not verified stays in the bar with an accent edge and a shake, and focus goes to the button that comes next. "Nothing was changed" is said only when it is true: stale ("Settings changed since this preview.") or every file put back ("The change did not check out. Kitden put the files back."). It offers "Try again", a fresh preview of the same rows. Otherwise the head says "Not everything was put back" or "Could not confirm the result", the line says "Check Changes before trying again.", and "Open Changes" takes Apply's place. A refused add never joins: the reason takes the bar's line, in the accent color, until the next action, and a bar that is already shown shakes. After a failed Apply, a refused add keeps the failure's head ("Nothing was changed") and its line, and adds the reason to the line. A reason that names a file names it by its base name ("mcp.json", also for a folder with a space in its name); a "/command" stays as it is. The full words stay on Changes. A toast that comes while a row slides out stays, and the bar comes back when it has gone. A first add that is refused (no bar before) comes in with the bar's entrance, with no shake (one motion per change), and shows "Could not prepare this change", the reason and Close; rows that cannot be previewed again say "Could not prepare the preview" and offer Try again. After each rescan, and after an Undo, the tray asks the server whether its files changed since the preview (the same check Apply makes); when they did, the line says so and Apply becomes "Preview again", a fresh preview of the same rows. The Gateway-map sentence follows the place: the page draws the bar again after a place change, with no new entrance.
++While Apply runs, Cancel and every × are off and Apply keeps its place (it never narrows; it widens with one glide, so Cancel does not jump). A write that ends within 300 ms keeps the bar's words: Apply goes straight to "Applied", so a fast change is one motion. A longer one counts the steps ("Applying 2 of 5"), the line names the clients being written, and the first row spins until the whole change is verified. Then every row checks together, Apply turns green and says "Applied" ("All applied"), and a moment later the page reads everything again, the bar leaves and the toast takes its place. An end that is not verified stays in the bar with an accent edge and a shake, and focus goes to the button that comes next. "Nothing was changed" is said only when it is true: stale ("Settings changed since this preview.") or every file put back ("The change did not check out. Kitden put the files back."). It offers "Try again", a fresh preview of the same rows. Otherwise the head says "Not everything was put back" or "Could not confirm the result", the line says "Check Changes before trying again.", and "Open Changes" takes Apply's place. A refused add never joins: the reason takes the bar's line, in the accent color, until the next action, and a bar that is already shown shakes. After a failed Apply, a refused add keeps the failure's head ("Nothing was changed") and its line, and adds the reason to the line. A reason that names a file names it by its base name ("mcp.json", also for a folder with a space in its name); a "/command" stays as it is. The full words stay on Changes. A toast that comes while a row slides out stays, and the bar comes back when it has gone. A first add that is refused (no bar before) comes in with the bar's entrance, with no shake (one motion per change), and shows "Could not prepare this change", the reason and Close; rows that cannot be previewed again say "Could not prepare the preview" and offer Try again. After each rescan, and after an Undo, the tray asks the server whether its files changed since the preview (the same check Apply makes); when they did, the line says so and Apply becomes "Preview again", a fresh preview of the same rows. The Gateway-map sentence follows the place: the page draws the bar again after a place change, with no new entrance.
+ 
+ Focus stays where it was when the bar draws or changes; a button that is built again keeps it. It moves only where it would be lost: a row taken out while its × or "Show changes" has focus hands it to Apply, "Take it out" in a row's review hands it to Apply (or Cancel), a bar that leaves with focus inside it hands it to the page (without scrolling it), except Cancel of a single move on the Gateway map, which hands it to the server the move would have taken, and a failure moves it to Try again (or Open Changes). A long list scrolls inside the bar and gets shorter in a short window, so the bar never covers the top bar's edge; an open project menu stands over the dock. A row's review follows its row: a row added again under the same key (a switch pressed again, a new choice in Add missing) is drawn in its place, and focus stays where it is. While the dock shows a bar or a toast, the page keeps room under its end as high as that plus the dock's 46 px offset (`--dock-room`, set by `makeRoom` in `toast.js` on the page root and used by the page's bottom padding and by the modal Details drawer's bottom), so the last rows of a long list are not hidden; it goes when the dock is empty. The bar never shows a path, an address or a command. A screen reader hears each change that joins or leaves the tray through the page's quiet live region (`#said`): "Add github to Codex for all projects: in the preview. 3 changes in preview.", "…: taken out of the preview." or "2 changes taken out of the preview.", and why an add was refused when the bar comes in with the reason (a bar already shown says it in its own line, a status). A tray that empties after Apply says nothing more: the toast says it.
+ 
+diff --git a/src/kitden/web/static/js/dock.js b/src/kitden/web/static/js/dock.js
+index 860d673..d757622 100644
+--- a/src/kitden/web/static/js/dock.js
++++ b/src/kitden/web/static/js/dock.js
+@@ -80,7 +80,8 @@ export function barWords(t, { onMap = false } = {}) {
+     ...base,
+   };
+   waitWords(t, words);
+-  if (t.phase === "asking") words.applyWaits = true;
++  // A fast Apply keeps the words it had (tray.js SLOW_WRITE); a slow one says what it writes.
++  if (t.phase === "asking" || (t.phase === "applying" && !t.slow)) words.applyWaits = true;
+   else if (t.phase === "ready" && t.stale) Object.assign(words, { line: STALE, apply: "Preview again", retry: true });
+   else if (t.phase === "applying") Object.assign(words, { line: writingLine(t.change.steps), apply: stepText("Applying", t.done, t.total), applyWaits: true });
+   else if (t.phase === "applied") Object.assign(words, { apply: many ? "All applied" : "Applied", applyWaits: true });
+@@ -132,6 +133,13 @@ let carried = null;
+ let growing = null;
+ // The refusal or failure the bar last answered with a shake, so each is answered once.
+ let reacted = null;
++// A write that ends sooner shows no Applying words: Apply goes straight to Applied, so a fast
++// change is one motion and the bar does not change its words and size twice in a blink. The
++// change being written, whether it has taken that long yet, and the clock that says so.
++const SLOW_WRITE = 300;
++let beingWritten = null;
++let slow = false;
++let writeClock = null;
+ 
+ const later = (fn, ms) => (ms > 0 ? setTimeout(fn, ms) : fn());
+ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+@@ -370,8 +378,9 @@ function patchApply(view) {
+   const other = busy.change && t.phase !== "applying" && !applied;
+   showWaits(apply, other);
+   if (words.applyWaits) apply.setAttribute("aria-disabled", "true");
+-  setApplyIcon(applied ? "check" : t.phase === "applying" ? "spin" : words.retry ? "again" : "arrow-right");
+-  setMeter(applied ? 1 : t.phase === "applying" && t.total > 0 ? t.done / t.total : 0);
++  const writes = t.phase === "applying" && t.slow;
++  setApplyIcon(applied ? "check" : writes ? "spin" : words.retry ? "again" : "arrow-right");
++  setMeter(applied ? 1 : writes && t.total > 0 ? t.done / t.total : 0);
+ }
+ 
+ // Put the words and states of `view` into the parts of the bar. `known`: the rows that were drawn
+@@ -530,6 +539,28 @@ export function drawTray(t = tray, { toastStays = false } = {}) {
+   if (handOn) ((shown && (shown.apply || shown.cancel)) || $("#main")).focus({ preventScroll: true });
+ }
+ 
++// Whether the change being written has taken SLOW_WRITE ms yet. The first draw of a write starts
++// the clock; when it runs out the bar is drawn again, now with the Applying words.
++function slowWrite(t) {
++  if (t.phase !== "applying") {
++    clearTimeout(writeClock);
++    writeClock = null;
++    beingWritten = null;
++    slow = false;
++    return false;
++  }
++  if (beingWritten !== t.change) {
++    clearTimeout(writeClock);
++    beingWritten = t.change;
++    slow = false;
++    writeClock = setTimeout(() => {
++      slow = true;
++      drawTray(tray, { toastStays: true });
++    }, SLOW_WRITE);
++  }
++  return slow;
++}
++
+ function drawBar(t) {
+   const rows = t.rows.filter((row) => row.part || row.waits);
+   // A row that waits shows in the list, where its Add token is.
+@@ -546,7 +577,8 @@ function drawBar(t) {
+   // A toast took the dock's place while the tray still had rows: the bar is drawn again, and it
+   // takes the place of the toast.
+   if (bar && !bar.isConnected) forgetBar();
+-  const view = { t, rows, kind, words: barWords({ ...t, rows }, { onMap: onTheMap() }) };
++  const marked = { ...t, rows, slow: slowWrite(t) };
++  const view = { t: marked, rows, kind, words: barWords(marked, { onMap: onTheMap() }) };
+   if (!bar) {
+     enterBar(view);
+     return;
+diff --git a/tests/frontend/dock.test.mjs b/tests/frontend/dock.test.mjs
+index 1bf7354..4fbef55 100644
+--- a/tests/frontend/dock.test.mjs
++++ b/tests/frontend/dock.test.mjs
+@@ -147,6 +147,8 @@ initDock();
+ 
+ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
++// Apply says it is writing only once the write takes this long (tray.js SLOW_WRITE).
++const SLOW = 310;
+ async function quietly(fn) {
+   const log = console.error;
+   console.error = () => {};
+@@ -236,16 +238,24 @@ test('barWords waits while a preview is asked', () => {
+   assert.equal(barWords(trayOf([row('a'), row('b')], { phase: 'asking' })).applyWaits, true);
+ });
+ 
++test('barWords keeps its words while a fast Apply runs', () => {
++  // A write that ends soon goes straight to Applied: the words stay, only Apply stops taking presses.
++  const change = { steps: [{ client: 'codex' }] };
++  const ready = barWords(trayOf([row('Remove docs', 'Codex: Removed.')], { phase: 'ready', change }));
++  const quick = barWords(trayOf([row('Remove docs', 'Codex: Removed.')], { phase: 'applying', change, slow: false }));
++  assert.deepEqual(quick, { ...ready, applyWaits: true });
++});
++
+ test('barWords counts the steps while Apply runs', () => {
+   const change = { steps: [{ client: 'codex' }, { client: 'claude_code' }] };
+-  const running = trayOf([row('a'), row('b')], { phase: 'applying', change, done: 2, total: 5 });
++  const running = trayOf([row('a'), row('b')], { phase: 'applying', change, done: 2, total: 5, slow: true });
+   assert.deepEqual(barWords(running), {
+     head: '2 changes in preview', line: 'Writing the settings of Codex and Claude Code. A backup is kept.', cancel: 'Cancel all',
+     apply: 'Applying 2 of 5', applyWaits: true, retry: false, changes: false,
+   });
+   // Before the first step ends there is no count to say.
+   assert.equal(barWords({ ...running, done: 0, total: 0 }).apply, 'Applying…');
+-  const one = barWords(trayOf([row('a')], { phase: 'applying', change: { steps: [{ client: 'codex' }] } }));
++  const one = barWords(trayOf([row('a')], { phase: 'applying', change: { steps: [{ client: 'codex' }] }, slow: true }));
+   assert.equal(one.line, "Writing Codex's settings. A backup is kept.");
+   // Once applied the button says so, and takes no more presses.
+   const applied = trayOf([row('a'), row('b')], { phase: 'applied', change });
+@@ -523,6 +533,12 @@ test('drawTray disables Cancel and × while Apply runs, then shows Applied', asy
+   const second = tray.rows[1];
+   const section = bar();
+   const running = button(section, 'Apply all').click();
++  // Until the write takes a while the bar keeps its words; Apply only stops taking presses.
++  const waiting = button(section, 'Apply all');
++  assert.equal(waiting.attributes['aria-disabled'], 'true');
++  assert.equal(named(section, 'tray-head')[0].children[1].textContent, 'Nothing is written until you Apply.');
++  assert.equal(waiting.children[1].dataset.icon, 'arrow-right');
++  await sleep(SLOW);
+   const apply = button(section, 'Applying…');
+   assert.ok(apply, 'the button counts while it works');
+   assert.equal(apply.attributes['aria-disabled'], 'true');
+@@ -566,6 +582,7 @@ test('Apply keeps its width while its change is written, and lets it go after a
+     const apply = button(bar(), 'Apply all');
+     const widths = [apply.getBoundingClientRect().width];
+     const running = apply.click();
++    await sleep(SLOW);
+     widths.push(apply.getBoundingClientRect().width);
+     document.fire('kitden:progress', { id: 'c2', done: 2, total: 5, row: tray.rows[1].id });
+     widths.push(apply.getBoundingClientRect().width);
+@@ -579,6 +596,8 @@ test('Apply keeps its width while its change is written, and lets it go after a
+     assert.deepEqual(widths, [...widths].sort((a, b) => a - b), `never narrower: ${widths}`);
+     assert.equal(widths.at(-1), 40 + 7 * 'Applying 2 of 5'.length);
+     await running;
++    // The toast comes a moment after the bar leaves; it goes before the next round.
++    await sleep(200);
+     hideToast();
+   }
+   // After a failure Apply says "Try again" at its own width.
+@@ -604,6 +623,7 @@ test('the step number of "Applying 2 of 5" rolls from step 2; under reduced moti
+     const writing = slow();
+     queue('/api/changes/c2/apply', writing.reply);
+     const running = button(bar(), 'Apply all').click();
++    await sleep(SLOW);
+     const apply = button(bar(), 'Applying…');
+     document.fire('kitden:progress', { id: 'c2', done: 1, total: 5, row: tray.rows[0].id });
+     const label = apply.children[0];
+@@ -623,6 +643,7 @@ test('the step number of "Applying 2 of 5" rolls from step 2; under reduced moti
+     assert.equal(label.textContent, 'Applying 2 of 5');
+     writing.release(verified('c2'));
+     await running;
++    await sleep(200);
+     hideToast();
+   }
+ });

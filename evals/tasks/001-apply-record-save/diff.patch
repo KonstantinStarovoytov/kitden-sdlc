@@ -1,0 +1,101 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 85a8a12..a3d6000 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -29,6 +29,9 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **Undo in a safe order, and again:** Undo takes servers out of a gateway last, once the
+   client files read back as before, so a server is never in neither place. An Undo that stopped
+   keeps its Undo button and can be pressed again; what is back already is skipped.
++- **A crash during Apply is found:** the change is saved as Applying before its first write.
++  At the next start such a record says "Kitden stopped during Apply" and names the files to
++  compare with their backups; nothing is put back on its own.
+ 
+ ### 0.5.0
+ 
+@@ -433,5 +436,3 @@ Left for later in the alignment plan's phase notes:
+ 
+ Ask before starting each one.
+ 
+-- A crash in the middle of Apply leaves no record: save the record as Applying before the first
+-  change and look for such records at start.
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 0cb35a4..1684d5d 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -462,6 +462,8 @@ class Engine:
+             except (KeyError, ValueError):
+                 continue
+             self.changes[change.id] = change
++            if change.state is ChangeState.APPLYING:
++                self._interrupted(change)
+ 
+     # Preview -----------------------------------------------------------------------------
+ 
+@@ -747,6 +749,9 @@ class Engine:
+         self._back_up(change.id, file_steps, current)
+         self.store.prune()
+         change.move_to(ChangeState.APPLYING)
++        # Saved before the first change, so a crash leaves a record that says so at the next
++        # start, next to the backups.
++        self.store.save(change.id, _record(change))
+         tick = self._counter(change)
+         ran: list[Step] = []
+         copied: list[Step] = []
+@@ -1173,6 +1178,22 @@ class Engine:
+         self._finish(change)
+         return change
+ 
++    def _interrupted(self, change: Change) -> None:
++        """A record still Applying: Kitden stopped in the middle of that Apply. Nothing is put
++        back on its own; the change says so, with the files to compare with their backups."""
++        places = [s.edit.path for s in change.steps if s.edit is not None]
++        places += [s.copy.target for s in change.steps if s.copy is not None]
++        places += [s.removal.path for s in change.steps if s.removal is not None]
++        if any(s.gateway is not None for s in change.steps):
++            places.append("the gateway")
++        listed = ", ".join(dict.fromkeys(places)) or "the setup"
++        change.move_to(ChangeState.RESTORED)
++        change.error = (
++            "Kitden stopped during Apply, so this change was not checked. "
++            f"Compare {listed} with the backups by hand."
++        )
++        self._finish(change)
++
+     def _blocked(self, change: Change, reason: str) -> Change:
+         """Undo stops here, with the reason."""
+         change.move_to(ChangeState.UNDO_BLOCKED)
+diff --git a/tests/unit/test_engine.py b/tests/unit/test_engine.py
+index 9cfd43a..8fcfb82 100644
+--- a/tests/unit/test_engine.py
++++ b/tests/unit/test_engine.py
+@@ -1216,6 +1216,30 @@ def test_a_cancelled_change_forgets_the_secrets_typed_for_it(tmp_path, config):
+     assert typed not in json.dumps(dataclasses.asdict(change), default=str)
+ 
+ 
++def test_a_crash_during_apply_leaves_a_record_that_says_so(tmp_path, config):
++    class Crash(BaseException):  # as the process dying: no handler of Apply sees it
++        pass
++
++    engine = make_engine(tmp_path)
++    change = engine.preview("gateway.connect", [toml_step(config, ("mcp_servers", "gw"), GATEWAY)])
++
++    def die(path, data):
++        raise Crash
++
++    engine._write = die
++    with pytest.raises(Crash):
++        engine.apply(change.id)
++
++    after_restart = make_engine(tmp_path).changes[change.id]
++    assert after_restart.state is ChangeState.RESTORED
++    assert after_restart.error.startswith("Kitden stopped during Apply")
++    assert str(config) in after_restart.error
++    logged = make_engine(tmp_path).store.entries()[0]
++    assert logged["id"] == change.id and logged["state"] == "restored"
++    # Found once: a second start does not log it again.
++    assert len(make_engine(tmp_path).store.entries()) == 1
++
++
+ # The client writes its file during Apply (review 2026-11-03) --------------------------------
+ 
+ 
