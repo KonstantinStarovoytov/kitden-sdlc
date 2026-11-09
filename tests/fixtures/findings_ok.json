@@ -1,0 +1,18 @@
+{
+  "summary": "Adds a retry to the sync job. One real bug and one rule slip.",
+  "new_surface": ["New setting `sync.retries` in the config file"],
+  "findings": [
+    {
+      "path": "src/sync.py",
+      "line": 42,
+      "kind": "bug",
+      "text": "The retry loop never stops when the server keeps answering 500."
+    },
+    {
+      "path": "docs/setup.md",
+      "line": 7,
+      "kind": "rule",
+      "text": "The new setting is not described in the docs."
+    }
+  ]
+}

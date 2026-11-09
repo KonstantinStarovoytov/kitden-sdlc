@@ -1,0 +1,304 @@
+"""Post an AI reviewer's findings.json to a pull request, once each."""
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Protocol
+
+SUMMARY_MAX = 1200
+TEXT_MAX = 600
+FINDINGS_MAX = 10
+KINDS = ("bug", "rule")
+TOP_KEYS = {"summary", "new_surface", "findings"}
+FINDING_KEYS = {"path", "line", "kind", "text"}
+
+
+@dataclass
+class Finding:
+    path: str
+    line: int
+    kind: str
+    text: str
+
+
+@dataclass
+class Report:
+    summary: str
+    new_surface: list[str]
+    findings: list[Finding]
+
+
+@dataclass
+class Plan:
+    inline: list[Finding]
+    overflow: list[Finding]
+
+
+class ApiError(Exception):
+    def __init__(self, status: int):
+        super().__init__(f"GitHub API error {status}")
+        self.status = status
+
+
+# --- Reading the report ---
+
+
+def _problem(data) -> str | None:
+    """Return why the data breaks the schema, or None when it fits."""
+    if not isinstance(data, dict) or set(data) != TOP_KEYS:
+        return f"needs exactly the keys {sorted(TOP_KEYS)}"
+    if not isinstance(data["summary"], str) or len(data["summary"]) > SUMMARY_MAX:
+        return f"summary must be a string of at most {SUMMARY_MAX} characters"
+    surface = data["new_surface"]
+    if not isinstance(surface, list) or not all(isinstance(s, str) for s in surface):
+        return "new_surface must be a list of strings"
+    findings = data["findings"]
+    if not isinstance(findings, list) or len(findings) > FINDINGS_MAX:
+        return f"findings must be a list of at most {FINDINGS_MAX} items"
+    for item in findings:
+        if not isinstance(item, dict) or set(item) != FINDING_KEYS:
+            return f"each finding needs exactly the keys {sorted(FINDING_KEYS)}"
+        if not isinstance(item["path"], str):
+            return "finding path must be a string"
+        line = item["line"]
+        if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+            return "finding line must be an integer of 1 or more"
+        if item["kind"] not in KINDS:
+            return f"finding kind must be one of {list(KINDS)}"
+        if not isinstance(item["text"], str) or len(item["text"]) > TEXT_MAX:
+            return f"finding text must be a string of at most {TEXT_MAX} characters"
+    return None
+
+
+def load_report(path: Path) -> Report | None:
+    """Read findings.json. On any problem print one reason and return None."""
+    try:
+        data = json.loads(path.read_text())
+    except OSError as error:
+        print(f"No findings posted: cannot read {path}: {error.strerror}", file=sys.stderr)
+        return None
+    except ValueError as error:
+        print(f"No findings posted: {path} is not JSON: {error}", file=sys.stderr)
+        return None
+    problem = _problem(data)
+    if problem:
+        print(f"No findings posted: {path} does not match the schema: {problem}", file=sys.stderr)
+        return None
+    return Report(
+        summary=data["summary"],
+        new_surface=data["new_surface"],
+        findings=[Finding(**item) for item in data["findings"]],
+    )
+
+
+# --- Building the comments ---
+
+
+def marker(reviewer: str, key: str) -> str:
+    return f"<!-- kitden-agents:{reviewer}:{key} -->"
+
+
+def finding_key(f: Finding) -> str:
+    return f"{f.path}:{f.line}:{f.kind}"
+
+
+def first_line(reviewer: str, model: str) -> str:
+    return f"Automated review by Kitden's {reviewer} reviewer ({model}). 👍 useful · 👎 wrong"
+
+
+def posted_keys(review_comments: list[dict], reviewer: str) -> set[str]:
+    """Keys of findings already posted. Only a marker at the very end of a comment counts."""
+    pattern = re.compile(rf"<!-- kitden-agents:{re.escape(reviewer)}:(.+?) -->\s*\Z")
+    keys = set()
+    for comment in review_comments:
+        found = pattern.search(comment.get("body") or "")
+        if found:
+            keys.add(found.group(1))
+    return keys
+
+
+def plan_posts(report: Report, posted_keys: set[str], limit: int = 5) -> Plan:
+    new = [f for f in report.findings if finding_key(f) not in posted_keys]
+    return Plan(inline=new[:limit], overflow=new[limit:])
+
+
+def _bullet(f: Finding) -> str:
+    return f"- `{f.path}:{f.line}` ({f.kind}): {f.text}"
+
+
+def inline_body(f: Finding, reviewer: str, model: str) -> str:
+    key = finding_key(f)
+    return f"{first_line(reviewer, model)}\n\n{f.text}\n\n{marker(reviewer, key)}"
+
+
+def summary_body(
+    report: Report,
+    reviewer: str,
+    model: str,
+    overflow: list[Finding],
+    outside_diff: list[Finding],
+) -> str:
+    parts = [first_line(reviewer, model), report.summary]
+    if report.new_surface:
+        items = "\n".join(f"- {line}" for line in report.new_surface)
+        parts.append(f"Adds something a user can see or set:\n{items}")
+    if overflow:
+        parts.append("More findings, not posted inline:\n" + "\n".join(map(_bullet, overflow)))
+    if outside_diff:
+        parts.append("Outside the diff:\n" + "\n".join(map(_bullet, outside_diff)))
+    parts.append(marker(reviewer, "summary"))
+    return "\n\n".join(parts)
+
+
+# --- Talking to GitHub ---
+
+
+class Api(Protocol):
+    def list_review_comments(self, repo: str, pr: int) -> list[dict]: ...
+
+    def list_issue_comments(self, repo: str, pr: int) -> list[dict]: ...
+
+    def create_review_comment(
+        self, repo: str, pr: int, body: str, commit_id: str, path: str, line: int
+    ) -> None: ...
+
+    def create_issue_comment(self, repo: str, pr: int, body: str) -> None: ...
+
+    def update_issue_comment(self, repo: str, comment_id: int, body: str) -> None: ...
+
+
+class GhApi:
+    """The Api on top of the gh command line tool."""
+
+    def _run(self, *args: str) -> str:
+        done = subprocess.run(  # noqa: S603
+            ["gh", "api", *args],  # noqa: S607
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if done.returncode != 0:
+            found = re.search(r"HTTP (\d{3})", done.stderr)
+            raise ApiError(int(found.group(1)) if found else 0)
+        return done.stdout
+
+    def _list(self, endpoint: str) -> list[dict]:
+        # With --paginate, gh prints one JSON array per page, one after another.
+        text = self._run(endpoint, "--paginate")
+        decoder = json.JSONDecoder()
+        items: list[dict] = []
+        index = 0
+        while index < len(text):
+            if text[index].isspace():
+                index += 1
+                continue
+            page, index = decoder.raw_decode(text, index)
+            items += page
+        return items
+
+    def list_review_comments(self, repo: str, pr: int) -> list[dict]:
+        return self._list(f"repos/{repo}/pulls/{pr}/comments")
+
+    def list_issue_comments(self, repo: str, pr: int) -> list[dict]:
+        return self._list(f"repos/{repo}/issues/{pr}/comments")
+
+    def create_review_comment(
+        self, repo: str, pr: int, body: str, commit_id: str, path: str, line: int
+    ) -> None:
+        self._run(
+            f"repos/{repo}/pulls/{pr}/comments",
+            "--method", "POST",
+            "-f", f"body={body}",
+            "-f", f"commit_id={commit_id}",
+            "-f", f"path={path}",
+            "-F", f"line={line}",
+            "-f", "side=RIGHT",
+        )  # fmt: skip
+
+    def create_issue_comment(self, repo: str, pr: int, body: str) -> None:
+        self._run(f"repos/{repo}/issues/{pr}/comments", "--method", "POST", "-f", f"body={body}")
+
+    def update_issue_comment(self, repo: str, comment_id: int, body: str) -> None:
+        self._run(
+            f"repos/{repo}/issues/comments/{comment_id}", "--method", "PATCH", "-f", f"body={body}"
+        )
+
+
+# --- Putting it together ---
+
+
+def post(
+    report: Report,
+    api: Api,
+    repo: str,
+    pr: int,
+    head_sha: str,
+    reviewer: str,
+    model: str,
+    limit: int = 5,
+) -> None:
+    done = posted_keys(api.list_review_comments(repo, pr), reviewer)
+    plan = plan_posts(report, done, limit)
+    outside_diff: list[Finding] = []
+    for f in plan.inline:
+        try:
+            api.create_review_comment(
+                repo, pr, inline_body(f, reviewer, model), head_sha, f.path, f.line
+            )
+        except ApiError as error:
+            if error.status != 422:
+                raise
+            outside_diff.append(f)  # the line is not part of the diff
+    body = summary_body(report, reviewer, model, plan.overflow, outside_diff)
+    tag = marker(reviewer, "summary")
+    for comment in api.list_issue_comments(repo, pr):
+        if (comment.get("body") or "").rstrip().endswith(tag):
+            api.update_issue_comment(repo, comment["id"], body)
+            return
+    api.create_issue_comment(repo, pr, body)
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--repo")
+    parser.add_argument("--pr", type=int)
+    parser.add_argument("--head-sha")
+    parser.add_argument("--reviewer")
+    parser.add_argument("--model")
+    parser.add_argument("--limit", type=int, default=5)
+    parser.add_argument("--dry-run", action="store_true", help="print the plan, call nothing")
+    args = parser.parse_args(argv)
+
+    if args.dry_run:
+        args.reviewer = args.reviewer or "claude"
+        args.model = args.model or "dry-run"
+    else:
+        for name in ("repo", "pr", "head_sha", "reviewer", "model"):
+            if getattr(args, name) is None:
+                parser.error(f"--{name.replace('_', '-')} is required without --dry-run")
+
+    report = load_report(args.report)
+    if report is None:
+        return 0  # a missing or broken file must not fail the job
+
+    if args.dry_run:
+        plan = plan_posts(report, set(), args.limit)
+        out = {
+            "inline": [asdict(f) for f in plan.inline],
+            "overflow": [asdict(f) for f in plan.overflow],
+            "summary": summary_body(report, args.reviewer, args.model, plan.overflow, []),
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+
+    post(report, GhApi(), args.repo, args.pr, args.head_sha, args.reviewer, args.model, args.limit)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
