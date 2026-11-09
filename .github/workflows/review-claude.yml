@@ -58,6 +58,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The pull request could commit .kitden-agents as a link; checkout would follow it.
+      - name: Clear the plugin folder
+        run: rm -rf .kitden-agents
       # This workflow's own repository, at the commit this workflow file comes from.
       # `job.workflow_*` names the called workflow, not the caller.
       - name: Check out kitden-agents

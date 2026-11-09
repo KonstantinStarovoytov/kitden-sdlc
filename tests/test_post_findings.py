@@ -305,14 +305,15 @@ def test_gh_api_lists_join_all_pages(monkeypatch):
 
 
 SECRET_TEXTS = [
-    "sk-ant-api03-abc",
+    "sk-ant-api03-" + "a" * 16,
     "ghp_" + "a" * 36,
-    "gho_abc",
-    "ghu_abc",
-    "ghs_abc",
-    "ghr_abc",
-    "github_pat_11AAA",
-    "https://x-access-token:abc@github.com",
+    "gho_" + "b" * 36,
+    "ghu_" + "c" * 36,
+    "ghs_" + "d" * 36,
+    "ghr_" + "e" * 36,
+    "github_pat_11AAA" + "b_" * 10,
+    "sk-proj-" + "x" * 40,
+    "https://x-access-token:abc123@github.com",
     "key sk-" + "a1" * 12,
 ]
 
@@ -332,7 +333,11 @@ def test_secret_like_text_is_never_posted(secret):
 
 
 def test_ordinary_text_is_not_taken_for_a_secret():
-    text = "The task-runner and risk-score checks, rights_check, sk-short, high_ghs"
+    text = (
+        "The task-runner and risk-score checks, rights_check, sk-short, high_ghs, "
+        "the regex misses `ghs_`, `ghp_|gho_|ghu_|ghs_|github_pat_`, `sk-ant-`, "
+        "and `x-access-token:` in a URL"
+    )
     api = FakeApi()
     run_post(api, report([finding(text=text)], summary=text))
     assert api.calls
@@ -354,7 +359,9 @@ def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
 
 
 def test_dry_run_reports_a_secret(tmp_path, capsys):
-    path = write(tmp_path, {"summary": "sk-ant-oops", "new_surface": [], "findings": []})
+    path = write(
+        tmp_path, {"summary": "sk-ant-oops-" + "x" * 20, "new_surface": [], "findings": []}
+    )
     assert main(["--report", str(path), "--dry-run"]) == 1
     captured = capsys.readouterr()
     assert captured.out == ""

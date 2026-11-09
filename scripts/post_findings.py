@@ -15,8 +15,15 @@ FINDINGS_MAX = 10
 KINDS = ("bug", "rule")
 TOP_KEYS = {"summary", "new_surface", "findings"}
 FINDING_KEYS = {"path", "line", "kind", "text"}
-# Text that looks like a token. The model must never be able to publish one.
-SECRET_LIKE = re.compile(r"sk-ant-|(?<!\w)gh[pousr]_|github_pat_|x-access-token|(?<!\w)sk-\w{20,}")
+# Text that looks like a real token (a prefix plus a long tail), not just a token's name.
+# The model must never be able to publish one.
+SECRET_LIKE = re.compile(
+    r"(?<!\w)gh[pousr]_[A-Za-z0-9]{16,}"
+    r"|github_pat_[A-Za-z0-9_]{16,}"
+    r"|sk-ant-[A-Za-z0-9_-]{16,}"
+    r"|(?<!\w)sk-[A-Za-z0-9_-]{20,}"
+    r"|x-access-token:[^@\s]+@"
+)
 
 
 @dataclass
