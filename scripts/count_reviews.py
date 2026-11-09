@@ -80,7 +80,11 @@ class GhNumbersApi(GhApi):
 
 def _votes(reactions: list[dict], maintainer: str) -> tuple[int, int]:
     """Count the maintainer's 👍 and 👎. Logins are not case sensitive."""
-    mine = [r["content"] for r in reactions if r["user"]["login"].lower() == maintainer.lower()]
+    mine = [
+        r["content"]
+        for r in reactions
+        if (r.get("user") or {}).get("login", "").lower() == maintainer.lower()
+    ]
     return mine.count("+1"), mine.count("-1")
 
 
@@ -179,7 +183,13 @@ def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -
         "days": SINCE_DAYS,
         "reviewers": {name: asdict(s) for name, s in stats.items()},
     }
-    (args.out / "numbers.json").write_text(json.dumps(data, indent=2) + "\n")
+    saved = args.out / "numbers.json"
+    if saved.exists():
+        before = json.loads(saved.read_text())
+        # Only the date would differ: leave both files alone so the job commits nothing.
+        if before.get("reviewers") == data["reviewers"] and before.get("days") == data["days"]:
+            return 0
+    saved.write_text(json.dumps(data, indent=2) + "\n")
     (args.out / "numbers.md").write_text(render(stats, now.date()))
     return 0
 

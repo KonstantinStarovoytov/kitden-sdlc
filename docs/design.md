@@ -208,7 +208,7 @@ from real failures.
 - The owner marks an agent's finding with a thumbs-up when it was useful and a thumbs-down
   when it was wrong or noise (call).
 - A weekly job in `kitden-agents`, a plain script with no model, counts per reviewer the pull
-  requests reviewed, the findings, the thumbs up and down, and the runs, and commits the result.
+  requests reviewed, the findings, the thumbs up and down, and commits the result.
 - The job does not match Luna's findings against Claude's. The owner sees both on the pull
   request; "useful findings per reviewer" is the number the Luna decision rests on (call).
 - OpenAI cost is copied from the dashboard once a month by hand (call).

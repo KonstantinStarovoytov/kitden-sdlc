@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import count_reviews
 from count_reviews import (
@@ -189,13 +189,42 @@ def test_main_writes_both_files(tmp_path):
 
 
 def test_main_is_quiet_about_nothing_changing(tmp_path):
-    # Same data on the same day gives the same files, so the job commits nothing.
+    # A later day with the same counts leaves both files untouched, so the job commits nothing.
     api = FakeApi()
+    api.pulls = [pull(1)]
+    api.issue_comments[1] = [comment(1, "claude", "summary")]
     main(["--out", str(tmp_path)], api=api, now=NOW)
     first = (tmp_path / "numbers.md").read_bytes(), (tmp_path / "numbers.json").read_bytes()
-    main(["--out", str(tmp_path)], api=api, now=NOW)
+    main(["--out", str(tmp_path)], api=api, now=NOW + timedelta(days=7))
     second = (tmp_path / "numbers.md").read_bytes(), (tmp_path / "numbers.json").read_bytes()
     assert first == second
+    assert json.loads(first[1])["updated"] == "2026-11-10"
+
+
+def test_main_updates_the_files_when_the_counts_change(tmp_path):
+    api = FakeApi()
+    api.pulls = [pull(1)]
+    api.issue_comments[1] = [comment(1, "claude", "summary")]
+    main(["--out", str(tmp_path)], api=api, now=NOW)
+    api.issue_comments[1].append(comment(2, "luna", "summary"))
+    later = NOW + timedelta(days=7)
+    main(["--out", str(tmp_path)], api=api, now=later)
+    data = json.loads((tmp_path / "numbers.json").read_text())
+    assert data["updated"] == "2026-11-17"
+    assert set(data["reviewers"]) == {"claude", "luna"}
+    assert "Updated on 2026-11-17" in (tmp_path / "numbers.md").read_text()
+
+
+def test_a_reaction_from_a_deleted_user_is_skipped():
+    api = FakeApi()
+    api.pulls = [pull(1)]
+    api.review_comments[1] = [comment(5, "claude", "a.py:1:bug")]
+    api.reactions[("review", 5)] = [
+        {"content": "+1", "user": None},  # the account was deleted
+        reaction("+1"),
+    ]
+    (only,) = collect(api, "o/r", now=NOW)
+    assert (only.up, only.down) == (1, 0)
 
 
 def test_the_script_has_the_default_maintainer():
