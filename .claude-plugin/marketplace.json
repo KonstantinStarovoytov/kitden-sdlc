@@ -1,8 +1,10 @@
 {
   "name": "kitden-agents",
-  "description": "Agent skills for the Kitden repository",
   "owner": {
     "name": "Konstantin Starovoytov"
+  },
+  "metadata": {
+    "description": "Agent skills for the Kitden repository"
   },
   "plugins": [
     {
