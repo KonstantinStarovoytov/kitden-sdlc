@@ -74,6 +74,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: .kitden-agents/scripts/prepare_review.sh "$PR_NUMBER" "$BASE_REF"
+      # Codex reads AGENTS.md, .agents and .codex files from the checkout as its own
+      # instructions. The pull request controls them, so delete them. The base branch's
+      # AGENTS.md is in .review, and the pull request's change is in .review/diff.patch.
+      - name: Remove the pull request's agent instructions
+        if: steps.prepare.outputs.skip != 'true'
+        run: |
+          rm -rf AGENTS.md AGENTS.override.md .agents .codex
+          find . \( -path ./.git -o -path ./.review -o -path ./.kitden-agents \) -prune -o \( -name AGENTS.md -o -name AGENTS.override.md \) \( -type f -o -type l \) -print -exec rm -f {} +
       # Only a too-large change has a findings file at this point: the script wrote it,
       # and the model has not run yet. The post job posts it.
       - name: Keep the findings
@@ -86,8 +94,9 @@ jobs:
       # Last step of the job: the action drops sudo for the rest of the job.
       # `drop-sudo` (the default) keeps the OpenAI key out of the model's reach; the
       # read-only profile means no writes and no network, so the findings come back as
-      # the final message. The pull request's own AGENTS.md is not loaded, and web
-      # search is off.
+      # the final message. Web search is off. The earlier step deletes the pull
+      # request's agent files, and project_doc_max_bytes=0 asks Codex to read no
+      # project instructions as well.
       - name: Review
         id: luna
         if: steps.prepare.outputs.skip != 'true'
