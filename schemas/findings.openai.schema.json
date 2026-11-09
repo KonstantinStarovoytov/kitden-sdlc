@@ -1,0 +1,24 @@
+{
+  "title": "Findings of an AI reviewer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "new_surface", "findings"],
+  "properties": {
+    "summary": {"type": "string"},
+    "new_surface": {"type": "array", "items": {"type": "string"}},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "kind", "text"],
+        "properties": {
+          "path": {"type": "string"},
+          "line": {"type": "integer"},
+          "kind": {"type": "string", "enum": ["bug", "rule"]},
+          "text": {"type": "string"}
+        }
+      }
+    }
+  }
+}
