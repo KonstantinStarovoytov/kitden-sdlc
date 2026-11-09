@@ -168,6 +168,17 @@ def render(stats: dict[str, Stats], on: date) -> str:
     return "\n".join(lines)
 
 
+def _same_counts(saved: Path, data: dict) -> bool:
+    """True when the saved numbers.json holds the same counts. A broken file counts as no file."""
+    try:
+        before = json.loads(saved.read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(before, dict):
+        return False
+    return before.get("reviewers") == data["reviewers"] and before.get("days") == data["days"]
+
+
 def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=REPO)
@@ -184,11 +195,8 @@ def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -
         "reviewers": {name: asdict(s) for name, s in stats.items()},
     }
     saved = args.out / "numbers.json"
-    if saved.exists():
-        before = json.loads(saved.read_text())
-        # Only the date would differ: leave both files alone so the job commits nothing.
-        if before.get("reviewers") == data["reviewers"] and before.get("days") == data["days"]:
-            return 0
+    if _same_counts(saved, data) and (args.out / "numbers.md").exists():
+        return 0  # only the date would differ: leave both files so the job commits nothing
     saved.write_text(json.dumps(data, indent=2) + "\n")
     (args.out / "numbers.md").write_text(render(stats, now.date()))
     return 0

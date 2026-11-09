@@ -1,6 +1,8 @@
 import json
 from datetime import UTC, date, datetime, timedelta
 
+import pytest
+
 import count_reviews
 from count_reviews import (
     MAINTAINER,
@@ -213,6 +215,22 @@ def test_main_updates_the_files_when_the_counts_change(tmp_path):
     assert data["updated"] == "2026-11-17"
     assert set(data["reviewers"]) == {"claude", "luna"}
     assert "Updated on 2026-11-17" in (tmp_path / "numbers.md").read_text()
+
+
+@pytest.mark.parametrize("saved", [b"{not json", b"", b"[1, 2]", b"\xff\xfe", b'{"reviewers": 3}'])
+def test_a_broken_saved_file_is_rewritten(tmp_path, saved):
+    (tmp_path / "numbers.json").write_bytes(saved)
+    (tmp_path / "numbers.md").write_text("old")
+    assert main(["--out", str(tmp_path)], api=FakeApi(), now=NOW) == 0
+    assert json.loads((tmp_path / "numbers.json").read_text())["updated"] == "2026-11-10"
+    assert "No reviews yet." in (tmp_path / "numbers.md").read_text()
+
+
+def test_a_missing_markdown_file_is_rewritten(tmp_path):
+    main(["--out", str(tmp_path)], api=FakeApi(), now=NOW)
+    (tmp_path / "numbers.md").unlink()
+    main(["--out", str(tmp_path)], api=FakeApi(), now=NOW + timedelta(days=7))
+    assert "No reviews yet." in (tmp_path / "numbers.md").read_text()
 
 
 def test_a_reaction_from_a_deleted_user_is_skipped():
