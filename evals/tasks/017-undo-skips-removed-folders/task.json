@@ -1,0 +1,12 @@
+{
+  "id": "017-undo-skips-removed-folders",
+  "base": "af11bb72f27f5f1a4a7d98a2fc1e99527c30f139",
+  "source": "hand",
+  "kind": "defect",
+  "title": "Undo takes servers out of the gateway last and can be tried again",
+  "defect": {
+    "path": "src/kitden/changes/engine.py",
+    "line": 1080,
+    "text": "The filter is reversed: Undo copies back only the folders that are already back and skips the removed ones, so a removed folder is never restored."
+  }
+}

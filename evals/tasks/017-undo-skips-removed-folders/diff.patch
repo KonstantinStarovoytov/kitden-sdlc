@@ -1,0 +1,144 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 8b11d31..85a8a12 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -26,6 +26,9 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **Plugin servers stay outside too:** a server from a plugin's `.mcp.json` or a catalog row
+   whose address is on this computer or a private network is not asked before Apply; the
+   gateway reaches it only once you apply. Project files were already never moved.
++- **Undo in a safe order, and again:** Undo takes servers out of a gateway last, once the
++  client files read back as before, so a server is never in neither place. An Undo that stopped
++  keeps its Undo button and can be pressed again; what is back already is skipped.
+ 
+ ### 0.5.0
+ 
+@@ -430,6 +433,5 @@ Left for later in the alignment plan's phase notes:
+ 
+ Ask before starting each one.
+ 
+-- Undo removes gateway servers last, not first; an Undo that was blocked can be tried again.
+ - A crash in the middle of Apply leaves no record: save the record as Applying before the first
+   change and look for such records at start.
+diff --git a/src/kitden/changes/engine.py b/src/kitden/changes/engine.py
+index 4dcf7da..a6e7dff 100644
+--- a/src/kitden/changes/engine.py
++++ b/src/kitden/changes/engine.py
+@@ -259,6 +259,14 @@ def _undo_entries(steps: list[Step], data: bytes | None) -> bytes | None:
+     return text.encode()
+ 
+ 
++def _back_already(steps: list[Step], data: bytes | None) -> bool:
++    """Every entry these steps changed in one file reads as it did before the change."""
++    try:
++        return all(_value(s.edit, data) == s.edit.before for s in steps)
++    except (UnrecognizedFormatError, UnicodeDecodeError):
++        return False
++
++
+ def _same_folder(path: str, content_hash: str | None) -> bool:
+     """The folder still hashes as it did; False when it cannot be read (or is a link)."""
+     try:
+@@ -1027,9 +1035,12 @@ class Engine:
+     # Undo --------------------------------------------------------------------------------
+ 
+     def undo(self, change_id: str) -> Change:
++        """Put back what the change wrote. A blocked Undo can be tried again: what is back
++        already is skipped. The servers it added to a gateway are taken out last, once the
++        client files read back as before, so a server is never in neither place."""
+         change = self.changes[change_id]
+-        if change.state is not ChangeState.VERIFIED:
+-            change.move_to(ChangeState.UNDONE)  # raises: only a verified change can be undone
++        if change.state not in (ChangeState.VERIFIED, ChangeState.UNDO_BLOCKED):
++            change.move_to(ChangeState.UNDONE)  # raises: only an applied change can be undone
+         by_command = _command_paths(change.steps)
+         by_path: dict[str, list[Step]] = {}  # files that get planned bytes, after any command
+         for step in change.steps:
+@@ -1038,6 +1049,8 @@ class Engine:
+         plans: dict[str, bytes | None] = {}
+         for path, steps in by_path.items():
+             data = _read(path)
++            if _back_already(steps, data):
++                continue  # a blocked Undo put it back before
+             first = steps[0].edit
+             if _sha(data) == first.after_hash:
+                 plans[path] = Path(first.backup_path).read_bytes() if first.backup_path else None
+@@ -1064,6 +1077,7 @@ class Engine:
+                 )
+ 
+         removals = [s for s in change.steps if s.removal is not None]
++        removals = [s for s in removals if _same_folder(s.removal.path, s.removal.content_hash)]
+         for step in removals:
+             removal = step.removal
+             if os.path.lexists(removal.path):
+@@ -1092,14 +1106,15 @@ class Engine:
+             f"{i.server}/{i.key} in your {store} keeps the new value." for i in items if i.existed
+         ]
+ 
+-        # The gateway side goes next: if it cannot be reached, the files stay as they are.
+-        tick = self._counter(change)
++        # The gateway must answer before anything changes; its servers go last, below.
++        added = [s for s in change.steps if s.gateway is not None]
+         try:
+-            gone = self._remove_from_gateway(
+-                [s for s in change.steps if s.gateway is not None], tick=tick
+-            )
++            if added and any(s.gateway.server_uuid for s in added):
++                with self._client(added[0].gateway) as client:
++                    client.held()
+         except GatewayError as error:
+             return self._blocked(change, f"{error}; the client files were not changed")
++        tick = self._counter(change)
+         for step in reversed(copies):
+             remove_folder(step.copy.target)
+             tick(step)
+@@ -1111,8 +1126,8 @@ class Engine:
+         for step in reversed(change.steps):
+             if step.edit is None or not _by_command(step):
+                 continue
+-            if _value(step.edit, _read(step.edit.path)) is ABSENT and step.edit.before is ABSENT:
+-                continue
++            if _value(step.edit, _read(step.edit.path)) == step.edit.before:
++                continue  # gone already, or put back by a blocked Undo
+             result = self.run(step.undo_command, step.cwd)
+             if result.returncode != 0:
+                 return self._blocked(
+@@ -1138,6 +1153,12 @@ class Engine:
+                 raise RuntimeError(f"{step.copy.target}: undo did not remove the copy")
+             if step.removal and digest(step.removal.path) != step.removal.content_hash:
+                 raise RuntimeError(f"{step.removal.path}: undo did not copy the folder back")
++        try:
++            gone = self._remove_from_gateway(added, tick=tick)
++        except GatewayError as error:
++            return self._blocked(
++                change, f"The client files are back, but {error}. Undo again to finish."
++            )
+         for item in reversed(created):
+             try:
+                 keychain.delete(item.ref, run=self._security())
+diff --git a/src/kitden/model.py b/src/kitden/model.py
+index 130e0e7..ad65ed2 100644
+--- a/src/kitden/model.py
++++ b/src/kitden/model.py
+@@ -209,6 +209,8 @@ _TRANSITIONS: dict[ChangeState, set[ChangeState]] = {
+     ChangeState.PREVIEWED: {ChangeState.STALE, ChangeState.CANCELLED, ChangeState.APPLYING},
+     ChangeState.APPLYING: {ChangeState.VERIFIED, ChangeState.RESTORED},
+     ChangeState.VERIFIED: {ChangeState.UNDONE, ChangeState.UNDO_BLOCKED},
++    # A blocked Undo can be tried again once its cause is gone.
++    ChangeState.UNDO_BLOCKED: {ChangeState.UNDONE, ChangeState.UNDO_BLOCKED},
+ }
+ 
+ 
+diff --git a/src/kitden/web/static/js/changes.js b/src/kitden/web/static/js/changes.js
+index de938fd..07a7c7e 100644
+--- a/src/kitden/web/static/js/changes.js
++++ b/src/kitden/web/static/js/changes.js
+@@ -181,7 +181,8 @@ function changeRow(entry) {
+   words.append(el("span", null, stateWord(entry.state, entry.technical.error)));
+   state.append(lamp, words);
+   const act = el("span", "act");
+-  if (entry.state === "verified") act.append(undoButton(entry));
++  // An Undo that stopped can be tried again once its cause is gone (the toast says why).
++  if (entry.state === "verified" || entry.state === "undo_blocked") act.append(undoButton(entry));
+   node.append(dot, el("span", "time", clock(entry.time)), title, clientTiles(entry.clients, "who"), el("span", "sr-only", clientWords(entry.clients)), state, act, el("span", "sr-only", "Open details"));
+   showSelected(node, entry.id === page.selected);
+   node.addEventListener("click", (event) => {

@@ -138,6 +138,7 @@ def run_task(args: argparse.Namespace, task_dir: Path) -> None:
         print(f"{task['id']}: {seconds:.0f} s, findings {'saved' if answer.is_file() else 'none'}")
     finally:
         git("-C", str(args.kitden), "worktree", "remove", "--force", str(folder), check=False)
+        git("-C", str(args.kitden), "worktree", "prune", check=False)
         shutil.rmtree(temp, ignore_errors=True)
 
 

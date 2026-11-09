@@ -1,0 +1,13 @@
+{
+  "id": "007-sign-in-drops-plain-secret",
+  "base": "fd662b8c67859cb464c4cced7289d00ac6f7c80f",
+  "source": "commit:c254627",
+  "kind": "defect",
+  "title": "Sign in through the browser before Apply",
+  "defect": {
+    "path": "src/kitden/changes/actions.py",
+    "line": 666,
+    "text": "When only the sign-in changes, the entry is rebuilt with secrets_out but its Keychain items are thrown away ([0]), so a plain header or env value held in the entry becomes a Keychain reference that is never written; the entry should stay as held."
+  },
+  "fix": "b75d0b43565be87b42f6c7548348791e1e24e598"
+}
