@@ -1,0 +1,131 @@
+name: Claude review
+
+# Reusable workflow: a pull request in the calling repository gets a Claude review.
+# The caller decides when it runs (see the `if` it must carry) and passes the model.
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        required: true
+      max_turns:
+        type: number
+        default: 30
+      daily_cap:
+        type: number
+        default: 10
+    secrets:
+      claude_code_oauth_token:
+        required: true
+
+permissions: {}
+
+jobs:
+  # Stop when this workflow has already run too often today.
+  cap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read # list today's runs
+    outputs:
+      skip: ${{ steps.count.outputs.skip }}
+    steps:
+      - id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DAILY_CAP: ${{ inputs.daily_cap }}
+        run: |
+          runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$GITHUB_WORKFLOW" \
+            --created ">=$(date -u +%F)" --limit 100 --json databaseId --jq length)"
+          echo "Runs today: $runs (cap $DAILY_CAP)"
+          if [ "$runs" -gt "$DAILY_CAP" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  review:
+    needs: cap
+    if: needs.cap.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the code
+      pull-requests: read # read the diff and the description
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # This workflow's own repository, at the commit this workflow file comes from.
+      # `job.workflow_*` names the called workflow, not the caller.
+      - name: Check out kitden-agents
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .kitden-agents
+          persist-credentials: false
+      - name: Collect the files to review
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: .kitden-agents/scripts/prepare_review.sh "$PR_NUMBER" "$BASE_REF"
+      - name: Review
+        if: steps.prepare.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
+        with:
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          github_token: ${{ github.token }}
+          prompt: /kitden-agents:review-kitden
+          claude_args: >-
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}
+            --plugin-dir .kitden-agents/plugins/kitden-agents
+            --allowedTools "Read,Grep,Glob,Write(.review/**),Edit(.review/**)"
+            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task"
+      - name: Keep the findings
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: findings-claude
+          path: .review/findings.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  post:
+    needs: review
+    if: always() && needs.review.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # post the comments
+    steps:
+      - name: Check out kitden-agents
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          persist-credentials: false
+      # No file means the reviewer wrote nothing; post_findings.py then posts nothing.
+      - name: Get the findings
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: findings-claude
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      - name: Post the findings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MODEL: ${{ inputs.model }}
+        run: >-
+          uv run --no-project python scripts/post_findings.py --report findings.json
+          --repo "$REPO" --pr "$PR_NUMBER" --head-sha "$HEAD_SHA"
+          --reviewer claude --model "$MODEL"
