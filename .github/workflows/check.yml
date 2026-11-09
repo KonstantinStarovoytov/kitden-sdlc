@@ -37,13 +37,18 @@ jobs:
         with:
           version: "0.10.10"
           enable-cache: false
-      # --no-config: a uv.toml in the pull request must not change where uv installs from.
+      # The first --no-config: a uv.toml in the pull request must not change where uv
+      # installs from. The second, with --no-ignores: .github/zizmor.yml and ignore
+      # comments in the pull request must not hide findings.
       - name: zizmor
-        run: uvx --no-config zizmor==1.32.0 .github/workflows
+        run: uvx --no-config zizmor==1.32.0 --no-config --no-ignores .github/workflows
+      # Our empty settings file, because .github/actionlint.yaml in the pull request
+      # could ignore errors. It sits in the folder mounted below.
       - name: actionlint
         run: >-
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -config-file .kitden-agents/config/actionlint.yaml
       - name: Agent workflow rules
         run: >-
           uv run --no-project --no-config --with pyyaml

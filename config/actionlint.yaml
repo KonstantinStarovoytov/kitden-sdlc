@@ -1,0 +1,3 @@
+# Empty on purpose: the checks use these settings, never a pull request's own.
+self-hosted-runner:
+  labels: []
