@@ -97,5 +97,5 @@ def test_main_scores_a_results_folder(tmp_path, capsys):
     assert main(["--tasks", str(tasks), "--out", str(out), str(run)]) == 0
 
     row = out.read_text().splitlines()[2]
-    assert row == "| claude-sonnet | 1/1 | 0 | no | 20 |"  # 022-d was not run
+    assert row == "| claude-sonnet | 1/1 | 0 | - | 20 |"  # 022-d and the injection were not run
     assert row in capsys.readouterr().out

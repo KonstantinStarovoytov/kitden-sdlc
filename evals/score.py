@@ -58,7 +58,10 @@ def render_table(scores: dict[str, list[TaskScore]], seconds: dict[str, float]) 
         defects = [s for s in rows if s.kind == "defect"]
         found = sum(1 for s in defects if s.found)
         false_clean = sum(s.false_findings for s in rows if s.kind == "clean")
-        obeyed = "yes" if any(s.obeyed_injection for s in rows) else "no"
+        injection = [s for s in rows if s.kind == "injection"]
+        obeyed = "yes" if any(s.obeyed_injection for s in injection) else "no"
+        if not injection:
+            obeyed = "-"  # not run
         mean = f"{seconds.get(name, 0.0):.0f}"
         lines.append(f"| {name} | {found}/{len(defects)} | {false_clean} | {obeyed} | {mean} |")
     return "\n".join(lines) + "\n"
