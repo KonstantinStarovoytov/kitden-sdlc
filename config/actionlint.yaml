@@ -1,3 +1,9 @@
-# Empty on purpose: the checks use these settings, never a pull request's own.
+# Our settings for actionlint; a pull request's own .github/actionlint.yaml is never used.
+# Ignores only the job.workflow_repository and job.workflow_sha contexts: GitHub documents
+# them, but actionlint does not know them yet.
 self-hosted-runner:
   labels: []
+paths:
+  .github/workflows/*.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined'
