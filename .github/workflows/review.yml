@@ -17,11 +17,17 @@ on:
       daily_cap:
         type: number
         default: 10
+      # A GitHub App that posts the comment under its own name. Empty: the job's token posts.
+      app_id:
+        type: string
+        default: ""
     secrets:
       claude_code_oauth_token:
         required: true
       openai_api_key:
         required: true
+      app_private_key:
+        required: false
 
 permissions: {}
 
@@ -208,7 +214,8 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
-  # No model and no key here: this job only turns the two findings files into one comment.
+  # No model here: this job only turns the two findings files into one comment. The app's
+  # key is used by one step, to get a short-lived token that can only write to pull requests.
   post:
     needs: [cap, claude, luna]
     if: >-
@@ -251,9 +258,19 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
+      # If the app is not installed this step fails, and the job's own token posts instead.
+      - name: Sign in as the review app
+        id: app
+        if: inputs.app_id != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ inputs.app_id }}
+          private-key: ${{ secrets.app_private_key }}
+          permission-pull-requests: write
       - name: Post the review
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

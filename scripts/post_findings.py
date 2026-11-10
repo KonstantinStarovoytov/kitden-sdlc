@@ -142,8 +142,9 @@ def quiet_mentions(text: str) -> str:
 REVIEWERS = {"claude": "Claude", "luna": "Luna"}
 TITLE = "**Agent review**"
 MARKER = re.compile(r"<!-- kitden-sdlc:review claude=(\d+|x) luna=(\d+|x) both=(\d+) -->\s*\Z")
-# The account that posts for a workflow's own token. Only its comments are ours.
-BOT = "github-actions[bot]"
+# The accounts that post for us: the review app, and the workflow's own token when the
+# app is not set up. Only their comments are ours.
+BOTS = ("kitden-lantern[bot]", "github-actions[bot]")
 # A path we can safely put into a link. Anything else is shown as plain text.
 SAFE_PATH = re.compile(r"[\w./+-]+\Z")
 # Characters that mean something in Markdown or HTML.
@@ -174,7 +175,7 @@ def read_marker(body: str) -> dict[str, int | None] | None:
 def our_marker(comment: dict) -> dict[str, int | None] | None:
     """The marker counts of a review comment we posted, or None for any other comment.
     A person's or another bot's comment that ends in the marker is not ours."""
-    if (comment.get("user") or {}).get("login") != BOT:
+    if (comment.get("user") or {}).get("login") not in BOTS:
         return None
     return read_marker(comment.get("body") or "")
 
@@ -296,8 +297,7 @@ class GhApi:
 
 def post(api: Api, repo: str, pr: int, body: str) -> None:
     """Update the one review comment, or create it.
-    Only our own comment counts: anyone else's that ends in the marker cannot be edited
-    with the job's token, and must not be."""
+    Only our own comment counts: anyone else's that ends in the marker must not be edited."""
     if SECRET_LIKE.search(body):
         raise SecretLikeError
     for comment in api.list_issue_comments(repo, pr):

@@ -348,6 +348,14 @@ def test_post_ignores_another_bots_comment_with_the_marker():
     assert [call[0] for call in api.calls] == ["create"]
 
 
+def test_post_updates_the_review_apps_comment():
+    api = FakeApi()
+    old = body_of(report(), report())
+    api.comments.append({"id": 9, "body": old, "user": {"login": "kitden-lantern[bot]"}})
+    post(api, "o/r", 7, old)
+    assert [call[0] for call in api.calls] == ["update"]
+
+
 def test_post_refuses_a_secret_and_calls_nothing():
     api = FakeApi()
     with pytest.raises(SecretLikeError):

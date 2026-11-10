@@ -101,6 +101,8 @@ from another repository at a fixed point.
 
 1. No job holds untrusted text, a secret and write permission together. The model reads; a
    step without a model posts, or the action's own comment tool is allowed by its exact name.
+   The posting job holds the review app's key but runs no model: the reviewers' text is only
+   data there.
 2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
    the actor is a bot, and when the switch is off.
 3. `permissions: {}` at the top; each job lists the least it needs.
@@ -181,7 +183,8 @@ part 7 measures it.
 - `openai/codex-action` with `model: gpt-6-luna`, in the two-job shape of the action's README.
   The first job has `contents: read`, the key and `safety-strategy: read-only` (call), and
   writes its findings to a file in a fixed schema: file, line, what is wrong. The second job
-  has no model and no key and has `pull-requests: write`. It puts Luna's and Claude's
+  has no model and has `pull-requests: write`. It posts as the GitHub App Lantern when the
+  app's id and key are set (owner, 2026-11-10), else with the job's own token. It puts Luna's and Claude's
   findings into the one review comment (part 4). Both reviewers run in one workflow,
   `review.yml` (call).
 - At most five findings, bugs only (call). The prompt follows the review rubric of OpenAI's
@@ -248,6 +251,7 @@ Settings and secrets; neither the builder nor an agent does these.
 - Runs `claude setup-token` and saves the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 - Creates the OpenAI project key with its $5 budget and saves it as `OPENAI_API_KEY`.
 - Sets `AGENTS_ENABLED`.
+- Creates and installs the GitHub App Lantern; saves `AGENTS_APP_ID` and `AGENTS_APP_PRIVATE_KEY`.
 - Approves `PRINCIPLES.md`.
 
 ## Left to the builder
