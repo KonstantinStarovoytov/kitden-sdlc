@@ -227,12 +227,9 @@ def _bullet(item: Item, repo: str, head_sha: str) -> str:
     return f"- {place} — {one_line(f.text)} *({who})*"
 
 
-def review_body(
-    reports: dict[str, Report | None], models: dict[str, str], repo: str, head_sha: str
-) -> str:
+def review_body(reports: dict[str, Report | None], repo: str, head_sha: str) -> str:
     """The whole comment. `reports` has None for a reviewer that gave no usable answer."""
-    names = " and ".join(f"{REVIEWERS[name]} ({models[name]})" for name in REVIEWERS)
-    parts = [f"{TITLE} · automated, by {names} · commit {head_sha[:7]}"]
+    parts = [TITLE]
     answered = [report for name in REVIEWERS if (report := reports.get(name))]
     items = merge(reports)
     if answered:
@@ -242,8 +239,6 @@ def review_body(
             parts.append(f"**To check ({len(items)})**\n{bullets}")
         else:
             parts.append("No problems found.")
-        if answered[0].new_surface:
-            parts.append("**New for users:** " + "; ".join(map(one_line, answered[0].new_surface)))
     silent = [REVIEWERS[name] for name in REVIEWERS if not reports.get(name)]
     if silent:
         parts.append(" and ".join(silent) + " gave no usable answer this time.")
@@ -321,8 +316,6 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--claude", type=Path, required=True, help="Claude's findings.json")
     parser.add_argument("--luna", type=Path, required=True, help="Luna's findings.json")
-    parser.add_argument("--claude-model", default="dry-run")
-    parser.add_argument("--luna-model", default="dry-run")
     parser.add_argument("--repo", default="owner/repo")
     parser.add_argument("--pr", type=int)
     parser.add_argument("--head-sha", default="0000000")
@@ -339,12 +332,11 @@ def main(argv: list[str]) -> int:
             print(f"::warning::The {name} reviewer gave no usable answer this time.")
     if not any(reports.values()):
         return 0
-    models = {"claude": args.claude_model, "luna": args.luna_model}
     try:
         for report in reports.values():
             if report:
                 refuse_secret_like(report)
-        body = review_body(reports, models, args.repo, args.head_sha)
+        body = review_body(reports, args.repo, args.head_sha)
         if args.dry_run:
             print(body)
         else:

@@ -26,7 +26,6 @@ ROOT = Path(__file__).parent.parent
 SCHEMA = ROOT / "schemas" / "findings.schema.json"
 SKILL = ROOT / "plugins" / "kitden-sdlc" / "skills" / "review-kitden" / "SKILL.md"
 SHA = "abcdef1234567890"
-MODELS = {"claude": "claude-opus-5", "luna": "gpt-6-luna"}
 WJ = "\u2060"
 
 
@@ -63,7 +62,7 @@ def report(findings=(), new_surface=(), summary="All fine."):
 
 
 def body_of(claude=None, luna=None, repo="o/r"):
-    return review_body({"claude": claude, "luna": luna}, MODELS, repo, SHA)
+    return review_body({"claude": claude, "luna": luna}, repo, SHA)
 
 
 def write(tmp_path, data, name="findings.json"):
@@ -172,12 +171,8 @@ def test_merge_with_no_reports_is_empty():
 # --- The comment ---
 
 
-def test_first_line_names_both_reviewers_models_and_commit():
-    first = body_of(report(), report()).splitlines()[0]
-    assert first == (
-        "**Agent review** · automated, by Claude (claude-opus-5) and Luna (gpt-6-luna)"
-        " · commit abcdef1"
-    )
+def test_first_line_is_only_the_title():
+    assert body_of(report(), report()).splitlines()[0] == "**Agent review**"
 
 
 def test_summary_comes_from_claude_else_luna():
@@ -242,7 +237,7 @@ def test_model_text_cannot_add_markdown_or_html(text):
     plain = one_line(text)
     assert not set("<>[]()`*|!") & set(plain)
     body = body_of(report([finding(text=text)], summary=text, new_surface=[text]))
-    assert body.count(plain) == 3 and text not in body
+    assert body.count(plain) == 2 and text not in body
     assert read_marker(body) == {"claude": 1, "luna": None, "both": 0}
 
 
@@ -261,9 +256,9 @@ def test_mentions_are_quieted_in_summary_text_and_new_surface():
         summary="@someone look",
     )
     body = body_of(rep)
-    assert f"@{WJ}someone" in body and f"@{WJ}pytest.fixture" in body and f"@{WJ}owner" in body
+    assert f"@{WJ}someone" in body and f"@{WJ}pytest.fixture" in body
     assert "@someone" not in body and "@pytest" not in body and "@owner" not in body
-    assert "**New for users:** " in body and "; second" in body
+    assert "Asks" not in body and "second" not in body
 
 
 def test_quiet_mentions_leaves_the_rest():
