@@ -5,7 +5,7 @@ not a bot that can leak a secret. These are the AI reviewers that look at pull r
 [Kitden](https://github.com/KonstantinStarovoytov/kitden), and the rules that keep them safe.
 
 Status: the reviewers are built and tested on a laptop. They go live when the repository and
-the secrets are set up. There are no live numbers yet; [numbers.md](numbers.md) will fill in.
+the secrets are set up. There are no live numbers yet; [numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md) will fill in.
 
 ## The agents
 
@@ -14,7 +14,7 @@ the secrets are set up. There are no live numbers yet; [numbers.md](numbers.md) 
 | `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](evals/README.md); meant to run on a Max subscription, once set up | read the checkout, write findings | see below |
 | `luna` reviewer | the same | GPT-6 Luna; meant to run on a project API key with a $5 monthly budget, once set up | read in a sandbox with no network, answer with findings | see below |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
-| weekly numbers | every Monday | none | count reviews, commit `numbers.md` and `numbers.json` | no model, no pull request code |
+| weekly numbers | every Monday | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
 
 A pull request gets one short review comment for both reviewers, never a comment per
 finding. A job without a model writes it and edits it in place on later pushes, so only the
