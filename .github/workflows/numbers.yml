@@ -1,7 +1,8 @@
 name: numbers
 
 # Every Monday: count what the AI reviewers did on Kitden's pull requests and commit
-# numbers.md and numbers.json. This workflow never runs a pull request's code.
+# numbers.md and numbers.json to the `numbers` branch, because `main` takes pull requests
+# only. This workflow never runs a pull request's code.
 
 on:
   schedule:
@@ -20,6 +21,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The branch that keeps the two files, next to the scripts from main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: numbers
+          path: out
+          persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
@@ -27,13 +34,13 @@ jobs:
       - name: Count
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uv run --no-project --python 3.13 python scripts/count_reviews.py
+        run: uv run --no-project --python 3.13 python scripts/count_reviews.py --out out
       # Checkout keeps no credentials, so the push gets the token here.
       - name: Commit the numbers
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          BRANCH: ${{ github.ref_name }}
+        working-directory: out
         run: |
           if [ -z "$(git status --porcelain -- numbers.md numbers.json)" ]; then
             echo "The numbers did not change."
@@ -43,4 +50,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add numbers.md numbers.json
           git commit -m "Update the numbers"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:${BRANCH}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:numbers

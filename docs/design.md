@@ -88,7 +88,7 @@ Two from the start (owner).
   results, the numbers, and a README that is the showcase. A second project could use it by
   adding the same two thin files.
 
-`kitden` calls the reusable workflows pinned to a full commit SHA and passes each secret by
+`kitden` calls the reusable workflows at `main`, which is protected, and passes each secret by
 name, never `secrets: inherit` (call). The skills come from the same repository through the
 action's `plugin_marketplaces` and `plugins` inputs, pinned to a tag, since the action documents
 branch and tag pins only; the tag is protected in `kitden-sdlc` so it cannot move quietly
@@ -106,7 +106,9 @@ from another repository at a fixed point.
 2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
    the actor is a bot, and when the switch is off.
 3. `permissions: {}` at the top; each job lists the least it needs.
-4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag.
+4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag. The caller
+   may use `kitden-sdlc`'s own workflows at `main`: that branch is protected, so nothing gets
+   there without a pull request.
 5. Every agent job has `timeout-minutes`, a turn limit and `concurrency` with one run per pull
    request, where a newer run cancels the older.
 6. Tools are allowed by exact name. Reviewers get no Bash, no web tools and no MCP server; the

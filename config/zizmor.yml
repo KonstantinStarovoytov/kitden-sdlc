@@ -1,0 +1,9 @@
+# Our settings for zizmor; a pull request's own .github/zizmor.yml is never used.
+# kitden-sdlc's own workflows may be called at a branch, because its main is protected.
+# Everything else must be pinned to a full SHA.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "KonstantinStarovoytov/kitden-sdlc/*": ref-pin
+        "*": hash-pin

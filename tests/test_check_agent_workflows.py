@@ -98,7 +98,19 @@ def test_tag_pinned_action_is_rule_4():
 
 
 def test_tag_pinned_caller_is_rule_4():
+    text = CLEAN_CALLER.replace("review.yml@SHA", "review.yml@v1")
+    assert any("rule 4" in v for v in run(text))
+
+
+def test_own_workflow_at_main_is_allowed():
     text = CLEAN_CALLER.replace("review.yml@SHA", "review.yml@main")
+    assert run(text) == []
+
+
+def test_other_repo_at_main_is_rule_4():
+    text = CLEAN_CALLER.replace("review.yml@SHA", "review.yml@main").replace(
+        "KonstantinStarovoytov/kitden-sdlc", "someone/else"
+    )
     assert any("rule 4" in v for v in run(text))
 
 
