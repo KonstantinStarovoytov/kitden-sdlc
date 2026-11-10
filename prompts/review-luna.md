@@ -27,7 +27,9 @@ Report bugs only. Report one only when all of this is true:
 5. The author would likely fix it if they knew.
 6. It does not rest on a guess about what the code base or the author meant.
 7. If you say it breaks other code, you can name that code. A hunch is not enough.
-8. It is clearly not something the author did on purpose.
+8. It is clearly not something the author did on purpose. Read the comments next to the
+   code: if one says the behaviour is meant, it is not a bug, unless the code does
+   something else than the comment says.
 
 Then keep only the serious ones: a bug that blocks a release or everyday use, or one
 that should be fixed in the next round of work. Drop low-priority bugs and nice-to-haves.
@@ -40,9 +42,13 @@ Both reviewers' findings go into one short comment, so every word must earn its 
 - `path` is repository-relative, exactly as in `files.txt` (no `a/` or `b/` prefix).
 - `line` must be a line the diff adds or changes. Count it from the `+N` in the `@@`
   hunk header.
-- `text` is one or two plain sentences, at most 300 characters: what breaks, and with
-  which input or in which case. Simple words, a matter-of-fact tone. No praise, no
-  "consider", no code blocks, no line breaks.
+- `text` is one or two plain sentences, at most 300 characters. Say what the user or
+  the caller gets that is wrong, with one concrete example: this input or this case,
+  this result. If the fix is obvious, add it in a few words.
+- Use only names from the code or the screen. Do not make up your own terms for parts
+  of the code. State only an effect you traced in the code, not one you expect.
+- Simple words, a matter-of-fact tone. No praise, no "consider", no code blocks, no
+  line breaks.
 - Say plainly in which case or with which input the bug shows up.
 - Do not make the bug sound worse than it is.
 - `kind` is always `bug`.
