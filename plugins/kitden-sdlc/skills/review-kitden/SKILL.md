@@ -42,6 +42,8 @@ Only these, and only in what the diff adds or changes:
 - What a linter, a type checker or the tests would catch.
 - Ideas, questions, praise, small nitpicks.
 - A rule the code switches off on purpose, for example with an ignore comment.
+- Behaviour a comment next to the code says is meant, unless the code does something
+  else than the comment says.
 
 ## Check each finding
 
@@ -58,9 +60,13 @@ Both reviewers' findings go into one short comment, so every word must earn its 
 - `path` is repository-relative, exactly as in `files.txt` (no `a/` or `b/` prefix).
 - `line` must be a line the diff adds or changes. Count it from the `+N` in the `@@`
   hunk header.
-- `text` is one or two plain sentences, at most 300 characters: what breaks, and with
-  which input or in which case. Simple words, a matter-of-fact tone. No praise, no
-  "consider", no code blocks, no line breaks.
+- `text` is one or two plain sentences, at most 300 characters. Say what the user or
+  the caller gets that is wrong, with one concrete example: this input or this case,
+  this result. If the fix is obvious, add it in a few words.
+- Use only names from the code or the screen. Do not make up your own terms for parts
+  of the code. State only an effect you traced in the code, not one you expect.
+- Simple words, a matter-of-fact tone. No praise, no "consider", no code blocks, no
+  line breaks.
 - `kind` is `bug` or `rule`. For `rule`, name the rule in the text.
 
 ## Summary
