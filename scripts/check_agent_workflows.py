@@ -34,7 +34,7 @@ def _is_model_step(step: dict) -> bool:
 
 def _is_review_caller(job: dict) -> bool:
     uses = str(job.get("uses", "")).split("@")[0]
-    return ".github/workflows/" in uses and uses.rsplit("/", 1)[-1].startswith("review-")
+    return ".github/workflows/" in uses and uses.rsplit("/", 1)[-1].startswith("review")
 
 
 def _has_model_step(job: dict) -> bool:

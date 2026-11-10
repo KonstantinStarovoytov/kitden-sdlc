@@ -13,8 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 
-from post_findings import GhApi
-from post_findings import read_marker as parse_marker
+from post_findings import GhApi, our_marker
 
 REPO = "KonstantinStarovoytov/kitden"
 MAINTAINER = "KonstantinStarovoytov"
@@ -23,20 +22,20 @@ PAGE_SIZE = 100
 
 
 @dataclass
-class Comment:
-    reviewer: str
+class Review:
+    """One review comment: what its marker says and the maintainer's votes on it."""
+
     pr: int
-    is_summary: bool
+    counts: dict[str, int | None]
     up: int
     down: int
 
 
 @dataclass
 class Stats:
-    prs: int
-    findings: int
-    up: int
-    down: int
+    prs: int  # pull requests this reviewer answered on
+    findings: int  # its findings, shared ones included
+    shared: int  # findings the other reviewer made too
 
 
 # --- Talking to GitHub ---
@@ -45,11 +44,7 @@ class Stats:
 class Api(Protocol):
     def list_pulls(self, repo: str) -> Iterator[dict]: ...
 
-    def list_review_comments(self, repo: str, pr: int) -> list[dict]: ...
-
     def list_issue_comments(self, repo: str, pr: int) -> list[dict]: ...
-
-    def list_review_comment_reactions(self, repo: str, comment_id: int) -> list[dict]: ...
 
     def list_issue_comment_reactions(self, repo: str, comment_id: int) -> list[dict]: ...
 
@@ -68,9 +63,6 @@ class GhNumbersApi(GhApi):
                 return
             page += 1
 
-    def list_review_comment_reactions(self, repo: str, comment_id: int) -> list[dict]:
-        return self._list(f"repos/{repo}/pulls/comments/{comment_id}/reactions")
-
     def list_issue_comment_reactions(self, repo: str, comment_id: int) -> list[dict]:
         return self._list(f"repos/{repo}/issues/comments/{comment_id}/reactions")
 
@@ -88,80 +80,72 @@ def _votes(reactions: list[dict], maintainer: str) -> tuple[int, int]:
     return mine.count("+1"), mine.count("-1")
 
 
-def _ours(comments: list[dict]) -> Iterator[tuple[dict, str, str]]:
-    """Comments written by a bot that end with our marker. A person's paste does not count."""
-    for item in comments:
-        if (item.get("user") or {}).get("type") != "Bot":
-            continue
-        found = parse_marker(item.get("body") or "")
-        if found:
-            yield item, found[0], found[1]
-
-
 def collect(
     api: Api,
     repo: str,
     since_days: int = SINCE_DAYS,
     maintainer: str = MAINTAINER,
     now: datetime | None = None,
-) -> list[Comment]:
-    """Read the reviewers' comments on pull requests updated in the last `since_days`."""
+) -> list[Review]:
+    """Read the review comments on pull requests updated in the last `since_days`.
+    Only our own comment that ends with the marker counts. A person's paste does not."""
     cutoff = (now or datetime.now(UTC)) - timedelta(days=since_days)
-    found: list[Comment] = []
+    found: list[Review] = []
     for pull in api.list_pulls(repo):
         if datetime.fromisoformat(pull["updated_at"]) < cutoff:
             break  # the list is newest first, so everything after is older
         number = pull["number"]
-        kinds = (
-            (api.list_review_comments, api.list_review_comment_reactions),
-            (api.list_issue_comments, api.list_issue_comment_reactions),
-        )
-        for list_comments, list_reactions in kinds:
-            for item, reviewer, key in _ours(list_comments(repo, number)):
-                up, down = _votes(list_reactions(repo, item["id"]), maintainer)
-                found.append(Comment(reviewer, number, key == "summary", up, down))
+        for item in api.list_issue_comments(repo, number):
+            counts = our_marker(item)
+            if counts:
+                up, down = _votes(api.list_issue_comment_reactions(repo, item["id"]), maintainer)
+                found.append(Review(number, counts, up, down))
     return found
 
 
-def aggregate(comments: list[Comment]) -> dict[str, Stats]:
-    """Per reviewer: pull requests reviewed, findings (the summary is not one), votes."""
+def aggregate(reviews: list[Review]) -> dict[str, Stats]:
+    """Per reviewer: pull requests it answered on, its findings, and how many were shared."""
     stats: dict[str, Stats] = {}
-    seen: dict[str, set[int]] = {}
-    for c in comments:
-        entry = stats.setdefault(c.reviewer, Stats(0, 0, 0, 0))
-        seen.setdefault(c.reviewer, set()).add(c.pr)
-        entry.findings += 0 if c.is_summary else 1
-        entry.up += c.up
-        entry.down += c.down
-    for reviewer, prs in seen.items():
-        stats[reviewer].prs = len(prs)
+    for review in reviews:
+        shared = review.counts["both"] or 0
+        for reviewer in ("claude", "luna"):
+            own = review.counts[reviewer]
+            if own is None:
+                continue  # it gave no answer on this pull request
+            entry = stats.setdefault(reviewer, Stats(0, 0, 0))
+            entry.prs += 1
+            entry.findings += own + shared
+            entry.shared += shared
     return dict(sorted(stats.items()))
 
 
 # --- Writing ---
 
 
-def _share(s: Stats) -> str:
-    votes = s.up + s.down
-    return f"{round(100 * s.up / votes)}%" if votes else "-"
+def _share(up: int, down: int) -> str:
+    votes = up + down
+    return f"{round(100 * up / votes)}%" if votes else "-"
 
 
-def render(stats: dict[str, Stats], on: date) -> str:
+def render(stats: dict[str, Stats], reviews: dict[str, int], on: date) -> str:
     lines = [
         "# Reviewer numbers",
         "",
         f"What the AI reviewers did on Kitden's pull requests in the last {SINCE_DAYS} days.",
-        "Only the maintainer's 👍 (useful) and 👎 (wrong) count.",
+        "Each pull request gets one review comment from both reviewers.",
+        "Only the maintainer's 👍 (useful) and 👎 (wrong) on it count.",
         "",
     ]
-    if stats:
+    if reviews["prs"]:
+        up, down = reviews["up"], reviews["down"]
         lines += [
-            "| Reviewer | Pull requests | Findings | 👍 | 👎 | Useful share |",
-            "| --- | --- | --- | --- | --- | --- |",
+            f"Reviews: {reviews['prs']}. 👍 {up}, 👎 {down}, useful share {_share(up, down)}.",
+            "",
+            "| Reviewer | Pull requests | Findings | Also found by the other |",
+            "| --- | --- | --- | --- |",
         ]
         for reviewer, s in stats.items():
-            cells = [reviewer, s.prs, s.findings, s.up, s.down, _share(s)]
-            lines.append("| " + " | ".join(map(str, cells)) + " |")
+            lines.append(f"| {reviewer} | {s.prs} | {s.findings} | {s.shared} |")
     else:
         lines.append("No reviews yet.")
     lines += ["", f"Updated on {on.isoformat()}.", ""]
@@ -176,7 +160,7 @@ def _same_counts(saved: Path, data: dict) -> bool:
         return False
     if not isinstance(before, dict):
         return False
-    return before.get("reviewers") == data["reviewers"] and before.get("days") == data["days"]
+    return all(before.get(key) == data[key] for key in ("reviews", "reviewers", "days"))
 
 
 def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -> int:
@@ -187,18 +171,24 @@ def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -
     args = parser.parse_args(argv)
 
     now = now or datetime.now(UTC)
-    comments = collect(api or GhNumbersApi(), args.repo, maintainer=args.maintainer, now=now)
-    stats = aggregate(comments)
+    found = collect(api or GhNumbersApi(), args.repo, maintainer=args.maintainer, now=now)
+    stats = aggregate(found)
+    reviews = {
+        "prs": len({r.pr for r in found}),
+        "up": sum(r.up for r in found),
+        "down": sum(r.down for r in found),
+    }
     data = {
         "updated": now.date().isoformat(),
         "days": SINCE_DAYS,
+        "reviews": reviews,
         "reviewers": {name: asdict(s) for name, s in stats.items()},
     }
     saved = args.out / "numbers.json"
     if _same_counts(saved, data) and (args.out / "numbers.md").exists():
         return 0  # only the date would differ: leave both files so the job commits nothing
     saved.write_text(json.dumps(data, indent=2) + "\n")
-    (args.out / "numbers.md").write_text(render(stats, now.date()))
+    (args.out / "numbers.md").write_text(render(stats, reviews, now.date()))
     return 0
 
 

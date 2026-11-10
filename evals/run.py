@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugins/kitden-sdlc"
-# The same tools as .github/workflows/review-claude.yml (tests/test_run.py checks it).
+# The same tools as .github/workflows/review.yml (tests/test_run.py checks it).
 ALLOWED = "Read(./**),Edit(./.review/**)"
 DISALLOWED = (
     "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-sdlc/**),"
@@ -73,7 +73,7 @@ def claude_command(model: str) -> list[str]:
 
 
 def luna_command(model: str, answer: Path) -> list[str]:
-    """As review-luna.yml runs codex-action. Flags written from the workflow, not checked
+    """As review.yml runs codex-action. Flags written from the workflow, not checked
     against `codex exec --help`; check them before the first run."""
     prompt = (ROOT / "prompts/review-luna.md").read_text()
     return [

@@ -3,7 +3,7 @@ import yaml
 from check_agent_workflows import check_workflow, is_agent_workflow, main
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
-REVIEW = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/review-claude.yml"
+REVIEW = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/review.yml"
 CHECK = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/check.yml"
 SWITCH = (
     "vars.AGENTS_ENABLED == 'true'"
@@ -98,7 +98,7 @@ def test_tag_pinned_action_is_rule_4():
 
 
 def test_tag_pinned_caller_is_rule_4():
-    text = CLEAN_CALLER.replace("review-claude.yml@SHA", "review-claude.yml@main")
+    text = CLEAN_CALLER.replace("review.yml@SHA", "review.yml@main")
     assert any("rule 4" in v for v in run(text))
 
 

@@ -5,11 +5,11 @@
   "additionalProperties": false,
   "required": ["summary", "new_surface", "findings"],
   "properties": {
-    "summary": {"type": "string", "maxLength": 1200},
+    "summary": {"type": "string", "maxLength": 300},
     "new_surface": {"type": "array", "items": {"type": "string"}},
     "findings": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 5,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -18,7 +18,7 @@
           "path": {"type": "string"},
           "line": {"type": "integer", "minimum": 1},
           "kind": {"enum": ["bug", "rule"]},
-          "text": {"type": "string", "maxLength": 600}
+          "text": {"type": "string", "maxLength": 300}
         }
       }
     }

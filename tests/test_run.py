@@ -11,7 +11,7 @@ def git(*args, cwd):
 
 
 def test_claude_runs_with_the_workflows_tools():
-    workflow = (WORKFLOWS / "review-claude.yml").read_text()
+    workflow = (WORKFLOWS / "review.yml").read_text()
     assert f'--allowedTools "{run.ALLOWED}"' in workflow
     assert f'--disallowedTools "{run.DISALLOWED}"' in workflow
     assert "prompt: /kitden-sdlc:review-kitden\n" in workflow
@@ -22,7 +22,7 @@ def test_claude_runs_with_the_workflows_tools():
 
 
 def test_luna_uses_the_workflows_codex_and_schema():
-    workflow = (WORKFLOWS / "review-luna.yml").read_text()
+    workflow = (WORKFLOWS / "review.yml").read_text()
     assert f'codex-version: "{run.CODEX[2].rsplit("@", 1)[1]}"' in workflow
     command = run.luna_command("gpt-6-luna", Path("answer.json"))
     assert Path(command[command.index("--output-schema") + 1]).name in workflow

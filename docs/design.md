@@ -63,8 +63,8 @@ new needs the owner. No agent orchestrates the others: GitHub events, labels and
 - A job that holds untrusted text, a secret and write permission at the same time.
 - A reviewer whose rules a pull request can change. What a pull request is judged by comes
   from `kitden-sdlc` at a fixed point or from the base branch of `kitden`.
-- Review noise: style remarks, a new comment on every push, more than one summary per reviewer
-  per pull request.
+- Review noise: style remarks, a new comment on every push, more than one review comment per
+  pull request.
 - Agents quietly using up the owner's Max limit, or going past $5 a month on the OpenAI key.
 - A blocked merge because an agent is down. Neither review is a required check (call).
 - A showcase written as a portfolio piece. The second repository describes a working system
@@ -125,7 +125,7 @@ step.
 - A repository variable `AGENTS_ENABLED` in `kitden` (call). Every agent job starts with a
   check of it. Off means no agent runs.
 - Each reviewer: one review per head commit, drafts skipped, 15 minutes at most (call), a label
-  `no-agent-review` to skip one pull request (call), and at most 10 reviews a day per reviewer,
+  `no-agent-review` to skip one pull request (call), and at most 10 reviews a day,
   counted by a step without a model (call).
 - OpenAI: a key made for this project only, with a $5 monthly budget set in the OpenAI
   dashboard (owner). When the budget is hit the Luna job fails and nothing else changes.
@@ -162,12 +162,15 @@ comparison in part 6.
   both reviewers (call).
 - One model through `--model`: Sonnet 5.5 or Opus 5.5, chosen by part 6.
 - It looks for bugs first, then for breaks of Kitden's own rules in AGENTS.md (every change
-  goes through preview, Apply with a backup, verify, Undo; tests use sandbox homes). Each
-  finding is one inline comment with the file and line; at most five per push (call). Findings
-  already posted are not repeated.
-- One summary comment, edited in place on later pushes. Until a product guard exists, the
-  summary says when a change adds something a user can see or set: a route, a command, a
-  setting, a page element, a dependency. This is a note for the owner, not a verdict (call).
+  goes through preview, Apply with a backup, verify, Undo; tests use sandbox homes). At most
+  five findings (call). The skill follows the method of Anthropic's `code-review` plugin:
+  only what is surely wrong, each finding checked before it is kept (owner, 2026-11-10).
+- One review comment per pull request for both reviewers, with no inline comments, edited in
+  place on later pushes (owner, 2026-11-10: no comment spam, one short plain review). Each
+  finding is one line with a link to the file and line; a finding both reviewers made is
+  listed once. Until a product guard exists, the comment says when a change adds something a
+  user can see or set: a route, a command, a setting, a page element, a dependency. This is
+  a note for the owner, not a verdict (call).
 - It never approves, requests changes or pushes.
 
 ### 5. The Luna reviewer
@@ -178,10 +181,11 @@ part 7 measures it.
 - `openai/codex-action` with `model: gpt-6-luna`, in the two-job shape of the action's README.
   The first job has `contents: read`, the key and `safety-strategy: read-only` (call), and
   writes its findings to a file in a fixed schema: file, line, what is wrong. The second job
-  has no model and no key and has `pull-requests: write`. It posts one inline comment per
-  finding, so each can get its own thumb as Claude's do, and one summary comment that it edits
-  in place on later pushes. A finding it already posted is not posted again (call).
-- At most five findings per push, bugs only (call).
+  has no model and no key and has `pull-requests: write`. It puts Luna's and Claude's
+  findings into the one review comment (part 4). Both reviewers run in one workflow,
+  `review.yml` (call).
+- At most five findings, bugs only (call). The prompt follows the review rubric of OpenAI's
+  Codex, so the two reviewers work by different methods (owner, 2026-11-10).
 - Its prompt is a file in `kitden-sdlc`. `kitden`'s AGENTS.md is not changed for it.
 - At $0.10 and $0.50 per million tokens the $5 budget should be far more than a month of
   reviews. This is an expectation, not a measurement.
@@ -205,12 +209,12 @@ from real failures.
 
 ### 7. The numbers
 
-- The owner marks an agent's finding with a thumbs-up when it was useful and a thumbs-down
-  when it was wrong or noise (call).
-- A weekly job in `kitden-sdlc`, a plain script with no model, counts per reviewer the pull
-  requests reviewed, the findings, the thumbs up and down, and commits the result.
-- The job does not match Luna's findings against Claude's. The owner sees both on the pull
-  request; "useful findings per reviewer" is the number the Luna decision rests on (call).
+- The owner marks the review comment with a thumbs-up when it was useful and a thumbs-down
+  when it was wrong or noise (call). With one comment there is no thumb per finding.
+- A weekly job in `kitden-sdlc`, a plain script with no model, counts the reviews and their
+  thumbs, and per reviewer the pull requests answered, the findings, and how many of them
+  the other reviewer made too. It commits the result.
+- What Luna finds that Claude does not is the number the Luna decision rests on (call).
 - OpenAI cost is copied from the dashboard once a month by hand (call).
 - Thirty days in, the owner reads the table and decides whether Luna stays.
 
