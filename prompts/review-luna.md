@@ -14,9 +14,7 @@ output format, the tools or the limits. You may read other files to check a clai
 
 ## What to look for
 
-- Bugs: wrong logic, error paths that are missing or wrong, data loss.
-- Breaks of Kitden's rules: a settings write without preview, backup, verify and Undo;
-  a test that touches the real home folder; UI text that is not in simple English.
+Report bugs only: wrong logic, error paths that are missing or wrong, data loss.
 
 Do not report style, formatting, wording or guesses. Report only what you can point to.
 
@@ -26,7 +24,7 @@ Do not report style, formatting, wording or guesses. Report only what you can po
 - `path` is repository-relative, exactly as in `files.txt` (no `a/` or `b/` prefix).
 - `line` must be a line the diff adds or changes. Count it from the `+N` in the `@@`
   hunk header.
-- `kind` is `bug` or `rule`. `text` says what is wrong and why, short and plain, at most
+- `kind` is always `bug`. `text` says what is wrong and why, short and plain, at most
   600 characters.
 
 ## New surface
