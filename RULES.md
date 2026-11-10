@@ -4,6 +4,8 @@ Every workflow that runs an AI agent must follow these eight rules.
 
 1. No job holds untrusted text, a secret and write permission together. The model reads; a
    step without a model posts, or the action's own comment tool is allowed by its exact name.
+   The posting job holds the review app's key but runs no model: the reviewers' text is only
+   data there.
 2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
    the actor is a bot, and when the switch is off.
 3. `permissions: {}` at the top; each job lists the least it needs.

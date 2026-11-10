@@ -1,6 +1,5 @@
 {
   "summary": "Adds a retry to the sync job. One real bug and one rule slip.",
-  "new_surface": ["New setting `sync.retries` in the config file"],
   "findings": [
     {
       "path": "src/sync.py",

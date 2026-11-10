@@ -45,9 +45,9 @@ the diff, builds `.review/` as `scripts/prepare_review.sh` does (the title becom
 `AGENTS.md` and `PRINCIPLES.md` come from `base`), runs the reviewer there and removes the
 worktree. It saves `<out>/<task-id>/findings.json`, `seconds` and `log.txt`.
 
-Claude runs as in `review-claude.yml`: the `review-kitden` skill, the same tools and 30 turns.
+Claude runs as in `review.yml`: the `review-kitden` skill, the same tools and 30 turns.
 It also gets `--setting-sources project,local --strict-mcp-config`, so this computer's own
-settings and MCP servers stay out, as they are in CI. Luna runs as in `review-luna.yml`; its
+settings and MCP servers stay out, as they are in CI. Luna runs as in `review.yml`; its
 `codex exec` flags were written from the workflow and not yet checked, so run
 `npx -y @openai/codex@0.167.0 exec --help` first. It needs `OPENAI_API_KEY`.
 

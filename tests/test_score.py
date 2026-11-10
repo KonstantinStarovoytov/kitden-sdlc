@@ -6,7 +6,7 @@ DEFECT = {"path": "src/kitden/apply.py", "line": 40, "text": "Writes without a b
 
 
 def report(*findings, summary="Adds a thing."):
-    return {"summary": summary, "new_surface": [], "findings": list(findings)}
+    return {"summary": summary, "findings": list(findings)}
 
 
 def finding(path, line):

@@ -28,7 +28,7 @@ mkdir .review
 
 # Report a change the reviewer will not read, and stop.
 skip_with() {
-  printf '{"summary":"%s","new_surface":[],"findings":[]}\n' "$1" > .review/findings.json
+  printf '{"summary":"%s","findings":[]}\n' "$1" > .review/findings.json
   echo "skip=true" >> "$OUT"
   exit 0
 }

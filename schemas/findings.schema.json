@@ -3,13 +3,12 @@
   "title": "Findings of an AI reviewer",
   "type": "object",
   "additionalProperties": false,
-  "required": ["summary", "new_surface", "findings"],
+  "required": ["summary", "findings"],
   "properties": {
-    "summary": {"type": "string", "maxLength": 1200},
-    "new_surface": {"type": "array", "items": {"type": "string"}},
+    "summary": {"type": "string", "maxLength": 300},
     "findings": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 5,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -18,7 +17,7 @@
           "path": {"type": "string"},
           "line": {"type": "integer", "minimum": 1},
           "kind": {"enum": ["bug", "rule"]},
-          "text": {"type": "string", "maxLength": 600}
+          "text": {"type": "string", "maxLength": 300}
         }
       }
     }
