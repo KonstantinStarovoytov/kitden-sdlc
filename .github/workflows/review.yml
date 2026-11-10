@@ -43,7 +43,9 @@ jobs:
         # Today's other runs that did or do work: cancelled and skipped runs do not count,
         # runs still going do. This run is left out, so at the cap it stops.
         run: |
-          runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$GITHUB_WORKFLOW" \
+          # The caller's file name: a workflow's name can change, its file does not.
+          file="${GITHUB_WORKFLOW_REF%@*}"
+          runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "${file##*/}" \
             --created ">=$(date -u +%F)" --limit 100 --json databaseId,conclusion,status \
             --jq '[.[] | select((.databaseId | tostring) != env.RUN_ID
               and .conclusion != "cancelled" and .conclusion != "skipped")] | length')"
