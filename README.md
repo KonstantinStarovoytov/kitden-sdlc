@@ -72,7 +72,7 @@ Then, once:
 3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`.
 4. Set the variable `AGENTS_ENABLED` to `true`.
 5. Optional: to post the comment under a bot's own name, create a GitHub App with write
-   access to pull requests, install it on the repository, and save its id as the variable
-   `AGENTS_APP_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's app
+   access to pull requests, install it on the repository, and save its client id as the variable
+   `AGENTS_APP_CLIENT_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's app
    is called Lantern. Without an app the comment comes from `github-actions`. With your own
    app, put its bot name into `BOTS` in `post_findings.py`.

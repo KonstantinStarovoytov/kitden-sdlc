@@ -251,7 +251,7 @@ Settings and secrets; neither the builder nor an agent does these.
 - Runs `claude setup-token` and saves the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 - Creates the OpenAI project key with its $5 budget and saves it as `OPENAI_API_KEY`.
 - Sets `AGENTS_ENABLED`.
-- Creates and installs the GitHub App Lantern; saves `AGENTS_APP_ID` and `AGENTS_APP_PRIVATE_KEY`.
+- Creates and installs the GitHub App Lantern; saves `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY`.
 - Approves `PRINCIPLES.md`.
 
 ## Left to the builder
