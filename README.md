@@ -46,7 +46,7 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    can run shell commands, but only in a read-only sandbox without network, and it can read more
    than the checkout.
 7. Secrets arrive as named inputs and are never printed; the two keys never share a job.
-8. Every comment starts with one line saying it is automated and which model wrote it.
+8. Every comment starts with the title "Agent review", so it is clear an agent wrote it.
 
 ## What went wrong
 

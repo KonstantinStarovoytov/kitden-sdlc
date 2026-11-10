@@ -111,7 +111,7 @@ from another repository at a fixed point.
    only file writes go to the findings folder on the runner.
 7. A secret reaches a job as a named input and is never printed. The Claude token and the
    OpenAI key are never in the same job.
-8. An agent's comment starts with one line saying it is automated and which model wrote it.
+8. An agent's comment starts with the title "Agent review", so it is clear an agent wrote it.
 
 The checker (call): `actionlint` and `zizmor` run as ordinary CI steps in both repositories,
 and a small script fails any workflow that uses `claude-code-action` or `codex-action` and
