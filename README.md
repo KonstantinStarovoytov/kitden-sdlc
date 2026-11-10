@@ -40,49 +40,86 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 ## What went wrong
 
 Building this broke the first versions in several ways. [LOG.md](LOG.md) tells what failed and
-what changed. The design is in [docs/design.md](docs/design.md).
+what changed. The design is in [docs/design.md](docs/design.md) and the plan in [docs/plan.md](docs/plan.md).
 
 ## Copy this
 
-Two small files in your repository call the shared workflows. Pin `<sha>` to a commit of this
-repository.
+Put these two files in your repository's `.github/workflows/`. They are the ones Kitden uses;
+change the model, and the `uses` commits to the one you trust.
+
+`agents-review.yml`
 
 ```yaml
-# .github/workflows/agents-review.yml
 name: Agent reviews
+
 on:
   pull_request:
+    branches: [main] # judged by main's PRINCIPLES.md and AGENTS.md
     types: [opened, synchronize, reopened, ready_for_review]
+
 permissions: {}
+
 concurrency:
   group: agents-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
 jobs:
   claude:
+    # Only with the switch on, only for branches in this repository, never for bots,
+    # drafts, or pull requests labelled no-agent-review.
     if: >-
       vars.AGENTS_ENABLED == 'true'
       && github.event.pull_request.head.repo.full_name == github.repository
-      && !endsWith(github.actor, '[bot]') && !github.event.pull_request.draft
+      && !endsWith(github.actor, '[bot]')
+      && !github.event.pull_request.draft
       && !contains(github.event.pull_request.labels.*.name, 'no-agent-review')
-    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/review-claude.yml@<sha>
-    permissions: { contents: read, pull-requests: write, actions: read }
-    with: { model: claude-sonnet-5-5 }
-    secrets: { claude_code_oauth_token: "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}" }
-  # luna: the same job with review-luna.yml and
-  #   secrets: { openai_api_key: "${{ secrets.OPENAI_API_KEY }}" }   (no `with`)
+    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/review-claude.yml@ea71575bb84738473a3de6908d2d3563623138ea
+    permissions:
+      contents: read # the reviewer reads the code
+      pull-requests: write # it posts comments
+      actions: read # it counts today's runs
+    with:
+      model: claude-sonnet-5-5
+    secrets:
+      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  luna:
+    # Same conditions as the claude job above.
+    if: >-
+      vars.AGENTS_ENABLED == 'true'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && !endsWith(github.actor, '[bot]')
+      && !github.event.pull_request.draft
+      && !contains(github.event.pull_request.labels.*.name, 'no-agent-review')
+    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/review-luna.yml@ea71575bb84738473a3de6908d2d3563623138ea
+    permissions:
+      contents: read # the reviewer reads the code
+      pull-requests: write # it posts comments
+      actions: read # it counts today's runs
+    secrets:
+      openai_api_key: ${{ secrets.OPENAI_API_KEY }}
 ```
 
+`agents-check.yml`
+
 ```yaml
-# .github/workflows/agents-check.yml
-name: Agent workflow check
+name: Check agent workflows
+
 on:
   pull_request:
     paths: [".github/workflows/**"]
+
 permissions: {}
+
+concurrency:
+  group: agents-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   check:
-    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/check.yml@<sha>
-    permissions: { contents: read }
+    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/check.yml@beec5f385050df81071b6ef77c95df3da40af56a
+    permissions:
+      contents: read # check out the code
 ```
 
 Then, once:
