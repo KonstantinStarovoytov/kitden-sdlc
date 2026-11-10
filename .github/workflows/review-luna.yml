@@ -30,11 +30,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DAILY_CAP: ${{ inputs.daily_cap }}
+          RUN_ID: ${{ github.run_id }}
+        # Today's other runs that did or do work: cancelled and skipped runs do not count,
+        # runs still going do. This run is left out, so at the cap it stops.
         run: |
           runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$GITHUB_WORKFLOW" \
-            --created ">=$(date -u +%F)" --limit 100 --json databaseId --jq length)"
-          echo "Runs today: $runs (cap $DAILY_CAP)"
-          if [ "$runs" -gt "$DAILY_CAP" ]; then
+            --created ">=$(date -u +%F)" --limit 100 --json databaseId,conclusion,status \
+            --jq '[.[] | select((.databaseId | tostring) != env.RUN_ID
+              and .conclusion != "cancelled" and .conclusion != "skipped")] | length')"
+          echo "Runs today before this one: $runs (cap $DAILY_CAP)"
+          if [ "$runs" -ge "$DAILY_CAP" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -51,6 +56,16 @@ jobs:
     outputs:
       findings: ${{ steps.luna.outputs.final-message }}
     steps:
+      # Without these two the checkout below would fall back to the pull request's code.
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
       - name: Check out the pull request
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -118,6 +133,16 @@ jobs:
     permissions:
       pull-requests: write # post the comments
     steps:
+      # Without these two the checkout below would fall back to the pull request's code.
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
       - name: Check out kitden-agents
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -131,7 +156,7 @@ jobs:
         with:
           name: findings-luna
       # The model's answer is text from outside: it goes through env, never into the script.
-      # No answer and no notice means nothing to post; post_findings.py then posts nothing.
+      # No answer and no notice: post_findings.py says the reviewer gave no usable answer.
       - name: Save the findings
         env:
           FINDINGS: ${{ needs.review.outputs.findings }}

@@ -46,9 +46,17 @@ The first versions broke in several ways: [LOG.md](LOG.md). The design is in
 
 Put [agents-review.yml](examples/agents-review.yml) and [agents-check.yml](examples/agents-check.yml)
 in your `.github/workflows/`. They are Kitden's own files; the `uses` pins are bumped at each
-release. Then, once:
+release.
 
-1. Create the repository.
+- `kitden-agents`, or your copy of it, must be public: another repository's `uses` cannot
+  reach a private one.
+- The review skill, the Luna prompt and `count_reviews.py` (`REPO`, `MAINTAINER`) are about
+  Kitden. Rewrite them for your project.
+- The model and the `uses` pins in the caller files are Kitden's choices. Change them to yours.
+
+Then, once:
+
+1. Create the repository `kitden-agents` (or your copy) on GitHub.
 2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`.
 4. Set the variable `AGENTS_ENABLED` to `true`.

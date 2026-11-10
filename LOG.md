@@ -29,3 +29,17 @@ Problems found while building the reviewers, and what changed because of each.
   run no longer looks like a clean pass.
 - **The plan named a script `numbers.py`,** which shadows Python's own `numbers` module. It is
   `count_reviews.py`.
+- **A reviewer that gave no answer looked like a clean pass.** A missing or broken findings
+  file ended green and silent, and one over-long text threw away the whole review. Now the
+  summary comment says the reviewer gave no usable answer, and long text is cut instead.
+- **The same finding came back on every push.** When lines moved, the finding got a new key
+  and was posted again. Now a finding within 5 lines of one already posted, in the same file
+  and of the same kind, is skipped.
+- **Model text could ping real people.** `@pytest.fixture` in a finding would notify a GitHub
+  user named `pytest`. Now an `@` that starts a word gets an invisible joiner after it.
+- **Claude would read instruction files the pull request adds.** A `CLAUDE.md` or `.claude`
+  folder in a subfolder was loaded as instructions. They are now deleted before Claude runs;
+  the root ones come from the base branch.
+- **The daily cap counted the wrong runs.** Cancelled and skipped runs used up the cap, and
+  the check let one run too many through. Now only runs that did work count, and the cap is
+  exact.

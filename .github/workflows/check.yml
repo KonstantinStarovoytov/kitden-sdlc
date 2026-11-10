@@ -15,6 +15,16 @@ jobs:
     permissions:
       contents: read # check out the code
     steps:
+      # Without these two the checkout below would fall back to the pull request's code.
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
       # The pull request's files are untrusted: only the pinned tools and the
       # kitden-agents script run on them, never anything the pull request brings.
       - name: Check out the pull request

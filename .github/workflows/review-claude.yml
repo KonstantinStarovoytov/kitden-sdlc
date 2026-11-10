@@ -35,11 +35,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DAILY_CAP: ${{ inputs.daily_cap }}
+          RUN_ID: ${{ github.run_id }}
+        # Today's other runs that did or do work: cancelled and skipped runs do not count,
+        # runs still going do. This run is left out, so at the cap it stops.
         run: |
           runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$GITHUB_WORKFLOW" \
-            --created ">=$(date -u +%F)" --limit 100 --json databaseId --jq length)"
-          echo "Runs today: $runs (cap $DAILY_CAP)"
-          if [ "$runs" -gt "$DAILY_CAP" ]; then
+            --created ">=$(date -u +%F)" --limit 100 --json databaseId,conclusion,status \
+            --jq '[.[] | select((.databaseId | tostring) != env.RUN_ID
+              and .conclusion != "cancelled" and .conclusion != "skipped")] | length')"
+          echo "Runs today before this one: $runs (cap $DAILY_CAP)"
+          if [ "$runs" -ge "$DAILY_CAP" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -54,6 +59,16 @@ jobs:
       contents: read # check out the code
       pull-requests: read # read the diff and the description
     steps:
+      # Without these two the checkout below would fall back to the pull request's code.
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
       - name: Check out the pull request
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -77,6 +92,15 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: .kitden-agents/scripts/prepare_review.sh "$PR_NUMBER" "$BASE_REF"
+      # Claude would read CLAUDE.md files and .claude folders the pull request adds in
+      # subfolders; the root ones are put back from the base branch by the action.
+      - name: Remove the pull request's nested Claude files
+        if: steps.prepare.outputs.skip != 'true'
+        run: >-
+          find . \( -path ./.git -o -path ./.review -o -path ./.kitden-agents
+          -o -path ./.claude -o -path ./CLAUDE.md \) -prune
+          -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name .claude \)
+          -print -prune -exec rm -rf {} +
       - name: Review
         if: steps.prepare.outputs.skip != 'true'
         uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
@@ -106,13 +130,23 @@ jobs:
     permissions:
       pull-requests: write # post the comments
     steps:
+      # Without these two the checkout below would fall back to the pull request's code.
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
       - name: Check out kitden-agents
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           persist-credentials: false
-      # No file means the reviewer wrote nothing; post_findings.py then posts nothing.
+      # No file means the reviewer wrote nothing; post_findings.py then says so.
       - name: Get the findings
         continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
