@@ -11,15 +11,15 @@ the secrets are set up. There are no live numbers yet; [numbers.md](numbers.md) 
 
 | Agent | Runs when | Model | May do | Limits |
 |---|---|---|---|---|
-| `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus (picked by [the review tasks](evals/README.md)), on a Max subscription | read the checkout, write findings, post comments | see below |
-| `luna` reviewer | the same | GPT-6 Luna, on a project API key with a $5 monthly budget | read in a sandbox with no network, post comments | see below |
+| `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](evals/README.md); meant to run on a Max subscription, once set up | read the checkout, write findings, post comments | see below |
+| `luna` reviewer | the same | GPT-6 Luna; meant to run on a project API key with a $5 monthly budget, once set up | read in a sandbox with no network, post comments | see below |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
-| weekly numbers | every Monday | none | count reviews, commit `numbers.md` | no model, no pull request code |
+| weekly numbers | every Monday | none | count reviews, commit `numbers.md` and `numbers.json` | no model, no pull request code |
 
-Limits for both reviewers: 15 minutes, 5 findings per push, 10 reviews a day, fork pull
-requests and bots skipped, the `AGENTS_ENABLED` variable switches everything off, and the label
-`no-agent-review` skips one pull request. A reviewer only comments: it never approves and
-never blocks ([merge policy](MERGE_POLICY.md)).
+Limits for both reviewers: 15 minutes, 5 findings per push, at most 10 runs a day (both
+reviewers share the count), fork pull requests and bots skipped, the `AGENTS_ENABLED`
+variable switches everything off, and the label `no-agent-review` skips one pull request. A
+reviewer only comments: it never approves and never blocks ([merge policy](MERGE_POLICY.md)).
 
 ## The rules
 
@@ -39,90 +39,14 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 
 ## What went wrong
 
-Building this broke the first versions in several ways. [LOG.md](LOG.md) tells what failed and
-what changed. The design is in [docs/design.md](docs/design.md) and the plan in [docs/plan.md](docs/plan.md).
+The first versions broke in several ways: [LOG.md](LOG.md). The design is in
+[docs/design.md](docs/design.md) and the plan in [docs/plan.md](docs/plan.md).
 
 ## Copy this
 
-Put these two files in your repository's `.github/workflows/`. They are the ones Kitden uses;
-change the model, and the `uses` commits to the one you trust.
-
-`agents-review.yml`
-
-```yaml
-name: Agent reviews
-
-on:
-  pull_request:
-    branches: [main] # judged by main's PRINCIPLES.md and AGENTS.md
-    types: [opened, synchronize, reopened, ready_for_review]
-
-permissions: {}
-
-concurrency:
-  group: agents-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
-jobs:
-  claude:
-    # Only with the switch on, only for branches in this repository, never for bots,
-    # drafts, or pull requests labelled no-agent-review.
-    if: >-
-      vars.AGENTS_ENABLED == 'true'
-      && github.event.pull_request.head.repo.full_name == github.repository
-      && !endsWith(github.actor, '[bot]')
-      && !github.event.pull_request.draft
-      && !contains(github.event.pull_request.labels.*.name, 'no-agent-review')
-    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/review-claude.yml@ea71575bb84738473a3de6908d2d3563623138ea
-    permissions:
-      contents: read # the reviewer reads the code
-      pull-requests: write # it posts comments
-      actions: read # it counts today's runs
-    with:
-      model: claude-sonnet-5-5
-    secrets:
-      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-  luna:
-    # Same conditions as the claude job above.
-    if: >-
-      vars.AGENTS_ENABLED == 'true'
-      && github.event.pull_request.head.repo.full_name == github.repository
-      && !endsWith(github.actor, '[bot]')
-      && !github.event.pull_request.draft
-      && !contains(github.event.pull_request.labels.*.name, 'no-agent-review')
-    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/review-luna.yml@ea71575bb84738473a3de6908d2d3563623138ea
-    permissions:
-      contents: read # the reviewer reads the code
-      pull-requests: write # it posts comments
-      actions: read # it counts today's runs
-    secrets:
-      openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-```
-
-`agents-check.yml`
-
-```yaml
-name: Check agent workflows
-
-on:
-  pull_request:
-    paths: [".github/workflows/**"]
-
-permissions: {}
-
-concurrency:
-  group: agents-check-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
-jobs:
-  check:
-    uses: KonstantinStarovoytov/kitden-agents/.github/workflows/check.yml@beec5f385050df81071b6ef77c95df3da40af56a
-    permissions:
-      contents: read # check out the code
-```
-
-Then, once:
+Put [agents-review.yml](examples/agents-review.yml) and [agents-check.yml](examples/agents-check.yml)
+in your `.github/workflows/`. They are Kitden's own files; the `uses` pins are bumped at each
+release. Then, once:
 
 1. Create the repository.
 2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.

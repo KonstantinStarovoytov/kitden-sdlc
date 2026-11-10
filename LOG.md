@@ -11,6 +11,9 @@ Problems found while building the reviewers, and what changed because of each.
   `/proc` are denied, and the poster refuses any text that looks like a token.
 - **The first secret filter was too eager.** It refused honest findings about Kitden's own
   token-redaction code. It now matches only real-looking tokens.
+
+## 2026-11-10
+
 - **The plan's Codex setting was unsafe.** `safety-strategy: read-only` would let the model
   read the OpenAI key from memory, by the action's own docs. Now the default drop-sudo is used,
   with a read-only sandbox and no network.
@@ -20,11 +23,9 @@ Problems found while building the reviewers, and what changed because of each.
   use only this repository's config.
 - **actionlint does not know GitHub's `job.workflow_*` contexts yet.** A narrow ignore sits in
   our own config.
-
-## 2026-11-10
-
-- **Two of the first 24 review tasks were unfair.** One "bug" was harmless because Kitden's
-  tests sandbox `HOME`; the other could not be seen from its diff. Both were replaced. A failed
+- **Four review tasks needed changes.** Two were unfair and were replaced: one
+  "bug" was harmless because Kitden's tests sandbox `HOME`; the other could not be seen from
+  its diff. A failed
   run no longer looks like a clean pass.
 - **The plan named a script `numbers.py`,** which shadows Python's own `numbers` module. It is
   `count_reviews.py`.
