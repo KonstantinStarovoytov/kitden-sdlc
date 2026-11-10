@@ -41,5 +41,5 @@ Problems found while building the reviewers, and what changed because of each.
   folder in a subfolder was loaded as instructions. They are now deleted before Claude runs;
   the root ones come from the base branch.
 - **The daily cap counted the wrong runs.** Cancelled and skipped runs used up the cap, and
-  the check let one run too many through. Now only runs that did work count, and the cap is
-  exact.
+  whether the run doing the counting counted itself was left to chance. Now only runs that did
+  work count, the counting run leaves itself out, and a cap of 10 means 10.
