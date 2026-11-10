@@ -39,7 +39,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 1. No job holds untrusted text, a secret and write permission together.
 2. `pull_request` only; skip forks, bots and when the switch is off.
 3. `permissions: {}` at the top; each job asks for the least.
-4. Every action is pinned to a full SHA.
+4. Every action is pinned to a full SHA. The caller may use this repository's workflows at
+   `main`, which is protected.
 5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has no turn
    limit, only the 15 minutes.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Luna

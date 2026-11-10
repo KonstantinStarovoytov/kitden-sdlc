@@ -9,7 +9,9 @@ Every workflow that runs an AI agent must follow these eight rules.
 2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
    the actor is a bot, and when the switch is off.
 3. `permissions: {}` at the top; each job lists the least it needs.
-4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag.
+4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag. The caller
+   may use `kitden-sdlc`'s own workflows at `main`: that branch is protected, so nothing gets
+   there without a pull request.
 5. Every agent job has `timeout-minutes`, a turn limit and `concurrency` with one run per pull
    request, where a newer run cancels the older. Codex (Luna) has no turn limit, only the
    15-minute timeout.

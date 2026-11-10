@@ -13,6 +13,8 @@ SWITCH_PARTS = (
     "!endsWith(github.actor, '[bot]')",
 )
 PINNED = re.compile(r"^[^@\s]+@[0-9a-f]{40}")
+# kitden-sdlc's own workflows may be called at main: that branch is protected.
+OWN_MAIN = re.compile(r"^KonstantinStarovoytov/kitden-sdlc/\.github/workflows/[\w.-]+@main$")
 
 
 def _jobs(doc: dict) -> dict:
@@ -96,8 +98,9 @@ def check_workflow(doc: dict, path: str) -> list[str]:
     # Rule 4: pinned actions and marketplaces.
     for name, job in jobs.items():
         for uses in _uses_values(job):
-            if not uses.startswith("./") and not PINNED.match(uses):
-                found.append((4, f"job {name}: {uses} is not pinned to a full SHA"))
+            if uses.startswith("./") or PINNED.match(uses) or OWN_MAIN.match(uses):
+                continue
+            found.append((4, f"job {name}: {uses} is not pinned to a full SHA"))
         for marketplace in _marketplaces(job):
             if "#" not in marketplace:
                 found.append((4, f"job {name}: marketplace {marketplace} has no tag after #"))

@@ -48,10 +48,12 @@ jobs:
           version: "0.10.10"
           enable-cache: false
       # The first --no-config: a uv.toml in the pull request must not change where uv
-      # installs from. The second, with --no-ignores: .github/zizmor.yml and ignore
+      # installs from. Our settings file and --no-ignores: .github/zizmor.yml and ignore
       # comments in the pull request must not hide findings.
       - name: zizmor
-        run: uvx --no-config zizmor==1.32.0 --no-config --no-ignores .github/workflows
+        run: >-
+          uvx --no-config zizmor==1.32.0 --config .kitden-sdlc/config/zizmor.yml
+          --no-ignores .github/workflows
       # Our empty settings file, because .github/actionlint.yaml in the pull request
       # could ignore errors. It sits in the folder mounted below.
       - name: actionlint
