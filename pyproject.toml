@@ -1,5 +1,5 @@
 [project]
-name = "kitden-agents"
+name = "kitden-sdlc"
 version = "0.1.0"
 description = "The AI agents that review pull requests of the Kitden project."
 readme = "README.md"

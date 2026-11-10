@@ -4,10 +4,10 @@
 
 **Goal:** Two reviewers (Claude on a strong model, GPT-6 Luna through Codex) comment on every
 same-repo pull request of `kitden`, under written rules, a switch and limits, with a shared
-`kitden-agents` repository that holds everything about agents and shows the numbers.
+`kitden-sdlc` repository that holds everything about agents and shows the numbers.
 
 **Architecture:** `kitden` keeps two thin workflow files that call reusable workflows in
-`kitden-agents` at a pinned SHA. Each reviewer is two jobs: a model job that only reads and
+`kitden-sdlc` at a pinned SHA. Each reviewer is two jobs: a model job that only reads and
 writes `.review/findings.json`, and a job without a model that posts the findings as inline
 comments plus one summary. Small Python scripts (checker, poster, counter, eval runner) are
 tested with pytest.
@@ -19,8 +19,8 @@ tested with pytest.
 
 ## Global Constraints
 
-- Two checkouts side by side: `kitden` (this repository) and `../kitden-agents`
-  (`KonstantinStarovoytov/kitden-agents`, public, Apache-2.0). Paths below are relative to
+- Two checkouts side by side: `kitden` (this repository) and `../kitden-sdlc`
+  (`KonstantinStarovoytov/kitden-sdlc`, public, Apache-2.0). Paths below are relative to
   the repository named in the task.
 - Python `>=3.13`, uv, ruff with the same settings as `kitden` (`line-length = 100`). Scripts
   use the standard library; PyYAML is the only extra, dev-only.
@@ -40,9 +40,9 @@ tested with pytest.
   `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`, `gpt-6-luna`; reviewers `claude`
   and `luna`; limits: 5 findings per push, 15 minutes per review, 10 reviews a day per reviewer,
   diff cap 300,000 bytes.
-- Comment marker: `<!-- kitden-agents:{reviewer}:{key} -->`; first line of every comment:
+- Comment marker: `<!-- kitden-sdlc:{reviewer}:{key} -->`; first line of every comment:
   `Automated review by Kitden's {reviewer} reviewer ({model}). 👍 useful · 👎 wrong`.
-- Nothing is pushed to `kitden` or `kitden-agents`, and no pull request is opened, without the
+- Nothing is pushed to `kitden` or `kitden-sdlc`, and no pull request is opened, without the
   owner's go-ahead for that step. Steps marked **(owner)** are the owner's.
 
 ## Review Focus
@@ -59,12 +59,12 @@ tested with pytest.
 
 ---
 
-### Task 1: `kitden-agents` skeleton
+### Task 1: `kitden-sdlc` skeleton
 
-**(owner)** Create the public repository `KonstantinStarovoytov/kitden-agents`, Apache-2.0,
-empty, and clone it to `../kitden-agents`.
+**(owner)** Create the public repository `KonstantinStarovoytov/kitden-sdlc`, Apache-2.0,
+empty, and clone it to `../kitden-sdlc`.
 
-**Files (kitden-agents):**
+**Files (kitden-sdlc):**
 - Create: `pyproject.toml`, `LICENSE`, `.gitignore`, `AGENTS.md`, `RULES.md`, `MERGE_POLICY.md`,
   `README.md` (two lines for now), `tests/__init__.py`, `tests/test_smoke.py`,
   `.github/workflows/checks.yml`
@@ -73,7 +73,7 @@ empty, and clone it to `../kitden-agents`.
 - Produces: `uv run pytest -q`, `uv run ruff check .`; `[tool.pytest.ini_options]
   pythonpath = ["scripts", "evals"]` so tests import scripts as modules.
 
-- [ ] **Step 1: Write `pyproject.toml`**: name `kitden-agents`, `requires-python = ">=3.13"`, no
+- [ ] **Step 1: Write `pyproject.toml`**: name `kitden-sdlc`, `requires-python = ">=3.13"`, no
   dependencies, dev group `pytest>=9.1`, `ruff>=0.16`, `pyyaml>=6`; ruff settings copied from
   `kitden/pyproject.toml`; pytest `testpaths = ["tests"]` and the `pythonpath` above.
 - [ ] **Step 2: Write `RULES.md`**: the eight rules from spec part 2, verbatim, numbered.
@@ -95,12 +95,12 @@ empty, and clone it to `../kitden-agents`.
   `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint@sha256:<digest of latest>`.
 - [ ] **Step 7: Run the checks locally**: `uv sync && uv run pytest -q && uv run ruff check .`
   Expected: 1 passed, no ruff findings.
-- [ ] **Step 8: Commit** "Start kitden-agents: rules, policy and checks". **(owner)** go-ahead
+- [ ] **Step 8: Commit** "Start kitden-sdlc: rules, policy and checks". **(owner)** go-ahead
   to push; then confirm `checks` is green on GitHub.
 
 ### Task 2: Checker for agent workflows
 
-**Files (kitden-agents):**
+**Files (kitden-sdlc):**
 - Create: `scripts/check_agent_workflows.py`, `tests/test_check_agent_workflows.py`
 - Modify: `.github/workflows/checks.yml` (add a step)
 
@@ -108,7 +108,7 @@ empty, and clone it to `../kitden-agents`.
 - Produces: `check_workflow(doc: dict, path: str) -> list[str]` returning violations formatted
   `"{path}: rule {n}: {message}"`; `is_agent_workflow(doc: dict) -> bool` (true when any step
   `uses` contains `anthropics/claude-code-action` or `openai/codex-action`, or any job `uses`
-  contains `kitden-agents/.github/workflows/`); `main(argv: list[str]) -> int` taking files or
+  contains `kitden-sdlc/.github/workflows/`); `main(argv: list[str]) -> int` taking files or
   directories, printing violations, returning 1 if any.
 
 Checks, by rule: (2) no `pull_request_target` anywhere in `on`; a caller job (job-level `uses`)
@@ -140,7 +140,7 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 
 ### Task 3: Findings schema and the posting script
 
-**Files (kitden-agents):**
+**Files (kitden-sdlc):**
 - Create: `schemas/findings.schema.json`, `scripts/post_findings.py`,
   `tests/test_post_findings.py`, `tests/fixtures/findings_ok.json`
 
@@ -190,19 +190,19 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 
 ### Task 4: The `review-kitden` skill and the plugin
 
-**Files (kitden-agents):**
-- Create: `.claude-plugin/marketplace.json`, `plugins/kitden-agents/.claude-plugin/plugin.json`,
-  `plugins/kitden-agents/skills/review-kitden/SKILL.md`
+**Files (kitden-sdlc):**
+- Create: `.claude-plugin/marketplace.json`, `plugins/kitden-sdlc/.claude-plugin/plugin.json`,
+  `plugins/kitden-sdlc/skills/review-kitden/SKILL.md`
 
 **Interfaces:**
-- Produces: plugin `kitden-agents` with skill `review-kitden`, invoked as
-  `/kitden-agents:review-kitden`; it reads `.review/diff.patch`, `.review/files.txt`,
+- Produces: plugin `kitden-sdlc` with skill `review-kitden`, invoked as
+  `/kitden-sdlc:review-kitden`; it reads `.review/diff.patch`, `.review/files.txt`,
   `.review/pr.md`, `.review/PRINCIPLES.md`, `.review/AGENTS.md` and writes
   `.review/findings.json` matching `schemas/findings.schema.json`.
 
-- [ ] **Step 1: Write `plugin.json`** (`name: kitden-agents`, version `0.1.0`, description one
-  line) and `marketplace.json` (`name: kitden-agents`, one plugin entry with `source` as the
-  relative path `./plugins/kitden-agents`), following the plugin docs' current field names.
+- [ ] **Step 1: Write `plugin.json`** (`name: kitden-sdlc`, version `0.1.0`, description one
+  line) and `marketplace.json` (`name: kitden-sdlc`, one plugin entry with `source` as the
+  relative path `./plugins/kitden-sdlc`), following the plugin docs' current field names.
 - [ ] **Step 2: Write `SKILL.md`** (at most 80 lines). Frontmatter: `name: review-kitden`,
   `description: Review a Kitden pull request from the files in .review and write findings.json`,
   `allowed-tools: Read, Grep, Glob, Write(.review/**), Edit(.review/**)`. Body, in this order:
@@ -216,7 +216,7 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   nothing else; never try to run commands.
 - [ ] **Step 3: Smoke test locally** in a scratch clone of `kitden` on a small real diff
   (`git diff HEAD~1 > .review/diff.patch`, plus the other four files by hand):
-  `claude -p "/kitden-agents:review-kitden" --plugin-dir ../kitden-agents/plugins/kitden-agents
+  `claude -p "/kitden-sdlc:review-kitden" --plugin-dir ../kitden-sdlc/plugins/kitden-sdlc
   --model claude-sonnet-5-5 --max-turns 30 --allowedTools "Read,Grep,Glob,Write(.review/**),Edit(.review/**)"
   --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task" --output-format json`.
   Expected: `.review/findings.json` exists and `uv run python scripts/post_findings.py --report
@@ -226,14 +226,14 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   `Edit` outside `.review/`. If the `Write(.review/**)` rule is not honoured, record it in
   RULES.md as "the runner is throwaway; writes outside `.review/` are harmless" and keep
   `Write` allowed. If `--plugin-dir` is not accepted, fall back to `plugin_marketplaces:
-  https://github.com/KonstantinStarovoytov/kitden-agents.git#v0.1.0` plus `plugins:
-  kitden-agents@kitden-agents`, and note it in the spec's "Checked facts".
+  https://github.com/KonstantinStarovoytov/kitden-sdlc.git#v0.1.0` plus `plugins:
+  kitden-sdlc@kitden-sdlc`, and note it in the spec's "Checked facts".
 - [ ] **Step 5: Commit** "The review-kitden skill as a plugin".
 
 ### Task 5: The Claude review workflow and the thin caller
 
 **Files:**
-- Create (kitden-agents): `.github/workflows/review-claude.yml`, `scripts/prepare_review.sh`
+- Create (kitden-sdlc): `.github/workflows/review-claude.yml`, `scripts/prepare_review.sh`
 - Create (kitden): `.github/workflows/agents-review.yml`
 
 **Interfaces:**
@@ -250,15 +250,15 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   `gh run list --repo "$GITHUB_REPOSITORY" --workflow "$GITHUB_WORKFLOW" --created ">=$(date -u
   +%F)" --json databaseId --jq length` → output `skip=true` when above `daily_cap`. `review`
   (`needs: cap`, `if: needs.cap.outputs.skip != 'true'`, `permissions: contents: read,
-  pull-requests: read`, 15 min): checkout caller repo; checkout `KonstantinStarovoytov/kitden-agents`
-  at `${{ github.workflow_sha }}` into `.kitden-agents`; run `prepare_review.sh`; if not skipped,
+  pull-requests: read`, 15 min): checkout caller repo; checkout `KonstantinStarovoytov/kitden-sdlc`
+  at `${{ github.workflow_sha }}` into `.kitden-sdlc`; run `prepare_review.sh`; if not skipped,
   `anthropics/claude-code-action@<sha>` with `claude_code_oauth_token`, `github_token: ${{
-  github.token }}`, `prompt: /kitden-agents:review-kitden`, `claude_args: --model ${{ inputs.model }}
-  --max-turns ${{ inputs.max_turns }} --plugin-dir .kitden-agents/plugins/kitden-agents
+  github.token }}`, `prompt: /kitden-sdlc:review-kitden`, `claude_args: --model ${{ inputs.model }}
+  --max-turns ${{ inputs.max_turns }} --plugin-dir .kitden-sdlc/plugins/kitden-sdlc
   --allowedTools "Read,Grep,Glob,Write(.review/**),Edit(.review/**)" --disallowedTools
   "Bash,WebFetch,WebSearch,NotebookEdit,Task"`; upload `.review/findings.json` as artifact
   `findings-claude`. `post` (`needs: review`, `if: always() && needs.review.result == 'success'`,
-  `permissions: pull-requests: write`, 5 min): checkout `kitden-agents` at `workflow_sha`,
+  `permissions: pull-requests: write`, 5 min): checkout `kitden-sdlc` at `workflow_sha`,
   download the artifact, setup-uv, `uv run --no-project python scripts/post_findings.py
   --report findings.json --repo "$GITHUB_REPOSITORY" --pr <number> --head-sha <head sha>
   --reviewer claude --model ${{ inputs.model }}` with `GH_TOKEN: ${{ github.token }}`.
@@ -268,7 +268,7 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   with `if: vars.AGENTS_ENABLED == 'true' && github.event.pull_request.head.repo.full_name ==
   github.repository && !endsWith(github.actor, '[bot]') && !github.event.pull_request.draft &&
   !contains(github.event.pull_request.labels.*.name, 'no-agent-review')`, `uses:
-  KonstantinStarovoytov/kitden-agents/.github/workflows/review-claude.yml@<sha>`,
+  KonstantinStarovoytov/kitden-sdlc/.github/workflows/review-claude.yml@<sha>`,
   `permissions: contents: read, pull-requests: write, actions: read`, `with: model:
   claude-sonnet-5-5` (placeholder until Task 9), `secrets: claude_code_oauth_token: ${{
   secrets.CLAUDE_CODE_OAUTH_TOKEN }}`.
@@ -278,10 +278,10 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   diff produces the "too large" findings file and `skip=true`.
 - [ ] **Step 2: Write `review-claude.yml`** as specified. Run the checker:
   `uv run python scripts/check_agent_workflows.py .github/workflows`. Expected: exit 0.
-- [ ] **Step 3: Commit (kitden-agents)** "Reusable Claude review workflow". **(owner)**
+- [ ] **Step 3: Commit (kitden-sdlc)** "Reusable Claude review workflow". **(owner)**
   go-ahead to push; note the commit SHA.
 - [ ] **Step 4: Write `agents-review.yml` in `kitden`** with that SHA. Run the checker on it from
-  `../kitden-agents`: `uv run python scripts/check_agent_workflows.py
+  `../kitden-sdlc`: `uv run python scripts/check_agent_workflows.py
   ../kitden/.github/workflows/agents-review.yml`. Expected: exit 0.
 - [ ] **Step 5 (owner):** add the secret `CLAUDE_CODE_OAUTH_TOKEN` and the variable
   `AGENTS_ENABLED=true` in `kitden`, and give the go-ahead for a test branch.
@@ -291,22 +291,22 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   reviewer, each starting with the fixed first line. Push a second commit: the summary is
   updated, no duplicate inline comments. Add the `no-agent-review` label and push: the job is
   skipped. Close the pull request.
-- [ ] **Step 7: Commit (kitden)** "Claude reviews pull requests from kitden-agents".
+- [ ] **Step 7: Commit (kitden)** "Claude reviews pull requests from kitden-sdlc".
 
 ### Task 6: The Luna review workflow
 
 **Files:**
-- Create (kitden-agents): `prompts/review-luna.md`, `.github/workflows/review-luna.yml`
+- Create (kitden-sdlc): `prompts/review-luna.md`, `.github/workflows/review-luna.yml`
 - Modify (kitden): `.github/workflows/agents-review.yml` (add the `luna` job)
 
 **Interfaces:**
 - `review-luna.yml`: `on: workflow_call` with input `daily_cap` (default 10) and secret
   `openai_api_key` (required). Jobs `cap` and `post` as in Task 5 with `--reviewer luna --model
   gpt-6-luna`. `review` (`permissions: contents: read, pull-requests: read`, 15 min): checkout
-  caller repo, checkout `kitden-agents` at `workflow_sha`, `prepare_review.sh`, then
+  caller repo, checkout `kitden-sdlc` at `workflow_sha`, `prepare_review.sh`, then
   `openai/codex-action@<sha>` as the last step with `openai-api-key`, `model: gpt-6-luna`,
-  `prompt-file: .kitden-agents/prompts/review-luna.md`, `output-schema-file:
-  .kitden-agents/schemas/findings.schema.json`, `safety-strategy: read-only`; the job output
+  `prompt-file: .kitden-sdlc/prompts/review-luna.md`, `output-schema-file:
+  .kitden-sdlc/schemas/findings.schema.json`, `safety-strategy: read-only`; the job output
   `findings` is the action's final-message output (its exact name is in the action's
   `action.yml`; the README calls it `final_message`). The `post` job writes that output to
   `findings.json` before running the script.
@@ -319,11 +319,11 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 
 - [ ] **Step 1: Write `prompts/review-luna.md`**. Smoke test locally in the scratch clone with
   `.review/` filled: `codex exec --model gpt-6-luna --sandbox read-only --output-schema
-  ../kitden-agents/schemas/findings.schema.json "$(cat ../kitden-agents/prompts/review-luna.md)"`
+  ../kitden-sdlc/schemas/findings.schema.json "$(cat ../kitden-sdlc/prompts/review-luna.md)"`
   (flag names per `codex exec --help`). Expected: the final message is a JSON object that
   `post_findings.py --dry-run` accepts.
 - [ ] **Step 2: Write `review-luna.yml`**; run the checker. Expected: exit 0.
-- [ ] **Step 3: Commit (kitden-agents)** "Reusable Luna review workflow". **(owner)** go-ahead
+- [ ] **Step 3: Commit (kitden-sdlc)** "Reusable Luna review workflow". **(owner)** go-ahead
   to push; note the SHA.
 - [ ] **Step 4 (owner):** create the OpenAI project key with a $5 monthly budget and add it as
   `OPENAI_API_KEY` in `kitden`.
@@ -359,20 +359,20 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 ### Task 8: The checker runs in `kitden`
 
 **Files:**
-- Create (kitden-agents): `.github/workflows/check.yml`
+- Create (kitden-sdlc): `.github/workflows/check.yml`
 - Create (kitden): `.github/workflows/agents-check.yml`
 
 **Interfaces:**
 - `check.yml`: `on: workflow_call`; one job `check` (`permissions: contents: read`, 10 min):
-  checkout caller repo; checkout `kitden-agents` at `workflow_sha`; setup-uv; `uvx
+  checkout caller repo; checkout `kitden-sdlc` at `workflow_sha`; setup-uv; `uvx
   zizmor==<version> .github/workflows`; actionlint through the pinned docker image; `uv run
-  --no-project --with pyyaml python .kitden-agents/scripts/check_agent_workflows.py
+  --no-project --with pyyaml python .kitden-sdlc/scripts/check_agent_workflows.py
   .github/workflows`.
 - `agents-check.yml` in `kitden`: `on: pull_request: paths: [".github/workflows/**"]`,
   `permissions: {}`, job `check` `uses: .../check.yml@<sha>`, `permissions: contents: read`.
 
 - [ ] **Step 1: Write both files**; run the checker on each. Expected: exit 0.
-- [ ] **Step 2: Commit (kitden-agents)** "Reusable workflow check"; **(owner)** push; bump the
+- [ ] **Step 2: Commit (kitden-sdlc)** "Reusable workflow check"; **(owner)** push; bump the
   SHA in `agents-check.yml`.
 - [ ] **Step 3: Live check** on the next `kitden` pull request that touches a workflow: the
   `check` job runs and is green. Then break a copy on purpose in a branch (`@v1` pin): the job
@@ -381,7 +381,7 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 
 ### Task 9: Review tasks and the model choice
 
-**Files (kitden-agents):**
+**Files (kitden-sdlc):**
 - Create: `evals/README.md`, `evals/run.py`, `evals/score.py`, `tests/test_score.py`,
   `evals/tasks/<id>/task.json` and `evals/tasks/<id>/diff.patch` for 24 tasks,
   `evals/results/<date>/table.md`
@@ -429,7 +429,7 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 
 ### Task 10: The numbers
 
-**Files (kitden-agents):**
+**Files (kitden-sdlc):**
 - Create: `scripts/numbers.py`, `tests/test_numbers.py`, `.github/workflows/numbers.yml`,
   `numbers.md`, `numbers.json`
 
@@ -460,7 +460,7 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
 
 ### Task 11: Showcase README, log and first release
 
-**Files (kitden-agents):**
+**Files (kitden-sdlc):**
 - Modify: `README.md`; Create: `LOG.md`
 - Modify (kitden): `.github/workflows/agents-review.yml`, `.github/workflows/agents-check.yml`
   (SHAs of the release commit)
@@ -472,9 +472,9 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   "portfolio".
 - [ ] **Step 2: Write `LOG.md`** with dated entries from Tasks 5, 6, 8 and 9: what failed on the
   first live runs and what changed because of it.
-- [ ] **Step 3: Tag `v0.1.0`** on `kitden-agents` **(owner)**, protected by a tag ruleset; set
+- [ ] **Step 3: Tag `v0.1.0`** on `kitden-sdlc` **(owner)**, protected by a tag ruleset; set
   the two `uses` SHAs in `kitden` to that commit. Run the checker on both files.
-- [ ] **Step 4: Commit (kitden)** "Pin kitden-agents v0.1.0".
+- [ ] **Step 4: Commit (kitden)** "Pin kitden-sdlc v0.1.0".
 
 ### Task 12: Final check against the spec
 
@@ -484,6 +484,6 @@ has an `if` containing all three of `vars.AGENTS_ENABLED == 'true'`,
   table exists and the model is set; the README reads in one minute; `numbers.md` has a first
   row. Write the result as the last `LOG.md` entry.
 - [ ] **Step 2:** Run `uv run pytest -q`, `uv run ruff check .` and the checker in
-  `kitden-agents`; `uv run pytest -q`, `uv run ruff check .` and `node --test
+  `kitden-sdlc`; `uv run pytest -q`, `uv run ruff check .` and `node --test
   tests/frontend/*.test.mjs` in `kitden`. Expected: all green.
-- [ ] **Step 3:** Commit (kitden-agents) "Log the first run against the spec".
+- [ ] **Step 3:** Commit (kitden-sdlc) "Log the first run against the spec".

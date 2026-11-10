@@ -62,7 +62,7 @@ new needs the owner. No agent orchestrates the others: GitHub events, labels and
 
 - A job that holds untrusted text, a secret and write permission at the same time.
 - A reviewer whose rules a pull request can change. What a pull request is judged by comes
-  from `kitden-agents` at a fixed point or from the base branch of `kitden`.
+  from `kitden-sdlc` at a fixed point or from the base branch of `kitden`.
 - Review noise: style remarks, a new comment on every push, more than one summary per reviewer
   per pull request.
 - Agents quietly using up the owner's Max limit, or going past $5 a month on the OpenAI key.
@@ -80,9 +80,9 @@ Two from the start (owner).
   CONTRIBUTING.md, AGENTS.md, the existing `release.yml` (its tests and its PyPI publishing are
   tied to this repository), the principles file and the AI policy, which are about Kitden and
   are read by its contributors (part 8). The only agent-related files are two thin workflow
-  files, a few lines each, that call a shared workflow in `kitden-agents`. GitHub runs a
+  files, a few lines each, that call a shared workflow in `kitden-sdlc`. GitHub runs a
   workflow only from the repository where the pull request is, so these two files cannot move.
-- `kitden-agents` (name and public from day one: call) keeps everything else: the reusable
+- `kitden-sdlc` (name and public from day one: call) keeps everything else: the reusable
   workflows, the role skills packaged as a plugin (the repository is a plugin marketplace), the
   prompts, the rules and their checker, the merge policy in words, the review tasks and their
   results, the numbers, and a README that is the showcase. A second project could use it by
@@ -91,13 +91,13 @@ Two from the start (owner).
 `kitden` calls the reusable workflows pinned to a full commit SHA and passes each secret by
 name, never `secrets: inherit` (call). The skills come from the same repository through the
 action's `plugin_marketplaces` and `plugins` inputs, pinned to a tag, since the action documents
-branch and tag pins only; the tag is protected in `kitden-agents` so it cannot move quietly
+branch and tag pins only; the tag is protected in `kitden-sdlc` so it cannot move quietly
 (call). A pull request in `kitden` therefore cannot change the rules it is judged by: they come
 from another repository at a fixed point.
 
 ### 2. Rules for every agent workflow
 
-`kitden-agents/RULES.md`, eight rules:
+`kitden-sdlc/RULES.md`, eight rules:
 
 1. No job holds untrusted text, a secret and write permission together. The model reads; a
    step without a model posts, or the action's own comment tool is allowed by its exact name.
@@ -117,7 +117,7 @@ The checker (call): `actionlint` and `zizmor` run as ordinary CI steps in both r
 and a small script fails any workflow that uses `claude-code-action` or `codex-action` and
 breaks rules 2 to 5. It runs in `kitden` on every pull request that touches
 `.github/workflows/`. Whoever edits an agent workflow also runs the `agentic-actions-auditor`
-skill from Trail of Bits locally; that is a line in the AGENTS.md of `kitden-agents`, not a CI
+skill from Trail of Bits locally; that is a line in the AGENTS.md of `kitden-sdlc`, not a CI
 step.
 
 ### 3. The switch and the limits
@@ -148,7 +148,7 @@ comparison in part 6.
 - A step without a model writes the diff, the list of changed files, the pull request's title
   and body, and `PRINCIPLES.md` and AGENTS.md from the base branch into a folder `.review/` on
   the runner. Then `anthropics/claude-code-action` runs the skill `review-kitden` (name: call)
-  from the `kitden-agents` plugin, loaded from a checkout of `kitden-agents` at the same commit
+  from the `kitden-sdlc` plugin, loaded from a checkout of `kitden-sdlc` at the same commit
   as the shared workflow, so skill and workflow are pinned together by SHA (call; the
   marketplace-and-tag path is the fallback if the action cannot load a plugin from a folder).
   The pull request cannot change the skill it is judged by, because the skill is not in
@@ -182,13 +182,13 @@ part 7 measures it.
   finding, so each can get its own thumb as Claude's do, and one summary comment that it edits
   in place on later pushes. A finding it already posted is not posted again (call).
 - At most five findings per push, bugs only (call).
-- Its prompt is a file in `kitden-agents`. `kitden`'s AGENTS.md is not changed for it.
+- Its prompt is a file in `kitden-sdlc`. `kitden`'s AGENTS.md is not changed for it.
 - At $0.10 and $0.50 per million tokens the $5 budget should be far more than a month of
   reviews. This is an expectation, not a measurement.
 
 ### 6. The review tasks
 
-In `kitden-agents/evals/`. Twenty to start (call); Anthropic's advice is 20 to 50 tasks drawn
+In `kitden-sdlc/evals/`. Twenty to start (call); Anthropic's advice is 20 to 50 tasks drawn
 from real failures.
 
 - Each task is a real Kitden change with a known defect: a merged pull request whose bug was
@@ -207,7 +207,7 @@ from real failures.
 
 - The owner marks an agent's finding with a thumbs-up when it was useful and a thumbs-down
   when it was wrong or noise (call).
-- A weekly job in `kitden-agents`, a plain script with no model, counts per reviewer the pull
+- A weekly job in `kitden-sdlc`, a plain script with no model, counts per reviewer the pull
   requests reviewed, the findings, the thumbs up and down, and commits the result.
 - The job does not match Luna's findings against Claude's. The owner sees both on the pull
   request; "useful findings per reviewer" is the number the Luna decision rests on (call).
@@ -231,7 +231,7 @@ read them next to CONTRIBUTING.md. The reviewers read the principles from the ba
 
 ### 9. The showcase README
 
-One screen in `kitden-agents`: what this is, a table of agents (role, trigger, model, what it
+One screen in `kitden-sdlc`: what this is, a table of agents (role, trigger, model, what it
 may do, limits), the eight rules, the numbers, a short log of what went wrong and what changed
 because of it, and how to copy the setup. Plain English. It leads with the problem and the
 working system; no job titles and no "portfolio" (owner's standing rule).
@@ -240,7 +240,7 @@ working system; no job titles and no "portfolio" (owner's standing rule).
 
 Settings and secrets; neither the builder nor an agent does these.
 
-- Creates `kitden-agents`.
+- Creates `kitden-sdlc`.
 - Runs `claude setup-token` and saves the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 - Creates the OpenAI project key with its $5 budget and saves it as `OPENAI_API_KEY`.
 - Sets `AGENTS_ENABLED`.

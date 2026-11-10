@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kitden-agents"
+name = "kitden-sdlc"
 version = "0.1.0"
 source = { virtual = "." }
 

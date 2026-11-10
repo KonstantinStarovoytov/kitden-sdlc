@@ -157,7 +157,7 @@ def without_mentions(report: Report) -> Report:
 
 
 def marker(reviewer: str, key: str) -> str:
-    return f"<!-- kitden-agents:{reviewer}:{key} -->"
+    return f"<!-- kitden-sdlc:{reviewer}:{key} -->"
 
 
 def finding_key(f: Finding) -> str:
@@ -168,7 +168,7 @@ def first_line(reviewer: str, model: str) -> str:
     return f"Automated review by Kitden's {reviewer} reviewer ({model}). 👍 useful · 👎 wrong"
 
 
-MARKER = re.compile(r"<!-- kitden-agents:([^:\s]+):(.+?) -->\s*\Z")
+MARKER = re.compile(r"<!-- kitden-sdlc:([^:\s]+):(.+?) -->\s*\Z")
 
 
 def read_marker(body: str) -> tuple[str, str] | None:

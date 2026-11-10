@@ -3,8 +3,8 @@ import yaml
 from check_agent_workflows import check_workflow, is_agent_workflow, main
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
-REVIEW = "KonstantinStarovoytov/kitden-agents/.github/workflows/review-claude.yml"
-CHECK = "KonstantinStarovoytov/kitden-agents/.github/workflows/check.yml"
+REVIEW = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/review-claude.yml"
+CHECK = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/check.yml"
 SWITCH = (
     "vars.AGENTS_ENABLED == 'true'"
     " && github.event.pull_request.head.repo.full_name == github.repository"

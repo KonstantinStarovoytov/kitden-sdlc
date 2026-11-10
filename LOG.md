@@ -14,6 +14,7 @@ Problems found while building the reviewers, and what changed because of each.
 
 ## 2026-11-10
 
+- Renamed kitden-agents to kitden-sdlc before the first push.
 - **The plan's Codex setting was unsafe.** `safety-strategy: read-only` would let the model
   read the OpenAI key from memory, by the action's own docs. Now the default drop-sudo is used,
   with a read-only sandbox and no network.

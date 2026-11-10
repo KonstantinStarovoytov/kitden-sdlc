@@ -73,17 +73,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The pull request could commit .kitden-agents as a link; checkout would follow it.
+      # The pull request could commit .kitden-sdlc as a link; checkout would follow it.
       - name: Clear the plugin folder
-        run: rm -rf .kitden-agents
+        run: rm -rf .kitden-sdlc
       # This workflow's own repository, at the commit this workflow file comes from.
       # `job.workflow_*` names the called workflow, not the caller.
-      - name: Check out kitden-agents
+      - name: Check out kitden-sdlc
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
-          path: .kitden-agents
+          path: .kitden-sdlc
           persist-credentials: false
       - name: Collect the files to review
         id: prepare
@@ -91,13 +91,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
-        run: .kitden-agents/scripts/prepare_review.sh "$PR_NUMBER" "$BASE_REF"
+        run: .kitden-sdlc/scripts/prepare_review.sh "$PR_NUMBER" "$BASE_REF"
       # Claude would read CLAUDE.md files and .claude folders the pull request adds in
       # subfolders; the root ones are put back from the base branch by the action.
       - name: Remove the pull request's nested Claude files
         if: steps.prepare.outputs.skip != 'true'
         run: >-
-          find . \( -path ./.git -o -path ./.review -o -path ./.kitden-agents
+          find . \( -path ./.git -o -path ./.review -o -path ./.kitden-sdlc
           -o -path ./.claude -o -path ./CLAUDE.md \) -prune
           -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name .claude \)
           -print -prune -exec rm -rf {} +
@@ -107,13 +107,13 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           github_token: ${{ github.token }}
-          prompt: /kitden-agents:review-kitden
+          prompt: /kitden-sdlc:review-kitden
           claude_args: >-
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max_turns }}
-            --plugin-dir .kitden-agents/plugins/kitden-agents
+            --plugin-dir .kitden-sdlc/plugins/kitden-sdlc
             --allowedTools "Read(./**),Edit(./.review/**)"
-            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-agents/**),Read(~/.*),Read(~/.*/**),Read(//proc/**)"
+            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-sdlc/**),Read(~/.*),Read(~/.*/**),Read(//proc/**)"
       - name: Keep the findings
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -140,7 +140,7 @@ jobs:
             echo "::error::job.workflow_repository or job.workflow_sha is empty"
             exit 1
           fi
-      - name: Check out kitden-agents
+      - name: Check out kitden-sdlc
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}

@@ -18,11 +18,11 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PLUGIN = ROOT / "plugins/kitden-agents"
+PLUGIN = ROOT / "plugins/kitden-sdlc"
 # The same tools as .github/workflows/review-claude.yml (tests/test_run.py checks it).
 ALLOWED = "Read(./**),Edit(./.review/**)"
 DISALLOWED = (
-    "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-agents/**),"
+    "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-sdlc/**),"
     "Read(~/.*),Read(~/.*/**),Read(//proc/**)"
 )
 MAX_TURNS = 30
@@ -60,7 +60,7 @@ def build_review(kitden: Path, folder: Path, task: dict, patch: Path) -> None:
 
 def claude_command(model: str) -> list[str]:
     return [
-        "claude", "-p", "/kitden-agents:review-kitden",
+        "claude", "-p", "/kitden-sdlc:review-kitden",
         "--plugin-dir", str(PLUGIN),
         "--model", model,
         "--max-turns", str(MAX_TURNS),

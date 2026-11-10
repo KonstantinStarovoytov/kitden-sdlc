@@ -21,7 +21,7 @@ from post_findings import (
 FIXTURE = Path(__file__).parent / "fixtures" / "findings_ok.json"
 ROOT = Path(__file__).parent.parent
 SCHEMA = ROOT / "schemas" / "findings.schema.json"
-SKILL = ROOT / "plugins" / "kitden-agents" / "skills" / "review-kitden" / "SKILL.md"
+SKILL = ROOT / "plugins" / "kitden-sdlc" / "skills" / "review-kitden" / "SKILL.md"
 FIRST = "Automated review by Kitden's claude reviewer (claude-opus-5). 👍 useful · 👎 wrong"
 
 
@@ -140,7 +140,7 @@ def test_schema_file_agrees_with_code():
 
 
 def test_marker_and_key():
-    assert marker("claude", "a.py:3:bug") == "<!-- kitden-agents:claude:a.py:3:bug -->"
+    assert marker("claude", "a.py:3:bug") == "<!-- kitden-sdlc:claude:a.py:3:bug -->"
     assert finding_key(finding("a.py", 3, "bug")) == "a.py:3:bug"
 
 

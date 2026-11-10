@@ -1,5 +1,5 @@
 {
-  "name": "kitden-agents",
+  "name": "kitden-sdlc",
   "owner": {
     "name": "Konstantin Starovoytov"
   },
@@ -8,8 +8,8 @@
   },
   "plugins": [
     {
-      "name": "kitden-agents",
-      "source": "./plugins/kitden-agents",
+      "name": "kitden-sdlc",
+      "source": "./plugins/kitden-sdlc",
       "description": "Skills that let an AI agent review Kitden pull requests."
     }
   ]

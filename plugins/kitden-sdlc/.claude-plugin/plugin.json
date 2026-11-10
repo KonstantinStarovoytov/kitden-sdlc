@@ -1,5 +1,5 @@
 {
-  "name": "kitden-agents",
+  "name": "kitden-sdlc",
   "version": "0.1.1",
   "description": "Skills that let an AI agent review Kitden pull requests.",
   "author": {

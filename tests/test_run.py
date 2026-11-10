@@ -14,10 +14,10 @@ def test_claude_runs_with_the_workflows_tools():
     workflow = (WORKFLOWS / "review-claude.yml").read_text()
     assert f'--allowedTools "{run.ALLOWED}"' in workflow
     assert f'--disallowedTools "{run.DISALLOWED}"' in workflow
-    assert "prompt: /kitden-agents:review-kitden\n" in workflow
+    assert "prompt: /kitden-sdlc:review-kitden\n" in workflow
     assert f"max_turns:\n        type: number\n        default: {run.MAX_TURNS}\n" in workflow
     command = run.claude_command("claude-sonnet-5-5")
-    assert command[:3] == ["claude", "-p", "/kitden-agents:review-kitden"]
+    assert command[:3] == ["claude", "-p", "/kitden-sdlc:review-kitden"]
     assert Path(command[command.index("--plugin-dir") + 1]).is_dir()
 
 

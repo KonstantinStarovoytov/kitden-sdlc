@@ -26,22 +26,22 @@ jobs:
             exit 1
           fi
       # The pull request's files are untrusted: only the pinned tools and the
-      # kitden-agents script run on them, never anything the pull request brings.
+      # kitden-sdlc script run on them, never anything the pull request brings.
       - name: Check out the pull request
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The pull request could commit .kitden-agents as a link; checkout would follow it.
+      # The pull request could commit .kitden-sdlc as a link; checkout would follow it.
       - name: Clear the tools folder
-        run: rm -rf .kitden-agents
+        run: rm -rf .kitden-sdlc
       # This workflow's own repository, at the commit this workflow file comes from.
       # `job.workflow_*` names the called workflow, not the caller.
-      - name: Check out kitden-agents
+      - name: Check out kitden-sdlc
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
-          path: .kitden-agents
+          path: .kitden-sdlc
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
@@ -58,8 +58,8 @@ jobs:
         run: >-
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
-          -config-file .kitden-agents/config/actionlint.yaml
+          -config-file .kitden-sdlc/config/actionlint.yaml
       - name: Agent workflow rules
         run: >-
           uv run --no-project --no-config --with pyyaml
-          python .kitden-agents/scripts/check_agent_workflows.py .github/workflows
+          python .kitden-sdlc/scripts/check_agent_workflows.py .github/workflows
