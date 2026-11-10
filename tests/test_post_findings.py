@@ -19,7 +19,9 @@ from post_findings import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "findings_ok.json"
-SCHEMA = Path(__file__).parent.parent / "schemas" / "findings.schema.json"
+ROOT = Path(__file__).parent.parent
+SCHEMA = ROOT / "schemas" / "findings.schema.json"
+SKILL = ROOT / "plugins" / "kitden-agents" / "skills" / "review-kitden" / "SKILL.md"
 FIRST = "Automated review by Kitden's claude reviewer (claude-opus-5). 👍 useful · 👎 wrong"
 
 
@@ -46,7 +48,9 @@ class FakeApi:
 
     def create_issue_comment(self, repo, pr, body):
         self.calls.append(("issue-create", body))
-        self.issue_comments.append({"id": len(self.issue_comments) + 1, "body": body})
+        self.issue_comments.append(
+            {"id": len(self.issue_comments) + 1, "body": body, "user": {"type": "Bot"}}
+        )
 
     def update_issue_comment(self, repo, comment_id, body):
         self.calls.append(("issue-update", comment_id, body))
@@ -100,12 +104,13 @@ def test_valid_report_loads():
     [
         lambda d: d.pop("new_surface"),
         lambda d: d.update(extra=1),
-        lambda d: d.update(summary="x" * 1201),
-        lambda d: d.update(findings=[d["findings"][0]] * 11),
+        lambda d: d.update(summary=5),
+        lambda d: d.update(findings={}),
         lambda d: d["findings"][0].update(line=0),
         lambda d: d["findings"][0].update(line=True),
         lambda d: d["findings"][0].update(line=1.5),
-        lambda d: d["findings"][0].update(text="x" * 601),
+        lambda d: d["findings"][0].update(text=None),
+        lambda d: d["findings"][0].update(kind="style"),
         lambda d: d["findings"][0].update(extra=1),
         lambda d: d["findings"][0].pop("path"),
         lambda d: d.update(new_surface=[1]),
@@ -315,6 +320,7 @@ SECRET_TEXTS = [
     "sk-proj-" + "x" * 40,
     "https://x-access-token:abc123@github.com",
     "key sk-" + "a1" * 12,
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig",
 ]
 
 
@@ -366,3 +372,186 @@ def test_dry_run_reports_a_secret(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err.strip() == "claude refused: output looked like a secret"
+
+
+# --- Too long is cut, not rejected ---
+
+
+def test_long_summary_and_text_are_cut(tmp_path):
+    data = json.loads(FIXTURE.read_text())
+    data["summary"] = "s" * 1500
+    data["findings"][0]["text"] = "t" * 700
+    rep = load_report(write(tmp_path, data))
+    assert rep.summary == "s" * 1199 + "…" and len(rep.summary) == post_findings.SUMMARY_MAX
+    assert rep.findings[0].text == "t" * 599 + "…"
+    assert rep.findings[1].text == data["findings"][1]["text"]
+
+
+def test_text_at_the_limit_is_kept_whole(tmp_path):
+    data = json.loads(FIXTURE.read_text())
+    data["summary"] = "s" * 1200
+    data["findings"][0]["text"] = "t" * 600
+    rep = load_report(write(tmp_path, data))
+    assert rep.summary == "s" * 1200 and rep.findings[0].text == "t" * 600
+
+
+def test_only_the_first_ten_findings_are_kept(tmp_path):
+    data = json.loads(FIXTURE.read_text())
+    data["findings"] = [dict(data["findings"][0], line=i + 1) for i in range(12)]
+    rep = load_report(write(tmp_path, data))
+    assert [f.line for f in rep.findings] == list(range(1, 11))
+
+
+# --- No usable answer ---
+
+NO_ANSWER = "The claude reviewer gave no usable answer this time."
+
+
+def post_argv(path):
+    return [
+        "--report", str(path), "--repo", "o/r", "--pr", "7", "--head-sha", "abc",
+        "--reviewer", "claude", "--model", "claude-opus-5",
+    ]  # fmt: skip
+
+
+@pytest.fixture
+def fake_gh(monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda: api)
+    return api
+
+
+@pytest.mark.parametrize(
+    "content",
+    [None, "{not json", '{"summary": "x"}', '{"summary": 1, "new_surface": [], "findings": []}'],
+)
+def test_no_usable_answer_is_said_in_the_summary(tmp_path, capsys, fake_gh, content):
+    path = tmp_path / "findings.json"
+    if content is not None:
+        path.write_text(content)
+    assert main(post_argv(path)) == 0
+    assert "::warning::" + NO_ANSWER in capsys.readouterr().out
+    assert [call[0] for call in fake_gh.calls] == ["issue-create"]
+    body = fake_gh.issue_comments[0]["body"]
+    assert body.startswith(FIRST)
+    assert NO_ANSWER in body
+    assert body.endswith(marker("claude", "summary"))
+
+
+def test_no_usable_answer_updates_the_old_summary(tmp_path, fake_gh):
+    run_post(fake_gh, report([finding()]))
+    assert main(post_argv(tmp_path / "missing.json")) == 0
+    assert len(fake_gh.issue_comments) == 1
+    assert NO_ANSWER in fake_gh.issue_comments[0]["body"]
+    assert fake_gh.calls[-1][0] == "issue-update"
+
+
+def test_no_usable_answer_goes_through_the_secret_filter(tmp_path, fake_gh):
+    argv = post_argv(tmp_path / "missing.json")
+    argv[argv.index("claude-opus-5")] = "ghp_" + "a" * 36
+    assert main(argv) == 1
+    assert fake_gh.calls == []
+
+
+def test_dry_run_with_no_answer_calls_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(post_findings, "GhApi", lambda: pytest.fail("no GitHub in dry run"))
+    assert main(["--report", str(tmp_path / "nope.json"), "--dry-run"]) == 0
+
+
+# --- The same finding after lines shift ---
+
+
+def posted(path, line, kind, reviewer="claude"):
+    return {"body": f"{FIRST}\n\ntext\n\n{marker(reviewer, f'{path}:{line}:{kind}')}"}
+
+
+@pytest.mark.parametrize("line", [5, 10, 15])
+def test_finding_near_a_posted_one_is_skipped(line):
+    api = FakeApi()
+    api.review_comments.append(posted("a.py", 10, "bug"))
+    run_post(api, report([finding("a.py", line, "bug")]))
+    assert [call[0] for call in api.calls] == ["issue-create"]
+
+
+@pytest.mark.parametrize(
+    "new",
+    [finding("a.py", 4, "bug"), finding("a.py", 16, "bug"), finding("a.py", 10, "rule"),
+     finding("b.py", 10, "bug")],
+)  # fmt: skip
+def test_finding_far_away_or_of_another_kind_is_posted(new):
+    api = FakeApi()
+    api.review_comments.append(posted("a.py", 10, "bug"))
+    run_post(api, report([new]))
+    assert [call[0] for call in api.calls] == ["review", "issue-create"]
+
+
+def test_another_reviewers_nearby_finding_does_not_count():
+    api = FakeApi()
+    api.review_comments.append(posted("a.py", 10, "bug", reviewer="luna"))
+    run_post(api, report([finding("a.py", 11, "bug")]))
+    assert api.calls[0][0] == "review"
+
+
+def test_path_with_colons_is_matched():
+    api = FakeApi()
+    api.review_comments.append(posted("c:d/a.py", 10, "bug"))
+    run_post(api, report([finding("c:d/a.py", 12, "bug")]))
+    assert [call[0] for call in api.calls] == ["issue-create"]
+
+
+# --- No pings ---
+
+WJ = "\u2060"
+
+
+def test_mentions_are_quieted_everywhere_but_the_marker():
+    api = FakeApi()
+    rep = report(
+        [finding("a.py", 3, text="Use @pytest.fixture here."), finding("b.py", 1)],
+        new_surface=["Asks @owner"],
+        summary="@someone look (@x), mail a@b.c",
+    )
+    run_post(api, rep, limit=1)
+    inline = api.review_comments[0]["body"]
+    assert f"@{WJ}pytest.fixture" in inline and "@pytest" not in inline
+    summary = api.issue_comments[0]["body"]
+    assert f"@{WJ}someone" in summary and f"(@{WJ}x)" in summary
+    assert f"@{WJ}owner" in summary
+    assert "a@b.c" in summary  # an email-like word is left as it is
+    assert summary.endswith(marker("claude", "summary"))
+
+
+def test_quiet_mentions_leaves_the_rest():
+    assert post_findings.quiet_mentions("a@b.c @ alone @@x") == f"a@b.c @ alone @@{WJ}x"
+
+
+def test_overflow_mentions_are_quieted():
+    api = FakeApi()
+    run_post(api, report([finding("a.py", 1), finding("b.py", 1, text="ask @dev")]), limit=1)
+    assert f"@{WJ}dev" in api.issue_comments[0]["body"]
+
+
+# --- Only a bot's summary is updated ---
+
+
+def test_a_persons_comment_with_the_marker_is_not_edited():
+    api = FakeApi()
+    api.issue_comments.append(
+        {"id": 9, "body": f"me\n\n{marker('claude', 'summary')}", "user": {"type": "User"}}
+    )
+    run_post(api, report())
+    assert [call[0] for call in api.calls] == ["issue-create"]
+    assert api.issue_comments[0]["body"].startswith("me")
+
+
+# --- The schema in the skill ---
+
+
+def test_skill_schema_equals_the_schema_file():
+    text = SKILL.read_text()
+    block = text.split("```json\n", 1)[1].split("\n```", 1)[0]
+    in_skill, in_file = json.loads(block), json.loads(SCHEMA.read_text())
+    for key in ("$schema", "title"):
+        in_skill.pop(key, None)
+        in_file.pop(key, None)
+    assert in_skill == in_file

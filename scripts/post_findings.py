@@ -23,7 +23,14 @@ SECRET_LIKE = re.compile(
     r"|sk-ant-[A-Za-z0-9_-]{16,}"
     r"|(?<!\w)sk-[A-Za-z0-9_-]{20,}"
     r"|x-access-token:[^@\s]+@"
+    r"|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}"  # a JWT
 )
+# An @ at the start of a word would ping a real GitHub user (think `@pytest.fixture`).
+MENTION = re.compile(r"(?<!\w)@(?=\w)")
+WORD_JOINER = "\u2060"
+# How close (in lines) a new finding may be to a posted one of the same kind and file
+# and still count as the same finding, since lines shift when the author pushes again.
+NEAR_LINES = 5
 
 
 @dataclass
@@ -61,18 +68,19 @@ class ApiError(Exception):
 
 
 def _problem(data) -> str | None:
-    """Return why the data breaks the schema, or None when it fits."""
+    """Return why the data has the wrong keys or types, or None when it fits.
+    Lengths are not checked here: load_report cuts what is too long."""
     if not isinstance(data, dict) or set(data) != TOP_KEYS:
         return f"needs exactly the keys {sorted(TOP_KEYS)}"
-    if not isinstance(data["summary"], str) or len(data["summary"]) > SUMMARY_MAX:
-        return f"summary must be a string of at most {SUMMARY_MAX} characters"
+    if not isinstance(data["summary"], str):
+        return "summary must be a string"
     surface = data["new_surface"]
     if not isinstance(surface, list) or not all(isinstance(s, str) for s in surface):
         return "new_surface must be a list of strings"
     findings = data["findings"]
-    if not isinstance(findings, list) or len(findings) > FINDINGS_MAX:
-        return f"findings must be a list of at most {FINDINGS_MAX} items"
-    for item in findings:
+    if not isinstance(findings, list):
+        return "findings must be a list"
+    for item in findings[:FINDINGS_MAX]:
         if not isinstance(item, dict) or set(item) != FINDING_KEYS:
             return f"each finding needs exactly the keys {sorted(FINDING_KEYS)}"
         if not isinstance(item["path"], str):
@@ -82,9 +90,13 @@ def _problem(data) -> str | None:
             return "finding line must be an integer of 1 or more"
         if item["kind"] not in KINDS:
             return f"finding kind must be one of {list(KINDS)}"
-        if not isinstance(item["text"], str) or len(item["text"]) > TEXT_MAX:
-            return f"finding text must be a string of at most {TEXT_MAX} characters"
+        if not isinstance(item["text"], str):
+            return "finding text must be a string"
     return None
+
+
+def _cut(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def load_report(path: Path) -> Report | None:
@@ -101,10 +113,15 @@ def load_report(path: Path) -> Report | None:
     if problem:
         print(f"No findings posted: {path} does not match the schema: {problem}", file=sys.stderr)
         return None
+    # Too long is not a reason to lose the whole review: cut it and keep the rest.
+    findings = [
+        Finding(**{**item, "text": _cut(item["text"], TEXT_MAX)})
+        for item in data["findings"][:FINDINGS_MAX]
+    ]
     return Report(
-        summary=data["summary"],
+        summary=_cut(data["summary"], SUMMARY_MAX),
         new_surface=data["new_surface"],
-        findings=[Finding(**item) for item in data["findings"]],
+        findings=findings,
     )
 
 
@@ -118,6 +135,22 @@ def refuse_secret_like(report: Report) -> None:
         texts += [f.path, f.text]
     if any(SECRET_LIKE.search(text) for text in texts):
         raise SecretLikeError
+
+
+# --- Keeping people out of it ---
+
+
+def quiet_mentions(text: str) -> str:
+    """Put a word joiner after each @ that starts a word, so GitHub pings nobody."""
+    return MENTION.sub("@" + WORD_JOINER, text)
+
+
+def without_mentions(report: Report) -> Report:
+    return Report(
+        summary=quiet_mentions(report.summary),
+        new_surface=[quiet_mentions(line) for line in report.new_surface],
+        findings=[Finding(f.path, f.line, f.kind, quiet_mentions(f.text)) for f in report.findings],
+    )
 
 
 # --- Building the comments ---
@@ -154,8 +187,24 @@ def posted_keys(review_comments: list[dict], reviewer: str) -> set[str]:
     return keys
 
 
+def _parse_key(key: str) -> tuple[str, int, str] | None:
+    """Split a finding key "path:line:kind" (the path may hold colons)."""
+    parts = key.rsplit(":", 2)
+    if len(parts) != 3 or not parts[1].isdigit():
+        return None
+    return parts[0], int(parts[1]), parts[2]
+
+
+def _already_posted(f: Finding, posted: list[tuple[str, int, str]]) -> bool:
+    return any(
+        path == f.path and kind == f.kind and abs(line - f.line) <= NEAR_LINES
+        for path, line, kind in posted
+    )
+
+
 def plan_posts(report: Report, posted_keys: set[str], limit: int = 5) -> Plan:
-    new = [f for f in report.findings if finding_key(f) not in posted_keys]
+    posted = [found for key in posted_keys if (found := _parse_key(key))]
+    new = [f for f in report.findings if not _already_posted(f, posted)]
     return Plan(inline=new[:limit], overflow=new[limit:])
 
 
@@ -185,6 +234,16 @@ def summary_body(
         parts.append("Outside the diff:\n" + "\n".join(map(_bullet, outside_diff)))
     parts.append(marker(reviewer, "summary"))
     return "\n\n".join(parts)
+
+
+def no_answer_body(reviewer: str, model: str) -> str:
+    return "\n\n".join(
+        [
+            first_line(reviewer, model),
+            f"The {reviewer} reviewer gave no usable answer this time.",
+            marker(reviewer, "summary"),
+        ]
+    )
 
 
 # --- Talking to GitHub ---
@@ -275,6 +334,7 @@ def post(
     limit: int = 5,
 ) -> None:
     refuse_secret_like(report)  # before any call to GitHub
+    report = without_mentions(report)
     done = posted_keys(api.list_review_comments(repo, pr), reviewer)
     plan = plan_posts(report, done, limit)
     outside_diff: list[Finding] = []
@@ -288,12 +348,27 @@ def post(
                 raise
             outside_diff.append(f)  # the line is not part of the diff
     body = summary_body(report, reviewer, model, plan.overflow, outside_diff)
+    put_summary(api, repo, pr, reviewer, body)
+
+
+def put_summary(api: Api, repo: str, pr: int, reviewer: str, body: str) -> None:
+    """Update this reviewer's one summary comment, or create it.
+    Only a bot's comment counts: a person's comment that ends in the marker cannot be
+    edited with the job's token, and must not be."""
+    if SECRET_LIKE.search(body):
+        raise SecretLikeError
     tag = marker(reviewer, "summary")
     for comment in api.list_issue_comments(repo, pr):
-        if (comment.get("body") or "").rstrip().endswith(tag):
+        is_bot = (comment.get("user") or {}).get("type") == "Bot"
+        if is_bot and (comment.get("body") or "").rstrip().endswith(tag):
             api.update_issue_comment(repo, comment["id"], body)
             return
     api.create_issue_comment(repo, pr, body)
+
+
+def post_no_answer(api: Api, repo: str, pr: int, reviewer: str, model: str) -> None:
+    print(f"::warning::The {reviewer} reviewer gave no usable answer this time.")
+    put_summary(api, repo, pr, reviewer, no_answer_body(reviewer, model))
 
 
 def main(argv: list[str]) -> int:
@@ -317,12 +392,16 @@ def main(argv: list[str]) -> int:
                 parser.error(f"--{name.replace('_', '-')} is required without --dry-run")
 
     report = load_report(args.report)
-    if report is None:
-        return 0  # a missing or broken file must not fail the job
 
     try:
+        if report is None:
+            # A missing or broken file must not fail the job, but it must not be silent.
+            if not args.dry_run:
+                post_no_answer(GhApi(), args.repo, args.pr, args.reviewer, args.model)
+            return 0
         if args.dry_run:
             refuse_secret_like(report)
+            report = without_mentions(report)
             plan = plan_posts(report, set(), args.limit)
             out = {
                 "inline": [asdict(f) for f in plan.inline],
