@@ -63,11 +63,6 @@ Both reviewers' findings go into one short comment, so every word must earn its 
   "consider", no code blocks, no line breaks.
 - `kind` is `bug` or `rule`. For `rule`, name the rule in the text.
 
-## New surface
-
-In `new_surface`, list every new route, CLI command, setting, page element or
-dependency the diff adds, a few words each. If none, use an empty list.
-
 ## Summary
 
 In `summary`, say in one plain sentence what the change does, at most 300 characters.
@@ -83,10 +78,9 @@ Write `.review/findings.json` and nothing else, matching this schema. Add no oth
   "title": "Findings of an AI reviewer",
   "type": "object",
   "additionalProperties": false,
-  "required": ["summary", "new_surface", "findings"],
+  "required": ["summary", "findings"],
   "properties": {
     "summary": {"type": "string", "maxLength": 300},
-    "new_surface": {"type": "array", "items": {"type": "string"}},
     "findings": {
       "type": "array",
       "maxItems": 5,

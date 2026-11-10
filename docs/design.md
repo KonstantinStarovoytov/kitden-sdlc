@@ -156,8 +156,8 @@ comparison in part 6.
 - Tools: read-only file tools, and writing only inside `.review/`. No Bash, no web, no MCP
   server. The model's job has read permission only and the job's own GitHub token, so the
   Claude GitHub App is not needed (call).
-- The model writes `.review/findings.json` in the same fixed schema Luna uses: a summary, the
-  list of things a user can newly see or set, and findings with file, line and text. A second
+- The model writes `.review/findings.json` in the same fixed schema Luna uses: a summary and
+  findings with file, line and text. A second
   job without a model posts it, the same way as for Luna (part 5). One posting script serves
   both reviewers (call).
 - One model through `--model`: Sonnet 5.5 or Opus 5.5, chosen by part 6.

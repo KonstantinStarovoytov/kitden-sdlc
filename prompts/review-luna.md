@@ -47,11 +47,6 @@ Both reviewers' findings go into one short comment, so every word must earn its 
 - Do not make the bug sound worse than it is.
 - `kind` is always `bug`.
 
-## New surface
-
-In `new_surface`, list every new route, CLI command, setting, page element or
-dependency the diff adds, a few words each. If none, use an empty list.
-
 ## Summary
 
 In `summary`, say in one plain sentence what the change does, at most 300 characters.

@@ -3,10 +3,9 @@
   "title": "Findings of an AI reviewer",
   "type": "object",
   "additionalProperties": false,
-  "required": ["summary", "new_surface", "findings"],
+  "required": ["summary", "findings"],
   "properties": {
     "summary": {"type": "string", "maxLength": 300},
-    "new_surface": {"type": "array", "items": {"type": "string"}},
     "findings": {
       "type": "array",
       "maxItems": 5,

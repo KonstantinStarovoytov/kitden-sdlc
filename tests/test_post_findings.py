@@ -57,8 +57,8 @@ def finding(path="a.py", line=1, kind="bug", text="Something is wrong."):
     return Finding(path=path, line=line, kind=kind, text=text)
 
 
-def report(findings=(), new_surface=(), summary="All fine."):
-    return Report(summary=summary, new_surface=list(new_surface), findings=list(findings))
+def report(findings=(), summary="All fine."):
+    return Report(summary=summary, findings=list(findings))
 
 
 def body_of(claude=None, luna=None, repo="o/r"):
@@ -90,13 +90,12 @@ def test_valid_report_loads():
     rep = load_report(FIXTURE)
     assert rep is not None
     assert [f.path for f in rep.findings] == ["src/sync.py", "docs/setup.md"]
-    assert len(rep.new_surface) == 1
 
 
 @pytest.mark.parametrize(
     "change",
     [
-        lambda d: d.pop("new_surface"),
+        lambda d: d.pop("summary"),
         lambda d: d.update(extra=1),
         lambda d: d.update(summary=5),
         lambda d: d.update(findings={}),
@@ -107,7 +106,7 @@ def test_valid_report_loads():
         lambda d: d["findings"][0].update(kind="style"),
         lambda d: d["findings"][0].update(extra=1),
         lambda d: d["findings"][0].pop("path"),
-        lambda d: d.update(new_surface=[1]),
+        lambda d: d.update(new_surface=[]),
     ],
 )
 def test_other_schema_violations_return_none(tmp_path, change):
@@ -123,7 +122,7 @@ def test_non_object_returns_none(tmp_path):
 def test_schema_file_agrees_with_code():
     schema = json.loads(SCHEMA.read_text())
     item = schema["properties"]["findings"]["items"]
-    assert schema["required"] == ["summary", "new_surface", "findings"]
+    assert schema["required"] == ["summary", "findings"]
     assert schema["additionalProperties"] is False and item["additionalProperties"] is False
     assert schema["properties"]["summary"]["maxLength"] == post_findings.SUMMARY_MAX
     assert schema["properties"]["findings"]["maxItems"] == post_findings.FINDINGS_MAX
@@ -236,7 +235,7 @@ def test_model_text_lands_on_one_line():
 def test_model_text_cannot_add_markdown_or_html(text):
     plain = one_line(text)
     assert not set("<>[]()`*|!") & set(plain)
-    body = body_of(report([finding(text=text)], summary=text, new_surface=[text]))
+    body = body_of(report([finding(text=text)], summary=text))
     assert body.count(plain) == 2 and text not in body
     assert read_marker(body) == {"claude": 1, "luna": None, "both": 0}
 
@@ -249,16 +248,14 @@ def test_an_unsafe_path_gets_no_link(path):
     assert "](https://" not in body
 
 
-def test_mentions_are_quieted_in_summary_text_and_new_surface():
+def test_mentions_are_quieted_in_summary_and_text():
     rep = report(
         [finding(text="Use @pytest.fixture here.")],
-        new_surface=["Asks @owner", "second"],
         summary="@someone look",
     )
     body = body_of(rep)
     assert f"@{WJ}someone" in body and f"@{WJ}pytest.fixture" in body
-    assert "@someone" not in body and "@pytest" not in body and "@owner" not in body
-    assert "Asks" not in body and "second" not in body
+    assert "@someone" not in body and "@pytest" not in body
 
 
 def test_quiet_mentions_leaves_the_rest():
@@ -396,7 +393,7 @@ def test_main_needs_pr_without_dry_run():
 
 def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(post_findings, "GhApi", lambda: pytest.fail("no GitHub"))
-    bad = write(tmp_path, {"summary": "ok ghp_" + "a" * 36, "new_surface": [], "findings": []})
+    bad = write(tmp_path, {"summary": "ok ghp_" + "a" * 36, "findings": []})
     assert main(argv_for(bad, FIXTURE, "--pr", "7")) == 1
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -404,7 +401,7 @@ def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
 
 
 def test_dry_run_with_a_secret_exits_one(tmp_path, capsys):
-    bad = write(tmp_path, {"summary": "sk-ant-oops-" + "x" * 20, "new_surface": [], "findings": []})
+    bad = write(tmp_path, {"summary": "sk-ant-oops-" + "x" * 20, "findings": []})
     assert main(argv_for(FIXTURE, bad, "--dry-run")) == 1
     assert capsys.readouterr().out == ""
 
@@ -471,7 +468,6 @@ SECRET_TEXTS = [
 def test_secret_like_text_is_refused(secret):
     for rep in (
         report(summary=f"Token {secret}"),
-        report(new_surface=[secret]),
         report([finding(text=f"Leaks {secret}")]),
         report([finding(path=secret)]),
     ):

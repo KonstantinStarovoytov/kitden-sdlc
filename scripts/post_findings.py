@@ -14,7 +14,7 @@ SUMMARY_MAX = 300
 TEXT_MAX = 300
 FINDINGS_MAX = 5
 KINDS = ("bug", "rule")
-TOP_KEYS = {"summary", "new_surface", "findings"}
+TOP_KEYS = {"summary", "findings"}
 FINDING_KEYS = {"path", "line", "kind", "text"}
 # Text that looks like a real token (a prefix plus a long tail), not just a token's name.
 # The model must never be able to publish one.
@@ -45,7 +45,6 @@ class Finding:
 @dataclass
 class Report:
     summary: str
-    new_surface: list[str]
     findings: list[Finding]
 
 
@@ -71,9 +70,6 @@ def _problem(data) -> str | None:
         return f"needs exactly the keys {sorted(TOP_KEYS)}"
     if not isinstance(data["summary"], str):
         return "summary must be a string"
-    surface = data["new_surface"]
-    if not isinstance(surface, list) or not all(isinstance(s, str) for s in surface):
-        return "new_surface must be a list of strings"
     findings = data["findings"]
     if not isinstance(findings, list):
         return "findings must be a list"
@@ -117,7 +113,6 @@ def load_report(path: Path) -> Report | None:
     ]
     return Report(
         summary=_cut(data["summary"], SUMMARY_MAX),
-        new_surface=data["new_surface"],
         findings=findings,
     )
 
@@ -127,7 +122,7 @@ def load_report(path: Path) -> Report | None:
 
 def refuse_secret_like(report: Report) -> None:
     """Raise SecretLikeError when any text that would be posted looks like a token."""
-    texts = [report.summary, *report.new_surface]
+    texts = [report.summary]
     for f in report.findings:
         texts += [f.path, f.text]
     if any(SECRET_LIKE.search(text) for text in texts):
