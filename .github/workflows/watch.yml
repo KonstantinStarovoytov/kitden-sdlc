@@ -190,12 +190,13 @@ jobs:
           git commit -m "Update the watcher's memory"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch
 
-  # The same time limit as judge. The key reaches only the step that runs the model; the scoring
-  # step has none. No write permission, so nothing in the pieces can write anywhere.
+  # 15 tasks, one after another, take longer than a daily run, so the limit is 45 minutes. The
+  # key reaches only the step that runs the model; the scoring step has none. No write
+  # permission, so nothing in the pieces can write anywhere.
   eval:
     if: vars.AGENTS_ENABLED == 'true' && inputs.eval
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -222,11 +223,14 @@ jobs:
         run: >-
           uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py
           --kitden kitden --tasks evals/watch/tasks --out eval-out
+      # Score and keep what there is, also when the tasks step failed or ran out of time.
       - name: Score
+        if: always()
         run: >-
           uv run --locked --only-group watch --only-group watch-io python evals/watch_score.py
           --tasks evals/watch/tasks --results eval-out --table table.md
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
         with:
           name: watch-eval
           path: |
