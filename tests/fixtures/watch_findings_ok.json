@@ -1,0 +1,20 @@
+{
+  "judged": ["claude-code-changelog#2.1.320"],
+  "findings": [
+    {
+      "piece": "claude-code-changelog#2.1.320",
+      "client": "claude-code",
+      "title": "skillOverrides renamed",
+      "changed": "Renamed skillOverrides to skills.overrides",
+      "version": "2.1.320",
+      "url": "https://example.com/changelog",
+      "row": "the `skillOverrides` key",
+      "files": ["src/kitden/skills.py"],
+      "effect": "breaks",
+      "sure": true,
+      "user_gets": "The skills action fails.",
+      "systems": "not checked",
+      "why": "Kitden reads the old key."
+    }
+  ]
+}
