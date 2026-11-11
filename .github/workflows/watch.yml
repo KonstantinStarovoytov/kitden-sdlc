@@ -5,11 +5,18 @@ name: watch
 # `watch` branch. The design is in docs/watcher-design.md. Three jobs, so that no job holds
 # untrusted text, a secret and write permission together (RULES.md, rule 1):
 # fetch reads (no secret), judge holds the OpenAI key (read only), post writes (no model).
+# A fourth job, eval, runs by hand only (workflow_dispatch with `eval` on): it measures the
+# judge on evals/watch and posts nothing; the three jobs above then skip.
 
 on:
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:
+    inputs:
+      eval:
+        description: "Run the eval on the 15 tasks of evals/watch instead of the daily run"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -23,7 +30,7 @@ env:
 
 jobs:
   fetch:
-    if: vars.AGENTS_ENABLED == 'true'
+    if: vars.AGENTS_ENABLED == 'true' && !inputs.eval
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -77,7 +84,9 @@ jobs:
 
   judge:
     needs: fetch
-    if: vars.AGENTS_ENABLED == 'true' && needs.fetch.outputs.pieces != '0'
+    if: >-
+      vars.AGENTS_ENABLED == 'true' && !inputs.eval
+      && needs.fetch.outputs.pieces != '0'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -110,7 +119,7 @@ jobs:
   post:
     needs: [fetch, judge]
     if: >-
-      vars.AGENTS_ENABLED == 'true' && !cancelled()
+      vars.AGENTS_ENABLED == 'true' && !inputs.eval && !cancelled()
       && needs.fetch.result == 'success'
       && (needs.judge.result == 'success' || needs.judge.result == 'skipped')
     runs-on: ubuntu-latest
@@ -177,3 +186,47 @@ jobs:
           git add -A
           git commit -m "Update the watcher's memory"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch
+
+  # The same limits as judge. The key reaches only the step that runs the model; the scoring
+  # step has none. No write permission, so nothing in the pieces can write anywhere.
+  eval:
+    if: vars.AGENTS_ENABLED == 'true' && inputs.eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # All of the history and tags: the input compares main with the latest release.
+      - name: Check out kitden
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KonstantinStarovoytov/kitden
+          path: kitden
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      # MAX_MODEL_CALLS is the limit for each task, as for one run of judge.
+      - name: Judge the tasks
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_MODEL_CALLS: "60"
+        run: >-
+          uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py
+          --kitden kitden --tasks evals/watch/tasks --out eval-out
+      - name: Score
+        run: >-
+          uv run --locked --only-group watch --only-group watch-io python evals/watch_score.py
+          --tasks evals/watch/tasks --results eval-out --table table.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: watch-eval
+          path: |
+            table.md
+            eval-out
+          if-no-files-found: error
+          retention-days: 7

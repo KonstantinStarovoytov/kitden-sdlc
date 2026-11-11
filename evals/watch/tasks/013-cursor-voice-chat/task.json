@@ -1,0 +1,20 @@
+{
+ "id": "013-cursor-voice-chat",
+ "kind": "untouched",
+ "source": "cursor-changelog",
+ "piece": {
+  "id": "cursor-changelog##Voice chat and dictation",
+  "client": "cursor",
+  "kind": "release",
+  "version": "#Voice chat and dictation",
+  "url": "https://cursor.com/changelog",
+  "text": "# Voice chat and dictation \n Voice chat is separate from dictation, which earlier releases called Voice Mode. Dictation still turns your speech into text in the chat input, and Cmd+Shift+Space still toggles it in the IDE. Voice chat is a two-way conversation where the agent answers out loud. \n Update Cursor to try voice chat. Learn more in our  docs . Nov 5, 2026  ·  Changelog Agents have lowered the cost of writing code, but most apps and tools that users build never make it off of localhost. \n Now, you can build live apps directly in Cursor and share them with a link. Describe what you want to create and Cursor will handle the rest: build the app, set up a database, configure auth, and deploy it. \n \n With this release, anyone in your org can now build useful tools for their work and share them with teammates. Update Cursor to try it out.",
+  "source": "cursor-changelog",
+  "key": "#Voice chat and dictation",
+  "hash": "ee7e2a48237b3bd9074a2d9c875bec942a2fe733df57db609829b30e7e6173b1"
+ },
+ "expect": {
+  "row": null,
+  "effect": null
+ }
+}

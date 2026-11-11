@@ -58,6 +58,7 @@ Once a day a job reads the release notes and docs of Claude Code, Codex and Curs
 model whether anything touches what Kitden shows. It opens an issue in Kitden for a sure
 break (two a week at most) and one summary issue on Mondays. It keeps its memory on the `watch`
 branch. The design is in [docs/watcher-design.md](docs/watcher-design.md).
+Before it is switched on, the `eval` job (run by hand) measures the model on [15 real release notes](evals/watch/README.md).
 
 | Label | Meaning |
 |---|---|
