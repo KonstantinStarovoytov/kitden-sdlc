@@ -21,7 +21,8 @@ Context only; this document covers step 1.
 1. Foundation and two reviewers (this document).
 2. Triage of issues and contributors.
 3. Watcher of Claude Code, Codex and Cursor changes: a small LangGraph graph inside one run, on
-   GPT-6 Luna; the pull request it opens is the pause for the human (owner).
+   GPT-6 Luna; it opens issues, not pull requests (owner, 2026-11-11). Built before triage;
+   see [watcher-design.md](watcher-design.md).
 4. Bug fixer.
 5. QA.
 6. Auto-merge, last.
