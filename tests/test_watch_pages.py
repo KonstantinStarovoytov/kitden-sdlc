@@ -31,3 +31,14 @@ def test_releases_skip_prereleases():
 def test_get_refuses_plain_http():
     with pytest.raises(ValueError):
         get("http://example.com")
+
+
+def test_text_keeps_newlines_and_hash_ignores_spacing():
+    a = sections("## A\nx\ny\n", "text/markdown")
+    b = sections("## A\nx  \ny\n", "text/markdown")
+    assert "\n" in a[0].text and a[0].hash == b[0].hash
+
+
+def test_hash_in_fence_is_not_a_heading():
+    out = sections("## A\n```\n# comment\n```\n## B", "text/markdown", level=2)
+    assert [s.key for s in out] == ["A", "B"]

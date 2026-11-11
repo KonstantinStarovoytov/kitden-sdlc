@@ -27,7 +27,7 @@ def _build(parts: list[tuple[str, str]]) -> list[Section]:
         if seen[key] > 1:
             key = f"{key} ({seen[key]})"
         flat = re.sub(r"\s+", " ", text).strip()
-        out.append(Section(key, flat, hashlib.sha256(flat.encode()).hexdigest()))
+        out.append(Section(key, text.strip(), hashlib.sha256(flat.encode()).hexdigest()))
     return out
 
 
@@ -66,8 +66,11 @@ def sections(body: str, content_type: str, level: int = 3) -> list[Section]:
         parser.feed(body)
         return _build([(re.sub(r"\s+", " ", k).strip(), t) for k, t in parser.parts])
     parts = [["", ""]]
+    fenced = False
     for line in body.splitlines():
-        m = re.match(rf"#{{1,{level}}}\s+(.*)", line)
+        if line.startswith(("```", "~~~")):
+            fenced = not fenced
+        m = None if fenced else re.match(rf"#{{1,{level}}}\s+(.*)", line)
         if m:
             parts.append([m.group(1).strip(), ""])
         parts[-1][1] += line + "\n"
@@ -86,8 +89,10 @@ def get(url: str) -> tuple[str, str]:
     if not url.startswith("https://"):
         raise ValueError(f"only https URLs are allowed: {url}")
     with urllib.request.urlopen(url, timeout=20) as resp:  # noqa: S310
+        if not resp.url.startswith("https://"):
+            raise ValueError(f"redirected to a non-https URL: {resp.url}")
         charset = resp.headers.get_content_charset() or "utf-8"
-        return resp.read().decode(charset), resp.headers.get_content_type()
+        return resp.read().decode(charset, errors="replace"), resp.headers.get_content_type()
 
 
 def load_sources(path) -> list[dict]:
