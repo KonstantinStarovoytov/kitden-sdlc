@@ -26,7 +26,7 @@ def _table_rows(text: str) -> Iterator[tuple[str, list[str]]]:
             client = CLIENTS.get(line[3:].strip())
         elif client and line.startswith("|"):
             cells = [c.strip() for c in line.strip().strip("|").split(" | ")]
-            if len(cells) == 6 and cells[0] != "What":
+            if len(cells) == 6 and cells[0] != "What" and not re.fullmatch(r"[-:]+", cells[0]):
                 yield client, cells
 
 

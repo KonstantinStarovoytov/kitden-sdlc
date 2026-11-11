@@ -15,7 +15,7 @@ the secrets are set up. There are no live numbers yet; [numbers.md](https://gith
 | `luna` reviewer | the same | GPT-6 Luna; meant to run on a project API key with a $5 monthly budget, once set up | read in a sandbox with no network, answer with findings | see below |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
 | weekly numbers | every Monday | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
-| client watcher | every day at 05:17 UTC, or by hand | GPT-6 Luna, on the same key as the `luna` reviewer | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` switch |
+| client watcher | every day at 05:17 UTC, or by hand | GPT-6 Luna, on the same key as the `luna` reviewer | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` and `WATCH_LIVE` switches |
 
 A pull request gets one short review comment for both reviewers, never a comment per
 finding. A job without a model writes it and edits it in place on later pushes, so only the
@@ -61,6 +61,7 @@ normally Monday. It keeps its memory on the `watch` branch. The design is in [do
 To run, it needs the `watch` branch and Lantern (the review app) with Issues write on Kitden.
 It also needs the secrets `OPENAI_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc.
 Before it is switched on, the `eval` job (run by hand) measures the model on [15 real release notes](evals/watch/README.md).
+The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
 
 | Label | Meaning |
 |---|---|
@@ -96,7 +97,7 @@ Then, once:
 1. Create the repository `kitden-sdlc` (or your copy) on GitHub.
 2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`.
-4. Set the variable `AGENTS_ENABLED` to `true`.
+4. Set the variable `AGENTS_ENABLED` to `true`. For the client watcher, set `WATCH_LIVE` to `true` only after the eval has passed.
 5. Optional: to post the comment under a bot's own name, create a GitHub App with write
    access to pull requests, install it on the repository, and save its client id as the variable
    `AGENTS_APP_CLIENT_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's app

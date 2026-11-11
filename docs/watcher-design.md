@@ -196,6 +196,8 @@ The first run only fills the memory and opens nothing.
 ### 7. Limits
 
 - The switch: a variable `AGENTS_ENABLED` in `kitden-sdlc`; off means the watcher does not run.
+  The daily jobs also need a second variable, `WATCH_LIVE`, set to `true`. The eval needs only
+  `AGENTS_ENABLED`, so it can run while the daily watcher stays off.
 - One run at a time, 15 minutes at most per job (the model gets 10 of them), a fixed top
   number of model calls and of new pieces per run; what does not fit waits for the next day
   (call).
@@ -236,6 +238,7 @@ one issue holds many of them (call).
 
 - Saves `OPENAI_API_KEY`, `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY` in `kitden-sdlc`
   and sets `AGENTS_ENABLED` there.
+- Sets `WATCH_LIVE` to `true` after seeing the eval table; until then the daily watcher is off.
 - Lets Lantern read and write issues in `kitden`.
 - Approves `docs/clients.md` in `kitden`.
 

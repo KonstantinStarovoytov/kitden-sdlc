@@ -264,6 +264,12 @@ def test_clean_scheduled_script_agent_passes():
     assert run(CLEAN_SCHEDULED) == []
 
 
+def test_scheduled_jobs_with_both_switches_pass():
+    both = "vars.AGENTS_ENABLED == 'true' && vars.WATCH_LIVE == 'true'"
+    text = CLEAN_SCHEDULED.replace("vars.AGENTS_ENABLED == 'true'", both)
+    assert run(text) == []
+
+
 def test_script_agent_is_an_agent_workflow():
     assert is_agent_workflow(yaml.safe_load(CLEAN_SCHEDULED.replace("SHA", SHA)))
 

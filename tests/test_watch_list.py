@@ -17,6 +17,13 @@ def test_parse_list_reads_rows():
     assert len(rows) == 2
 
 
+def test_separator_row_with_spaces_is_not_a_row():
+    text = TEXT.replace("|---|---|---|---|---|---|", "| --- | --- | --- | --- | --- | --- |")
+    assert len(parse_list(text)) == 2
+    text = TEXT.replace("|---|---|---|---|---|---|", "| :--- | --- | --- | --- | --- | --- |")
+    assert len(parse_list(text)) == 2
+
+
 def test_doc_pages_keeps_addresses_only():
     assert doc_pages(parse_list(TEXT)) == {"https://learn.chatgpt.com/docs/plugins": "codex"}
 

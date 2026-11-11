@@ -5,8 +5,10 @@ name: watch
 # `watch` branch. The design is in docs/watcher-design.md. Three jobs, so that no job holds
 # untrusted text, a secret and write permission together (RULES.md, rule 1):
 # fetch reads (no secret), judge holds the OpenAI key (read only), post writes (no model).
+# The three jobs run only when both variables are on: AGENTS_ENABLED and WATCH_LIVE.
 # A fourth job, eval, runs by hand only (workflow_dispatch with `eval` on): it measures the
-# judge on evals/watch and posts nothing; the three jobs above then skip.
+# judge on evals/watch and posts nothing; the three jobs above then skip. It needs
+# AGENTS_ENABLED alone, so the eval can run while the daily watcher stays off.
 
 on:
   schedule:
@@ -30,7 +32,7 @@ env:
 
 jobs:
   fetch:
-    if: vars.AGENTS_ENABLED == 'true' && !inputs.eval
+    if: vars.AGENTS_ENABLED == 'true' && vars.WATCH_LIVE == 'true' && !inputs.eval
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -85,7 +87,7 @@ jobs:
   judge:
     needs: fetch
     if: >-
-      vars.AGENTS_ENABLED == 'true' && !inputs.eval
+      vars.AGENTS_ENABLED == 'true' && vars.WATCH_LIVE == 'true' && !inputs.eval
       && needs.fetch.outputs.pieces != '0'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -119,7 +121,8 @@ jobs:
   post:
     needs: [fetch, judge]
     if: >-
-      vars.AGENTS_ENABLED == 'true' && !inputs.eval && !cancelled()
+      vars.AGENTS_ENABLED == 'true' && vars.WATCH_LIVE == 'true' && !inputs.eval
+      && !cancelled()
       && needs.fetch.result == 'success'
       && (needs.judge.result == 'success' || needs.judge.result == 'skipped')
     runs-on: ubuntu-latest

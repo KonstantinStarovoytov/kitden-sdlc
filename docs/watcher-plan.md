@@ -37,7 +37,7 @@ pytest, ruff, `gh` CLI.
   the owner merges.
 - Fixed names: branch `watch`; files `state.json`, `log.jsonl`, `archive.jsonl` on it; `config/watch-sources.yml`,
   `config/watch-labels.yml`; `schemas/watch-findings.schema.json`; artifacts `watch-input`,
-  `watch-findings`; variable `AGENTS_ENABLED`, variable `AGENTS_APP_CLIENT_ID`, secrets
+  `watch-findings`; variable `AGENTS_ENABLED`, variable `WATCH_LIVE`, variable `AGENTS_APP_CLIENT_ID`, secrets
   `OPENAI_API_KEY`, `AGENTS_APP_PRIVATE_KEY`; model `gpt-6-luna` in workflow env `WATCH_MODEL`.
 - Fixed numbers: `PIECES_MAX = 20` new pieces per run, `PIECE_CHARS = 12000`,
   `FILE_CHARS = 40000`, `MAX_MODEL_CALLS = 60`, job timeout 15 minutes, `URGENT_PER_WEEK = 2`,
@@ -202,11 +202,11 @@ def test_terms_keep_exact_words_only():
     client: cursor
     kind: page
     url: https://cursor.com/changelog
-    level: 2
+    split: article      # one section per <article>, keyed by its first heading
   ```
 
 - Produces: `Section(key: str, text: str, hash: str)`;
-  `sections(body: str, content_type: str, level: int = 3) -> list[Section]`;
+  `sections(body: str, content_type: str, level: int = 3, split: str | None = None) -> list[Section]`;
   `releases(payload: list[dict]) -> list[Section]`;
   `get(url: str) -> tuple[str, str]` (body, content type; follows redirects; 20 s timeout;
   only `https://`); `load_sources(path) -> list[dict]`.
@@ -214,8 +214,9 @@ def test_terms_keep_exact_words_only():
   `html.parser`, `script`, `style`, `nav`, `header`, `footer` are dropped, `h1`..`h<level>`
   start a section. `key` is the heading text; text before the first heading has key `""`.
   Two sections with one heading get ` (2)`, ` (3)` after the key. `hash` is the SHA-256 of the
-  section text with runs of white space made one space. `Cursor`'s level may need changing
-  after a look at the real page: check it with one manual fetch and fix the config.
+  section text with runs of white space made one space. With `split` (a tag name), HTML is
+  cut at each such tag instead, and `key` is the first heading inside it; Cursor's changelog
+  uses `split: article`.
 - `releases`: from the GitHub `releases` API payload; drops `prerelease` and `draft`; `key`
   is `tag_name`, `text` is `body`.
 
@@ -640,7 +641,7 @@ real model; its first message holds the prompt and the list and nothing else.
 
 `watch.yml`: `on: schedule` (`cron: "17 5 * * *"`) and `workflow_dispatch`; top-level
 `concurrency: {group: watch, cancel-in-progress: false}`; env `WATCH_MODEL: gpt-6-luna`.
-Every job's `if` has `vars.AGENTS_ENABLED == 'true'` and every job has `timeout-minutes: 15`.
+The `if` of `fetch`, `judge` and `post` has `vars.AGENTS_ENABLED == 'true'` and `vars.WATCH_LIVE == 'true'`; the `eval` job has `AGENTS_ENABLED` alone. Every job has `timeout-minutes: 15`.
 
 | Job | Permissions | Steps |
 |---|---|---|
@@ -726,8 +727,8 @@ Every job's `if` has `vars.AGENTS_ENABLED == 'true'` and every job has `timeout-
   `AGENTS_ENABLED`); put the table from the artifact into `evals/watch/results/<date>.md` in a
   small pull request and show it to the owner. If `passes` is false, stop here: the owner
   chooses between a stronger model and a narrower task.
-- [ ] **Step 5 (owner):** keep `AGENTS_ENABLED` at `true`. The first daily run fills the
-  memory and opens nothing.
+- [ ] **Step 5 (owner):** after the eval passes, set `WATCH_LIVE` to `true` (keep `AGENTS_ENABLED`
+  at `true`). The first daily run fills the memory and opens nothing.
 - [ ] **Step 6:** after the first two runs, read `log.jsonl` on `watch` and the run logs:
   each source read, no piece on day one, the state committed. Report to the owner, with the
   cost of the eval run from the OpenAI usage page if the owner shares it.
