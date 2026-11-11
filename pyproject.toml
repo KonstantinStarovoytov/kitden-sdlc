@@ -13,6 +13,11 @@ dev = [
     "pytest>=9.1",
     "ruff>=0.16",
     "pyyaml>=6",
+    {include-group = "watch"},
+]
+watch = [
+    "langchain-openai>=1.7.4",
+    "langgraph>=1.2.20",
 ]
 watch-io = [
     "pyyaml>=6",
