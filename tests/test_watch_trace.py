@@ -8,7 +8,7 @@ import pytest
 import watch_judge
 import watch_trace
 from tests.test_watch_judge import INP, LIST_TEXT, PID, piece
-from watch_judge import Assessed, Change, Refuted, Screened, judge
+from watch_judge import Assessed, Refuted, RowCheck, Screened, judge
 
 ROW = "the `skillOverrides` key"
 
@@ -57,10 +57,12 @@ class Llm:
             def invoke(self, messages, config=None):
                 llm.calls.append((schema.__name__, messages, config))
                 if schema is Screened:
-                    return Screened(changes=[Change(row="CC-01", title="t", changed="c",
-                                                    user_gets="u", sure=True, why="w")])
+                    return Screened(rows=[RowCheck(row="CC-01", quote="Changed skillOverrides.",
+                                                   touched=True, title="t", changed="c")],
+                                    gaps=[])
                 if schema is Assessed:
-                    return Assessed(effect="breaks", sure=True, user_gets="u",
+                    return Assessed(kitden_reads="k", client_now="c", shown_wrong="s",
+                                    effect="breaks", sure=True, user_gets="u",
                                     systems="all", why="w", title="t")
                 return Refuted(reason="r", holds=True)
         return Bound()

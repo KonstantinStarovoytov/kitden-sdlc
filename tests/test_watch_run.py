@@ -27,7 +27,7 @@ class Fake:
     def screen(self, piece, list_text, known_titles):
         self.pieces.append(piece["id"])
         return [{"row": "the `skillOverrides` key", "title": "t", "changed": "c",
-                 "user_gets": "u", "sure": False, "why": "w"}]
+                 "user_gets": "u", "sure": False, "why": "w", "quote": piece["text"]}]
 
     def assess(self, change, row, files):
         self.files = sorted(files)
