@@ -1,0 +1,177 @@
+name: watch
+
+# Once a day: read what Claude Code, Codex and Cursor changed, ask a model whether it touches
+# what Kitden shows, open issues in Kitden as the review app, and keep the memory on the
+# `watch` branch. The design is in docs/watcher-design.md. Three jobs, so that no job holds
+# untrusted text, a secret and write permission together (RULES.md, rule 1):
+# fetch reads (no secret), judge holds the OpenAI key (read only), post writes (no model).
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One run at a time; a second one waits, so the memory is never written twice at once.
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+env:
+  WATCH_MODEL: gpt-6-luna
+
+jobs:
+  fetch:
+    if: vars.AGENTS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      pieces: ${{ steps.fetch.outputs.pieces }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # All of the history and tags: the fetch compares main with the latest release.
+      - name: Check out kitden
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KonstantinStarovoytov/kitden
+          path: kitden
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out the memory
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: watch
+          path: memory
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      # Kitden is public, so the job's own token can read its issues.
+      - name: List the open watcher issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate \
+            "repos/KonstantinStarovoytov/kitden/issues?labels=client-change&state=open&per_page=100" \
+            --jq '.[] | select(.pull_request | not) | .title' \
+            | jq -R -s 'split("\n") | map(select(length > 0))' > titles.json
+      - name: Fetch
+        id: fetch
+        run: >-
+          uv run --locked --only-group watch-io python scripts/watch_fetch.py
+          --sources config/watch-sources.yml --kitden kitden --state memory/state.json
+          --titles titles.json --out input.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: watch-input
+          path: input.json
+          if-no-files-found: error
+          retention-days: 7
+
+  judge:
+    needs: fetch
+    if: vars.AGENTS_ENABLED == 'true' && needs.fetch.outputs.pieces != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: watch-input
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      # The model's only step: text in, a findings file out. No tools, no write permission.
+      - name: Judge
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_MODEL_CALLS: "60"
+        run: >-
+          uv run --locked --only-group watch python scripts/watch_judge.py
+          --input input.json --out findings.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: watch-findings
+          path: findings.json
+          if-no-files-found: error
+          retention-days: 7
+
+  post:
+    needs: [fetch, judge]
+    if: >-
+      vars.AGENTS_ENABLED == 'true' && !cancelled()
+      && needs.fetch.result == 'success'
+      && (needs.judge.result == 'success' || needs.judge.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # commit the memory to the watch branch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the memory
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: watch
+          path: memory
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: watch-input
+      # No findings when there was nothing new and judge was skipped.
+      - name: Get the findings
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: watch-findings
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      # Without the app nothing can be posted, so a failure here stops the job.
+      - name: Sign in as the review app
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AGENTS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENTS_APP_PRIVATE_KEY }}
+          owner: KonstantinStarovoytov
+          repositories: kitden
+          permission-issues: write
+      # No model here: the findings are only data, checked before anything is opened.
+      - name: Post
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          findings=()
+          if [ -f findings.json ]; then
+            findings=(--findings findings.json)
+          fi
+          uv run --locked --only-group watch-io python scripts/watch_post.py \
+            --input input.json "${findings[@]}" --repo KonstantinStarovoytov/kitden \
+            --memory memory --today "$(date -u +%F)"
+      # Checkout keeps no credentials, so the push gets the job's token here.
+      - name: Commit the memory
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        working-directory: memory
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "The memory did not change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Update the watcher's memory"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch

@@ -15,6 +15,7 @@ the secrets are set up. There are no live numbers yet; [numbers.md](https://gith
 | `luna` reviewer | the same | GPT-6 Luna; meant to run on a project API key with a $5 monthly budget, once set up | read in a sandbox with no network, answer with findings | see below |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
 | weekly numbers | every Monday | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
+| client watcher | every day at 05:17 UTC, or by hand | GPT-6 Luna, on the same key as the `luna` reviewer | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` switch |
 
 A pull request gets one short review comment for both reviewers, never a comment per
 finding. A job without a model writes it and edits it in place on later pushes, so only the
@@ -37,12 +38,14 @@ approve and never block ([merge policy](MERGE_POLICY.md)).
 Every workflow that runs an agent must follow [RULES.md](RULES.md). A script checks them.
 
 1. No job holds untrusted text, a secret and write permission together.
-2. `pull_request` only; skip forks, bots and when the switch is off.
+2. `pull_request` only; skip forks, bots and when the switch is off. A scheduled agent runs
+   on a schedule or by hand only, and every job checks the switch.
 3. `permissions: {}` at the top; each job asks for the least.
 4. Every action is pinned to a full SHA. The caller may use this repository's workflows at
    `main`, which is protected.
 5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has no turn
-   limit, only the 15 minutes.
+   limit, only the 15 minutes. An agent that is a script has `MAX_MODEL_CALLS` and runs one
+   at a time.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Luna
    can run shell commands, but only in a read-only sandbox without network, and it can read more
    than the checkout.

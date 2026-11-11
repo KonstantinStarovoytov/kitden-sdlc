@@ -120,10 +120,10 @@ from another repository at a fixed point.
 
 The checker (call): `actionlint` and `zizmor` run as ordinary CI steps in both repositories,
 and a small script fails any workflow that uses `claude-code-action` or `codex-action` and
-breaks rules 2 to 5. It runs in `kitden` on every pull request that touches
-`.github/workflows/`. Whoever edits an agent workflow also runs the `agentic-actions-auditor`
-skill from Trail of Bits locally; that is a line in the AGENTS.md of `kitden-sdlc`, not a CI
-step.
+breaks rules 2 to 5; a script step that gets a model key (the watcher) is held to rule 1
+too. It runs in `kitden` on every pull request that touches `.github/workflows/`. Whoever
+edits an agent workflow also runs the `agentic-actions-auditor` skill from Trail of Bits
+locally; that is a line in the AGENTS.md of `kitden-sdlc`, not a CI step.
 
 ### 3. The switch and the limits
 
