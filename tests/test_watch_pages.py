@@ -90,5 +90,13 @@ def test_split_keys_and_hashes_stay_when_a_new_entry_is_added_on_top():
                    "text/html", split="article")
     before = {s.key: s.hash for s in old if s.key}
     after = {s.key: s.hash for s in new if s.key}
-    assert set(before) == {"Voice Chat", "A", "Voice Chat (2)", "A (2)"}
+    assert set(before) == {"Voice Chat", "A"}
     assert {k: after[k] for k in before} == before
+
+
+def test_a_repeated_section_with_the_same_text_is_dropped():
+    html = PAGE.format(entry("Nov 6, 2026", "A", "a") * 2 + entry("Nov 7, 2026", "A", "b"))
+    out = sections(html, "text/html", split="article")
+    assert [s.key for s in out] == ["", "A", "A (2)"]
+    assert "Nov 7" in out[2].text
+    assert [s.key for s in sections("## A\n1\n## A\n1\n", "text/markdown")] == ["A"]

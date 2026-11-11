@@ -22,15 +22,20 @@ class Section:
 
 
 def _build(parts: list[tuple[str, str]]) -> list[Section]:
-    out, seen = [], {}
+    """Number a repeated heading; drop a section that repeats an earlier one exactly."""
+    out, seen, done = [], {}, set()
     for key, text in parts:
         if not key and not text.strip():
             continue
+        flat = re.sub(r"\s+", " ", text).strip()
+        digest = hashlib.sha256(flat.encode()).hexdigest()
+        if (key, digest) in done:
+            continue
+        done.add((key, digest))
         seen[key] = seen.get(key, 0) + 1
         if seen[key] > 1:
             key = f"{key} ({seen[key]})"
-        flat = re.sub(r"\s+", " ", text).strip()
-        out.append(Section(key, text.strip(), hashlib.sha256(flat.encode()).hexdigest()))
+        out.append(Section(key, text.strip(), digest))
     return out
 
 
