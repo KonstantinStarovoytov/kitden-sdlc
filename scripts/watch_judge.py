@@ -12,7 +12,7 @@ from typing import Literal, Protocol, TypedDict
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
-from watch_list import Row, _table_rows, parse_list
+from watch_list import Row, parse_list, row_labels
 
 MAX_MODEL_CALLS = 60
 DEADLINE_SECONDS = 600
@@ -44,9 +44,8 @@ class State(TypedDict):
 
 
 def _rows(list_text: str) -> dict[tuple[str, str], Row]:
-    return {(client, cells[0]): row
-            for (client, cells), row in zip(_table_rows(list_text), parse_list(list_text),
-                                            strict=True)}
+    labels = row_labels(list_text)
+    return {(row.client, labels[(row.client, row.what)]): row for row in parse_list(list_text)}
 
 
 def _files(row: Row, inp: dict) -> dict[str, str]:

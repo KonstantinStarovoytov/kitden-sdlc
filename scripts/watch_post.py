@@ -10,7 +10,7 @@ from typing import Protocol
 
 import yaml
 
-from watch_list import _table_rows
+from watch_list import parse_list, row_labels
 from watch_route import (
     TEXT_MAX,
     VERSION_MAX,
@@ -74,8 +74,12 @@ def _version(item: dict) -> str:
 
 
 def _seen_in(item: dict, inp: dict) -> str:
-    return next((f"seen in {cells[3]}" for client, cells in _table_rows(inp.get("list", ""))
-                 if client == item.get("client") and cells[0] == item.get("row")), "")
+    text = inp.get("list", "")
+    labels = row_labels(text)
+    for r in parse_list(text):
+        if (r.client, labels[(r.client, r.what)]) == (item.get("client"), item.get("row")):
+            return f"seen in {r.seen_in}"
+    return ""
 
 
 def _scale(item: dict, inp: dict) -> str:

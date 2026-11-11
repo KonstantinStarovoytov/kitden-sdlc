@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from post_findings import MENTION, SECRET_LIKE, WORD_JOINER
-from watch_list import CLIENTS, _table_rows, parse_list, terms
+from watch_list import CLIENTS, parse_list, row_labels, terms
 
 URGENT_PER_WEEK = 2
 WORD_HITS_MAX = 5
@@ -58,7 +58,8 @@ def check(findings: dict, inp: dict) -> list[dict]:
         src = pieces[item["piece"]]
         _need(all(item[k] == src[k] for k in ("url", "client", "version")), "url, client, version")
         _need(all(f in inp["files"] for f in item["files"]), "file not in input")
-        rows = {cells[0] for client, cells in _table_rows(inp["list"]) if client == src["client"]}
+        rows = {label for (client, _), label in row_labels(inp["list"]).items()
+                if client == src["client"]}
         _need(item["row"] in {"", *rows}, "row not in the list")
         texts = [item[k] for k in STRINGS] + item["files"]
         _need(not any(SECRET_LIKE.search(t) for t in texts), "secret-like text")
@@ -143,16 +144,14 @@ def labels(finding: dict) -> list[str]:
 
 
 def word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]:
-    words = terms(inp["list"])
-    raw = {c.replace("`", ""): c for c in (
-        line.strip("| ").split(" | ")[0] for line in inp["list"].splitlines() if "`" in line)}
+    words, raw = terms(inp["list"]), row_labels(inp["list"])
     hits = []
     for piece in inp["pieces"]:
         if piece["id"] not in judged:
             continue
         named = {f["row"] for f in findings if f["piece"] == piece["id"]}
         for row in parse_list(inp["list"]):
-            label = raw.get(row.what, row.what)
+            label = raw[(row.client, row.what)]
             if row.client != piece["client"] or label in named:
                 continue
             word = next((w for w in words[(row.client, row.what)] if w in piece["text"]), None)
