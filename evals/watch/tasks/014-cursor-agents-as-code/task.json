@@ -1,0 +1,20 @@
+{
+ "id": "014-cursor-agents-as-code",
+ "kind": "untouched",
+ "source": "cursor-changelog",
+ "piece": {
+  "id": "cursor-changelog##Agents as code",
+  "client": "cursor",
+  "kind": "release",
+  "version": "#Agents as code",
+  "url": "https://cursor.com/changelog",
+  "text": "# Agents as code \n An agent is a project.  instructions.md  is the prompt. Each file in  tools/  is one typed action the model can call.  skills/  holds procedures the model loads on demand,  mcp-connections/  adds tools from MCP servers, and  channels/  defines where the bot receives and answers messages.  agent-sdk validate  checks the project and  agent-sdk info  prints what was discovered.",
+  "source": "cursor-changelog",
+  "key": "#Agents as code",
+  "hash": "24c8f0823df73a9ee4ab3fedc9da71ba1523774949a9a71c40ab8f3004dce4a9"
+ },
+ "expect": {
+  "row": null,
+  "effect": null
+ }
+}

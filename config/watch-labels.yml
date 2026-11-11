@@ -1,0 +1,36 @@
+- name: client-change
+  color: "1d76db"
+  description: "Opened by the watcher: a client changed"
+- name: claude-code
+  color: "d97757"
+  description: "Which client"
+- name: codex
+  color: "0e8a16"
+  description: "Which client"
+- name: cursor
+  color: "5319e7"
+  description: "Which client"
+- name: breaks
+  color: "b60205"
+  description: "A Kitden action stops working"
+- name: wrong-data
+  color: "d93f0b"
+  description: "Kitden shows something that is not true"
+- name: minor
+  color: "c5def5"
+  description: "Small; nothing a user would trip over"
+- name: kitden-gap
+  color: "fbca04"
+  description: "The client added something Kitden does not show yet"
+- name: unsure
+  color: "cccccc"
+  description: "The watcher is not sure Kitden is touched"
+- name: summary
+  color: "0075ca"
+  description: "The weekly summary"
+- name: confirmed
+  color: "2da44e"
+  description: "Set by the owner on closing: the watcher was right"
+- name: false-alarm
+  color: "6e7781"
+  description: "Set by the owner on closing: the watcher was wrong"

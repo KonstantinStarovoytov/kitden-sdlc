@@ -1,0 +1,20 @@
+{
+ "id": "010-claude-login-and-tools",
+ "kind": "untouched",
+ "source": "claude-code-changelog",
+ "piece": {
+  "id": "claude-code-changelog#2.1.306",
+  "client": "claude-code",
+  "kind": "release",
+  "version": "2.1.306",
+  "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+  "text": "## 2.1.306\n\n- Fixed `claude -p` inside cloud sessions reporting \"Not logged in\" when started without the session's environment variables\n- Fixed an API error being replaced by \"prompt is too long\", and an unneeded compaction, in sessions with many MCP tools",
+  "source": "claude-code-changelog",
+  "key": "2.1.306",
+  "hash": "d1f6435e70c3ce4851ff0f89650db9dd070d0ce5299913059a8e6819851176e8"
+ },
+ "expect": {
+  "row": null,
+  "effect": null
+ }
+}

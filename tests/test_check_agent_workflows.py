@@ -215,3 +215,110 @@ def test_main_reports_and_returns_1(tmp_path, capsys):
 def test_main_returns_0_when_clean(tmp_path):
     (tmp_path / "ok.yml").write_text(CLEAN_CALLER.replace("SWITCH", SWITCH).replace("SHA", SHA))
     assert main([str(tmp_path)]) == 0
+
+
+CLEAN_SCHEDULED = """
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: watch
+  cancel-in-progress: false
+jobs:
+  fetch:
+    if: vars.AGENTS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@SHA
+  judge:
+    needs: fetch
+    if: vars.AGENTS_ENABLED == 'true' && needs.fetch.outputs.pieces != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Judge
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_MODEL_CALLS: "60"
+        run: python scripts/watch_judge.py
+  post:
+    needs: [fetch, judge]
+    if: vars.AGENTS_ENABLED == 'true' && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - run: python scripts/watch_post.py
+"""
+
+
+def test_clean_scheduled_script_agent_passes():
+    assert run(CLEAN_SCHEDULED) == []
+
+
+def test_scheduled_jobs_with_both_switches_pass():
+    both = "vars.AGENTS_ENABLED == 'true' && vars.WATCH_LIVE == 'true'"
+    text = CLEAN_SCHEDULED.replace("vars.AGENTS_ENABLED == 'true'", both)
+    assert run(text) == []
+
+
+def test_script_agent_is_an_agent_workflow():
+    assert is_agent_workflow(yaml.safe_load(CLEAN_SCHEDULED.replace("SHA", SHA)))
+
+
+def test_script_agent_with_write_is_rule_1():
+    text = CLEAN_SCHEDULED.replace(
+        "      contents: read\n    steps:\n      - name: Judge",
+        "      contents: write\n    steps:\n      - name: Judge",
+    )
+    assert any("rule 1" in v for v in run(text))
+
+
+def test_script_agent_on_push_is_rule_2():
+    text = CLEAN_SCHEDULED.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  push:\n")
+    assert any("rule 2" in v for v in run(text))
+
+
+def test_script_agent_workflow_job_without_switch_is_rule_2():
+    text = CLEAN_SCHEDULED.replace(
+        "    if: vars.AGENTS_ENABLED == 'true' && !cancelled()\n", "    if: ${{ !cancelled() }}\n"
+    )
+    assert any("rule 2" in v for v in run(text))
+
+
+def test_script_agent_without_max_model_calls_is_rule_5():
+    text = CLEAN_SCHEDULED.replace('          MAX_MODEL_CALLS: "60"\n', "")
+    assert any("rule 5" in v for v in run(text))
+
+
+def test_script_agent_without_timeout_is_rule_5():
+    text = CLEAN_SCHEDULED.replace(
+        "    timeout-minutes: 15\n    permissions:\n      contents: read\n    steps:\n"
+        "      - name: Judge",
+        "    permissions:\n      contents: read\n    steps:\n      - name: Judge",
+    )
+    assert any("rule 5" in v for v in run(text))
+
+
+def test_script_agent_without_concurrency_is_rule_5():
+    text = CLEAN_SCHEDULED.replace(
+        "concurrency:\n  group: watch\n  cancel-in-progress: false\n", ""
+    )
+    assert any("rule 5" in v for v in run(text))
+
+
+def test_model_secret_in_with_makes_a_script_agent():
+    text = CLEAN_SCHEDULED.replace(
+        "      - run: python scripts/watch_post.py\n",
+        "      - uses: some/action@SHA\n        with:\n"
+        "          key: ${{ secrets.ANTHROPIC_API_KEY }}\n",
+    )
+    assert any("rule 1" in v for v in run(text))

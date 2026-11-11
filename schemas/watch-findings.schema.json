@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Findings of the client watcher",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["judged", "findings", "failed"],
+  "properties": {
+    "judged": {"type": "array", "items": {"type": "string"}},
+    "failed": {"type": "array", "items": {"type": "string"}},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["piece", "client", "title", "changed", "version", "url", "row", "files",
+                     "effect", "sure", "user_gets", "systems", "why"],
+        "properties": {
+          "piece": {"type": "string"},
+          "client": {"type": "string"},
+          "title": {"type": "string"},
+          "changed": {"type": "string"},
+          "version": {"type": "string"},
+          "url": {"type": "string"},
+          "row": {"type": "string"},
+          "files": {"type": "array", "items": {"type": "string"}},
+          "effect": {"type": "string", "enum": ["breaks", "wrong-data", "minor", "gap"]},
+          "sure": {"type": "boolean"},
+          "user_gets": {"type": "string"},
+          "systems": {"type": "string"},
+          "why": {"type": "string"}
+        }
+      }
+    }
+  }
+}

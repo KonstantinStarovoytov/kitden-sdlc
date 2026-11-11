@@ -44,3 +44,8 @@ Problems found while building the reviewers, and what changed because of each.
 - **The daily cap counted the wrong runs.** Cancelled and skipped runs used up the cap, and
   whether the run doing the counting counted itself was left to chance. Now only runs that did
   work count, the counting run leaves itself out, and a cap of 10 means 10.
+
+## 2026-11-11
+
+- **The checker knew agents only by the two model actions.** The watcher calls the model from
+  a script, so a step that gets a model key now makes its job an agent job, held to the rules.

@@ -15,6 +15,11 @@ SWITCH_PARTS = (
 PINNED = re.compile(r"^[^@\s]+@[0-9a-f]{40}")
 # kitden-sdlc's own workflows may be called at main: that branch is protected.
 OWN_MAIN = re.compile(r"^KonstantinStarovoytov/kitden-sdlc/\.github/workflows/[\w.-]+@main$")
+# A step that gets one of these and is not a model action calls the model from a script.
+MODEL_SECRET = re.compile(
+    r"secrets\.(openai_api_key|claude_code_oauth_token|anthropic_api_key)", re.I
+)
+SCHEDULED_EVENTS = {"schedule", "workflow_dispatch"}
 
 
 def _jobs(doc: dict) -> dict:
@@ -34,6 +39,17 @@ def _is_model_step(step: dict) -> bool:
     return any(name in str(step.get("uses", "")) for name in MODEL_ACTIONS)
 
 
+def _is_script_agent_step(step: dict) -> bool:
+    if _is_model_step(step):
+        return False
+    values = [*(step.get("env") or {}).values(), *(step.get("with") or {}).values()]
+    return any(MODEL_SECRET.search(str(value)) for value in values)
+
+
+def _script_agent_steps(job: dict) -> list[dict]:
+    return [step for step in job.get("steps") or [] if _is_script_agent_step(step)]
+
+
 def _is_review_caller(job: dict) -> bool:
     uses = str(job.get("uses", "")).split("@")[0]
     return ".github/workflows/" in uses and uses.rsplit("/", 1)[-1].startswith("review")
@@ -44,7 +60,7 @@ def _has_model_step(job: dict) -> bool:
 
 
 def _is_agent_job(job: dict) -> bool:
-    return _is_review_caller(job) or _has_model_step(job)
+    return _is_review_caller(job) or _has_model_step(job) or bool(_script_agent_steps(job))
 
 
 def is_agent_workflow(doc: dict) -> bool:
@@ -77,6 +93,14 @@ def check_workflow(doc: dict, path: str) -> list[str]:
         return []
     found: list[tuple[int, str]] = []
     jobs = _jobs(doc)
+    script_jobs = {name: job for name, job in jobs.items() if _script_agent_steps(job)}
+
+    # Rule 1: a job that calls the model from a script may not write.
+    for name, job in script_jobs.items():
+        permissions = job.get("permissions")
+        values = permissions.values() if isinstance(permissions, dict) else [permissions]
+        if any("write" in str(value) for value in values):
+            found.append((1, f"job {name} gets a model secret and has write permission"))
 
     # Rule 2: pull_request only, and callers carry the switch.
     if "pull_request_target" in _events(doc):
@@ -87,6 +111,14 @@ def check_workflow(doc: dict, path: str) -> list[str]:
             missing = [part for part in SWITCH_PARTS if part not in condition]
             if missing:
                 found.append((2, f"job {name} has no switch condition for: {', '.join(missing)}"))
+    # A scheduled agent: schedule and by hand only, and every job carries the switch.
+    if script_jobs:
+        extra = _events(doc) - SCHEDULED_EVENTS
+        if extra:
+            found.append((2, f"a scheduled agent may not run on: {', '.join(sorted(extra))}"))
+        for name, job in jobs.items():
+            if SWITCH_PARTS[0] not in str(job.get("if", "")):
+                found.append((2, f"job {name} has no switch {SWITCH_PARTS[0]}"))
 
     # Rule 3: no permissions at the top, each job lists its own.
     if doc.get("permissions") != {}:
@@ -107,19 +139,23 @@ def check_workflow(doc: dict, path: str) -> list[str]:
 
     # Rule 5: limits on every agent job.
     for name, job in jobs.items():
-        if _has_model_step(job) and "timeout-minutes" not in job:
+        if (_has_model_step(job) or name in script_jobs) and "timeout-minutes" not in job:
             found.append((5, f"job {name} has no timeout-minutes"))
         for step in job.get("steps") or []:
             if "anthropics/claude-code-action" in str(step.get("uses", "")):
                 args = str((step.get("with") or {}).get("claude_args", ""))
                 if "--max-turns" not in args:
                     found.append((5, f"job {name}: claude_args has no --max-turns"))
+            if _is_script_agent_step(step) and "MAX_MODEL_CALLS" not in (step.get("env") or {}):
+                found.append((5, f"job {name}: a step gets a model secret but no MAX_MODEL_CALLS"))
     agent_jobs = [job for job in jobs.values() if _is_agent_job(job)]
     covered = _cancels(doc.get("concurrency")) or all(
         _cancels(job.get("concurrency")) for job in agent_jobs
     )
     if "pull_request" in _events(doc) and not covered:
         found.append((5, "concurrency with cancel-in-progress: true is missing"))
+    if script_jobs and not isinstance(doc.get("concurrency"), dict | str):
+        found.append((5, "a scheduled agent needs a top-level concurrency, one run at a time"))
 
     return [f"{path}: rule {rule}: {message}" for rule, message in found]
 
