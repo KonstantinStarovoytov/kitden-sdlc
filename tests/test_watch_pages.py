@@ -59,3 +59,36 @@ def test_table_cells_and_list_terms_keep_apart():
     text = sections(html, "text/html")[0].text
     assert "KeyType" not in text and "ab" not in text
     assert "xy" not in text and "qz" not in text
+
+
+def entry(date, title, body):
+    return (f"<article><p><time>{date}</time> · Changelog</p><header><h1><a>{title}</a></h1>"
+            f"</header><p>{body}</p><h2><a>#</a>Get started</h2><p>More on {title}.</p>"
+            "</article>")
+
+
+PAGE = ("<html><header><nav>menu</nav>Site</header><main><p>Changelog</p>{}</main>"
+        "<footer>foot</footer><script>x</script></html>")
+
+
+def test_split_starts_one_section_per_tag_keyed_by_its_first_heading():
+    html = PAGE.format(entry("Nov 6, 2026", "Voice Chat", "Talk.") +
+                       entry("Nov 5, 2026", "Live Apps", "Build."))
+    out = sections(html, "text/html", level=2, split="article")
+    assert [s.key for s in out] == ["", "Voice Chat", "Live Apps"]
+    voice = " ".join(out[1].text.split())
+    assert voice.startswith("Nov 6, 2026") and "Voice Chat" in voice and "Get started" in voice
+    assert "Nov 5" not in voice and "Live Apps" not in voice
+    assert "Build." in out[2].text
+    assert all(w not in s.text for s in out for w in ("menu", "Site", "foot", "x"))
+
+
+def test_split_keys_and_hashes_stay_when_a_new_entry_is_added_on_top():
+    old_entries = entry("Nov 6, 2026", "Voice Chat", "Talk.") + entry("Nov 5, 2026", "A", "b")
+    old = sections(PAGE.format(old_entries * 2), "text/html", split="article")
+    new = sections(PAGE.format((entry("Nov 9, 2026", "New", "n") + old_entries) * 2),
+                   "text/html", split="article")
+    before = {s.key: s.hash for s in old if s.key}
+    after = {s.key: s.hash for s in new if s.key}
+    assert set(before) == {"Voice Chat", "A", "Voice Chat (2)", "A (2)"}
+    assert {k: after[k] for k in before} == before

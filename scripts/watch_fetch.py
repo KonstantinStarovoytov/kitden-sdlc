@@ -82,7 +82,7 @@ def _read(source):
         body, _ = get(f"https://api.github.com/repos/{source['repo']}/releases")
         return releases(json.loads(body))
     body, ctype = get(source["url"])
-    return sections(body, ctype, source.get("level", 3))
+    return sections(body, ctype, source.get("level", 3), source.get("split"))
 
 
 def _fetch(sid, reader, address):

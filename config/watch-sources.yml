@@ -11,4 +11,5 @@
   client: cursor
   kind: page
   url: https://cursor.com/changelog
-  level: 2
+  # One section per entry: each entry is an <article>, keyed by its title.
+  split: article

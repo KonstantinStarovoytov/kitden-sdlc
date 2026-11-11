@@ -1,5 +1,6 @@
 import json
 
+import watch_fetch
 from watch_fetch import FAIL_DAYS, PIECE_CHARS, PIECES_MAX, _fetch, build_input, plan_run
 from watch_pages import Section
 
@@ -99,3 +100,11 @@ def test_failed_source_says_its_id_and_error_type_only(capsys):
     assert _fetch("https://d", reader, "https://d") is None
     err = capsys.readouterr().err
     assert "https://d" in err and "TimeoutError" in err and "secret detail" not in err
+
+
+def test_read_passes_the_split_tag_of_a_page_source(monkeypatch):
+    html = ("<article><header><h1>A</h1></header>a</article>"
+            "<article><header><h1>B</h1></header>b</article>")
+    monkeypatch.setattr(watch_fetch, "get", lambda url: (html, "text/html"))
+    src = {"id": "c", "kind": "page", "url": "https://c", "level": 2, "split": "article"}
+    assert [s.key for s in watch_fetch._read(src)] == ["A", "B"]

@@ -9,8 +9,9 @@ from html.parser import HTMLParser
 import yaml
 
 DROPPED = {"script", "style", "nav", "header", "footer"}
+HEADINGS = {f"h{i}" for i in range(1, 7)}
 BLOCKS = {"p", "div", "li", "br", "tr", "td", "th", "dt", "dd", "blockquote", "pre", "table",
-          "ul", "ol", "section", *(f"h{i}" for i in range(1, 7))}
+          "ul", "ol", "section", *HEADINGS}
 
 
 @dataclass
@@ -34,43 +35,72 @@ def _build(parts: list[tuple[str, str]]) -> list[Section]:
 
 
 class _Html(HTMLParser):
-    def __init__(self, level: int):
+    """Cut at the headings up to `level`, or, with `split`, at each `split` tag.
+
+    With `split`, the key is the first heading inside the tag, a header or footer inside it
+    is kept, and text outside the tags goes to the first section.
+    """
+
+    def __init__(self, level: int, split: str | None = None):
         super().__init__()
         self.headings = {f"h{i}" for i in range(1, level + 1)}
+        self.split = split
         self.parts = [["", ""]]
         self.skip = 0
+        self.inside = 0
+        self.keyed = False
         self.in_heading = False
 
+    def _dropped(self, tag):
+        return tag in DROPPED and not (self.inside and tag in ("header", "footer"))
+
     def handle_starttag(self, tag, attrs):
-        if tag in DROPPED:
+        if self._dropped(tag):
             self.skip += 1
-        elif tag in self.headings and not self.skip:
+        elif self.skip:
+            pass
+        elif tag == self.split:
+            self.inside += 1
+            if self.inside == 1:
+                self.parts.append(["", ""])
+                self.keyed = False
+        elif self.split:
+            if self.inside and not self.keyed and tag in HEADINGS:
+                self.in_heading = True
+        elif tag in self.headings:
             self.parts.append(["", ""])
             self.in_heading = True
         self._block(tag)
 
     def handle_endtag(self, tag):
-        if tag in DROPPED:
+        if self._dropped(tag):
             self.skip = max(0, self.skip - 1)
-        elif tag in self.headings:
+        elif tag == self.split and self.inside:
+            self.inside -= 1
+        elif self.in_heading and tag in (HEADINGS if self.split else self.headings):
             self.in_heading = False
+            self.keyed = True
         self._block(tag)
+
+    def _part(self):
+        return self.parts[-1] if self.inside or not self.split else self.parts[0]
 
     def _block(self, tag):
         if tag in BLOCKS and not self.skip:
-            self.parts[-1][1] += "\n"
+            self._part()[1] += "\n"
 
     def handle_data(self, data):
         if self.skip:
             return
         if self.in_heading:
-            self.parts[-1][0] += data
-        self.parts[-1][1] += data
+            self._part()[0] += data
+        self._part()[1] += data
 
 
-def sections(body: str, content_type: str, level: int = 3) -> list[Section]:
+def sections(body: str, content_type: str, level: int = 3,
+             split: str | None = None) -> list[Section]:
     if "html" in content_type:
-        parser = _Html(level)
+        parser = _Html(level, split)
         parser.feed(body)
         return _build([(re.sub(r"\s+", " ", k).strip(), t) for k, t in parser.parts])
     parts = [["", ""]]
