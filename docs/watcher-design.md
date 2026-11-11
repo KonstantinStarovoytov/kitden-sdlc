@@ -244,6 +244,8 @@ stay in git. What is sent there is public release notes and Kitden's public code
 - Saves `OPENAI_API_KEY`, `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY` in `kitden-sdlc`
   and sets `AGENTS_ENABLED` there.
 - Sets `WATCH_LIVE` to `true` after seeing the eval table; until then the daily watcher is off.
+- Optional: saves `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and sets the variable
+  `LANGFUSE_HOST` (the region's address) for traces and experiments in Langfuse.
 - Lets Lantern read and write issues in `kitden`.
 - Approves `docs/clients.md` in `kitden`.
 

@@ -65,6 +65,7 @@ def run_name(model_name: str, now: datetime) -> str:
 
 def experiment(tasks: list[dict], run_one, model_name: str) -> None:
     """Run the tasks as one experiment on the dataset; each trace gets its task's scores."""
+    watch_trace.setup()
     from langfuse import Evaluation, get_client
 
     lf = get_client()

@@ -2,6 +2,7 @@
 LANGFUSE_SECRET_KEY are set (LANGFUSE_HOST gives the region). Without them nothing is
 imported. A Langfuse error prints one line with its type and the run goes on."""
 
+import logging
 import os
 import sys
 from contextlib import contextmanager
@@ -17,6 +18,16 @@ def enabled() -> bool:
 
 def warn(e: Exception) -> None:
     print(f"langfuse failed: {type(e).__name__}", file=sys.stderr)
+
+
+def setup() -> None:
+    """Call before any langfuse import: GitHub gives "" for an unset variable, and an empty
+    host would replace the SDK's default. The SDK's own log lines (messages, tracebacks) are
+    silenced; warn() says what failed."""
+    if os.environ.get("LANGFUSE_HOST") == "":
+        del os.environ["LANGFUSE_HOST"]
+    for name in ("langfuse", "opentelemetry"):
+        logging.getLogger(name).setLevel(logging.CRITICAL)
 
 
 def commit() -> str:
@@ -36,6 +47,7 @@ def piece(piece_id: str):
 @cache
 def _handler():
     try:
+        setup()
         from langfuse.langchain import CallbackHandler
 
         return CallbackHandler()
@@ -49,11 +61,13 @@ def config(step: str, model: str) -> dict | None:
     if not enabled() or (handler := _handler()) is None:
         return None
     piece_id = _piece.get()
-    tags = [t for t in (step, piece_id, model, commit()) if t]
+    tags = [t for t in (piece_id, model, commit()) if t]
     metadata = {"langfuse_tags": tags, "step": step, "piece": piece_id, "model": model,
                 "commit": commit()}
     if piece_id:
-        metadata["langfuse_session_id"] = piece_id
+        # One session per piece and commit, so later runs do not pile into it.
+        session = f"{piece_id} {commit()[:7]}".strip()
+        metadata["langfuse_session_id"] = session.encode("ascii", "ignore").decode()[:200]
     return {"callbacks": [handler], "run_name": step, "metadata": metadata}
 
 
@@ -61,6 +75,7 @@ def flush() -> None:
     if not enabled():
         return
     try:
+        setup()
         from langfuse import get_client
 
         get_client().flush()

@@ -1,8 +1,12 @@
 import json
+import logging
 import sys
 import types
 from datetime import UTC, datetime
 
+import pytest
+
+import watch_run
 import watch_trace
 from watch_run import dataset_items, run_name, run_tasks
 from watch_score import load_tasks
@@ -99,8 +103,12 @@ class FakeLangfuse:
     def run_experiment(self, *, name, run_name, data, task, evaluators, max_concurrency,
                        metadata):
         self.run = (name, run_name, metadata, [i.id for i in data])
-        for item in data:
-            out = task(item=item)
+        for i, item in enumerate(data):
+            try:
+                out = task(item=item)
+            except Exception as e:  # the SDK logs a failed item and goes on
+                logging.getLogger("langfuse").error("Item %s failed: %s", i, e)
+                continue
             for ev in evaluators:
                 for e in ev(input=item.input, output=out, expected_output=item.expected_output,
                             metadata=item.metadata):
@@ -176,3 +184,24 @@ def test_without_keys_nothing_of_langfuse_is_imported(tmp_path, monkeypatch, cap
     run_tasks(folder, kitden, out, Fake(), 10, "gpt-test")
     assert (out / "001-a/findings.json").exists()
     assert "langfuse" not in capsys.readouterr().err
+
+
+def test_a_task_that_raises_runs_twice_at_most_and_still_fails_the_run(tmp_path, monkeypatch,
+                                                                         capsys):
+    kitden, folder, out = setup(tmp_path, TOUCHED, UNTOUCHED)
+    fake_langfuse(monkeypatch, FakeLangfuse())
+    real, tries = watch_run.build_task_input, []
+
+    def build(piece, kitden):
+        tries.append(piece["id"])
+        if piece["id"] == "s#2":
+            raise RuntimeError("clone text sk-test")
+        return real(piece, kitden)
+
+    monkeypatch.setattr(watch_run, "build_task_input", build)
+    model = Fake()
+    with pytest.raises(RuntimeError):
+        run_tasks(folder, kitden, out, model, 10, "gpt-test")
+    assert tries == ["s#1", "s#2", "s#2"] and model.pieces == ["s#1"]
+    assert (out / "001-a/findings.json").exists()
+    assert "sk-test" not in capsys.readouterr().err

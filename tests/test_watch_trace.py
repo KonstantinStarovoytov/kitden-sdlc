@@ -1,3 +1,5 @@
+import logging
+import os
 import sys
 import types
 
@@ -102,8 +104,9 @@ def test_on_with_keys_the_handler_goes_to_every_model_call(monkeypatch):
     assert len(handlers) == 1 and isinstance(configs[0]["callbacks"][0], Handler)
     for step, c in zip(steps, configs, strict=True):
         assert c["run_name"] == step
-        assert c["metadata"]["langfuse_tags"] == [step, PID, "gpt-test", "abc1234def"]
-        assert c["metadata"]["langfuse_session_id"] == PID
+        assert c["metadata"]["langfuse_tags"] == [PID, "gpt-test", "abc1234def"]
+        assert c["metadata"]["langfuse_session_id"] == f"{PID} abc1234"
+        assert c["metadata"]["step"] == step
         assert c["metadata"]["commit"] == "abc1234def"
 
 
@@ -156,3 +159,40 @@ def test_the_cli_flushes_at_the_end(tmp_path, monkeypatch):
                                       "--out", str(tmp_path / "findings.json")])
     watch_judge.main()
     assert flushed == [1]
+
+
+def test_without_a_commit_the_session_is_the_piece_cut_to_200_ascii(monkeypatch):
+    keys(monkeypatch)
+    fake_langfuse(monkeypatch)
+    with watch_trace.piece("p" * 300 + "é"):
+        session = watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"]
+    assert session == "p" * 200
+    with watch_trace.piece(PID):
+        assert watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"] == PID
+
+
+def test_an_empty_host_is_dropped_before_langfuse_is_imported(monkeypatch):
+    keys(monkeypatch)
+    monkeypatch.setenv("LANGFUSE_HOST", "")
+    seen = []
+
+    class Seeing:
+        def __init__(self):
+            seen.append(os.environ.get("LANGFUSE_HOST"))
+
+    fake_langfuse(monkeypatch, handler=Seeing)
+    watch_trace.config("screen", "m")
+    assert seen == [None] and "LANGFUSE_HOST" not in os.environ
+
+
+def test_a_set_host_is_kept(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com")
+    watch_trace.setup()
+    assert os.environ["LANGFUSE_HOST"] == "https://us.cloud.langfuse.com"
+
+
+def test_the_sdk_log_lines_are_silenced(capsys):
+    watch_trace.setup()
+    logging.getLogger("langfuse").error("Item 0 failed: sk-test")
+    logging.getLogger("opentelemetry.sdk").error("export failed: sk-test")
+    assert capsys.readouterr().err == ""
