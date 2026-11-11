@@ -93,9 +93,9 @@ def _scale(item: dict, inp: dict) -> str:
 def _item(item: dict, inp: dict) -> str:
     row = _quiet(item.get("row") or "", TEXT_MAX)
     touches = ", ".join(x for x in [row, _seen_in(item, inp), *(item.get("files") or [])] if x)
+    who = " ".join(x for x in (client_name(item), _version(item)) if x)
     return "\n\n".join([
-        f"**What changed**\n{client_name(item)} {_version(item)}: "
-        f"{item.get('changed', '')}\n{item.get('url', '')}".replace("  ", " "),
+        f"**What changed**\n{who}: {item.get('changed', '')}\n{item.get('url', '')}",
         f"**What it touches**\n{touches or 'not checked'}",
         f"**What the user gets**\n{item.get('user_gets', '')}",
         f"**Scale**\n{_scale(item, inp)}",
@@ -108,17 +108,20 @@ def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
     return title, f"{first_line()}\n\n{_item(finding, inp)}\n"
 
 
-def render_summary(items: list[dict], today: date, inp: dict | None = None) -> tuple[str, str]:
+def render_summary(items: list[dict], today: date,
+                   inp: dict | None = None) -> tuple[str, str, list[dict]]:
+    """Return the title, the body and the items that did not fit, for the next summary."""
     inp = inp or {"files": {}, "release": "the latest release"}
     monday = today - timedelta(days=today.weekday())
     blocks = [f"### {i['title']}\n\n`{'` `'.join(labels(i))}`\n\n{_item(i, inp)}" for i in items]
-    body = first_line()
+    body, rest = first_line(), []
     for n, block in enumerate(blocks):
         if len(body) + len(block) + 100 > SUMMARY_MAX:
-            body += f"\n\n…and {len(blocks) - n} more items"
+            body += f"\n\n…and {len(blocks) - n} more items in the next summary"
+            rest = items[n:]
             break
         body += "\n\n" + block
-    return f"Client changes, week of {monday}", body + "\n"
+    return f"Client changes, week of {monday}", body + "\n", rest
 
 
 def _append(path: Path, lines: list[dict]) -> None:
@@ -138,7 +141,9 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
 
     posts = [(*render_urgent(f, inp), labels(f)) for f in plan.urgent]
     if plan.summary:
-        posts.append((*render_summary(plan.summary, today, inp), ["client-change", "summary"]))
+        title, body, rest = render_summary(plan.summary, today, inp)
+        posts.append((title, body, ["client-change", "summary"]))
+        plan.state["kept"] = rest + plan.state["kept"]
     have = gh.label_names()
     for entry in yaml.safe_load(LABELS_FILE.read_text()):
         if entry["name"] not in have:

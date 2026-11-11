@@ -87,8 +87,10 @@ def _grade(f: dict) -> int:
 
 
 def _not_judged(piece: dict) -> dict:
-    return {"effect": "minor", "sure": False, "title": _quiet(f"Could not judge {piece['id']}",
-                                                             TITLE_MAX),
+    title = f"Could not judge {piece['id']}"
+    if SECRET_LIKE.search(title):
+        title = f"Could not judge a piece of {piece['source']}"
+    return {"effect": "minor", "sure": False, "title": _quiet(title, TITLE_MAX),
             "client": piece["client"], "url": piece["url"], "version": piece["version"],
             "changed": f"The model failed on this piece {TRIES_MAX} times; it is now skipped.",
             "why": "Read the source by hand.", "user_gets": "not checked",
@@ -118,7 +120,9 @@ def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today
             if first:
                 f["overflow"] = True
         new["kept"].append(f)
-    tries = new.setdefault("tries", {})
+    today_ids = {p["id"] for p in inp["pieces"]}
+    tries = {k: v for k, v in new.get("tries", {}).items() if k in today_ids}
+    new["tries"] = tries
     for piece in inp["pieces"]:
         pid = piece["id"]
         if pid in failed:

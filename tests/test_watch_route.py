@@ -366,3 +366,17 @@ def test_word_hit_names_the_word_and_copies_no_outside_text():
 def test_version_of_another_piece_is_refused():
     with pytest.raises(BadFindings):
         check(ok(version="9.9"), INP)
+
+
+def test_could_not_judge_title_hides_a_secret_like_heading():
+    pid = "https://docs.example.com/x#ghp_" + "a" * 20
+    inp = make_inp([piece(pid)])
+    plan = route([], base_state(tries={pid: TRIES_MAX - 1}), [], inp, NOW, failed=[pid])
+    [item] = plan.state["kept"]
+    assert item["title"] == "Could not judge a piece of https://docs.example.com/x"
+
+
+def test_tries_forget_pieces_that_left_the_feed():
+    state = base_state(tries={PID: 1, "gone#1": 2})
+    plan = route([], state, [], INP, NOW, failed=JUDGED)
+    assert plan.state["tries"] == {PID: 2}

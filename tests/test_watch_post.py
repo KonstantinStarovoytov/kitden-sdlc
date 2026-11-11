@@ -76,6 +76,7 @@ def test_bad_findings_post_nothing_and_keep_the_memory(tmp_path):
     with pytest.raises(SystemExit):
         run(inp(1), {"nonsense": 1}, gh, tmp_path, WED)
     assert gh.issues == [] and not (tmp_path / "state.json").exists()
+    assert not (tmp_path / "log.jsonl").exists() and not (tmp_path / "archive.jsonl").exists()
 
 
 def test_quiet_day_opens_nothing_but_saves_state(tmp_path):
@@ -105,7 +106,7 @@ def test_release_not_checked_when_a_file_differs():
 
 def test_summary_item_without_piece_url_or_version():
     item = {"title": "t", "effect": "minor", "client": "codex", "sure": True}
-    _, body = render_summary([item], MON)
+    _, body, _ = render_summary([item], MON)
     assert "### " in body and "unknown" in body
 
 
@@ -149,14 +150,32 @@ def test_first_line_names_the_model_of_the_run(monkeypatch):
     assert body.splitlines()[0] == "Automated issue by Kitden's client watcher (gpt-7)."
 
 
+def long_items(n):
+    return [{"title": f"t{i}", "effect": "minor", "client": "codex", "sure": True,
+             "why": "w" * 600, "changed": "c" * 600, "user_gets": "u" * 600, "row": "",
+             "files": [], "systems": ""} for i in range(n)]
+
+
 def test_long_summary_is_cut_with_a_count_of_the_rest():
-    items = [{"title": f"t{n}", "effect": "minor", "client": "codex", "sure": True,
-              "why": "w" * 600, "changed": "c" * 600, "user_gets": "u" * 600}
-             for n in range(100)]
-    _, body = render_summary(items, MON)
+    items = long_items(100)
+    _, body, rest = render_summary(items, MON)
     assert len(body) <= SUMMARY_MAX
     shown = body.count("### ")
-    assert 0 < shown < 100 and body.rstrip().endswith(f"…and {100 - shown} more items")
+    assert 0 < shown < 100 and rest == items[shown:]
+    assert body.rstrip().endswith(f"…and {100 - shown} more items in the next summary")
+
+
+def test_items_cut_from_the_summary_are_kept_for_the_next_one(tmp_path):
+    gh = FakeGitHub()
+    run(inp(0, state={**STATE, "kept": long_items(100)}), None, gh, tmp_path, MON)
+    shown = gh.issues[0][1].count("### ")
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert [k["title"] for k in state["kept"]] == [f"t{i}" for i in range(shown, 100)]
+
+
+def test_no_stray_space_when_the_version_is_empty():
+    _, body = render_urgent(finding(version=""), inp())
+    assert "Claude Code: The key was renamed." in body
 
 
 def test_version_is_quiet_and_cut():
