@@ -50,3 +50,12 @@ def test_inline_html_adds_no_space_and_blocks_keep_apart():
     text = sections(html, "text/html")[0].text
     assert "~/.cursor/mcp.json" in text
     assert "onetwo" not in text and "ab" not in text
+
+
+def test_table_cells_and_list_terms_keep_apart():
+    html = ("<h2>Keys</h2><table><tr><th>Key</th><th>Type</th></tr>"
+            "<tr><td>a</td><td>b</td></tr></table><dl><dt>x</dt><dd>y</dd></dl>"
+            "<blockquote>q</blockquote>z")
+    text = sections(html, "text/html")[0].text
+    assert "KeyType" not in text and "ab" not in text
+    assert "xy" not in text and "qz" not in text

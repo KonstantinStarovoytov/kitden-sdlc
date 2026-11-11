@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import subprocess  # noqa: S404
+import sys
 from pathlib import Path
 
 from watch_list import doc_pages, parse_list
@@ -84,10 +85,11 @@ def _read(source):
     return sections(body, ctype, source.get("level", 3))
 
 
-def _fetch(address, reader):
+def _fetch(sid, reader, address):
     try:
         return reader(address)
-    except Exception:  # noqa: BLE001 - one unreadable source must not stop the run
+    except Exception as e:  # noqa: BLE001 - one unreadable source must not stop the run
+        print(f"cannot read {sid}: {type(e).__name__}", file=sys.stderr)
         return None
 
 
@@ -103,10 +105,10 @@ def main():
     for src in load_sources(a.sources):
         meta[src["id"]] = {"client": src["client"], "kind": "release",
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
-        fetched[src["id"]] = _fetch(src, _read)
+        fetched[src["id"]] = _fetch(src["id"], _read, src)
     for address, client in doc_pages(rows).items():
         meta[address] = {"client": client, "kind": "doc", "url": address}
-        fetched[address] = _fetch(address, lambda u: sections(*get(u)))
+        fetched[address] = _fetch(address, lambda u: sections(*get(u)), address)
     pieces, new_state = plan_run(state, fetched, meta)
     release = _git(a.kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
     names = sorted({f for r in rows for f in r.files})

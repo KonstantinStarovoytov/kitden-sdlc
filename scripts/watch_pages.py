@@ -9,8 +9,8 @@ from html.parser import HTMLParser
 import yaml
 
 DROPPED = {"script", "style", "nav", "header", "footer"}
-BLOCKS = {"p", "div", "li", "br", "tr", "pre", "table", "ul", "ol", "section",
-          *(f"h{i}" for i in range(1, 7))}
+BLOCKS = {"p", "div", "li", "br", "tr", "td", "th", "dt", "dd", "blockquote", "pre", "table",
+          "ul", "ol", "section", *(f"h{i}" for i in range(1, 7))}
 
 
 @dataclass

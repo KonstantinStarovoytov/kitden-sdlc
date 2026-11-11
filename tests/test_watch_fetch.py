@@ -1,6 +1,6 @@
 import json
 
-from watch_fetch import FAIL_DAYS, PIECE_CHARS, PIECES_MAX, build_input, plan_run
+from watch_fetch import FAIL_DAYS, PIECE_CHARS, PIECES_MAX, _fetch, build_input, plan_run
 from watch_pages import Section
 
 META = {"s": {"client": "codex", "kind": "release", "url": "https://x/s"}}
@@ -90,3 +90,12 @@ def test_build_input_reads_files_and_titles(tmp_path):
     assert out["files"] == {"src/a.py": {"text": "hello", "same_in_release": True}}
     assert out["known_titles"] == ["t1", "k"] and out["release"] == "v1"
     json.dumps(out)
+
+
+def test_failed_source_says_its_id_and_error_type_only(capsys):
+    def reader(address):
+        raise TimeoutError("secret detail")
+
+    assert _fetch("https://d", reader, "https://d") is None
+    err = capsys.readouterr().err
+    assert "https://d" in err and "TimeoutError" in err and "secret detail" not in err
