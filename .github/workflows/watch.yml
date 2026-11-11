@@ -51,8 +51,10 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
-      # Kitden is public, so the job's own token can read its issues.
+      # Kitden is public, so the job's own token can read its issues. `shell: bash` adds
+      # pipefail: a failed gh call must fail the step, not leave an empty list.
       - name: List the open watcher issues
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -130,7 +132,7 @@ jobs:
           name: watch-input
       # No findings when there was nothing new and judge was skipped.
       - name: Get the findings
-        continue-on-error: true
+        if: needs.judge.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: watch-findings
