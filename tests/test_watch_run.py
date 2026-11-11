@@ -172,7 +172,7 @@ def test_a_langfuse_failure_does_not_fail_the_run(tmp_path, monkeypatch, capsys)
     fake_langfuse(monkeypatch, FakeLangfuse(fail=ConnectionError("sk-test")))
     model = Fake()
     run_tasks(folder, kitden, out, model, 10, "gpt-test")
-    assert model.pieces == ["s#1", "s#2"]
+    assert model.pieces == ["s#1", "s#1", "s#2", "s#2"]
     assert (out / "002-b/findings.json").exists()
     assert "langfuse failed: ConnectionError\n" in capsys.readouterr().err
 
@@ -203,7 +203,7 @@ def test_a_task_that_raises_runs_twice_at_most_and_still_fails_the_run(tmp_path,
     model = Fake()
     with pytest.raises(RuntimeError):
         run_tasks(folder, kitden, out, model, 10, "gpt-test")
-    assert tries == ["s#1", "s#2", "s#2"] and model.pieces == ["s#1"]
+    assert tries == ["s#1", "s#2", "s#2"] and model.pieces == ["s#1", "s#1"]
     assert (out / "001-a/findings.json").exists()
     assert "sk-test" not in capsys.readouterr().err
 
@@ -214,7 +214,7 @@ def test_several_runs_go_to_their_own_folders_and_experiments(tmp_path, monkeypa
     fake_langfuse(monkeypatch, client)
     model = Fake()
     run_tasks(folder, kitden, out, model, 10, "gpt-test", runs=2)
-    assert model.pieces == ["s#1", "s#2", "s#1", "s#2"]
+    assert model.pieces == ["s#1"] * 2 + ["s#2"] * 2 + ["s#1"] * 2 + ["s#2"] * 2
     for n in (1, 2):
         assert (out / f"run-{n}/001-a/findings.json").exists()
     assert not (out / "001-a").exists() and client.run[1].endswith(" run 2")
