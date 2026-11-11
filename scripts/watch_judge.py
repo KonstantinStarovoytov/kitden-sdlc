@@ -177,7 +177,7 @@ def _prompt(name: str) -> str:
 
 
 def screen_messages(piece: dict, list_text: str, known_titles: list[str]) -> list[dict]:
-    data = {"piece": {k: piece[k] for k in ("client", "version", "url", "text")},
+    data = {"piece": {k: piece[k] for k in ("client", "kind", "version", "url", "text")},
             "known_titles": known_titles}
     return [{"role": "system", "content": _prompt("screen") + list_text},
             {"role": "user", "content": json.dumps(data, indent=1)}]

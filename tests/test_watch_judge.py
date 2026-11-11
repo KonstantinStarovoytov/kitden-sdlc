@@ -1,10 +1,11 @@
 import copy
 import json
 import sys
+from pathlib import Path
 
 import watch_judge
-from watch_judge import FILE_CHARS, judge, screen_messages
-from watch_route import check
+from watch_judge import FILE_CHARS, Assessed, Change, judge, screen_messages
+from watch_route import EFFECTS, KEYS, TOP_KEYS, check
 
 PIECE_URL = "https://example.com/changelog"
 PID = "claude-code-changelog#2.1.320"
@@ -222,3 +223,22 @@ def test_cli_writes_findings_and_says_so_when_nothing_was_judged(tmp_path, monke
     out = json.loads((tmp_path / "findings.json").read_text())
     assert out["judged"] == [] and len(out["failed"]) == 2
     assert "No piece was judged" in capsys.readouterr().err
+
+
+def test_screen_tells_the_kind_only_in_the_last_message():
+    doc = {**PIECE_A, "kind": "doc", "version": ""}
+    a = screen_messages(PIECE_A, LIST_TEXT, [])
+    b = screen_messages(doc, LIST_TEXT, [])
+    assert a[0] == b[0]
+    assert json.loads(a[-1]["content"])["piece"]["kind"] == "release"
+    assert json.loads(b[-1]["content"])["piece"]["kind"] == "doc"
+
+
+def test_schema_keys_match_check_and_the_judge_models():
+    schema = json.loads(Path("schemas/watch-findings.schema.json").read_text())
+    item = schema["properties"]["findings"]["items"]
+    assert set(schema["required"]) == set(schema["properties"]) == TOP_KEYS
+    assert set(item["required"]) == set(item["properties"]) == KEYS
+    assert item["properties"]["effect"]["enum"] == list(EFFECTS)
+    for model in (Change, Assessed):
+        assert set(model.model_fields) <= KEYS

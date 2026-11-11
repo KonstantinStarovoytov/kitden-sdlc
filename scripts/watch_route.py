@@ -18,6 +18,7 @@ STRINGS = ("piece", "client", "title", "changed", "version", "url", "row", "effe
            "user_gets", "systems", "why")
 CUT = ("title", "changed", "user_gets", "systems", "why")
 KEYS = {*STRINGS, "files", "sure"}
+TOP_KEYS = {"judged", "findings", "failed"}
 NAMES = {v: k for k, v in CLIENTS.items()}
 
 
@@ -38,7 +39,7 @@ def _need(ok: bool, why: str) -> None:
 
 
 def check(findings: dict, inp: dict) -> list[dict]:
-    _need(isinstance(findings, dict) and set(findings) == {"judged", "findings", "failed"},
+    _need(isinstance(findings, dict) and set(findings) == TOP_KEYS,
           "top level")
     judged, items, failed = findings["judged"], findings["findings"], findings["failed"]
     _need(all(isinstance(x, list) for x in (judged, items, failed)), "top level lists")
