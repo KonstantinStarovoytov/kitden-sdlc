@@ -187,7 +187,7 @@ jobs:
           git commit -m "Update the watcher's memory"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch
 
-  # The same limits as judge. The key reaches only the step that runs the model; the scoring
+  # The same time limit as judge. The key reaches only the step that runs the model; the scoring
   # step has none. No write permission, so nothing in the pieces can write anywhere.
   eval:
     if: vars.AGENTS_ENABLED == 'true' && inputs.eval
@@ -210,11 +210,12 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
-      # MAX_MODEL_CALLS is the limit for each task, as for one run of judge.
+      # MAX_MODEL_CALLS is the limit for each task. A task has one piece, so 10 is enough:
+      # 150 calls for the 15 tasks at most.
       - name: Judge the tasks
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          MAX_MODEL_CALLS: "60"
+          MAX_MODEL_CALLS: "10"
         run: >-
           uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py
           --kitden kitden --tasks evals/watch/tasks --out eval-out
