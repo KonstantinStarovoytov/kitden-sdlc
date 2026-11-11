@@ -186,8 +186,15 @@ def build_graph(model: Model, late=lambda: False):
     return graph.compile()
 
 
+def _seconds(name: str, default: int) -> int:
+    return int(os.environ.get(name) or default)
+
+
 def judge(inp: dict, model: Model, max_calls: int = MAX_MODEL_CALLS,
-          deadline: float = DEADLINE_SECONDS, clock=time.monotonic) -> dict:
+          deadline: float | None = None, clock=time.monotonic) -> dict:
+    # WATCH_DEADLINE_SECONDS gives a slow setting (a high effort) more time than the default.
+    if deadline is None:
+        deadline = _seconds("WATCH_DEADLINE_SECONDS", DEADLINE_SECONDS)
     end_at = clock() + deadline
     start = {"inp": inp, "max_calls": max_calls, "i": 0, "part": 0, "calls": 0, "stop": False,
              "streak": 0, "to_assess": [], "to_refute": [], "current": [], "judged": [],
@@ -262,8 +269,10 @@ class OpenAIModel:
         # empty leaves the model's own default. The name in the traces carries it.
         effort = os.environ.get("WATCH_EFFORT") or None
         self.name = f"{name} {effort}" if effort else name
-        # A long piece takes the model a minute or two, so one call may wait three.
-        self.llm = ChatOpenAI(model=name, reasoning_effort=effort, max_retries=1, timeout=180)
+        # A long piece takes the model a minute or two, so one call may wait three;
+        # WATCH_CALL_SECONDS gives a slow setting more.
+        self.llm = ChatOpenAI(model=name, reasoning_effort=effort, max_retries=1,
+                              timeout=_seconds("WATCH_CALL_SECONDS", 180))
 
     def _ask(self, step: str, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
         config = watch_trace.config(step, self.name)

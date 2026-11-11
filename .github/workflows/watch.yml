@@ -202,13 +202,15 @@ jobs:
           git commit -m "Update the watcher's memory"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch
 
-  # 15 tasks, one after another, take longer than a daily run, so the limit is 45 minutes. The
+  # 15 tasks, one after another, and a high effort can take minutes a call, so the limit is
+  # 5 hours: the eval runs by hand and nobody waits for it. A task may take 40 minutes and
+  # one call 15. The
   # key reaches only the step that runs the model; the scoring step has none. No write
   # permission, so nothing in the pieces can write anywhere.
   eval:
     if: vars.AGENTS_ENABLED == 'true' && inputs.eval
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 300
     permissions:
       contents: read
     steps:
@@ -233,6 +235,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MAX_MODEL_CALLS: "30"
+          WATCH_DEADLINE_SECONDS: "2400"
+          WATCH_CALL_SECONDS: "900"
           WATCH_MODEL: ${{ inputs.model }}
           WATCH_EFFORT: ${{ inputs.effort != 'default' && inputs.effort || '' }}
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}

@@ -335,3 +335,10 @@ def test_effort_comes_from_the_environment_and_shows_in_the_name(monkeypatch):
     monkeypatch.setenv("WATCH_EFFORT", "")
     model = OpenAIModel("gpt-x")
     assert model.name == "gpt-x" and model.llm.reasoning_effort is None
+
+
+def test_the_deadline_can_come_from_the_environment(monkeypatch):
+    ticks = iter(range(0, 10_000, 100))
+    monkeypatch.setenv("WATCH_DEADLINE_SECONDS", "150")
+    out = judge(inp_with_pieces(5), Fake(screen=[]), clock=lambda: next(ticks))
+    assert len(out["judged"]) == 1
