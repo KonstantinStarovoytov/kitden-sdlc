@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import subprocess  # noqa: S404
 from datetime import date, timedelta
 from pathlib import Path
@@ -9,9 +10,20 @@ from typing import Protocol
 
 import yaml
 
-from watch_route import BadFindings, check, client_name, labels, route, word_hits
+from watch_list import _table_rows
+from watch_route import (
+    TEXT_MAX,
+    VERSION_MAX,
+    BadFindings,
+    _quiet,
+    check,
+    client_name,
+    labels,
+    route,
+    word_hits,
+)
 
-FIRST_LINE = "Automated issue by Kitden's client watcher (gpt-6-luna)."
+SUMMARY_MAX = 60000
 LABELS_FILE = Path(__file__).resolve().parent.parent / "config" / "watch-labels.yml"
 
 
@@ -52,18 +64,33 @@ class GhApi:
         return self._run(*args).strip()
 
 
+def first_line() -> str:
+    model = os.environ.get("WATCH_MODEL") or "gpt-6-luna"
+    return f"Automated issue by Kitden's client watcher ({model})."
+
+
+def _version(item: dict) -> str:
+    return _quiet(item.get("version") or "", VERSION_MAX)
+
+
+def _seen_in(item: dict, inp: dict) -> str:
+    return next((f"seen in {cells[3]}" for client, cells in _table_rows(inp.get("list", ""))
+                 if client == item.get("client") and cells[0] == item.get("row")), "")
+
+
 def _scale(item: dict, inp: dict) -> str:
     files = item.get("files") or []
     same = bool(files) and all(inp["files"].get(f, {}).get("same_in_release") for f in files)
     kitden = f"main and {inp['release']}" if same else f"main; {inp['release']} not checked"
-    return (f"- Client versions: {item.get('version') or 'unknown'}\n"
+    return (f"- Client versions: {_version(item) or 'unknown'}\n"
             f"- Systems: {item.get('systems') or 'not checked'}\n- Kitden versions: {kitden}")
 
 
 def _item(item: dict, inp: dict) -> str:
-    touches = ", ".join(x for x in [item.get("row"), *(item.get("files") or [])] if x)
+    row = _quiet(item.get("row") or "", TEXT_MAX)
+    touches = ", ".join(x for x in [row, _seen_in(item, inp), *(item.get("files") or [])] if x)
     return "\n\n".join([
-        f"**What changed**\n{client_name(item)} {item.get('version') or ''}: "
+        f"**What changed**\n{client_name(item)} {_version(item)}: "
         f"{item.get('changed', '')}\n{item.get('url', '')}".replace("  ", " "),
         f"**What it touches**\n{touches or 'not checked'}",
         f"**What the user gets**\n{item.get('user_gets', '')}",
@@ -73,14 +100,21 @@ def _item(item: dict, inp: dict) -> str:
 
 
 def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
-    return f"{client_name(finding)}: {finding['title']}", f"{FIRST_LINE}\n\n{_item(finding, inp)}\n"
+    title = f"{client_name(finding)}: {finding['title']}"
+    return title, f"{first_line()}\n\n{_item(finding, inp)}\n"
 
 
 def render_summary(items: list[dict], today: date, inp: dict | None = None) -> tuple[str, str]:
     inp = inp or {"files": {}, "release": "the latest release"}
     monday = today - timedelta(days=today.weekday())
     blocks = [f"### {i['title']}\n\n`{'` `'.join(labels(i))}`\n\n{_item(i, inp)}" for i in items]
-    return f"Client changes, week of {monday}", FIRST_LINE + "\n\n" + "\n\n".join(blocks) + "\n"
+    body = first_line()
+    for n, block in enumerate(blocks):
+        if len(body) + len(block) + 100 > SUMMARY_MAX:
+            body += f"\n\n…and {len(blocks) - n} more items"
+            break
+        body += "\n\n" + block
+    return f"Client changes, week of {monday}", body + "\n"
 
 
 def _append(path: Path, lines: list[dict]) -> None:
@@ -103,7 +137,7 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
         posts.append((*render_summary(plan.summary, today, inp), ["client-change", "summary"]))
     have = gh.label_names()
     for entry in yaml.safe_load(LABELS_FILE.read_text()):
-        if entry["name"] not in have and any(entry["name"] in p[2] for p in posts):
+        if entry["name"] not in have:
             gh.create_label(entry["name"], entry["color"], entry["description"])
     addresses = [gh.create_issue(*post) for post in posts]
     opened = {f["title"]: address for f, address in zip(plan.urgent, addresses, strict=False)}

@@ -12,6 +12,7 @@ WORD_HITS_MAX = 5
 TRIES_MAX = 3
 TITLE_MAX = 100
 TEXT_MAX = 600
+VERSION_MAX = 100
 EFFECTS = ("breaks", "wrong-data", "minor", "gap")
 STRINGS = ("piece", "client", "title", "changed", "version", "url", "row", "effect",
            "user_gets", "systems", "why")
@@ -157,12 +158,11 @@ def word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]:
             word = next((w for w in words[(row.client, row.what)] if w in piece["text"]), None)
             if word is None:
                 continue
-            line = next(x for x in piece["text"].splitlines() if word in x)
-            if SECRET_LIKE.search(line):
-                continue
+            where = _quiet(piece["version"], VERSION_MAX) or "this page"
             hits.append({
                 "piece": piece["id"], "client": row.client, "title": f"Mentions `{word}`",
-                "changed": _quiet(line, TEXT_MAX), "version": piece["version"],
+                "changed": f"The text of {where} has the word `{word}`.",
+                "version": piece["version"],
                 "url": piece["url"], "row": label, "files": row.files,
                 "effect": "minor", "sure": False, "user_gets": "not checked",
                 "systems": "not checked",

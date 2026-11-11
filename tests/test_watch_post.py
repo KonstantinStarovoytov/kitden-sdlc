@@ -2,8 +2,9 @@ import json
 from datetime import date
 
 import pytest
+import yaml
 
-from watch_post import FIRST_LINE, render_summary, render_urgent, run
+from watch_post import LABELS_FILE, SUMMARY_MAX, first_line, render_summary, render_urgent, run
 
 WED, MON = date(2026, 11, 11), date(2026, 11, 9)
 URL = "https://example.com/changelog"
@@ -63,7 +64,7 @@ def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
     run(inp(1), one(), gh, tmp_path, WED)
     title, body, labels = gh.issues[0]
     assert title == "Claude Code: skillOverrides renamed"
-    assert body.splitlines()[0] == FIRST_LINE
+    assert body.splitlines()[0] == first_line()
     assert labels == ["client-change", "claude-code", "breaks"]
     assert "main and v0.7.2" in body
     assert {"claude-code", "breaks"} <= {name for name, *_ in gh.created_labels}
@@ -124,3 +125,46 @@ def test_failed_pieces_count_their_tries_in_the_memory(tmp_path):
     assert state["tries"] == {f"{PID}0": 1, f"{PID}1": 1} and gh.issues == []
     log = json.loads((tmp_path / "log.jsonl").read_text())
     assert log["failed"] == 2
+
+
+def test_every_missing_label_is_created_on_each_run(tmp_path):
+    gh = FakeGitHub(labels={"client-change"})
+    run(inp(0), None, gh, tmp_path, WED)
+    names = [e["name"] for e in yaml.safe_load(LABELS_FILE.read_text())]
+    assert [name for name, *_ in gh.created_labels] == [n for n in names if n != "client-change"]
+
+
+def test_what_it_touches_shows_where_the_user_sees_it():
+    _, body = render_urgent(finding(), inp())
+    assert "the `skillOverrides` key, seen in 2.1, src/kitden/skills.py" in body
+    _, body = render_urgent(finding(row="not a row"), inp())
+    assert "seen in" not in body
+
+
+def test_first_line_names_the_model_of_the_run(monkeypatch):
+    monkeypatch.delenv("WATCH_MODEL", raising=False)
+    assert "(gpt-6-luna)" in first_line()
+    monkeypatch.setenv("WATCH_MODEL", "gpt-7")
+    _, body = render_urgent(finding(), inp())
+    assert body.splitlines()[0] == "Automated issue by Kitden's client watcher (gpt-7)."
+
+
+def test_long_summary_is_cut_with_a_count_of_the_rest():
+    items = [{"title": f"t{n}", "effect": "minor", "client": "codex", "sure": True,
+              "why": "w" * 600, "changed": "c" * 600, "user_gets": "u" * 600}
+             for n in range(100)]
+    _, body = render_summary(items, MON)
+    assert len(body) <= SUMMARY_MAX
+    shown = body.count("### ")
+    assert 0 < shown < 100 and body.rstrip().endswith(f"…and {100 - shown} more items")
+
+
+def test_version_is_quiet_and_cut():
+    version = "@bob" + "9" * 200
+    _, body = render_urgent(finding(version=version), inp())
+    assert "@\u2060bob" in body and "@bob" not in body and "9" * 101 not in body
+
+
+def test_row_with_a_mention_is_quiet_in_the_issue():
+    _, body = render_urgent(finding(row="the `@scope/x` key"), inp())
+    assert "@\u2060scope" in body
