@@ -4,7 +4,15 @@ import sys
 from pathlib import Path
 
 import watch_judge
-from watch_judge import FILE_CHARS, Assessed, Change, judge, named, screen_messages
+from watch_judge import (
+    FILE_CHARS,
+    PART_CHARS,
+    Assessed,
+    Change,
+    judge,
+    named,
+    screen_messages,
+)
 from watch_list import row_ids, short_list
 from watch_route import EFFECTS, KEYS, TOP_KEYS, check
 
@@ -273,3 +281,45 @@ def test_the_model_reads_a_short_list_with_ids_and_no_file_names():
     text = short_list(LIST_TEXT)
     assert "CC-01 | the `skillOverrides` key | setting | seen in: 2.1" in text
     assert "## Codex (client `codex`)" in text and FILE not in text
+
+
+class Parts(Fake):
+    """Remembers the text of each screen call; the row is named only in the last part."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.texts = []
+
+    def screen(self, piece, list_text, known_titles):
+        self.texts.append(piece["text"])
+        out = super().screen(piece, list_text, known_titles)
+        return out if "LAST" in piece["text"] else []
+
+
+def long_inp():
+    lines = [f"- line {n} " + "x" * 90 + "\n" for n in range(100)]
+    inp = copy.deepcopy(INP)
+    inp["pieces"] = [piece(text="".join(lines) + "- LAST line\n")]
+    return inp, "".join(lines) + "- LAST line\n"
+
+
+def test_a_long_piece_is_screened_in_parts_cut_at_line_ends():
+    inp, text = long_inp()
+    model = Parts(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "minor"})
+    out = judge(inp, model)
+    assert len(model.texts) == 3 and "".join(model.texts) == text
+    assert all(len(t) <= PART_CHARS and t.endswith("\n") for t in model.texts)
+    assert len(out["findings"]) == 1 and out["judged"] == [PID]
+    assert model.assess_calls == 1
+
+
+def test_each_part_counts_as_a_model_call():
+    inp, _ = long_inp()
+    out = judge(inp, Parts(screen=SCREEN_ROW, assess=ASSESS_BREAK), max_calls=2)
+    assert out["judged"] == [] and out["findings"] == []
+
+
+def test_a_short_piece_is_one_part():
+    model = Parts(screen=[])
+    judge(INP, model)
+    assert model.texts == [INP["pieces"][0]["text"]]

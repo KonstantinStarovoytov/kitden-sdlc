@@ -19,6 +19,7 @@ MAX_MODEL_CALLS = 60
 DEADLINE_SECONDS = 600
 FAILS_IN_A_ROW = 3
 FILE_CHARS = 40000
+PART_CHARS = 4000  # a long piece is screened in parts: the model misses less in a short text
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 DISAGREED = " A second look disagreed."
 
@@ -33,6 +34,7 @@ class State(TypedDict):
     inp: dict
     max_calls: int
     i: int
+    part: int
     calls: int
     stop: bool
     streak: int
@@ -62,6 +64,17 @@ def _finding(inp: dict, piece: dict, label: str, row: Row | None, **kw) -> dict:
             "sure": bool(kw["sure"])}
 
 
+def _parts(text: str) -> list[str]:
+    """The text cut at line ends into parts of about PART_CHARS."""
+    parts, now = [], ""
+    for line in text.splitlines(keepends=True):
+        if now and len(now) + len(line) > PART_CHARS:
+            parts.append(now)
+            now = ""
+        now += line
+    return [*parts, now] if now or not parts else parts
+
+
 def _full(state: State) -> bool:
     return state["calls"] + 1 > state["max_calls"]
 
@@ -89,7 +102,7 @@ def _stops(node, late):
             streak = state["streak"] + 1
             return {"calls": state["calls"] + 1, "i": state["i"] + 1, "streak": streak,
                     "stop": streak >= FAILS_IN_A_ROW, "current": [], "to_assess": [],
-                    "to_refute": [],
+                    "to_refute": [], "part": 0,
                     "failed": [*state["failed"], state["inp"]["pieces"][state["i"]]["id"]]}
     return run
 
@@ -106,9 +119,11 @@ def build_graph(model: Model, late=lambda: False):
     def screen(state: State) -> dict:
         inp = state["inp"]
         piece, rows = inp["pieces"][state["i"]], _rows(inp["list"])
-        current, to_assess = [], []
-        titles = inp["known_titles"] + [f["title"] for f in state["findings"]]
-        for change in _call(piece["id"], model.screen, piece, inp["list"], titles):
+        parts = _parts(piece["text"])
+        part = {**piece, "text": parts[state["part"]]}
+        current, to_assess = [*state["current"]], [*state["to_assess"]]
+        titles = inp["known_titles"] + [f["title"] for f in state["findings"] + current]
+        for change in _call(piece["id"], model.screen, part, inp["list"], titles):
             label = change.get("row", "none")
             if label == "gap":
                 current.append(_finding(inp, piece, "", None, effect="gap",
@@ -118,7 +133,11 @@ def build_graph(model: Model, late=lambda: False):
                                         sure=change.get("sure", False)))
             elif (piece["client"], label) in rows:
                 to_assess.append({**change, "row": label})
-        return settle(state, {"current": current, "to_assess": to_assess, "to_refute": []})
+        if state["part"] + 1 < len(parts):  # more of this piece to read before the next step
+            return {"current": current, "to_assess": to_assess, "part": state["part"] + 1,
+                    "calls": state["calls"] + 1}
+        return settle(state, {"current": current, "to_assess": to_assess, "to_refute": [],
+                              "part": 0})
 
     def assess(state: State) -> dict:
         inp = state["inp"]
@@ -149,6 +168,8 @@ def build_graph(model: Model, late=lambda: False):
     def after(state: State) -> str:
         if state["stop"] or state["i"] >= len(state["inp"]["pieces"]):
             return END
+        if state["part"]:
+            return "screen"
         if state["to_assess"]:
             return "assess"
         if state["to_refute"]:
@@ -168,7 +189,7 @@ def build_graph(model: Model, late=lambda: False):
 def judge(inp: dict, model: Model, max_calls: int = MAX_MODEL_CALLS,
           deadline: float = DEADLINE_SECONDS, clock=time.monotonic) -> dict:
     end_at = clock() + deadline
-    start = {"inp": inp, "max_calls": max_calls, "i": 0, "calls": 0, "stop": False,
+    start = {"inp": inp, "max_calls": max_calls, "i": 0, "part": 0, "calls": 0, "stop": False,
              "streak": 0, "to_assess": [], "to_refute": [], "current": [], "judged": [],
              "failed": [], "findings": []}
     graph = build_graph(model, lambda: clock() > end_at)
