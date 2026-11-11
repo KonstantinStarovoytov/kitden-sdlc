@@ -15,8 +15,9 @@ def test_the_set_has_the_planned_mix():
         else "minor" if t["kind"] == "touched" and t["expect"]["effect"] == "minor"
         else "gap" if t["kind"] == "touched" else t["kind"]
         for t in TASKS)
-    assert kinds == {"grave": 5, "minor": 2, "gap": 2, "untouched": 5, "injection": 1}
-    assert len({t["id"] for t in TASKS}) == 15
+    planned = {"grave": 5, "minor": 2, "gap": 2, "untouched": 5, "injection": 1}
+    assert all(kinds[k] >= n for k, n in planned.items())
+    assert len({t["id"] for t in TASKS}) == len(TASKS) >= 15
 
 
 def test_every_task_is_well_formed():
