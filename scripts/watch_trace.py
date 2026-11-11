@@ -65,8 +65,8 @@ def config(step: str, model: str) -> dict | None:
     metadata = {"langfuse_tags": tags, "step": step, "piece": piece_id, "model": model,
                 "commit": commit()}
     if piece_id:
-        # One session per piece and commit, so later runs do not pile into it.
-        session = f"{piece_id} {commit()[:7]}".strip()
+        # One session per piece, model setting and commit, so other runs do not pile into it.
+        session = f"{piece_id} {model} {commit()[:7]}".strip()
         metadata["langfuse_session_id"] = session.encode("ascii", "ignore").decode()[:200]
     return {"callbacks": [handler], "run_name": step, "metadata": metadata}
 

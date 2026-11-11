@@ -105,7 +105,7 @@ def test_on_with_keys_the_handler_goes_to_every_model_call(monkeypatch):
     for step, c in zip(steps, configs, strict=True):
         assert c["run_name"] == step
         assert c["metadata"]["langfuse_tags"] == [PID, "gpt-test", "abc1234def"]
-        assert c["metadata"]["langfuse_session_id"] == f"{PID} abc1234"
+        assert c["metadata"]["langfuse_session_id"] == f"{PID} gpt-test abc1234"
         assert c["metadata"]["step"] == step
         assert c["metadata"]["commit"] == "abc1234def"
 
@@ -161,14 +161,14 @@ def test_the_cli_flushes_at_the_end(tmp_path, monkeypatch):
     assert flushed == [1]
 
 
-def test_without_a_commit_the_session_is_the_piece_cut_to_200_ascii(monkeypatch):
+def test_without_a_commit_the_session_is_the_piece_and_model_cut_to_200_ascii(monkeypatch):
     keys(monkeypatch)
     fake_langfuse(monkeypatch)
     with watch_trace.piece("p" * 300 + "é"):
         session = watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"]
     assert session == "p" * 200
     with watch_trace.piece(PID):
-        assert watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"] == PID
+        assert watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"] == f"{PID} m"
 
 
 def test_an_empty_host_is_dropped_before_langfuse_is_imported(monkeypatch):
