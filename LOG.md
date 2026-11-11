@@ -51,3 +51,6 @@ Problems found while building the reviewers, and what changed because of each.
   a script, so a step that gets a model key now makes its job an agent job, held to the rules.
 - **The first eval run was slow and we could not see why.** With the Langfuse keys set, each
   model call is traced (time, tokens) and an eval run is an experiment with per-task scores.
+- **Two runs of the same judge gave different answers.** The eval now runs three times and
+  passes only when every run passes; the judge checks each row of the list and trusts only
+  changes it can quote from the note.

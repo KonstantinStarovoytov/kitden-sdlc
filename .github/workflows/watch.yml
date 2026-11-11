@@ -19,8 +19,8 @@ on:
         description: "Run the eval on the 15 tasks of evals/watch instead of the daily run"
         type: boolean
         default: false
-      # The two below are read by the eval only, to compare models. The daily run uses
-      # WATCH_MODEL of this file and the model's own effort.
+      # The three below are read by the eval only. The daily run uses WATCH_MODEL of this
+      # file and the model's own effort.
       model:
         description: "Eval only: the model"
         type: choice
@@ -31,6 +31,11 @@ on:
         type: choice
         options: [default, low, medium, high, xhigh, max]
         default: default
+      runs:
+        description: "Eval only: how many times to run all the tasks (the judge varies)"
+        type: choice
+        options: ["1", "2", "3"]
+        default: "3"
 
 permissions: {}
 
@@ -239,6 +244,7 @@ jobs:
           WATCH_CALL_SECONDS: "900"
           WATCH_MODEL: ${{ inputs.model }}
           WATCH_EFFORT: ${{ inputs.effort != 'default' && inputs.effort || '' }}
+          WATCH_RUNS: ${{ inputs.runs }}
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}

@@ -147,6 +147,7 @@ def test_the_run_name_has_the_model_the_short_commit_and_the_utc_time(monkeypatc
     monkeypatch.setenv("GITHUB_SHA", "abc1234def")
     when = datetime(2026, 11, 11, 9, 5, tzinfo=UTC)
     assert run_name("gpt-6-luna", when) == "gpt-6-luna abc1234 2026-11-11T09:05Z"
+    assert run_name("gpt-6-luna", when, 2) == "gpt-6-luna abc1234 2026-11-11T09:05Z run 2"
 
 
 def test_with_keys_the_run_is_an_experiment_with_scores(tmp_path, monkeypatch):
@@ -160,7 +161,7 @@ def test_with_keys_the_run_is_an_experiment_with_scores(tmp_path, monkeypatch):
     assert meta == {"model": "gpt-test", "commit": "abc1234def"} and ids == ["001-a", "002-b"]
     assert client.scores == [
         ("001-a", "found", 1, "BOOLEAN"), ("001-a", "severity_right", 1, "BOOLEAN"),
-        ("001-a", "judge_failed", 0, "BOOLEAN"),
+        ("001-a", "other_findings", 0, "NUMERIC"), ("001-a", "judge_failed", 0, "BOOLEAN"),
         ("002-b", "false_alarm", 1, "BOOLEAN"), ("002-b", "judge_failed", 0, "BOOLEAN"),
     ]
     assert (out / "001-a/findings.json").exists() and (out / "002-b/findings.json").exists()
@@ -205,3 +206,15 @@ def test_a_task_that_raises_runs_twice_at_most_and_still_fails_the_run(tmp_path,
     assert tries == ["s#1", "s#2", "s#2"] and model.pieces == ["s#1"]
     assert (out / "001-a/findings.json").exists()
     assert "sk-test" not in capsys.readouterr().err
+
+
+def test_several_runs_go_to_their_own_folders_and_experiments(tmp_path, monkeypatch):
+    kitden, folder, out = setup(tmp_path, TOUCHED, UNTOUCHED)
+    client = FakeLangfuse()
+    fake_langfuse(monkeypatch, client)
+    model = Fake()
+    run_tasks(folder, kitden, out, model, 10, "gpt-test", runs=2)
+    assert model.pieces == ["s#1", "s#2", "s#1", "s#2"]
+    for n in (1, 2):
+        assert (out / f"run-{n}/001-a/findings.json").exists()
+    assert not (out / "001-a").exists() and client.run[1].endswith(" run 2")
