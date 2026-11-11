@@ -12,6 +12,7 @@ from typing import Literal, Protocol, TypedDict
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
+import watch_trace
 from watch_list import Row, parse_list, row_labels
 
 MAX_MODEL_CALLS = 60
@@ -71,7 +72,8 @@ class _Failed(Exception):
 
 def _call(piece_id: str, fn, *args):
     try:
-        return fn(*args)
+        with watch_trace.piece(piece_id):
+            return fn(*args)
     except Exception as e:  # noqa: BLE001 - a failed call skips its piece, the run goes on
         print(f"model call failed for {piece_id}: {type(e).__name__}", file=sys.stderr)
         raise _Failed from None
@@ -219,22 +221,24 @@ class OpenAIModel:
     def __init__(self, name: str):
         from langchain_openai import ChatOpenAI
 
+        self.name = name
         self.llm = ChatOpenAI(model=name, max_retries=2, timeout=60)
 
-    def _ask(self, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
-        return self.llm.with_structured_output(schema, strict=True).invoke(messages)
+    def _ask(self, step: str, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
+        config = watch_trace.config(step, self.name)
+        return self.llm.with_structured_output(schema, strict=True).invoke(messages, config)
 
     def screen(self, piece, list_text, known_titles):
-        out = self._ask(Screened, screen_messages(piece, list_text, known_titles))
+        out = self._ask("screen", Screened, screen_messages(piece, list_text, known_titles))
         return [c.model_dump() for c in out.changes]
 
     def assess(self, change, row, files):
         data = {"change": change, "row": asdict(row), "files": files}
-        return self._ask(Assessed, _messages("assess", data)).model_dump()
+        return self._ask("assess", Assessed, _messages("assess", data)).model_dump()
 
     def refute(self, finding, row, files):
         data = {"finding": finding, "row": asdict(row), "files": files}
-        return not self._ask(Refuted, _messages("refute", data)).holds
+        return not self._ask("refute", Refuted, _messages("refute", data)).holds
 
 
 def main():
@@ -248,7 +252,10 @@ def main():
         print("WATCH_MODEL is not set", file=sys.stderr)
         raise SystemExit(1)
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
-    out = judge(inp, OpenAIModel(name), max_calls)
+    try:
+        out = judge(inp, OpenAIModel(name), max_calls)
+    finally:
+        watch_trace.flush()
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")
     if inp["pieces"] and not out["judged"]:
         print(f"No piece was judged ({len(out['failed'])} failed); post saves the tries.",
