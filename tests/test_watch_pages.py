@@ -42,3 +42,11 @@ def test_text_keeps_newlines_and_hash_ignores_spacing():
 def test_hash_in_fence_is_not_a_heading():
     out = sections("## A\n```\n# comment\n```\n## B", "text/markdown", level=2)
     assert [s.key for s in out] == ["A", "B"]
+
+
+def test_inline_html_adds_no_space_and_blocks_keep_apart():
+    html = ("<h2>Rules</h2><p>Edit <code>~/.cursor/</code>mcp.json</p>"
+            "<ul><li>one</li><li>two</li></ul>a<br>b")
+    text = sections(html, "text/html")[0].text
+    assert "~/.cursor/mcp.json" in text
+    assert "onetwo" not in text and "ab" not in text

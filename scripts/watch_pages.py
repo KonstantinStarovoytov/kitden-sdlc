@@ -9,6 +9,8 @@ from html.parser import HTMLParser
 import yaml
 
 DROPPED = {"script", "style", "nav", "header", "footer"}
+BLOCKS = {"p", "div", "li", "br", "tr", "pre", "table", "ul", "ol", "section",
+          *(f"h{i}" for i in range(1, 7))}
 
 
 @dataclass
@@ -45,19 +47,25 @@ class _Html(HTMLParser):
         elif tag in self.headings and not self.skip:
             self.parts.append(["", ""])
             self.in_heading = True
+        self._block(tag)
 
     def handle_endtag(self, tag):
         if tag in DROPPED:
             self.skip = max(0, self.skip - 1)
         elif tag in self.headings:
             self.in_heading = False
+        self._block(tag)
+
+    def _block(self, tag):
+        if tag in BLOCKS and not self.skip:
+            self.parts[-1][1] += "\n"
 
     def handle_data(self, data):
         if self.skip:
             return
         if self.in_heading:
             self.parts[-1][0] += data
-        self.parts[-1][1] += data + " "
+        self.parts[-1][1] += data
 
 
 def sections(body: str, content_type: str, level: int = 3) -> list[Section]:
