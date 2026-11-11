@@ -31,6 +31,9 @@ dev = [
     { name = "pyyaml" },
     { name = "ruff" },
 ]
+watch-io = [
+    { name = "pyyaml" },
+]
 
 [package.metadata]
 
@@ -40,6 +43,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6" },
     { name = "ruff", specifier = ">=0.16" },
 ]
+watch-io = [{ name = "pyyaml", specifier = ">=6" }]
 
 [[package]]
 name = "packaging"

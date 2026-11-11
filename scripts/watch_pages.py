@@ -1,0 +1,95 @@
+"""Read watched sources and cut them into hashed sections."""
+
+import hashlib
+import re
+import urllib.request
+from dataclasses import dataclass
+from html.parser import HTMLParser
+
+import yaml
+
+DROPPED = {"script", "style", "nav", "header", "footer"}
+
+
+@dataclass
+class Section:
+    key: str
+    text: str
+    hash: str
+
+
+def _build(parts: list[tuple[str, str]]) -> list[Section]:
+    out, seen = [], {}
+    for key, text in parts:
+        if not key and not text.strip():
+            continue
+        seen[key] = seen.get(key, 0) + 1
+        if seen[key] > 1:
+            key = f"{key} ({seen[key]})"
+        flat = re.sub(r"\s+", " ", text).strip()
+        out.append(Section(key, flat, hashlib.sha256(flat.encode()).hexdigest()))
+    return out
+
+
+class _Html(HTMLParser):
+    def __init__(self, level: int):
+        super().__init__()
+        self.headings = {f"h{i}" for i in range(1, level + 1)}
+        self.parts = [["", ""]]
+        self.skip = 0
+        self.in_heading = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in DROPPED:
+            self.skip += 1
+        elif tag in self.headings and not self.skip:
+            self.parts.append(["", ""])
+            self.in_heading = True
+
+    def handle_endtag(self, tag):
+        if tag in DROPPED:
+            self.skip = max(0, self.skip - 1)
+        elif tag in self.headings:
+            self.in_heading = False
+
+    def handle_data(self, data):
+        if self.skip:
+            return
+        if self.in_heading:
+            self.parts[-1][0] += data
+        self.parts[-1][1] += data + " "
+
+
+def sections(body: str, content_type: str, level: int = 3) -> list[Section]:
+    if "html" in content_type:
+        parser = _Html(level)
+        parser.feed(body)
+        return _build([(re.sub(r"\s+", " ", k).strip(), t) for k, t in parser.parts])
+    parts = [["", ""]]
+    for line in body.splitlines():
+        m = re.match(rf"#{{1,{level}}}\s+(.*)", line)
+        if m:
+            parts.append([m.group(1).strip(), ""])
+        parts[-1][1] += line + "\n"
+    return _build([(k, t) for k, t in parts])
+
+
+def releases(payload: list[dict]) -> list[Section]:
+    return _build([
+        (r["tag_name"], r.get("body") or "")
+        for r in payload
+        if not r["prerelease"] and not r["draft"]
+    ])
+
+
+def get(url: str) -> tuple[str, str]:
+    if not url.startswith("https://"):
+        raise ValueError(f"only https URLs are allowed: {url}")
+    with urllib.request.urlopen(url, timeout=20) as resp:  # noqa: S310
+        charset = resp.headers.get_content_charset() or "utf-8"
+        return resp.read().decode(charset), resp.headers.get_content_type()
+
+
+def load_sources(path) -> list[dict]:
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f)

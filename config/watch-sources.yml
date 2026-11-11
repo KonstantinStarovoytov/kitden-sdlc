@@ -1,0 +1,14 @@
+- id: claude-code-changelog
+  client: claude-code
+  kind: page
+  url: https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md
+  level: 2
+- id: codex-releases
+  client: codex
+  kind: github-releases
+  repo: openai/codex
+- id: cursor-changelog
+  client: cursor
+  kind: page
+  url: https://cursor.com/changelog
+  level: 2
