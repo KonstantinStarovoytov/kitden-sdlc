@@ -1,12 +1,11 @@
 """Check the judge's findings and decide which are urgent and which wait for Monday."""
 
 import copy
-import re
 from dataclasses import dataclass
 from datetime import date
 
 from post_findings import MENTION, SECRET_LIKE, WORD_JOINER
-from watch_list import _table_rows, terms  # noqa: PLC2701
+from watch_list import parse_list, terms
 
 URGENT_PER_WEEK = 2
 WORD_HITS_MAX = 5
@@ -51,16 +50,19 @@ def check(findings: dict, inp: dict) -> list[dict]:
         _need(item["effect"] in EFFECTS, "unknown effect")
         _need(item["piece"] in judged and item["piece"] in pieces, "piece not judged")
         src = pieces[item["piece"]]
-        _need(item["url"] == src["url"] and item["client"] == src["client"], "url or client")
+        _need(all(item[k] == src[k] for k in ("url", "client", "version")), "url, client, version")
         _need(all(f in inp["files"] for f in item["files"]), "file not in input")
         texts = [item[k] for k in STRINGS] + item["files"]
         _need(not any(SECRET_LIKE.search(t) for t in texts), "secret-like text")
         clean = dict(item)
         for k in CUT:
-            quiet = MENTION.sub("@" + WORD_JOINER, item[k])
-            clean[k] = quiet[: TITLE_MAX if k == "title" else TEXT_MAX]
+            clean[k] = _quiet(item[k], TITLE_MAX if k == "title" else TEXT_MAX)
         out.append(clean)
     return out
+
+
+def _quiet(text: str, limit: int) -> str:
+    return MENTION.sub("@" + WORD_JOINER, text)[:limit]
 
 
 def _grade(f: dict) -> int:
@@ -108,24 +110,27 @@ def labels(finding: dict) -> list[str]:
 
 def word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]:
     words = terms(inp["list"])
-    rows = list(_table_rows(inp["list"]))
+    raw = {c.replace("`", ""): c for c in (
+        line.strip("| ").split(" | ")[0] for line in inp["list"].splitlines() if "`" in line)}
     hits = []
     for piece in inp["pieces"]:
         if piece["id"] not in judged:
             continue
         named = {f["row"] for f in findings if f["piece"] == piece["id"]}
-        for client, cells in rows:
-            if client != piece["client"] or cells[0] in named:
+        for row in parse_list(inp["list"]):
+            label = raw.get(row.what, row.what)
+            if row.client != piece["client"] or label in named:
                 continue
-            word = next((w for w in words[(client, cells[0].replace("`", ""))]
-                         if w in piece["text"]), None)
+            word = next((w for w in words[(row.client, row.what)] if w in piece["text"]), None)
             if word is None:
                 continue
             line = next(x for x in piece["text"].splitlines() if word in x)
+            if SECRET_LIKE.search(line):
+                continue
             hits.append({
-                "piece": piece["id"], "client": client, "title": f"Mentions `{word}`",
-                "changed": line[:TEXT_MAX], "version": piece["version"], "url": piece["url"],
-                "row": cells[0], "files": re.findall(r"`([^`]+)`", cells[2]),
+                "piece": piece["id"], "client": row.client, "title": f"Mentions `{word}`",
+                "changed": _quiet(line, TEXT_MAX), "version": piece["version"],
+                "url": piece["url"], "row": label, "files": row.files,
                 "effect": "minor", "sure": False, "user_gets": "not checked",
                 "systems": "not checked",
                 "why": "The word is in the text; the model reported nothing for this row.",

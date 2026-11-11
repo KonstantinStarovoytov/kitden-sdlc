@@ -287,3 +287,18 @@ def test_no_word_hit_for_an_unjudged_piece_or_another_client():
 
 def test_word_hits_stop_at_the_cap():
     assert len(word_hits([], judged_ids(9), inp_pieces_with_word(9))) == WORD_HITS_MAX == 5
+
+
+def test_word_hit_line_is_quiet_about_mentions():
+    hits = word_hits([], JUDGED, inp_piece_text("ping @someone about skillOverrides"))
+    assert "@\u2060someone" in hits[0]["changed"]
+
+
+def test_word_hit_with_a_token_like_line_is_dropped():
+    text = "skillOverrides ghp_" + "a" * 20
+    assert word_hits([], JUDGED, inp_piece_text(text)) == []
+
+
+def test_version_of_another_piece_is_refused():
+    with pytest.raises(BadFindings):
+        check(ok(version="9.9"), INP)
