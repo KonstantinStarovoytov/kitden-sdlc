@@ -215,11 +215,15 @@ jobs:
         with:
           version: "0.10.10"
       # MAX_MODEL_CALLS is the limit for each task. A task has one piece, so 10 is enough:
-      # 150 calls for the 15 tasks at most.
+      # 150 calls for the 15 tasks at most. With the Langfuse keys the run is also an
+      # experiment there, with traces and the scores of each task; without them it is off.
       - name: Judge the tasks
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MAX_MODEL_CALLS: "10"
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
         run: >-
           uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py
           --kitden kitden --tasks evals/watch/tasks --out eval-out
