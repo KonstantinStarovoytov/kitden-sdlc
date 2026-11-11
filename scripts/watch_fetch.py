@@ -32,6 +32,7 @@ def plan_run(state, fetched, meta):
     new.setdefault("kept", [])
     new.setdefault("urgent", {"week": "", "count": 0})
     new.setdefault("summary_week", "")
+    new.setdefault("tries", {})
     known = state["sources"] if state else {}
     pieces = []
     for sid in sorted(meta, key=lambda s: meta[s]["kind"] != "release"):

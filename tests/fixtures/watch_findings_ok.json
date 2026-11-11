@@ -1,5 +1,6 @@
 {
   "judged": ["claude-code-changelog#2.1.320"],
+  "failed": [],
   "findings": [
     {
       "piece": "claude-code-changelog#2.1.320",

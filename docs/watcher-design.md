@@ -121,8 +121,10 @@ Three jobs, in the shape the reviewers use.
    say what the user gets; for something the list has no row for, decide whether it is a gap.
    A gap is a new kind, place or setting of the things Kitden shows: MCP servers, skills,
    plugins, hooks, marketplaces and instruction files. Any other new client feature is not
-   reported (call). It also gets the titles of the open watcher issues and of this week's kept items,
-   and skips what is already there.
+   reported (call). It also gets the titles of the open watcher issues, of this week's kept items
+   and of what it found earlier in the run, and skips what is already there. A piece whose model
+   call fails is skipped; after three failed pieces in a row the run stops. A piece that fails
+   on three runs is marked seen and goes to the summary as "Could not judge".
 3. **Post**, no model. Checks the findings file (schema, every source address is one that was
    fetched, every Kitden file exists, nothing that looks like a secret), then opens issues in
    `kitden` as Lantern and saves the memory.
@@ -183,7 +185,8 @@ items show the same words in their text.
 
 A branch `watch` in `kitden-sdlc`, the same way the weekly numbers have theirs (call). It
 holds the last version seen per source, the section hashes of each doc page, the items kept for
-the next summary, the number of urgent issues this week, and one log line per run. It also
+the next summary, the number of urgent issues this week, the week of the last summary, how
+many runs failed on each piece, and one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.
@@ -193,8 +196,9 @@ The first run only fills the memory and opens nothing.
 ### 7. Limits
 
 - The switch: a variable `AGENTS_ENABLED` in `kitden-sdlc`; off means the watcher does not run.
-- One run at a time, 15 minutes at most, a fixed top number of model calls and of new pieces
-  per run; what does not fit waits for the next day (call).
+- One run at a time, 15 minutes at most per job (the model gets 10 of them), a fixed top
+  number of model calls and of new pieces per run; what does not fit waits for the next day
+  (call).
 - The OpenAI key and its $5 a month are the ones the Luna reviewer uses (owner). The watcher
   should cost cents; this is an expectation, not a measurement.
 

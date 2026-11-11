@@ -8,6 +8,7 @@ import pytest
 from watch_route import (
     TEXT_MAX,
     TITLE_MAX,
+    TRIES_MAX,
     WORD_HITS_MAX,
     BadFindings,
     check,
@@ -55,11 +56,11 @@ def base_state(**kw):
 
 
 def with_text(text):
-    return {"judged": JUDGED, "findings": [finding(why=text)]}
+    return {"judged": JUDGED, "findings": [finding(why=text)], "failed": []}
 
 
 def ok(**kw):
-    return {"judged": JUDGED, "findings": [finding(**kw)]}
+    return {"judged": JUDGED, "findings": [finding(**kw)], "failed": []}
 
 
 def inp_piece_text(text, client="claude-code"):
@@ -88,12 +89,16 @@ def test_fixture_is_accepted_and_matches_schema():
 
 
 @pytest.mark.parametrize("bad", [
-    {"judged": JUDGED},
-    {"judged": JUDGED, "findings": [], "extra": 1},
-    {"judged": "x", "findings": []},
-    {"judged": [1], "findings": []},
-    {"judged": JUDGED, "findings": {}},
-    {"judged": JUDGED, "findings": ["x"]},
+    {"judged": JUDGED, "failed": []},
+    {"judged": JUDGED, "findings": []},
+    {"judged": JUDGED, "findings": [], "failed": [], "extra": 1},
+    {"judged": "x", "findings": [], "failed": []},
+    {"judged": [1], "findings": [], "failed": []},
+    {"judged": JUDGED, "findings": {}, "failed": []},
+    {"judged": JUDGED, "findings": ["x"], "failed": []},
+    {"judged": [], "findings": [], "failed": "x"},
+    {"judged": [], "findings": [], "failed": ["a#1"]},
+    {"judged": JUDGED, "findings": [], "failed": JUDGED},
 ])
 def test_wrong_top_level_is_refused(bad):
     with pytest.raises(BadFindings):
@@ -129,17 +134,17 @@ def test_missing_key_is_refused():
 
 def test_piece_not_in_input_is_refused():
     with pytest.raises(BadFindings):
-        check({"judged": ["a#1"], "findings": [finding(piece="a#1")]}, INP)
+        check({"judged": ["a#1"], "findings": [finding(piece="a#1")], "failed": []}, INP)
 
 
 def test_piece_not_judged_is_refused():
     with pytest.raises(BadFindings):
-        check({"judged": [], "findings": [finding()]}, INP)
+        check({"judged": [], "findings": [finding()], "failed": []}, INP)
 
 
 def test_judged_not_in_input_is_refused():
     with pytest.raises(BadFindings):
-        check({"judged": ["a#1"], "findings": []}, INP)
+        check({"judged": ["a#1"], "findings": [], "failed": []}, INP)
 
 
 def test_url_of_another_address_is_refused():
@@ -244,6 +249,28 @@ def test_rule4_other_effects_are_kept():
 def test_rule5_judged_piece_is_marked_seen():
     plan = route([], base_state(), JUDGED, INP, NOW)
     assert plan.state["sources"]["claude-code-changelog"]["2.1.320"] == "h-2.1.320"
+
+
+def test_failed_piece_counts_a_try_and_is_not_seen():
+    plan = route([], base_state(), [], INP, NOW, failed=JUDGED)
+    assert plan.state["tries"] == {PID: 1}
+    assert "2.1.320" not in plan.state["sources"]["claude-code-changelog"]
+
+
+def test_third_try_marks_the_piece_seen_and_keeps_one_item():
+    state = base_state(tries={PID: TRIES_MAX - 1})
+    plan = route([], state, [], INP, NOW, failed=JUDGED)
+    assert plan.state["sources"]["claude-code-changelog"]["2.1.320"] == "h-2.1.320"
+    assert plan.state["tries"] == {}
+    [item] = plan.state["kept"]
+    assert item["title"] == f"Could not judge {PID}"
+    assert (item["effect"], item["sure"], item["client"], item["url"], item["version"]) == (
+        "minor", False, "claude-code", URL, "2.1.320")
+
+
+def test_judged_piece_clears_its_tries():
+    plan = route([], base_state(tries={PID: 2}), JUDGED, INP, NOW)
+    assert plan.state["tries"] == {}
 
 
 def test_unjudged_piece_is_not_marked_seen():

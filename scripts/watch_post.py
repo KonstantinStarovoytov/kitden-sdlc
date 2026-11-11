@@ -90,12 +90,13 @@ def _append(path: Path, lines: list[dict]) -> None:
 
 def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date) -> None:
     try:
-        found, judged = ([], []) if findings is None else (check(findings, inp), findings["judged"])
+        found = [] if findings is None else check(findings, inp)
+        judged, failed = ([], []) if findings is None else (findings["judged"], findings["failed"])
     except BadFindings as error:
         print(f"Bad findings, nothing posted: {error}")
         raise SystemExit(1) from error
     found += word_hits(found, judged, inp)
-    plan = route(found, inp["state"], judged, inp, today)
+    plan = route(found, inp["state"], judged, inp, today, failed)
 
     posts = [(*render_urgent(f, inp), labels(f)) for f in plan.urgent]
     if plan.summary:
@@ -110,6 +111,7 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
     memory.mkdir(parents=True, exist_ok=True)
     (memory / "state.json").write_text(json.dumps(plan.state, indent=2) + "\n", encoding="utf-8")
     log = {"date": str(today), "pieces": len(inp["pieces"]), "judged": len(judged),
+           "failed": len(failed),
            "findings": len(found), "urgent": len(plan.urgent), "summary": len(plan.summary or [])}
     _append(memory / "log.jsonl", [log])
     archive = [{"date": str(today), **{k: f[k] for k in

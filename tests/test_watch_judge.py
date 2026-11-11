@@ -1,5 +1,8 @@
 import copy
+import json
+import sys
 
+import watch_judge
 from watch_judge import FILE_CHARS, judge, screen_messages
 from watch_route import check
 
@@ -43,9 +46,11 @@ class Fake:
         self.screen_out, self.assess_out, self.refute_out = list(screen), assess, refute
         self.screen_calls = self.assess_calls = self.refute_calls = 0
         self.seen_files = None
+        self.seen_titles = []
 
     def screen(self, piece, list_text, known_titles):
         self.screen_calls += 1
+        self.seen_titles.append(list(known_titles))
         return copy.deepcopy(self.screen_out)
 
     def assess(self, change, row, files):
@@ -112,7 +117,7 @@ def test_call_limit_leaves_pieces_unjudged():
 def test_piece_with_unfinished_calls_is_not_judged():
     model = Fake(screen=SCREEN_ROW, assess=ASSESS_BREAK, refute=False)
     out = judge(INP, model, max_calls=2)
-    assert out == {"judged": [], "findings": []}
+    assert out == {"judged": [], "findings": [], "failed": []}
     assert (model.screen_calls, model.assess_calls, model.refute_calls) == (1, 1, 0)
 
 
@@ -158,21 +163,62 @@ class Breaks(Fake):
         return super().screen(piece, list_text, known_titles)
 
 
-def test_failed_call_keeps_the_pieces_judged_before(capsys):
-    model = Breaks(screen=[{"row": "gap", "title": "t", "changed": "c", "user_gets": "u",
-                            "sure": True, "why": "w"}])
+GAP = [{"row": "gap", "title": "t", "changed": "c", "user_gets": "u", "sure": True, "why": "w"}]
+
+
+def test_failed_piece_is_skipped_and_the_next_pieces_are_judged(capsys):
+    model = Breaks(screen=GAP)
     out = judge(inp_with_pieces(3), model)
-    assert out["judged"] == ["claude-code-changelog#2.1.0"]
-    assert len(out["findings"]) == 1 and model.screen_calls == 2
+    assert out["judged"] == ["claude-code-changelog#2.1.0", "claude-code-changelog#2.1.2"]
+    assert out["failed"] == ["claude-code-changelog#2.1.1"]
+    assert len(out["findings"]) == 2 and model.screen_calls == 3
     err = capsys.readouterr().err
     assert "claude-code-changelog#2.1.1" in err and "TimeoutError" in err
     assert "request data" not in err
+    assert check(out, inp_with_pieces(3))
 
 
-def test_failed_assess_leaves_the_piece_unjudged():
-    class BadAssess(Fake):
-        def assess(self, change, row, files):
-            raise ValueError("x")
+class BadAssess(Fake):
+    def assess(self, change, row, files):
+        raise ValueError("x")
 
-    out = judge(INP, BadAssess(screen=SCREEN_ROW))
-    assert out == {"judged": [], "findings": []}
+
+def test_failed_assess_drops_the_piece_and_its_findings():
+    out = judge(INP, BadAssess(screen=[*GAP, *SCREEN_ROW]))
+    assert out == {"judged": [], "findings": [], "failed": [PID]}
+
+
+def test_three_failed_pieces_in_a_row_stop_the_run():
+    model = BadAssess(screen=SCREEN_ROW)
+    out = judge(inp_with_pieces(5), model)
+    assert len(out["failed"]) == 3 and out["judged"] == [] and model.screen_calls == 3
+
+
+def test_later_screens_see_the_titles_found_earlier_in_the_run():
+    model = Fake(screen=GAP)
+    judge(inp_with_pieces(2), model)
+    assert model.seen_titles == [["old"], ["old", "t"]]
+
+
+def test_screen_first_message_stays_the_same_with_new_titles():
+    a = screen_messages(PIECE_A, LIST_TEXT, ["old"])
+    b = screen_messages(PIECE_A, LIST_TEXT, ["old", "t"])
+    assert a[0] == b[0] and '"t"' in b[1]["content"]
+
+
+def test_deadline_stops_the_run_like_the_call_limit():
+    ticks = iter([0, 0] + [1000] * 5)
+    out = judge(inp_with_pieces(3), Fake(screen=GAP), deadline=600, clock=lambda: next(ticks))
+    assert len(out["judged"]) == 1 and out["failed"] == []
+
+
+def test_cli_writes_findings_and_says_so_when_nothing_was_judged(tmp_path, monkeypatch, capsys):
+    (tmp_path / "input.json").write_text(json.dumps(inp_with_pieces(2)))
+    monkeypatch.setenv("WATCH_MODEL", "m")
+    monkeypatch.setattr(watch_judge, "OpenAIModel", lambda name: BadAssess(screen=SCREEN_ROW))
+    monkeypatch.setattr(sys, "argv", ["watch_judge.py", "--input", str(tmp_path / "input.json"),
+                                      "--out", str(tmp_path / "findings.json")])
+    watch_judge.main()
+    out = json.loads((tmp_path / "findings.json").read_text())
+    assert out["judged"] == [] and len(out["failed"]) == 2
+    assert "No piece was judged" in capsys.readouterr().err

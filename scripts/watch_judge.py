@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal, Protocol, TypedDict
@@ -14,6 +15,8 @@ from pydantic import BaseModel
 from watch_list import Row, _table_rows, parse_list
 
 MAX_MODEL_CALLS = 60
+DEADLINE_SECONDS = 600
+FAILS_IN_A_ROW = 3
 FILE_CHARS = 40000
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 DISAGREED = " A second look disagreed."
@@ -31,10 +34,12 @@ class State(TypedDict):
     i: int
     calls: int
     stop: bool
+    streak: int
     to_assess: list[dict]
     to_refute: list[dict]
     current: list[dict]
     judged: list[str]
+    failed: list[str]
     findings: list[dict]
 
 
@@ -68,37 +73,41 @@ class _Failed(Exception):
 def _call(piece_id: str, fn, *args):
     try:
         return fn(*args)
-    except Exception as e:  # noqa: BLE001 - one failed call stops the run, judged pieces stay
+    except Exception as e:  # noqa: BLE001 - a failed call skips its piece, the run goes on
         print(f"model call failed for {piece_id}: {type(e).__name__}", file=sys.stderr)
         raise _Failed from None
 
 
-def _stops(node):
+def _stops(node, late):
     def run(state: State) -> dict:
-        if _full(state):
+        if _full(state) or late():
             return {"stop": True}
         try:
             return node(state)
         except _Failed:
-            return {"stop": True}
+            streak = state["streak"] + 1
+            return {"calls": state["calls"] + 1, "i": state["i"] + 1, "streak": streak,
+                    "stop": streak >= FAILS_IN_A_ROW, "current": [], "to_assess": [],
+                    "to_refute": [],
+                    "failed": [*state["failed"], state["inp"]["pieces"][state["i"]]["id"]]}
     return run
 
 
-def build_graph(model: Model):
+def build_graph(model: Model, late=lambda: False):
     def settle(state: State, update: dict) -> dict:
         new = {**state, **update, "calls": state["calls"] + 1}
         if not new["to_assess"] and not new["to_refute"]:
             new["judged"] = [*new["judged"], new["inp"]["pieces"][new["i"]]["id"]]
             new["findings"] = [*new["findings"], *new["current"]]
-            new["current"], new["i"] = [], new["i"] + 1
+            new["current"], new["i"], new["streak"] = [], new["i"] + 1, 0
         return new
 
     def screen(state: State) -> dict:
         inp = state["inp"]
         piece, rows = inp["pieces"][state["i"]], _rows(inp["list"])
         current, to_assess = [], []
-        for change in _call(piece["id"], model.screen, piece, inp["list"],
-                            inp["known_titles"]):
+        titles = inp["known_titles"] + [f["title"] for f in state["findings"]]
+        for change in _call(piece["id"], model.screen, piece, inp["list"], titles):
             label = change.get("row", "none")
             if label == "gap":
                 current.append(_finding(inp, piece, "", None, effect="gap",
@@ -144,20 +153,24 @@ def build_graph(model: Model):
         return "screen"
 
     graph = StateGraph(State)
-    graph.add_node("screen", _stops(screen))
-    graph.add_node("assess", _stops(assess))
-    graph.add_node("refute", _stops(refute))
+    graph.add_node("screen", _stops(screen, late))
+    graph.add_node("assess", _stops(assess, late))
+    graph.add_node("refute", _stops(refute, late))
     graph.add_conditional_edges(START, after)
     for node in ("screen", "assess", "refute"):
         graph.add_conditional_edges(node, after)
     return graph.compile()
 
 
-def judge(inp: dict, model: Model, max_calls: int = MAX_MODEL_CALLS) -> dict:
+def judge(inp: dict, model: Model, max_calls: int = MAX_MODEL_CALLS,
+          deadline: float = DEADLINE_SECONDS, clock=time.monotonic) -> dict:
+    end_at = clock() + deadline
     start = {"inp": inp, "max_calls": max_calls, "i": 0, "calls": 0, "stop": False,
-             "to_assess": [], "to_refute": [], "current": [], "judged": [], "findings": []}
-    end = build_graph(model).invoke(start, config={"recursion_limit": max_calls + 10})
-    return {"judged": end["judged"], "findings": end["findings"]}
+             "streak": 0, "to_assess": [], "to_refute": [], "current": [], "judged": [],
+             "failed": [], "findings": []}
+    graph = build_graph(model, lambda: clock() > end_at)
+    end = graph.invoke(start, config={"recursion_limit": max_calls + 10})
+    return {"judged": end["judged"], "findings": end["findings"], "failed": end["failed"]}
 
 
 def _prompt(name: str) -> str:
@@ -238,6 +251,9 @@ def main():
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
     out = judge(inp, OpenAIModel(name), max_calls)
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")
+    if inp["pieces"] and not out["judged"]:
+        print(f"No piece was judged ({len(out['failed'])} failed); post saves the tries.",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":

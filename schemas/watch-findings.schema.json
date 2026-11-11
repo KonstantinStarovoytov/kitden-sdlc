@@ -3,9 +3,10 @@
   "title": "Findings of the client watcher",
   "type": "object",
   "additionalProperties": false,
-  "required": ["judged", "findings"],
+  "required": ["judged", "findings", "failed"],
   "properties": {
     "judged": {"type": "array", "items": {"type": "string"}},
+    "failed": {"type": "array", "items": {"type": "string"}},
     "findings": {
       "type": "array",
       "items": {

@@ -9,6 +9,7 @@ from watch_list import CLIENTS, _table_rows, parse_list, terms
 
 URGENT_PER_WEEK = 2
 WORD_HITS_MAX = 5
+TRIES_MAX = 3
 TITLE_MAX = 100
 TEXT_MAX = 600
 EFFECTS = ("breaks", "wrong-data", "minor", "gap")
@@ -36,11 +37,14 @@ def _need(ok: bool, why: str) -> None:
 
 
 def check(findings: dict, inp: dict) -> list[dict]:
-    _need(isinstance(findings, dict) and set(findings) == {"judged", "findings"}, "top level")
-    judged, items = findings["judged"], findings["findings"]
-    _need(isinstance(judged, list) and isinstance(items, list), "judged and findings are lists")
+    _need(isinstance(findings, dict) and set(findings) == {"judged", "findings", "failed"},
+          "top level")
+    judged, items, failed = findings["judged"], findings["findings"], findings["failed"]
+    _need(all(isinstance(x, list) for x in (judged, items, failed)), "top level lists")
     pieces = {p["id"]: p for p in inp["pieces"]}
-    _need(all(isinstance(j, str) and j in pieces for j in judged), "judged piece not fetched")
+    _need(all(isinstance(j, str) and j in pieces for j in judged + failed),
+          "judged or failed piece not fetched")
+    _need(not set(judged) & set(failed), "piece both judged and failed")
     out = []
     for item in items:
         _need(isinstance(item, dict) and set(item) == KEYS, "finding keys")
@@ -80,7 +84,17 @@ def _grade(f: dict) -> int:
     return 2 + ("breaks", "wrong-data", "gap", "minor").index(f["effect"])
 
 
-def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today: date) -> Plan:
+def _not_judged(piece: dict) -> dict:
+    return {"effect": "minor", "sure": False, "title": _quiet(f"Could not judge {piece['id']}",
+                                                             TITLE_MAX),
+            "client": piece["client"], "url": piece["url"], "version": piece["version"],
+            "changed": f"The model failed on this piece {TRIES_MAX} times; it is now skipped.",
+            "why": "Read the source by hand.", "user_gets": "not checked",
+            "systems": "not checked", "row": "", "files": []}
+
+
+def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today: date,
+          failed: list[str] = ()) -> Plan:
     new = copy.deepcopy(state)
     year, week, _ = today.isocalendar()
     this_week = f"{year}-W{week:02d}"
@@ -102,9 +116,18 @@ def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today
             if first:
                 f["overflow"] = True
         new["kept"].append(f)
+    tries = new.setdefault("tries", {})
     for piece in inp["pieces"]:
-        if piece["id"] in judged:
-            new["sources"].setdefault(piece["source"], {})[piece["key"]] = piece["hash"]
+        pid = piece["id"]
+        if pid in failed:
+            tries[pid] = tries.get(pid, 0) + 1
+            if tries[pid] < TRIES_MAX:
+                continue
+            new["kept"].append(_not_judged(piece))
+        elif pid not in judged:
+            continue
+        tries.pop(pid, None)
+        new["sources"].setdefault(piece["source"], {})[piece["key"]] = piece["hash"]
     summary = None
     if new["kept"] and new.get("summary_week") != this_week:
         summary = sorted(new["kept"], key=_grade)

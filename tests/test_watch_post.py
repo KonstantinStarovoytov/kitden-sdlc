@@ -54,7 +54,8 @@ def finding(n=0, **kw):
 
 
 def one(judged=1, **kw):
-    return {"judged": [f"{PID}{n}" for n in range(judged)], "findings": [finding(**kw)]}
+    return {"judged": [f"{PID}{n}" for n in range(judged)], "findings": [finding(**kw)],
+            "failed": []}
 
 
 def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
@@ -113,3 +114,13 @@ def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
     lines = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
     assert [x["effect"] for x in lines] == ["breaks", "none"]
     assert lines[0]["issue"] == gh.urls[0] and lines[1]["issue"] == ""
+
+
+def test_failed_pieces_count_their_tries_in_the_memory(tmp_path):
+    gh = FakeGitHub()
+    run(inp(2), {"judged": [], "findings": [], "failed": [f"{PID}0", f"{PID}1"]}, gh,
+        tmp_path, WED)
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["tries"] == {f"{PID}0": 1, f"{PID}1": 1} and gh.issues == []
+    log = json.loads((tmp_path / "log.jsonl").read_text())
+    assert log["failed"] == 2
