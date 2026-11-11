@@ -109,15 +109,14 @@ def test_unknown_row_name_is_dropped():
 
 
 def test_row_of_another_client_is_dropped():
-    model = Fake(screen=[{"row": "the `codexOnly` key", "title": "t", "changed": "c", "quote": "Changed skillOverrides."}],
-                 assess=ASSESS_BREAK)
+    model = Fake(screen=[{**SCREEN_ROW[0], "row": "the `codexOnly` key"}], assess=ASSESS_BREAK)
     out = judge(INP, model)
     assert out["findings"] == [] and model.assess_calls == 0
 
 
 def test_gap_needs_no_second_call():
-    model = Fake(screen=[{"row": "gap", "title": "t", "changed": "c", "user_gets": "u", "quote": "Changed skillOverrides.",
-                          "sure": True, "why": "w"}])
+    model = Fake(screen=[{"row": "gap", "title": "t", "changed": "c", "user_gets": "u",
+                          "quote": "Changed skillOverrides.", "sure": True, "why": "w"}])
     out = judge(INP, model)
     assert out["findings"][0]["effect"] == "gap" and model.assess_calls == 0
     assert check(out, INP)
