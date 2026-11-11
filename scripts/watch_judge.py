@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal, Protocol, TypedDict
@@ -60,6 +61,29 @@ def _full(state: State) -> bool:
     return state["calls"] + 1 > state["max_calls"]
 
 
+class _Failed(Exception):
+    pass
+
+
+def _call(piece_id: str, fn, *args):
+    try:
+        return fn(*args)
+    except Exception as e:  # noqa: BLE001 - one failed call stops the run, judged pieces stay
+        print(f"model call failed for {piece_id}: {type(e).__name__}", file=sys.stderr)
+        raise _Failed from None
+
+
+def _stops(node):
+    def run(state: State) -> dict:
+        if _full(state):
+            return {"stop": True}
+        try:
+            return node(state)
+        except _Failed:
+            return {"stop": True}
+    return run
+
+
 def build_graph(model: Model):
     def settle(state: State, update: dict) -> dict:
         new = {**state, **update, "calls": state["calls"] + 1}
@@ -70,12 +94,11 @@ def build_graph(model: Model):
         return new
 
     def screen(state: State) -> dict:
-        if _full(state):
-            return {"stop": True}
         inp = state["inp"]
         piece, rows = inp["pieces"][state["i"]], _rows(inp["list"])
         current, to_assess = [], []
-        for change in model.screen(piece, inp["list"], inp["known_titles"]):
+        for change in _call(piece["id"], model.screen, piece, inp["list"],
+                            inp["known_titles"]):
             label = change.get("row", "none")
             if label == "gap":
                 current.append(_finding(inp, piece, "", None, effect="gap",
@@ -88,13 +111,11 @@ def build_graph(model: Model):
         return settle(state, {"current": current, "to_assess": to_assess, "to_refute": []})
 
     def assess(state: State) -> dict:
-        if _full(state):
-            return {"stop": True}
         inp = state["inp"]
         piece = inp["pieces"][state["i"]]
         change, *rest = state["to_assess"]
         row = _rows(inp["list"])[(piece["client"], change["row"])]
-        got = model.assess(change, row, _files(row, inp))
+        got = _call(piece["id"], model.assess, change, row, _files(row, inp))
         f = _finding(inp, piece, change["row"], row, changed=change.get("changed", ""), **{
             k: got.get(k, "") for k in ("title", "effect", "user_gets", "systems", "why")},
             sure=got.get("sure", False))
@@ -106,12 +127,10 @@ def build_graph(model: Model):
         return settle(state, update)
 
     def refute(state: State) -> dict:
-        if _full(state):
-            return {"stop": True}
         inp = state["inp"]
         f, *rest = state["to_refute"]
         row = _rows(inp["list"])[(f["client"], f["row"])]
-        if model.refute(f, row, _files(row, inp)):
+        if _call(f["piece"], model.refute, f, row, _files(row, inp)):
             f = {**f, "sure": False, "why": f["why"] + DISAGREED}
         return settle(state, {"to_refute": rest, "current": [*state["current"], f]})
 
@@ -125,9 +144,9 @@ def build_graph(model: Model):
         return "screen"
 
     graph = StateGraph(State)
-    graph.add_node("screen", screen)
-    graph.add_node("assess", assess)
-    graph.add_node("refute", refute)
+    graph.add_node("screen", _stops(screen))
+    graph.add_node("assess", _stops(assess))
+    graph.add_node("refute", _stops(refute))
     graph.add_conditional_edges(START, after)
     for node in ("screen", "assess", "refute"):
         graph.add_conditional_edges(node, after)
@@ -188,7 +207,7 @@ class OpenAIModel:
     def __init__(self, name: str):
         from langchain_openai import ChatOpenAI
 
-        self.llm = ChatOpenAI(model=name)
+        self.llm = ChatOpenAI(model=name, max_retries=2, timeout=60)
 
     def _ask(self, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
         return self.llm.with_structured_output(schema, strict=True).invoke(messages)
@@ -212,8 +231,12 @@ def main():
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     inp = json.loads(Path(a.input).read_text(encoding="utf-8"))
-    model = OpenAIModel(os.environ["WATCH_MODEL"])
-    out = judge(inp, model, int(os.environ.get("MAX_MODEL_CALLS", MAX_MODEL_CALLS)))
+    name = os.environ.get("WATCH_MODEL")
+    if not name:
+        print("WATCH_MODEL is not set", file=sys.stderr)
+        raise SystemExit(1)
+    max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
+    out = judge(inp, OpenAIModel(name), max_calls)
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")
 
 

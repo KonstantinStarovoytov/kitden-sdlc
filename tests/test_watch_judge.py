@@ -148,3 +148,31 @@ def test_screen_requests_share_their_start():
     b = screen_messages(PIECE_B, LIST_TEXT, ["x"])
     assert a[0] == b[0] and LIST_TEXT in a[0]["content"]
     assert PIECE_A["text"] not in a[0]["content"] and PIECE_A["text"] in a[1]["content"]
+
+
+class Breaks(Fake):
+    def screen(self, piece, list_text, known_titles):
+        if self.screen_calls == 1:
+            self.screen_calls += 1
+            raise TimeoutError("request data")
+        return super().screen(piece, list_text, known_titles)
+
+
+def test_failed_call_keeps_the_pieces_judged_before(capsys):
+    model = Breaks(screen=[{"row": "gap", "title": "t", "changed": "c", "user_gets": "u",
+                            "sure": True, "why": "w"}])
+    out = judge(inp_with_pieces(3), model)
+    assert out["judged"] == ["claude-code-changelog#2.1.0"]
+    assert len(out["findings"]) == 1 and model.screen_calls == 2
+    err = capsys.readouterr().err
+    assert "claude-code-changelog#2.1.1" in err and "TimeoutError" in err
+    assert "request data" not in err
+
+
+def test_failed_assess_leaves_the_piece_unjudged():
+    class BadAssess(Fake):
+        def assess(self, change, row, files):
+            raise ValueError("x")
+
+    out = judge(INP, BadAssess(screen=SCREEN_ROW))
+    assert out == {"judged": [], "findings": []}
