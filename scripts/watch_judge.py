@@ -258,9 +258,12 @@ class OpenAIModel:
     def __init__(self, name: str):
         from langchain_openai import ChatOpenAI
 
-        self.name = name
+        # WATCH_EFFORT is how hard the model thinks (low, medium, high, xhigh, max); unset or
+        # empty leaves the model's own default. The name in the traces carries it.
+        effort = os.environ.get("WATCH_EFFORT") or None
+        self.name = f"{name} {effort}" if effort else name
         # A long piece takes the model a minute or two, so one call may wait three.
-        self.llm = ChatOpenAI(model=name, max_retries=1, timeout=180)
+        self.llm = ChatOpenAI(model=name, reasoning_effort=effort, max_retries=1, timeout=180)
 
     def _ask(self, step: str, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
         config = watch_trace.config(step, self.name)

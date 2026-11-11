@@ -19,6 +19,18 @@ on:
         description: "Run the eval on the 15 tasks of evals/watch instead of the daily run"
         type: boolean
         default: false
+      # The two below are read by the eval only, to compare models. The daily run uses
+      # WATCH_MODEL of this file and the model's own effort.
+      model:
+        description: "Eval only: the model"
+        type: choice
+        options: [gpt-6-luna, gpt-6.1-terra]
+        default: gpt-6-luna
+      effort:
+        description: "Eval only: how hard the model thinks (default: the model's own)"
+        type: choice
+        options: [default, low, medium, high, xhigh, max]
+        default: default
 
 permissions: {}
 
@@ -221,6 +233,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MAX_MODEL_CALLS: "30"
+          WATCH_MODEL: ${{ inputs.model }}
+          WATCH_EFFORT: ${{ inputs.effort != 'default' && inputs.effort || '' }}
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}

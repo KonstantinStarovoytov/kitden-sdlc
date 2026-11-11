@@ -120,7 +120,8 @@ def main() -> None:
         raise SystemExit(1)
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
     try:
-        run_tasks(a.tasks, a.kitden, a.out, OpenAIModel(name), max_calls, name)
+        model = OpenAIModel(name)
+        run_tasks(a.tasks, a.kitden, a.out, model, max_calls, model.name)
     finally:
         watch_trace.flush()
 

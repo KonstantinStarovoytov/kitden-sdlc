@@ -323,3 +323,15 @@ def test_a_short_piece_is_one_part():
     model = Parts(screen=[])
     judge(INP, model)
     assert model.texts == [INP["pieces"][0]["text"]]
+
+
+def test_effort_comes_from_the_environment_and_shows_in_the_name(monkeypatch):
+    from watch_judge import OpenAIModel
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("WATCH_EFFORT", "high")
+    model = OpenAIModel("gpt-x")
+    assert model.name == "gpt-x high" and model.llm.reasoning_effort == "high"
+    monkeypatch.setenv("WATCH_EFFORT", "")
+    model = OpenAIModel("gpt-x")
+    assert model.name == "gpt-x" and model.llm.reasoning_effort is None
