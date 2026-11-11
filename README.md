@@ -49,6 +49,25 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 7. Secrets arrive as named inputs and are never printed; the two keys never share a job.
 8. Every comment starts with the title "Agent review", so it is clear an agent wrote it.
 
+## The client watcher
+
+Once a day a job reads the release notes and docs of Claude Code, Codex and Cursor and asks a
+model whether anything touches what Kitden shows. It opens an issue in Kitden for a sure
+break (two a week at most) and one summary issue on Mondays. It keeps its memory on the `watch`
+branch. The design is in [docs/watcher-design.md](docs/watcher-design.md).
+
+| Label | Meaning |
+|---|---|
+| `client-change` | Opened by the watcher: a client changed |
+| `claude-code`, `codex`, `cursor` | Which client |
+| `breaks` | A Kitden action stops working |
+| `wrong-data` | Kitden shows something that is not true |
+| `minor` | Small; nothing a user would trip over |
+| `kitden-gap` | The client added something Kitden does not show yet |
+| `unsure` | The watcher is not sure Kitden is touched |
+| `summary` | The weekly summary |
+| `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
+
 ## What went wrong
 
 The first versions broke in several ways: [LOG.md](LOG.md). The design is in
