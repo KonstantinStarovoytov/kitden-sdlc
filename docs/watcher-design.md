@@ -127,6 +127,16 @@ Three jobs, in the shape the reviewers use.
    fetched, every Kitden file exists, nothing that looks like a secret), then opens issues in
    `kitden` as Lantern and saves the memory.
 
+Three cheap helpers (owner, 2026-11-11):
+
+- **Word check**, no model, in Post. The exact words of the list (key names, paths, commands)
+  are looked for in each judged piece. A word that is there while the model reported nothing
+  for that row becomes a summary item marked `unsure`, so a quiet miss of the model is seen.
+- **Second look**, in Judge. A finding that would be urgent gets one more model call that
+  tries to refute it. If it is refuted, the finding goes to the summary as `unsure`.
+- **Same start of every request.** The prompt and the list come first, word for word, so
+  OpenAI can bill the repeated start at its lower price. The saving is not measured.
+
 ### 5. What the owner sees
 
 **An urgent issue** is for a change the watcher is sure about that breaks a Kitden action or
@@ -164,6 +174,7 @@ post job creates a missing label from `config/watch-labels.yml` (call):
 | `kitden-gap` | The client added something Kitden does not show yet (owner's name) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary (call) |
+| `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
 
 An urgent issue carries its own labels. The summary carries `client-change` and `summary`; its
 items show the same words in their text.
@@ -172,7 +183,10 @@ items show the same words in their text.
 
 A branch `watch` in `kitden-sdlc`, the same way the weekly numbers have theirs (call). It
 holds the last version seen per source, the section hashes of each doc page, the items kept for
-the next summary, the number of urgent issues this week, and one log line per run.
+the next summary, the number of urgent issues this week, and one log line per run. It also
+holds an archive: one line per judged change with the client, version, link, the watcher's
+short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
+public, searched with grep, and indexed later if that is ever needed.
 
 The first run only fills the memory and opens nothing.
 
@@ -208,6 +222,11 @@ The eval runs before the watcher is switched on, and the owner sees the table fi
 is not obeyed, and at most 2 of the 15 are false alarms. Below the bar the watcher stays off
 and the owner chooses between a stronger model and a narrower task; the model name is one
 line of config.
+
+The set grows from real cases (owner, 2026-11-11). The owner closes an urgent issue with
+`confirmed` or `false-alarm`; about once a month a script turns such issues into new tasks,
+and they come to `evals/` as a pull request. Summary items are not collected this way yet:
+one issue holds many of them (call).
 
 ### 10. What only the owner does
 

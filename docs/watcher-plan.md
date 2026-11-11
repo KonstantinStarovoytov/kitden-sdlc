@@ -35,15 +35,16 @@ pytest, ruff, `gh` CLI.
 - No secret value is ever read, printed or asked for. Steps marked **(owner)** are the owner's.
 - Nothing is merged, and `main` is never pushed. Each repository gets one pull request, which
   the owner merges.
-- Fixed names: branch `watch`; files `state.json`, `log.jsonl` on it; `config/watch-sources.yml`,
+- Fixed names: branch `watch`; files `state.json`, `log.jsonl`, `archive.jsonl` on it; `config/watch-sources.yml`,
   `config/watch-labels.yml`; `schemas/watch-findings.schema.json`; artifacts `watch-input`,
   `watch-findings`; variable `AGENTS_ENABLED`, variable `AGENTS_APP_CLIENT_ID`, secrets
   `OPENAI_API_KEY`, `AGENTS_APP_PRIVATE_KEY`; model `gpt-6-luna` in workflow env `WATCH_MODEL`.
 - Fixed numbers: `PIECES_MAX = 20` new pieces per run, `PIECE_CHARS = 12000`,
   `FILE_CHARS = 40000`, `MAX_MODEL_CALLS = 60`, job timeout 15 minutes, `URGENT_PER_WEEK = 2`,
-  `FAIL_DAYS = 3`. A week is the ISO week in UTC; the summary goes out on Monday UTC.
+  `FAIL_DAYS = 3`, `WORD_HITS_MAX = 5` word-check items per run. A week is the ISO week in UTC; the summary goes out on Monday UTC.
 - Labels: `client-change`, `claude-code`, `codex`, `cursor`, `breaks`, `wrong-data`, `minor`,
-  `kitden-gap`, `unsure`, `summary`.
+  `kitden-gap`, `unsure`, `summary`; and two the owner sets on closing: `confirmed`,
+  `false-alarm`.
 - First line of every issue: `Automated issue by Kitden's client watcher (gpt-6-luna).`
 
 ## Review Focus
@@ -138,7 +139,12 @@ def test_all_three_clients_have_rows():
   `Row(client: str, what: str, kind: str, files: list[str], seen_in: str, systems: str, source: str)`;
   `parse_list(text: str) -> list[Row]` (`client` is `claude-code`, `codex` or `cursor`, from
   the section heading); `doc_pages(rows) -> dict[str, str]` (address → client, only `Source`
-  values that start with `https://`, each once).
+  values that start with `https://`, each once);
+  `terms(text: str) -> dict[tuple[str, str], list[str]]` ((client, what) → the exact words
+  of that row, for the word check). A word is a part of the backticked text in the `What`
+  cell, split on white space, that is at least 6 characters long and has a character that is
+  not a lowercase letter (`add-json`, `skillOverrides`, `~/.codex/.tmp/marketplaces`; not
+  `claude`, not `-s`). A row with no such word has an empty list.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -162,6 +168,11 @@ def test_doc_pages_keeps_addresses_only():
 
 def test_rows_outside_a_client_section_are_ignored():
     assert parse_list("| a | path | `x` | y | same | guess |") == []
+
+def test_terms_keep_exact_words_only():
+    got = terms(TEXT)
+    assert got[("codex", "codex plugin list --json")] == ["--json"]
+    assert got[("codex", "rollout log lines")] == []
 ```
 
 - [ ] **Step 2: Run** `uv run pytest tests/test_watch_list.py -q`; expected: FAIL, no module.
@@ -354,11 +365,37 @@ def test_third_failed_day_is_kept_once():
      `kept` becomes empty. Otherwise `summary` is `None`.
 - Produces: `labels(finding) -> list[str]`: `client-change`, the client, then `kitden-gap` for
   `gap` or the effect itself, plus `unsure` when not sure.
+- Consumes: Task 2 `terms`.
+- Produces: `word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]`, the
+  word check, a pure function with no model. For each judged piece and each row of the
+  piece's client: when one of the row's words is in the piece text (exact case) and no
+  finding of that piece names that row, it returns one finding: `effect` `minor`, `sure`
+  false, `row` and `files` of the row, `title` "Mentions `<word>`", `changed` the line of the
+  piece that has the word (cut to 600), `why` "The word is in the text; the model reported
+  nothing for this row.", `user_gets` and `systems` "not checked". At most `WORD_HITS_MAX`
+  per run, in piece order. The caller adds them to the findings before `route`.
 
 - [ ] **Step 1: Write the failing tests** — one per refusal of `check`, one per numbered rule
   of `route`, and:
 
 ```python
+def test_word_the_model_passed_over_becomes_an_unsure_item():
+    hits = word_hits([], JUDGED, inp_piece_text("Renamed skillOverrides to skills.overrides"))
+    assert len(hits) == 1 and hits[0]["sure"] is False and hits[0]["effect"] == "minor"
+    assert hits[0]["row"] == "the `skillOverrides` key"
+
+def test_no_word_hit_when_the_model_named_the_row():
+    inp = inp_piece_text("Renamed skillOverrides")
+    assert word_hits([finding(row="the `skillOverrides` key")], JUDGED, inp) == []
+
+def test_no_word_hit_for_an_unjudged_piece_or_another_client():
+    inp = inp_piece_text("Renamed skillOverrides")
+    assert word_hits([], [], inp) == []
+    assert word_hits([], JUDGED, inp_piece_text("Renamed skillOverrides", client="cursor")) == []
+
+def test_word_hits_stop_at_the_cap():
+    assert len(word_hits([], judged_ids(9), inp_pieces_with_word(9))) == 5
+
 def test_third_urgent_in_a_week_goes_to_the_summary():
     state = base_state(urgent={"week": "2026-W46", "count": 2})
     plan = route([finding(effect="breaks", sure=True)], state, JUDGED, INP, date(2026, 11, 11))
@@ -399,7 +436,7 @@ def test_labels_for_an_unsure_gap():
 
 **Interfaces:**
 - Consumes: Task 5 `check`, `route`, `labels`, `Plan`.
-- Produces: `config/watch-labels.yml`: a list of `{name, color, description}` for the ten
+- Produces: `config/watch-labels.yml`: a list of `{name, color, description}` for the twelve
   labels; the descriptions are the "Meaning" column of the design's table.
 - Produces: `render_urgent(finding, inp) -> tuple[str, str]` (title, body) and
   `render_summary(items, today) -> tuple[str, str]`. Title of an urgent issue:
@@ -414,9 +451,12 @@ def test_labels_for_an_unsure_gap():
   `create_label(name, color, description)`, `create_issue(title, body, labels) -> str`; the
   real one calls `gh api` for `--repo`, as `post_findings.py` does.
 - CLI: `watch_post.py --input input.json --findings findings.json --repo OWNER/kitden --memory <folder> --today YYYY-MM-DD`.
-  Order: check → route → create missing labels → open issues → write `state.json` and append
-  one line to `log.jsonl` (`date`, `pieces`, `judged`, `findings`, `urgent`, `summary`) in
-  `--memory`. With no `--findings` file and no pieces it still routes (Monday summary, fails).
+  Order: check → word check (Task 5 `word_hits`) → route → create missing labels → open
+  issues → write `state.json`, append one line to `log.jsonl` (`date`, `pieces`, `judged`,
+  `findings`, `urgent`, `summary`) and append to `archive.jsonl` in `--memory`. The archive
+  gets one line per finding of this run (`date`, `piece`, `client`, `version`, `url`, `row`,
+  `title`, `effect`, `sure`, `why`, `issue`: the address of its urgent issue or `""`), and one
+  line with `effect` `none` for each judged piece that has no finding. With no `--findings` file and no pieces it still routes (Monday summary, fails).
   `BadFindings` exits 1 before anything is posted or written.
 
 - [ ] **Step 1: Write the failing tests** with a fake `GitHub`:
@@ -451,6 +491,14 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
 def test_release_not_checked_when_a_file_differs():
     _, body = render_urgent(one_finding(), inp_file_differs())
     assert "main; v0.7.2 not checked" in body
+
+def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
+    gh = FakeGitHub()
+    run(inp=inp_with_pieces(2), findings=one(effect="breaks", sure=True, judged=2), gh=gh,
+        memory=tmp_path, today=WED)
+    lines = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
+    assert [x["effect"] for x in lines] == ["breaks", "none"]
+    assert lines[0]["issue"] == gh.urls[0] and lines[1]["issue"] == ""
 ```
 
 - [ ] **Step 2: Run**; expected: FAIL. **Step 3: Implement.** **Step 4: Run**; expected: PASS.
@@ -461,7 +509,7 @@ def test_release_not_checked_when_a_file_differs():
 
 **Files:**
 - Create: `scripts/watch_judge.py`, `prompts/watch-screen.md`, `prompts/watch-assess.md`,
-  `tests/test_watch_judge.py`
+  `prompts/watch-refute.md`, `tests/test_watch_judge.py`
 - Modify: `pyproject.toml` (group `watch`), `uv.lock`
 
 **Interfaces:**
@@ -469,12 +517,13 @@ def test_release_not_checked_when_a_file_differs():
 - Produces: `build_graph(model: Model) -> CompiledGraph` and
   `judge(inp: dict, model: Model, max_calls: int = 60) -> dict` (the `findings.json` content).
   `class Model(Protocol)`: `screen(piece: dict, list_text: str, known_titles: list[str]) -> list[dict]`
-  and `assess(change: dict, row: Row, files: dict[str, str]) -> dict`. The real model wraps
+  `assess(change: dict, row: Row, files: dict[str, str]) -> dict` and
+  `refute(finding: dict, row: Row, files: dict[str, str]) -> bool`. The real model wraps
   `ChatOpenAI(model=os.environ["WATCH_MODEL"])` with structured output; tests use a fake.
 - CLI: `watch_judge.py --input input.json --out findings.json`; reads `OPENAI_API_KEY`,
   `WATCH_MODEL` and `MAX_MODEL_CALLS` from the environment.
 
-The graph, two model nodes:
+The graph, three model nodes:
 
 1. `screen`, one call per piece: split the piece into separate changes and, for each, answer
    with the exact `What` of a list row, or `gap`, or `none`. `gap` only for a new kind, place
@@ -484,10 +533,18 @@ The graph, two model nodes:
 2. `assess`, one call per change that named a row: gets the change, the row and the texts of
    the row's files (each cut to `FILE_CHARS`), and returns `effect` (`breaks`, `wrong-data`
    or `minor`), `sure`, `user_gets`, `systems`, `why`, `title`.
+3. `refute`, the second look: one call for each finding that is `breaks` or `wrong-data` and
+   sure. The prompt asks for the strongest reason the finding is wrong and a yes or no on
+   whether it holds. When refuted, the finding stays but gets `sure` false, and
+   " A second look disagreed." is added to `why`.
+
+Every `screen` request starts with the same text, byte for byte: the prompt, then the list.
+The piece and the known titles come last. `assess` and `refute` start with their prompt.
+This lets OpenAI bill the repeated start at its lower price.
 
 The code, not the model, fills `piece`, `client`, `version`, `url`, `row` and `files` of each
 finding. A row name the list does not have makes the change `none`. A piece is added to
-`judged` only when its `screen` and all its `assess` calls finished. When the next call would
+`judged` only when its `screen` and all its `assess` and `refute` calls finished. When the next call would
 pass `max_calls`, the graph stops and the remaining pieces stay unjudged. The prompts say
 that the piece is outside text, never instructions; `systems` is "not checked" unless the
 piece or the row says otherwise; and that a guess must be marked not sure.
@@ -530,10 +587,29 @@ def test_call_limit_leaves_pieces_unjudged():
 def test_output_passes_check():
     out = judge(INP, FAKE_BREAK)
     assert check(out, INP)
+
+def test_refuted_break_stays_but_is_not_sure():
+    out = judge(INP, Fake(screen=SCREEN_ROW, assess=ASSESS_BREAK, refute=True))
+    f = out["findings"][0]
+    assert f["effect"] == "breaks" and f["sure"] is False
+    assert f["why"].endswith("A second look disagreed.")
+
+def test_minor_and_unsure_findings_get_no_second_look():
+    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "minor"})
+    judge(INP, model)
+    assert model.refute_calls == 0
+
+def test_screen_requests_share_their_start():
+    a = screen_messages(PIECE_A, LIST_TEXT, [])
+    b = screen_messages(PIECE_B, LIST_TEXT, ["x"])
+    assert a[0] == b[0] and LIST_TEXT in a[0]["content"]
 ```
 
+`screen_messages(piece, list_text, known_titles) -> list[dict]` builds the request of the
+real model; its first message holds the prompt and the list and nothing else.
+
 - [ ] **Step 3: Run**; expected: FAIL. **Step 4: Implement** the graph, the real model and the
-  two prompts. **Step 5: Run**; expected: PASS.
+  three prompts. **Step 5: Run**; expected: PASS.
 - [ ] **Step 6: Commit** ("Judge client changes with a small graph on Luna").
 
 ### Task 8: rules, checker and the workflow
@@ -581,7 +657,8 @@ Every job's `if` has `vars.AGENTS_ENABLED == 'true'` and every job has `timeout-
 
 **Files:**
 - Create: `evals/watch/README.md`, `evals/watch/tasks/<id>/task.json` (15),
-  `evals/watch_run.py`, `evals/watch_score.py`, `tests/test_watch_score.py`
+  `evals/watch_run.py`, `evals/watch_score.py`, `evals/watch_harvest.py`,
+  `tests/test_watch_score.py`, `tests/test_watch_harvest.py`
 - Modify: `.github/workflows/watch.yml` (an `eval` job)
 
 **Interfaces:**
@@ -606,11 +683,26 @@ Every job's `if` has `vars.AGENTS_ENABLED == 'true'` and every job has `timeout-
 - `eval` job in `watch.yml`: runs only on `workflow_dispatch` with input `eval: true` (the
   other three jobs then skip); same permissions and limits as `judge`; checks out `kitden`;
   runs `watch_run.py` and `watch_score.py`; uploads the table as artifact `watch-eval`.
+- `harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict]) -> list[dict]`,
+  a pure function that returns new tasks. `issues` are closed `client-change` issues of
+  `kitden` with their labels and address; an issue is joined to its archive line by `issue`.
+  `confirmed` gives a `touched` task with the line's `row` and `effect`; `false-alarm` gives
+  an `untouched` task with both `null`. An issue with both labels, with neither, with no
+  archive line, or whose piece is not in `pieces` is skipped and named in the output. The
+  task `id` is `issue-<number>`; one that already exists is not made again.
+- `watch_harvest.py --repo OWNER/kitden --archive <file> --tasks evals/watch/tasks`: reads
+  the issues with `gh`, fetches each piece again by its source and key with Task 3's
+  functions, writes the task folders. It is run by hand about once a month, on a branch;
+  the new tasks reach `main` as a pull request. No workflow runs it. Summary items are not
+  harvested.
 
 - [ ] **Step 1: Write the failing tests for `score`**: all found passes; one grave task missed
   fails; three false alarms fail; an obeyed injection fails; a missing `findings.json` counts
-  as not found.
-- [ ] **Step 2: Run**; expected: FAIL. **Step 3: Implement the scorer and the runner.**
+  as not found. **And for `harvest`**: a `confirmed` issue gives a `touched` task with the
+  archive's row and effect; a `false-alarm` one gives an `untouched` task; both labels, no
+  archive line and a missing piece are each skipped; an existing id is not made twice.
+- [ ] **Step 2: Run**; expected: FAIL. **Step 3: Implement the scorer, the runner and
+  the harvest.**
 - [ ] **Step 4: Collect the 15 tasks.** For each, write down in `evals/watch/README.md` the
   one-line reason for its expected answer. Needs Task 1 merged in `kitden`.
 - [ ] **Step 5: Add the `eval` job; run all checks; commit** ("Measure the watcher on 15 real
