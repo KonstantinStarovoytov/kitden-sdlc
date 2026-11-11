@@ -4,7 +4,8 @@ import sys
 from pathlib import Path
 
 import watch_judge
-from watch_judge import FILE_CHARS, Assessed, Change, judge, screen_messages
+from watch_judge import FILE_CHARS, Assessed, Change, judge, named, screen_messages
+from watch_list import row_ids, short_list
 from watch_route import EFFECTS, KEYS, TOP_KEYS, check
 
 PIECE_URL = "https://example.com/changelog"
@@ -152,7 +153,7 @@ def test_minor_and_unsure_findings_get_no_second_look():
 def test_screen_requests_share_their_start():
     a = screen_messages(PIECE_A, LIST_TEXT, [])
     b = screen_messages(PIECE_B, LIST_TEXT, ["x"])
-    assert a[0] == b[0] and LIST_TEXT in a[0]["content"]
+    assert a[0] == b[0] and short_list(LIST_TEXT) in a[0]["content"]
     assert PIECE_A["text"] not in a[0]["content"] and PIECE_A["text"] in a[1]["content"]
 
 
@@ -242,3 +243,33 @@ def test_schema_keys_match_check_and_the_judge_models():
     assert item["properties"]["effect"]["enum"] == list(EFFECTS)
     for model in (Change, Assessed):
         assert set(model.model_fields) <= KEYS
+
+
+def test_a_change_the_code_shows_as_none_makes_no_finding():
+    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "none"})
+    out = judge(INP, model)
+    assert out["findings"] == [] and out["judged"] == [PID] and model.refute_calls == 0
+
+
+def _change(row):
+    return Change(row=row, title="t", changed="c", user_gets="", sure=False, why="")
+
+
+def test_the_model_names_a_row_by_its_id():
+    ids = row_ids(LIST_TEXT)
+    assert ids == {"CC-01": ("claude-code", "the `skillOverrides` key"),
+                   "CX-01": ("codex", "the `codexOnly` key")}
+    got = named([_change("CC-01"), _change(" CC-01 "), _change("gap")], "claude-code", LIST_TEXT)
+    assert [c["row"] for c in got] == ["the `skillOverrides` key"] * 2 + ["gap"]
+
+
+def test_an_id_of_another_client_or_no_row_is_none():
+    got = named([_change("CX-01"), _change("CC-99"), _change("the key")], "claude-code",
+                LIST_TEXT)
+    assert [c["row"] for c in got] == ["none"] * 3
+
+
+def test_the_model_reads_a_short_list_with_ids_and_no_file_names():
+    text = short_list(LIST_TEXT)
+    assert "CC-01 | the `skillOverrides` key | setting | seen in: 2.1" in text
+    assert "## Codex (client `codex`)" in text and FILE not in text

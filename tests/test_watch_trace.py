@@ -57,7 +57,7 @@ class Llm:
             def invoke(self, messages, config=None):
                 llm.calls.append((schema.__name__, messages, config))
                 if schema is Screened:
-                    return Screened(changes=[Change(row=ROW, title="t", changed="c",
+                    return Screened(changes=[Change(row="CC-01", title="t", changed="c",
                                                     user_gets="u", sure=True, why="w")])
                 if schema is Assessed:
                     return Assessed(effect="breaks", sure=True, user_gets="u",

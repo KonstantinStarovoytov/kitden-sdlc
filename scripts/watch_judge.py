@@ -13,7 +13,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
 import watch_trace
-from watch_list import Row, parse_list, row_labels
+from watch_list import Row, parse_list, row_ids, row_labels, short_list
 
 MAX_MODEL_CALLS = 60
 DEADLINE_SECONDS = 600
@@ -130,7 +130,9 @@ def build_graph(model: Model, late=lambda: False):
             k: got.get(k, "") for k in ("title", "effect", "user_gets", "systems", "why")},
             sure=got.get("sure", False))
         update = {"to_assess": rest}
-        if f["effect"] in ("breaks", "wrong-data") and f["sure"]:
+        if f["effect"] == "none":  # the code shows Kitden is not touched: no finding
+            pass
+        elif f["effect"] in ("breaks", "wrong-data") and f["sure"]:
             update["to_refute"] = [*state["to_refute"], f]
         else:
             update["current"] = [*state["current"], f]
@@ -181,7 +183,7 @@ def _prompt(name: str) -> str:
 def screen_messages(piece: dict, list_text: str, known_titles: list[str]) -> list[dict]:
     data = {"piece": {k: piece[k] for k in ("client", "kind", "version", "url", "text")},
             "known_titles": known_titles}
-    return [{"role": "system", "content": _prompt("screen") + list_text},
+    return [{"role": "system", "content": _prompt("screen") + short_list(list_text)},
             {"role": "user", "content": json.dumps(data, indent=1)}]
 
 
@@ -204,7 +206,7 @@ class Screened(BaseModel):
 
 
 class Assessed(BaseModel):
-    effect: Literal["breaks", "wrong-data", "minor"]
+    effect: Literal["breaks", "wrong-data", "minor", "none"]
     sure: bool
     user_gets: str
     systems: str
@@ -217,12 +219,27 @@ class Refuted(BaseModel):
     holds: bool
 
 
+def named(changes: list[Change], client: str, list_text: str) -> list[dict]:
+    """The model names a row by its short id; the graph wants the row's label. An id that is
+    not a row of the piece's client makes the change `none`."""
+    ids = row_ids(list_text)
+    out = []
+    for change in changes:
+        got = change.model_dump()
+        if got["row"] != "gap":
+            row_client, label = ids.get(got["row"].strip(), ("", "none"))
+            got["row"] = label if row_client == client else "none"
+        out.append(got)
+    return out
+
+
 class OpenAIModel:
     def __init__(self, name: str):
         from langchain_openai import ChatOpenAI
 
         self.name = name
-        self.llm = ChatOpenAI(model=name, max_retries=2, timeout=60)
+        # A long piece takes the model a minute or two, so one call may wait three.
+        self.llm = ChatOpenAI(model=name, max_retries=1, timeout=180)
 
     def _ask(self, step: str, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
         config = watch_trace.config(step, self.name)
@@ -230,7 +247,7 @@ class OpenAIModel:
 
     def screen(self, piece, list_text, known_titles):
         out = self._ask("screen", Screened, screen_messages(piece, list_text, known_titles))
-        return [c.model_dump() for c in out.changes]
+        return named(out.changes, piece["client"], list_text)
 
     def assess(self, change, row, files):
         data = {"change": change, "row": asdict(row), "files": files}

@@ -61,8 +61,8 @@ uv run --locked --only-group watch --only-group watch-io python evals/watch_scor
   --tasks evals/watch/tasks --results "$D" --table evals/watch/table.md
 ```
 
-`MAX_MODEL_CALLS` (default 60) is the limit for each task. A task has one piece, so the `eval`
-job sets it to 10: 150 calls a run at most.
+`MAX_MODEL_CALLS` (default 60) is the limit for each task. A long piece can touch many rows,
+so the `eval` job sets it to 30: 450 calls a run at most.
 The `eval` job of `.github/workflows/watch.yml` does the same on a manual run with `eval`
 on, and uploads the table as the artifact `watch-eval`. The table is committed as
 `evals/watch/table.md` once the owner has seen it.
