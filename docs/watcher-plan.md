@@ -4,7 +4,7 @@
 
 **Goal:** Once a day a workflow in `kitden-sdlc` reads what Claude Code, Codex and Cursor
 published, finds the changes that touch Kitden, and opens issues in `kitden`: an urgent one at
-once (two a week at most) and one summary on Monday.
+once (two a week at most) and one summary a week, on the first run of the week (normally Monday).
 
 **Architecture:** Three jobs in one scheduled workflow. `fetch` (no model, no secret) builds
 `input.json` from the sources, the memory branch and `kitden` main. `judge` (the OpenAI key,
@@ -41,7 +41,7 @@ pytest, ruff, `gh` CLI.
   `OPENAI_API_KEY`, `AGENTS_APP_PRIVATE_KEY`; model `gpt-6-luna` in workflow env `WATCH_MODEL`.
 - Fixed numbers: `PIECES_MAX = 20` new pieces per run, `PIECE_CHARS = 12000`,
   `FILE_CHARS = 40000`, `MAX_MODEL_CALLS = 60`, job timeout 15 minutes, `URGENT_PER_WEEK = 2`,
-  `FAIL_DAYS = 3`, `WORD_HITS_MAX = 5` word-check items per run. A week is the ISO week in UTC; the summary goes out on Monday UTC.
+  `FAIL_DAYS = 3`, `WORD_HITS_MAX = 5` word-check items per run. A week is the ISO week in UTC; the summary goes out on the first run of the week, normally Monday UTC.
 - Labels: `client-change`, `claude-code`, `codex`, `cursor`, `breaks`, `wrong-data`, `minor`,
   `kitden-gap`, `unsure`, `summary`; and two the owner sets on closing: `confirmed`,
   `false-alarm`.
@@ -263,7 +263,9 @@ def test_get_refuses_plain_http():
   {"sources": {"<source id or doc address>": {"<section key>": "<hash>"}},
    "fails": {"<source id or doc address>": 0},
    "kept": [],
-   "urgent": {"week": "2026-W46", "count": 0}}
+   "urgent": {"week": "2026-W46", "count": 0},
+   "summary_week": "2026-W46",
+   "tries": {"<piece id>": 1}}
   ```
 
 - Produces: `input.json`:
@@ -339,6 +341,7 @@ def test_third_failed_day_is_kept_once():
 
   ```json
   {"judged": ["claude-code-changelog#2.1.320"],
+   "failed": [],
    "findings": [{"piece": "claude-code-changelog#2.1.320", "client": "claude-code",
                  "title": "…", "changed": "…", "version": "2.1.320", "url": "https://…",
                  "row": "the `skillOverrides` key", "files": ["src/kitden/…"],
@@ -360,8 +363,9 @@ def test_third_failed_day_is_kept_once():
   3. `breaks` or `wrong-data` with `sure` and count below `URGENT_PER_WEEK`: urgent, count + 1.
   4. Anything else is appended to `kept`. An overflowed urgent one gets `"overflow": true`.
   5. Each judged piece is marked in `state["sources"][source][key] = hash`.
-  6. On Monday, when `kept` is not empty: `summary` is `kept` sorted (overflow first, then
-     not-sure `breaks` and `wrong-data`, then `breaks`, `wrong-data`, `gap`, `minor`), and
+  6. On the first run of the week (normally Monday), when `kept` is not empty: `summary` is
+     `kept` sorted (overflow first, then not-sure `breaks` and `wrong-data`, then `breaks`,
+     `wrong-data`, `gap`, `minor`), and
      `kept` becomes empty. Otherwise `summary` is `None`.
 - Produces: `labels(finding) -> list[str]`: `client-change`, the client, then `kitden-gap` for
   `gap` or the effect itself, plus `unsure` when not sure.
@@ -439,7 +443,8 @@ def test_labels_for_an_unsure_gap():
 - Produces: `config/watch-labels.yml`: a list of `{name, color, description}` for the twelve
   labels; the descriptions are the "Meaning" column of the design's table.
 - Produces: `render_urgent(finding, inp) -> tuple[str, str]` (title, body) and
-  `render_summary(items, today) -> tuple[str, str]`. Title of an urgent issue:
+  `render_summary(items, today) -> tuple[str, str, list[dict]]` (the last part: the items
+  cut by the size limit, which go back to `kept` for the next summary). Title of an urgent issue:
   `<Client>: <title>`. Title of the summary: `Client changes, week of <Monday's date>`.
   A body starts with the fixed first line, then for each item the five parts of the design
   with these headings: **What changed**, **What it touches**, **What the user gets**,
