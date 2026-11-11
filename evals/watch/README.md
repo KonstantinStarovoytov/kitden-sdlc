@@ -18,7 +18,8 @@ judged piece is a judge failure). The score also counts the right severity.
 
 ## A task
 
-`tasks/<id>/task.json` holds `id`, `kind`, `source` (the id in `config/watch-sources.yml`),
+`tasks/<id>/task.json` holds `id`, `kind`, `source` (the id in `config/watch-sources.yml`, or
+the address of a doc page),
 `piece` (as in `input.json`: one section of the source, cut to 12000 characters like the
 fetcher does) and `expect` (`row`: the `What` cell of `docs/clients.md` as written, or `gap`, or
 null; `effect`: `breaks`, `wrong-data`, `minor`, `gap` or null). A row matches with or without
@@ -77,5 +78,9 @@ uv run python evals/watch_harvest.py --repo OWNER/kitden --archive archive.jsonl
 A closed `client-change` issue labelled `confirmed` becomes a `touched` task (the row and effect
 of its archive line), one labelled `false-alarm` an `untouched` task. It is named `issue-<n>`.
 Issues with both labels or neither, with no archive line, or whose piece cannot be fetched again
-are skipped and listed. Summary issues are not collected. The new tasks reach `main` as a pull
-request; no workflow runs this.
+are skipped and listed. Summary issues are not collected. `harvest` returns the new tasks and
+the skipped issues. A piece from a doc page is read again from its address.
+
+A `false-alarm` issue becomes an `untouched` task for the whole piece, so the piece must touch
+nothing at all. Read such tasks before you merge the harvest pull request. The new tasks reach
+`main` as a pull request; no workflow runs this.

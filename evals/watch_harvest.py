@@ -5,7 +5,8 @@ Usage: watch_harvest.py --repo OWNER/kitden --archive <archive.jsonl> --tasks ev
 
 Run by hand about once a month, on a branch; the new tasks reach main as a pull request. It
 reads the closed `client-change` issues with `gh`, joins each to its line of the watcher's
-archive, fetches the piece again by its source and key, and writes <tasks>/issue-<n>/task.json.
+archive, fetches the piece again by its source (a config id or a doc address) and key, and
+writes <tasks>/issue-<n>/task.json.
 Only the issues the owner closed with `confirmed` or `false-alarm` become tasks. Summary
 issues are not harvested.
 """
@@ -19,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from watch_fetch import PIECE_CHARS, _read  # noqa: E402
-from watch_pages import load_sources  # noqa: E402
+from watch_pages import get, load_sources, sections  # noqa: E402
 
 GRAVE_AND_MINOR = ("breaks", "wrong-data", "minor", "gap")
 
@@ -83,19 +84,26 @@ def _fetch_pieces(archive: list[dict], sources_file) -> dict[str, dict]:
     read, pieces = {}, {}
     for line in archive:
         sid, _, key = line["piece"].partition("#")
-        if line["piece"] in pieces or sid not in sources:
+        doc = sid.startswith("https://")
+        if line["piece"] in pieces or not (doc or sid in sources):
             continue
-        src = sources[sid]
-        try:
-            read.setdefault(sid, _read(src))
-        except Exception:  # noqa: BLE001, S112 - one unreadable source skips its issues only
-            continue
+        if sid not in read:
+            try:
+                read[sid] = sections(*get(sid)) if doc else _read(sources[sid])
+            except Exception:  # noqa: BLE001 - one unreadable source skips its issues only
+                read[sid] = []
+        if doc:
+            client, kind, version, url = line["client"], "doc", "", sid
+        else:
+            src = sources[sid]
+            client, kind, version = src["client"], "release", key
+            url = src.get("url") or f"https://github.com/{src['repo']}/releases"
         for s in read[sid]:
             if s.key == key:
                 pieces[line["piece"]] = {
-                    "id": line["piece"], "client": src["client"], "kind": "release",
-                    "version": key, "url": src.get("url") or f"https://github.com/{src['repo']}/releases",
-                    "text": s.text[:PIECE_CHARS], "source": sid, "key": key, "hash": s.hash}
+                    "id": line["piece"], "client": client, "kind": kind, "version": version,
+                    "url": url, "text": s.text[:PIECE_CHARS], "source": sid, "key": key,
+                    "hash": s.hash}
     return pieces
 
 

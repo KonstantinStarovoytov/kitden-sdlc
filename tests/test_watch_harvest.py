@@ -1,4 +1,6 @@
+import watch_harvest
 from watch_harvest import harvest
+from watch_pages import Section
 
 ADDRESS = "https://github.com/o/kitden/issues/7"
 PID = "claude-code-changelog#2.1.320"
@@ -63,3 +65,29 @@ def test_it_does_not_change_its_inputs():
     issues, archive, pieces = [issue(7, "confirmed")], [dict(LINE)], {PID: dict(PIECE)}
     harvest(issues, archive, pieces)
     assert issues == [issue(7, "confirmed")] and archive == [LINE] and pieces == {PID: PIECE}
+
+
+DOC = "https://docs.example.com/hooks"
+
+
+def test_fetch_pieces_reads_each_source_once_and_reads_doc_pages(tmp_path, monkeypatch):
+    sources = tmp_path / "sources.yml"
+    sources.write_text("- id: claude-code-changelog\n  client: claude-code\n  kind: page\n"
+                       "  url: https://example.com\n")
+    calls = []
+
+    def fake_read(src):
+        calls.append(src["id"])
+        return [Section("2.1.320", "text", "h"), Section("2.1.321", "more", "h2")]
+
+    monkeypatch.setattr(watch_harvest, "_read", fake_read)
+    monkeypatch.setattr(watch_harvest, "get", lambda url: (f"<h2>Hooks</h2>{url}", "text/html"))
+    lines = [LINE, {**LINE, "piece": "claude-code-changelog#2.1.321"},
+             {**LINE, "piece": f"{DOC}#Hooks", "version": "", "url": DOC}]
+    pieces = watch_harvest._fetch_pieces(lines, sources)
+    assert calls == ["claude-code-changelog"]
+    assert pieces[PID] == {**PIECE, "text": "text"}
+    doc = pieces[f"{DOC}#Hooks"]
+    assert (doc["kind"], doc["version"], doc["url"], doc["source"], doc["key"]) == (
+        "doc", "", DOC, DOC, "Hooks")
+    assert doc["client"] == "claude-code" and DOC in doc["text"]

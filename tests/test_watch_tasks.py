@@ -22,7 +22,8 @@ def test_the_set_has_the_planned_mix():
 def test_every_task_is_well_formed():
     for t in TASKS:
         piece = t["piece"]
-        assert t["source"] in SOURCES and piece["source"] == t["source"]
+        assert t["source"] in SOURCES or t["source"].startswith("https://")
+        assert piece["source"] == t["source"]
         assert piece["id"] == f"{t['source']}#{piece['key']}"
         assert piece["text"].strip() and len(piece["text"]) <= PIECE_CHARS + 400
         if t["kind"] == "touched":
