@@ -9,10 +9,9 @@ from typing import Protocol
 
 import yaml
 
-from watch_route import BadFindings, check, labels, route, word_hits
+from watch_route import BadFindings, check, client_name, labels, route, word_hits
 
 FIRST_LINE = "Automated issue by Kitden's client watcher (gpt-6-luna)."
-CLIENTS = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor"}
 LABELS_FILE = Path(__file__).resolve().parent.parent / "config" / "watch-labels.yml"
 
 
@@ -53,10 +52,6 @@ class GhApi:
         return self._run(*args).strip()
 
 
-def _name(item: dict) -> str:
-    return CLIENTS.get(item.get("client", ""), item.get("client") or "Unknown")
-
-
 def _scale(item: dict, inp: dict) -> str:
     files = item.get("files") or []
     same = bool(files) and all(inp["files"].get(f, {}).get("same_in_release") for f in files)
@@ -68,8 +63,8 @@ def _scale(item: dict, inp: dict) -> str:
 def _item(item: dict, inp: dict) -> str:
     touches = ", ".join(x for x in [item.get("row"), *(item.get("files") or [])] if x)
     return "\n\n".join([
-        f"**What changed**\n{_name(item)} {item.get('version') or ''}: {item.get('changed', '')}"
-        f"\n{item.get('url', '')}".replace("  ", " "),
+        f"**What changed**\n{client_name(item)} {item.get('version') or ''}: "
+        f"{item.get('changed', '')}\n{item.get('url', '')}".replace("  ", " "),
         f"**What it touches**\n{touches or 'not checked'}",
         f"**What the user gets**\n{item.get('user_gets', '')}",
         f"**Scale**\n{_scale(item, inp)}",
@@ -78,7 +73,7 @@ def _item(item: dict, inp: dict) -> str:
 
 
 def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
-    return f"{_name(finding)}: {finding['title']}", f"{FIRST_LINE}\n\n{_item(finding, inp)}\n"
+    return f"{client_name(finding)}: {finding['title']}", f"{FIRST_LINE}\n\n{_item(finding, inp)}\n"
 
 
 def render_summary(items: list[dict], today: date, inp: dict | None = None) -> tuple[str, str]:

@@ -51,7 +51,7 @@ def finding(**kw):
 
 def base_state(**kw):
     return {"sources": {"claude-code-changelog": {}}, "fails": {}, "kept": [],
-            "urgent": {"week": "", "count": 0}, **kw}
+            "urgent": {"week": "", "count": 0}, "summary_week": "2026-W46", **kw}
 
 
 def with_text(text):
@@ -162,6 +162,20 @@ def test_secret_like_text_is_refused():
         check(with_text("ghp_" + "a" * 20), INP)
 
 
+def test_row_not_in_the_list_of_the_client_is_refused():
+    with pytest.raises(BadFindings):
+        check(ok(row="a row that is not there"), INP)
+    with pytest.raises(BadFindings):
+        check(ok(row="the skillOverrides key"), INP)
+
+
+def test_row_is_kept_exactly_as_the_list_has_it():
+    label = "the `@scope/skills` key"
+    inp = {**INP, "list": LIST.replace("the `skillOverrides` key", label)}
+    assert check(ok(row=label), inp)[0]["row"] == label
+    assert check(ok(row=""), inp)[0]["row"] == ""
+
+
 def test_long_text_is_cut_and_mentions_are_quiet():
     out = check(ok(title="@bob " + "t" * 200, why="w" * 700), INP)[0]
     assert len(out["title"]) == TITLE_MAX and len(out["why"]) == TEXT_MAX
@@ -189,6 +203,20 @@ def test_rule2_known_or_kept_title_is_dropped():
 def test_rule2_same_title_twice_in_one_run_is_kept_once():
     plan = route([finding(), finding()], base_state(), JUDGED, INP, NOW)
     assert len(plan.state["kept"]) == 1
+
+
+def test_title_of_an_open_urgent_issue_is_dropped():
+    inp = {**INP, "known_titles": ["Claude Code: t"]}
+    plan = route([finding(effect="breaks")], base_state(), JUDGED, inp, NOW)
+    assert plan.urgent == [] and plan.state["kept"] == []
+
+
+def test_second_sure_break_of_the_same_row_in_a_run_is_kept():
+    two = [finding(effect="breaks", title="a"), finding(effect="wrong-data", title="b")]
+    plan = route(two, base_state(), JUDGED, INP, NOW)
+    assert [f["title"] for f in plan.urgent] == ["a"]
+    assert [f["title"] for f in plan.state["kept"]] == ["b"]
+    assert plan.state["urgent"]["count"] == 1
 
 
 def test_rule3_sure_break_is_urgent():
@@ -241,10 +269,21 @@ def test_summary_order_and_kept_items_without_piece():
     assert [f["title"] for f in plan.summary] == ["f", "e", "d", "c", "b", "a", "u"]
 
 
-def test_no_summary_on_other_days_or_when_nothing_kept():
-    state = base_state(kept=[finding()])
+def test_no_second_summary_in_a_week_or_when_nothing_kept():
+    state = base_state(kept=[finding()], summary_week="2026-W46")
     assert route([], state, [], INP, NOW).summary is None
     assert route([], base_state(), [], INP, date(2026, 11, 16)).summary is None
+
+
+def test_first_run_of_the_week_posts_the_summary_once():
+    state = base_state(kept=[finding()])
+    del state["summary_week"]
+    plan = route([], state, [], INP, NOW)
+    assert len(plan.summary) == 1 and plan.state["summary_week"] == "2026-W46"
+    again = route([finding(title="n")], plan.state, JUDGED, INP, date(2026, 11, 12))
+    assert again.summary is None and len(again.state["kept"]) == 1
+    later = route([], again.state, [], INP, date(2026, 11, 17))
+    assert len(later.summary) == 1 and later.state["summary_week"] == "2026-W47"
 
 
 def test_route_does_not_change_its_inputs():

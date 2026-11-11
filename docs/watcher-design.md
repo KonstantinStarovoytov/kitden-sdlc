@@ -144,8 +144,8 @@ makes Kitden show wrong data. One issue per change. At most two a week (owner); 
 to the top of the summary (call). A change that would be urgent but the watcher is not sure
 about also goes to the top of the summary, marked as such (call).
 
-**The weekly summary** is one issue on Monday with everything else kept during the week, the
-gravest first. No items means no issue.
+**The weekly summary** is one issue in the first run of the week, normally Monday, with
+everything else kept since the last one, the gravest first. No items means no issue.
 
 Each item, in an urgent issue or as a short block in the summary:
 

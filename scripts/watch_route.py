@@ -1,11 +1,11 @@
-"""Check the judge's findings and decide which are urgent and which wait for Monday."""
+"""Check the judge's findings and decide which are urgent and which wait for the summary."""
 
 import copy
 from dataclasses import dataclass
 from datetime import date
 
 from post_findings import MENTION, SECRET_LIKE, WORD_JOINER
-from watch_list import parse_list, terms
+from watch_list import CLIENTS, _table_rows, parse_list, terms
 
 URGENT_PER_WEEK = 2
 WORD_HITS_MAX = 5
@@ -14,8 +14,9 @@ TEXT_MAX = 600
 EFFECTS = ("breaks", "wrong-data", "minor", "gap")
 STRINGS = ("piece", "client", "title", "changed", "version", "url", "row", "effect",
            "user_gets", "systems", "why")
-CUT = ("title", "changed", "row", "user_gets", "systems", "why")
+CUT = ("title", "changed", "user_gets", "systems", "why")
 KEYS = {*STRINGS, "files", "sure"}
+NAMES = {v: k for k, v in CLIENTS.items()}
 
 
 class BadFindings(Exception):
@@ -52,6 +53,8 @@ def check(findings: dict, inp: dict) -> list[dict]:
         src = pieces[item["piece"]]
         _need(all(item[k] == src[k] for k in ("url", "client", "version")), "url, client, version")
         _need(all(f in inp["files"] for f in item["files"]), "file not in input")
+        rows = {cells[0] for client, cells in _table_rows(inp["list"]) if client == src["client"]}
+        _need(item["row"] in {"", *rows}, "row not in the list")
         texts = [item[k] for k in STRINGS] + item["files"]
         _need(not any(SECRET_LIKE.search(t) for t in texts), "secret-like text")
         clean = dict(item)
@@ -59,6 +62,10 @@ def check(findings: dict, inp: dict) -> list[dict]:
             clean[k] = _quiet(item[k], TITLE_MAX if k == "title" else TEXT_MAX)
         out.append(clean)
     return out
+
+
+def client_name(item: dict) -> str:
+    return NAMES.get(item.get("client", ""), item.get("client") or "Unknown")
 
 
 def _quiet(text: str, limit: int) -> str:
@@ -75,30 +82,33 @@ def _grade(f: dict) -> int:
 
 def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today: date) -> Plan:
     new = copy.deepcopy(state)
-    year, week, weekday = today.isocalendar()
+    year, week, _ = today.isocalendar()
     this_week = f"{year}-W{week:02d}"
     if new["urgent"]["week"] != this_week:
         new["urgent"] = {"week": this_week, "count": 0}
     titles = set(inp["known_titles"]) | {k["title"] for k in new["kept"]}
-    urgent = []
+    urgent, grave_rows = [], set()
     for f in copy.deepcopy(findings):
-        if f["title"] in titles:
+        if f["title"] in titles or f"{client_name(f)}: {f['title']}" in titles:
             continue
         titles.add(f["title"])
         if f["effect"] in ("breaks", "wrong-data") and f["sure"]:
-            if new["urgent"]["count"] < URGENT_PER_WEEK:
+            first = (f["client"], f["row"]) not in grave_rows
+            grave_rows.add((f["client"], f["row"]))
+            if first and new["urgent"]["count"] < URGENT_PER_WEEK:
                 new["urgent"]["count"] += 1
                 urgent.append(f)
                 continue
-            f["overflow"] = True
+            if first:
+                f["overflow"] = True
         new["kept"].append(f)
     for piece in inp["pieces"]:
         if piece["id"] in judged:
             new["sources"].setdefault(piece["source"], {})[piece["key"]] = piece["hash"]
     summary = None
-    if weekday == 1 and new["kept"]:
+    if new["kept"] and new.get("summary_week") != this_week:
         summary = sorted(new["kept"], key=_grade)
-        new["kept"] = []
+        new["kept"], new["summary_week"] = [], this_week
     return Plan(urgent, summary, new)
 
 

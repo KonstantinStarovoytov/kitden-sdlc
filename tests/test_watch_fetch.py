@@ -14,6 +14,7 @@ def old(sources, **extra):
 def test_first_run_fills_and_makes_no_pieces():
     pieces, state = plan_run(None, {"s": [Section("1.0", "t", "h")]}, META)
     assert pieces == [] and state["sources"]["s"] == {"1.0": "h"}
+    assert state["summary_week"] == ""
 
 
 def test_source_new_to_memory_makes_no_pieces():
