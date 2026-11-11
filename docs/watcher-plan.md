@@ -272,6 +272,7 @@ def test_get_refuses_plain_http():
   `kind` is `release` for the three sources of the config and `doc` for a page from the list;
   `version` is the section key for a release and `""` for a doc. `state` is the old state with
   first fills and `fails` already applied; marks for pieces are not in it (post adds them).
+  `known_titles` is the titles from `--titles` plus the titles of the items in `kept`.
 - Produces: `plan_run(state: dict | None, fetched: dict[str, list[Section] | None], meta: dict[str, dict]) -> tuple[list[dict], dict]`
   (pieces, new state), a pure function. `fetched[id]` is `None` when the source could not be
   read. `meta[id]` has `client`, `kind`, `url`.
@@ -558,6 +559,7 @@ def test_output_passes_check():
 
 `watch.yml`: `on: schedule` (`cron: "17 5 * * *"`) and `workflow_dispatch`; top-level
 `concurrency: {group: watch, cancel-in-progress: false}`; env `WATCH_MODEL: gpt-6-luna`.
+Every job's `if` has `vars.AGENTS_ENABLED == 'true'` and every job has `timeout-minutes: 15`.
 
 | Job | Permissions | Steps |
 |---|---|---|
@@ -571,9 +573,8 @@ def test_output_passes_check():
   `timeout-minutes` (rule 5), no `concurrency` (rule 5). Assert on the rule number in the
   message, as the existing tests do.
 - [ ] **Step 2: Run**; expected: FAIL. **Step 3: Change the checker and `RULES.md`.**
-- [ ] **Step 4: Write `watch.yml`.** **Step 5: Run** the three checks, then
-  `uvx --no-config zizmor==1.32.0 --no-config --no-ignores .github/workflows` and actionlint as
-  in `checks.yml`; expected: all pass.
+- [ ] **Step 4: Write `watch.yml`.** **Step 5: Run** the three checks, then zizmor and
+  actionlint with the exact commands of `.github/workflows/checks.yml`; expected: all pass.
 - [ ] **Step 6: Commit** ("Run the watcher every day, under the rules").
 
 ### Task 9: does Luna do this well enough
