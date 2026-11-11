@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -35,11 +36,15 @@ def build_task_input(piece: dict, kitden) -> dict:
 def run_tasks(tasks_dir, kitden, out, model, max_calls: int) -> None:
     for path in sorted(Path(tasks_dir).glob("*/task.json")):
         task = json.loads(path.read_text(encoding="utf-8"))
+        start = time.monotonic()
         found = judge(build_task_input(task["piece"], kitden), model, max_calls)
         folder = Path(out) / task["id"]
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "findings.json").write_text(json.dumps(found, indent=1), encoding="utf-8")
-        print(f"{task['id']}: {len(found['findings'])} findings")
+        # Flushed, so the run's log shows each task as it ends.
+        state = "judged" if found["judged"] else "not judged"
+        seconds = round(time.monotonic() - start)
+        print(f"{task['id']}: {state}, {len(found['findings'])} findings, {seconds} s", flush=True)
 
 
 def main() -> None:
