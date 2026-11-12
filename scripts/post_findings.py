@@ -140,6 +140,7 @@ def quiet_mentions(text: str) -> str:
 # --- Building the comment ---
 
 REVIEWERS = {"claude": "Claude", "luna": "Luna"}
+SHORT_NAMES = {"sonnet": "Sonn"}
 
 TITLE = "**Agent review**"
 MARKER = re.compile(r"<!-- kitden-sdlc:review claude=(\d+|x) luna=(\d+|x) both=(\d+) -->\s*\Z")
@@ -154,10 +155,11 @@ SPECIAL = re.compile(r"[\\`*_{}\[\]()#!|~<>&]")
 
 def model_label(model: str) -> str:
     """How the comment names the Claude reviewer: its model family, like Luna is named
-    by its model. `claude-sonnet-5-5` gives Sonnet; anything else gives Claude."""
+    by its model. `claude-sonnet-5-5` gives Sonn (the owner's short name),
+    `claude-opus-5-5` gives Opus; anything else gives Claude."""
     parts = model.split("-")
     if len(parts) > 1 and parts[0] == "claude" and parts[1].isalpha():
-        return parts[1].capitalize()
+        return SHORT_NAMES.get(parts[1], parts[1].capitalize())
     return "Claude"
 
 

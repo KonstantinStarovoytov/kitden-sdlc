@@ -535,21 +535,21 @@ def test_skill_schema_equals_the_schema_file():
 
 
 def test_claude_is_named_by_its_model_family():
-    assert model_label("claude-sonnet-5-5") == "Sonnet"
+    assert model_label("claude-sonnet-5-5") == "Sonn"
     assert model_label("claude-opus-5-5") == "Opus"
     assert model_label("") == "Claude"
     assert model_label("some-other-model") == "Claude"
 
 
 def test_the_comment_uses_the_names_it_is_given():
-    names = {"claude": "Sonnet", "luna": "Luna"}
+    names = {"claude": "Sonn", "luna": "Luna"}
     body = review_body(
         {"claude": report([finding("a.py", 1, text="Mine.")]), "luna": None}, "o/r", SHA, names
     )
-    assert "Mine. *(Sonnet)*" in body
+    assert "Mine. *(Sonn)*" in body
     assert "Luna gave no usable answer this time." in body
     silent = review_body({"claude": None, "luna": report()}, "o/r", SHA, names)
-    assert "Sonnet gave no usable answer this time." in silent
+    assert "Sonn gave no usable answer this time." in silent
 
 
 def test_main_names_claude_by_the_model_it_is_given(tmp_path, capsys):
@@ -573,4 +573,4 @@ def test_main_names_claude_by_the_model_it_is_given(tmp_path, capsys):
             "--dry-run",
         ]
     )
-    assert "Mine. *(Sonnet)*" in capsys.readouterr().out
+    assert "Mine. *(Sonn)*" in capsys.readouterr().out
