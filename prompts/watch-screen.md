@@ -57,8 +57,11 @@ items there load and Kitden does not show them, or Kitden shows items the settin
 `minor` when the setting changes only something Kitden does not show. One missing thing is
 one gap, however many sentences name it.
 
-Not a gap: fixes that name no such place, kind or setting; speed, limits and messages; how the
-client behaves in a chat; anything else Kitden does not show. Most pieces have no gap.
+Not a gap: fixes that name no such place, kind or setting; how items behave (the order of
+checks, when they run, a fix in how they run), whether Kitden knows them or not; state that
+lives only in a session, on a server or in a remote environment; a pull-request title that
+names a kind of item but no file, folder or setting where it is kept; speed, limits and messages; how the client
+behaves in a chat; anything else Kitden does not show. Most pieces have no gap.
 
 ## Other rules
 
