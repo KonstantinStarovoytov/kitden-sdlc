@@ -1,6 +1,6 @@
 ---
 name: release-notes
-description: Write Kitden's release notes into out/notes.md, and the next version into out/version.txt when the run has none, from context.json and Kitden's own files
+description: Write Kitden's release notes into out/notes.md, and the next version into out/version.txt when context.json gives none, from context.json and Kitden's own files
 allowed-tools: Read(./**), Edit(./out/**)
 ---
 
@@ -17,7 +17,8 @@ The notes are for people who use Kitden, not for its developers. They become
 
 - `context.json` in the checkout: the last tag, the `git log` since it, and the pull
   requests merged since it, each with its number, title, body, labels, author and diff stat.
-  It may also give the version the run was started with.
+  Its key `version` is the version the owner gave (a string `X.Y.Z`), or empty or missing
+  when the owner gave none.
 - Kitden's own files: the last two notes in `docs/releases/` (the tone to match),
   `PRIVACY.md` (what Kitden reads, keeps and sends), `ROADMAP.md`, `docs/guide.md` (the names
   of things on the page), `AGENTS.md` (how Kitden writes), and the code when a pull request
@@ -35,13 +36,19 @@ Write these files and nothing else:
 
 - `out/notes.md`: the notes. Its first line is the title; no front matter, no blank line
   before it.
-- `out/version.txt`: only when the run was started without a version. One line, just
-  `X.Y.Z`, with no `v` and nothing else. When the run gives a version, use it and do not
-  write this file.
+- `out/version.txt`: only when `version` in `context.json` is empty or missing. One line,
+  just `X.Y.Z`, with no `v` and nothing else. When `version` is set, use it as it is and do
+  not write this file.
+- `out/policy/PRIVACY.md`: only when `PRIVACY.md` does not yet cover what this release
+  changes (see below).
+- `out/findings.md`: add your part under `## Release notes` when you have something to
+  report. Other parts of this run write their own parts there: create the file if it is
+  missing, keep everything already in it, and never overwrite another part.
 
 ## Pick the version
 
-Kitden is before 1.0. From the last tag `vA.B.C`:
+When `version` in `context.json` is set, that is the version. Otherwise pick it by this rule
+and write it to `out/version.txt`. Kitden is before 1.0. From the last tag `vA.B.C`:
 
 - If the notes have any item under New, the version is the next minor: `A.(B+1).0`.
 - Otherwise it is the next patch: `A.B.(C+1)`.
@@ -120,8 +127,14 @@ When a change makes Kitden go online, read something new, store something new, s
 something to an agent, or change where secrets live, say it plainly: in the item, and again
 in "Upgrade and limits" with what is sent, to whom, how often, and a link to `PRIVACY.md` at
 the tag. Name the place (PyPI, GitHub, a catalog) and the data (the version, the IP address,
-a file's contents). Never make it sound smaller than it is. If `PRIVACY.md` does not say it
-yet, still say it in the notes; this run's policy edits must cover it.
+a file's contents). Never make it sound smaller than it is.
+
+Then check `PRIVACY.md` (or `out/policy/PRIVACY.md`, when this run already wrote one). If it
+does not cover the change, still say the change in the notes, and write the whole edited file
+to `out/policy/PRIVACY.md`: the current text with the change added in the same plain style.
+Add a line under `## Release notes` in `out/findings.md` that says which pull request made
+the change and why `PRIVACY.md` needed it. A later job commits `out/policy/` on its own, so
+the owner reads it apart from the notes.
 
 ## How to write
 
@@ -199,7 +212,9 @@ have not all been completed.
   goes from the last tag to `vX.Y.Z`.
 - Every pull request and every author in `context.json` appears once.
 - Every item has its title in bold, one or two sentences, its links and its author.
-- Anything that goes online or changes data is said, and matches `PRIVACY.md`.
-- `out/version.txt` exists only when the run had no version, and holds only `X.Y.Z`.
+- Anything that goes online or changes data is said, and matches `PRIVACY.md`, or
+  `out/policy/PRIVACY.md` with its reason in `out/findings.md`.
+- `out/version.txt` exists only when `version` in `context.json` is empty or missing, and
+  holds only `X.Y.Z`.
 
 Never try to run commands.
