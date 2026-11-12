@@ -54,7 +54,7 @@ To run, it needs the `watch` branch and Lantern (the review app) with Issues wri
 It also needs the secrets `ANTHROPIC_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc (`OPENAI_API_KEY` too, to run the eval on Luna or Terra).
 Before it is switched on, the `eval` job (run by hand) measures the model on [the watch tasks](../evals/watch/README.md).
 The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
-Today the eval runs by hand and `WATCH_LIVE` is not set, so the daily run is off.
+`WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
 | Label | Meaning |
@@ -73,7 +73,7 @@ Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and t
 
 ## The release flow
 
-Being built: the code is merged, and it has not run on a real release yet. The owner reviews
+Ready: set up in Kitden; the first release with it is still to come. The owner reviews
 one pull request per release; everything after the merge runs on its own. Three reusable
 workflows live here, and Kitden calls them. The design is
 [2026-11-12-release-flow-design.md](superpowers/specs/2026-11-12-release-flow-design.md).
