@@ -1,6 +1,8 @@
-# Checks on every push to main and every pull request. A tag v<version> also builds the package,
-# publishes it to PyPI and creates a GitHub release with the built files and
-# docs/releases/v<version>.md as its notes.
+# Checks on every push to main and every pull request, including kitden-sdlc's release check
+# of the names and descriptions in listing.toml. A push to main whose version has release notes
+# and no tag yet is tagged. A tag v<version> also builds the package, publishes it to PyPI,
+# creates a GitHub release with the built files and docs/releases/v<version>.md as its notes,
+# then updates the other stores through kitden-sdlc's publish workflow.
 name: Checks and release
 
 on:
@@ -20,6 +22,8 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    # A normal run takes about ten minutes.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,9 +40,11 @@ jobs:
       # Linux keeps server secrets in the desktop keyring through secret-tool.
       - name: A keyring on the session bus (Ubuntu)
         if: runner.os == 'Linux'
+        # When the Ubuntu mirrors are down, fail in minutes, not in half an hour.
+        timeout-minutes: 5
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -yq libsecret-tools gnome-keyring dbus
+          sudo apt-get update -q -o Acquire::Retries=3
+          sudo apt-get install -yq -o Acquire::Retries=3 libsecret-tools gnome-keyring dbus
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
@@ -80,6 +86,26 @@ jobs:
             echo "::error::Write docs/releases/$GITHUB_REF_NAME.md before you tag"
             exit 1
           }
+      # The names and descriptions agree with listing.toml and fit each store's limits; on a
+      # tag also the version and its notes. kitden-sdlc's main is protected, like the
+      # workflows called from it.
+      # The pull request could commit .kitden-sdlc as a link; checkout would follow it.
+      - name: Clear the kitden-sdlc folder (macOS)
+        if: runner.os == 'macOS'
+        run: rm -rf .kitden-sdlc
+      - name: Check out kitden-sdlc (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KonstantinStarovoytov/kitden-sdlc
+          ref: main
+          path: .kitden-sdlc
+          persist-credentials: false
+      - name: The release check (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then set -- --tag "$GITHUB_REF_NAME"; fi
+          uv run --no-config --no-project python .kitden-sdlc/scripts/release_check.py . "$@"
       - run: uv build
         if: runner.os == 'macOS'
       - name: The built files hold the package and nothing else
