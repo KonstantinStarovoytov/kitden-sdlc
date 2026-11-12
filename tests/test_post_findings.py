@@ -13,6 +13,7 @@ from post_findings import (
     main,
     marker,
     merge,
+    model_label,
     one_line,
     post,
     quiet_mentions,
@@ -531,3 +532,45 @@ def test_skill_schema_equals_the_schema_file():
         in_skill.pop(key, None)
         in_file.pop(key, None)
     assert in_skill == in_file
+
+
+def test_claude_is_named_by_its_model_family():
+    assert model_label("claude-sonnet-5-5") == "Sonn"
+    assert model_label("claude-opus-5-5") == "Opus"
+    assert model_label("") == "Claude"
+    assert model_label("some-other-model") == "Claude"
+
+
+def test_the_comment_uses_the_names_it_is_given():
+    names = {"claude": "Sonn", "luna": "Luna"}
+    body = review_body(
+        {"claude": report([finding("a.py", 1, text="Mine.")]), "luna": None}, "o/r", SHA, names
+    )
+    assert "Mine. *(Sonn)*" in body
+    assert "Luna gave no usable answer this time." in body
+    silent = review_body({"claude": None, "luna": report()}, "o/r", SHA, names)
+    assert "Sonn gave no usable answer this time." in silent
+
+
+def test_main_names_claude_by_the_model_it_is_given(tmp_path, capsys):
+    claude = write(
+        tmp_path,
+        {
+            "summary": "S.",
+            "findings": [{"path": "a.py", "line": 1, "kind": "bug", "text": "Mine."}],
+        },
+        "claude.json",
+    )
+    luna = write(tmp_path, {"summary": "S.", "findings": []}, "luna.json")
+    main(
+        [
+            "--claude",
+            str(claude),
+            "--luna",
+            str(luna),
+            "--claude-model",
+            "claude-sonnet-5-5",
+            "--dry-run",
+        ]
+    )
+    assert "Mine. *(Sonn)*" in capsys.readouterr().out
