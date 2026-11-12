@@ -235,7 +235,8 @@ and they come to `evals/` as a pull request. Summary items are not collected thi
 one issue holds many of them (call).
 
 Traces and experiments go to Langfuse (cloud, free plan), only when its keys are set: each
-model call with its time and tokens, and each eval run with the scores of each task. Langfuse
+model call with its time and tokens, and each eval run with the scores of each task. Only the
+`eval` job gets the keys, so the daily run is not traced. Langfuse
 keeps them 30 days; the long record stays in the repo and on the `watch` branch. The prompts
 stay in git. What is sent there is public release notes and Kitden's public code.
 
