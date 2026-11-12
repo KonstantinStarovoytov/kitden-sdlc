@@ -14,8 +14,8 @@
   "hash": "eb97f3e06a64bf04393908b2b210d7007b25a357d18009204a9265b17471953e"
  },
  "expect": {
-  "row": "Plugin ids ending `@synced`, `@inline` or `@skills-dir` have no install to remove",
-  "effect": "minor"
+  "row": "gap",
+  "effect": "gap"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }
