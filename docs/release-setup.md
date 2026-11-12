@@ -62,7 +62,7 @@ Go to Kitden, Settings, Environments.
 ## 3. Kitden: the client id
 
 1. Kitden, Settings, Secrets and variables, Actions, Variables tab.
-2. New repository variable: name `RELEASE_APP_CLIENT_ID`, value the Client ID from step 1.
+2. New repository variable: name `RELEASE_APP_CLIENT_ID`, value the Client ID from section 1.
 
 ## 4. Kitden: rules for tags and the `release` branch
 
