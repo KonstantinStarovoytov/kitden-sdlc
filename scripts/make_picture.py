@@ -16,6 +16,7 @@ their backgrounds.
 """
 
 import argparse
+import base64
 import io
 from pathlib import Path
 
@@ -65,50 +66,59 @@ PICTURES = {
     "review": {
         "name": "Review",
         "when": "on every pull request",
-        "per_row": 5,
-        "gap": 18,
-        "steps": [
+        "tile": "lantern",
+        "groups": [{"per_row": 5, "gap": 18, "steps": [
             ("open", "you", "you", "You", ["open a pull", "request"]),
             ("cap", "script", None, "Daily cap", ["10 reviews", "a day at most"]),
             [("claude", "model", None, "Claude", ["Sonnet 5.5"]),
              ("luna", "model", None, "Luna", ["GPT-6, offline"])],
             ("post", "bot", "lantern", "Lantern", ["merges both", "into one", "comment"]),
             ("merge", "you", "you", "You", ["fix or merge;", "no approvals"]),
-        ],
+        ]}],
     },
     "watcher": {
         "name": "Client watcher",
         "when": "every day, 05:17 UTC",
-        "per_row": 3,
-        "steps": [
+        "tile": "clients",
+        "groups": [{"per_row": 3, "steps": [
             ("fetch", "script", None, "Fetch", ["new release notes, docs", "of 3 AI clients"]),
             ("screen", "model", None, "Claude Sonnet 5.5", ["checks every row of",
                                                              "Kitden's list, with a quote"]),
             ("assess", "model", None, "Reads Kitden's code", ["type and severity:",
                                                                "major, medium, minor"]),
+            ("second", "model", None, "A second look", ["at a sure break", "or wrong data"]),
             ("issue", "bot", "lantern", "Lantern", ["sure major: an issue now;",
                                                     "others: Monday's summary"]),
-            ("second", "model", None, "A second look", ["at a sure break", "or wrong data"]),
             ("decide", "you", "you", "You", ["confirm it, or close", "it as a false alarm"]),
-        ],
+        ]}],
     },
     "release": {
         "name": "Release",
         "when": "when you start it",
-        "per_row": 4,
-        "steps": [
-            ("start", "you", "you", "You", ["start Release prep"]),
-            ("gather", "script", None, "Gather", ["changes since", "the last tag"]),
-            ("draft", "model", None, "Claude", ["drafts the notes,", "README, policy"]),
-            ("prep", "script", None, "Prepare", ["version, checks,", "README pictures"]),
-            ("pr", "bot", "beacon", "Beacon", ["opens the PR", "Kitden X.Y.Z"]),
-            ("merge", "you", "you", "You", ["review", "and merge"]),
-            ("tag", "bot", "beacon", "Beacon", ["tags vX.Y.Z"]),
-            ("build", "script", None, "Build, test", ["tests, PyPI,", "GitHub release"]),
-            ("stores", "bot", "beacon", "Beacon", ["release branch,", "Homebrew PR"]),
-            ("registry", "script", None, "MCP Registry", ["and a table of", "every store"]),
-            ("kettle", "bot", "kettle", "Kettle", ["daily: Homebrew", "formula current"]),
-            ("watch", "bot", "lantern", "Lantern", ["daily: an issue if", "a store is behind"]),
+        "tile": "beacon",
+        "groups": [
+            {"label": "1 · Prepare", "note": "with Claude; it ends in a pull request you review",
+             "per_row": 3, "steps": [
+                 ("start", "you", "you", "You", ["start Release prep", "in Kitden's Actions"]),
+                 ("gather", "script", None, "Gather", ["what changed since", "the last tag"]),
+                 ("draft", "model", None, "Claude", ["drafts the release",
+                                                     "notes, README, policy"]),
+                 ("prep", "script", None, "Prepare", ["sets the version, records",
+                                                      "the README pictures"]),
+                 ("pr", "bot", "beacon", "Beacon", ["opens the pull", "request Kitden X.Y.Z"]),
+                 ("merge", "you", "you", "You", ["review it, edit", "if you like, merge"]),
+             ]},
+            {"label": "2 · Publish", "note": "no model; it runs on its own after your merge",
+             "per_row": 4, "steps": [
+                 ("tag", "bot", "beacon", "Beacon", ["tags vX.Y.Z"]),
+                 ("build", "script", None, "Build, test", ["then PyPI and", "GitHub release"]),
+                 ("stores", "bot", "beacon", "Beacon", ["release branch,", "Homebrew PR"]),
+                 ("registry", "script", None, "MCP Registry", ["and a table of", "every store"]),
+             ]},
+            {"label": "Every day", "note": "no model", "per_row": 4, "chain": False, "steps": [
+                ("kettle", "bot", "kettle", "Kettle", ["keeps Homebrew", "up to date"]),
+                ("watch", "bot", "lantern", "Lantern", ["an issue if a store", "is behind"]),
+            ]},
         ],
     },
 }
@@ -155,35 +165,50 @@ def fits(ink, text, size, weight, room):
         raise SystemExit(f"{text!r} is {width:.0f} wide, room is {room:.0f}")
 
 
-def gap(pic) -> float:
-    return pic.get("gap", GAP_X)
+GROUP_HEAD = 30  # a group's label, above its cards
+GROUP_PAD = 12  # inside a group's frame
 
 
-def slot_w(pic) -> float:
-    per_row = pic["per_row"]
-    return (W - 2 * (MARGIN + TURN) - (per_row - 1) * gap(pic)) / per_row
+def gap(group) -> float:
+    return group.get("gap", GAP_X)
 
 
-def card_h(pic) -> float:
+def slot_w(group) -> float:
+    per_row = group["per_row"]
+    return (W - 2 * (MARGIN + TURN) - (per_row - 1) * gap(group)) / per_row
+
+
+def card_h(steps) -> float:
     def need(step):
         return 36 + LINE * 1.3 * len(step[4]) + 8
-    singles = [need(s) for s in pic["steps"] if isinstance(s, tuple)]
-    stacked = [2 * (need(s) - 6) + 6 for pair in pic["steps"] if isinstance(pair, list)
-               for s in pair[:1]]
+    singles = [need(s) for s in steps if isinstance(s, tuple)]
+    stacked = [2 * (need(s) - 6) + 6 for pair in steps if isinstance(pair, list) for s in pair[:1]]
     return max(singles + stacked)
 
 
-def slots(pic):
-    """The box of each slot, in snake order: (x, y, w, h, row, column)."""
-    per, w, h = pic["per_row"], slot_w(pic), card_h(pic)
-    out = []
-    for n in range(len(pic["steps"])):
-        r, c = divmod(n, per)
-        col = c if r % 2 == 0 else per - 1 - c
-        x = MARGIN + TURN + col * (w + gap(pic))
-        y = HEAD + 16 + r * (h + GAP_Y)
-        out.append((x, y, w, h, r, col))
-    return out
+def layout(pic):
+    """Every slot in order as (x, y, w, h, row, group), and each group's frame."""
+    slots, frames, y = [], [], HEAD + 16
+    labelled = any(g.get("label") for g in pic["groups"])
+    h = max(card_h(g["steps"]) for g in pic["groups"])
+    for gi, group in enumerate(pic["groups"]):
+        top = y
+        if labelled:
+            y += GROUP_HEAD
+        per, w = group["per_row"], slot_w(group)
+        rows = (len(group["steps"]) + per - 1) // per
+        for n in range(len(group["steps"])):
+            r, c = divmod(n, per)
+            col = c if r % 2 == 0 else per - 1 - c
+            x = MARGIN + TURN + col * (w + gap(group))
+            slots.append((x, y + r * (h + GAP_Y), w, h, (gi, r), gi))
+        y += rows * h + (rows - 1) * GAP_Y
+        if labelled:
+            frames.append((group, top, y + GROUP_PAD))
+            y += GROUP_PAD + 18
+        else:
+            y += GAP_Y
+    return slots, frames, y - (18 if labelled else GAP_Y) + 18
 
 
 def card(ink, step, box, cls):
@@ -211,17 +236,22 @@ def card(ink, step, box, cls):
 
 
 def joint(a, b, cls):
-    """From slot a to slot b: across within a row, or around the end into the next row."""
-    ax, ay, aw, ah, ar, _ = a
-    bx, by, bw, bh, br, _ = b
-    if ar == br:
+    """From slot a to slot b: across in a row, around the end into the next row, or down into
+    the next group."""
+    ax, ay, aw, ah, arow, ag = a
+    bx, by, bw, bh, brow, bg = b
+    if ag != bg and not (arow[1] % 2 == 1 and abs(ax - bx) < 1):
+        x1, y1, x2, y2 = ax + aw / 2, ay + ah, bx + bw / 2, by
+        mid = (y1 + y2) / 2
+        d = f"M{x1:.1f} {y1:.1f}C{x1:.1f} {mid:.1f} {x2:.1f} {mid:.1f} {x2:.1f} {y2:.1f}"
+    elif arow == brow:
         right = bx > ax
         x1 = ax + aw if right else ax
         x2 = bx if right else bx + bw
         y = ay + ah / 2
         d = f"M{x1:.1f} {y:.1f}L{x2:.1f} {y:.1f}"
     else:
-        at_right = ar % 2 == 0
+        at_right = arow[1] % 2 == 0  # into the next group: it ends on the left, see above
         x = ax + aw if at_right else ax
         y1, y2 = ay + ah / 2, by + bh / 2
         out_x = x + TURN * (1 if at_right else -1)
@@ -264,6 +294,7 @@ def css(theme, name, count):
         f".band{{fill:{accent}}}",
         f".when{{fill:none;stroke:{accent};stroke-width:1.5}}.w{{fill:{accent}}}",
         f".block{{fill:{c['panel']};stroke:{c['wire']};stroke-width:1.5}}",
+        f".frame{{fill:none;stroke:{c['wire']};stroke-width:1.5;stroke-dasharray:6 5}}",
         f".model{{fill:{c['panel']};stroke:{c['off']};stroke-width:1.5;stroke-dasharray:4 3}}",
         f".you{{fill:{c['route_soft']};stroke:{c['route']};stroke-width:1.5}}",
         f".t{{fill:{c['ink']}}}.s{{fill:{c['ink3']}}}.c{{fill:{c['ink3']}}}",
@@ -287,22 +318,55 @@ def css(theme, name, count):
     return "\n".join(rules)
 
 
+def data_uri(path: Path, kind: str) -> str:
+    return f"data:{kind};base64," + base64.b64encode(path.read_bytes()).decode()
+
+
+def tile(name: str, theme: str, x: float, y: float) -> list[str]:
+    """The picture's mark in its title: the app icon of the bot it is about, or for the
+    watcher the three clients it reads."""
+    size = 36
+    if name in ("lantern", "beacon"):
+        icon = data_uri(ROOT / f"docs/images/apps/{name}.svg", "image/svg+xml")
+        return [f'<clipPath id="tile"><rect x="{x}" y="{y}" width="{size}" height="{size}" '
+                'rx="9"/></clipPath>',
+                f'<image href="{icon}" x="{x}" y="{y}" width="{size}" height="{size}" '
+                'clip-path="url(#tile)"/>']
+    out = [f'<rect class="block" x="{x}" y="{y}" width="{3 * 24 + 12}" height="{size}" rx="9"/>']
+    for n, client in enumerate(("claude", "codex", "cursor")):
+        file = f"{client}-dark" if theme == "dark" and client != "claude" else client
+        logo = data_uri(ROOT / f"docs/images/clients/{file}.png", "image/png")
+        out.append(f'<image href="{logo}" x="{x + 8 + n * 24}" y="{y + 9}" width="18" '
+                   'height="18"/>')
+    return out
+
+
 def draw(ink: Ink, name: str, theme: str) -> str:
     pic = PICTURES[name]
-    boxes = slots(pic)
-    height = boxes[-1][1] + boxes[-1][3] + 18
+    slots, frames, height = layout(pic)
     out = [f'<rect class="bg" x="0.75" y="0.75" width="{W - 1.5}" height="{height - 1.5:.1f}" '
-           'rx="12"/>',
-           f'<rect class="band" x="{MARGIN}" y="16" width="4" height="26" rx="2"/>',
-           f'<path class="t" d="{ink.path(pic["name"], MARGIN + 14, 36, 21, 600)}"/>']
-    px = MARGIN + 14 + ink.width(pic["name"], 21, 600) + 12
+           'rx="12"/>']
+    out += tile(pic["tile"], theme, MARGIN, 12)
+    tx = MARGIN + (36 if pic["tile"] != "clients" else 84) + 12
+    out.append(f'<path class="t" d="{ink.path(pic["name"], tx, 37, 21, 600)}"/>')
+    px = tx + ink.width(pic["name"], 21, 600) + 12
     pw = ink.width(pic["when"], 13, 600) + 20
-    out.append(f'<rect class="when" x="{px:.1f}" y="18" width="{pw:.1f}" height="22" rx="11"/>')
-    out.append(f'<path class="w" d="{ink.path(pic["when"], px + 10, 33.5, 13, 600)}"/>')
-    out += legend(ink, 62)
-    for n in range(1, len(boxes)):
-        out += joint(boxes[n - 1], boxes[n], f"q{n}")
-    for n, (step, box) in enumerate(zip(pic["steps"], boxes, strict=True)):
+    out.append(f'<rect class="when" x="{px:.1f}" y="19" width="{pw:.1f}" height="22" rx="11"/>')
+    out.append(f'<path class="w" d="{ink.path(pic["when"], px + 10, 34.5, 13, 600)}"/>')
+    out += legend(ink, 68)
+    for group, top, bottom in frames:
+        out.append(f'<rect class="frame" x="{MARGIN + 6}" y="{top:.1f}" '
+                   f'width="{W - 2 * MARGIN - 12}" height="{bottom - top:.1f}" rx="12"/>')
+        label, note = group["label"], group.get("note", "")
+        out.append(f'<path class="t" d="{ink.path(label, MARGIN + 18, top + 21, 14, 600)}"/>')
+        nx = MARGIN + 18 + ink.width(label, 14, 600) + 10
+        out.append(f'<path class="c" d="{ink.path(note, nx, top + 21, 13, 400)}"/>')
+    steps = [st for g in pic["groups"] for st in g["steps"]]
+    chained = [g.get("chain", True) for g in pic["groups"] for _ in g["steps"]]
+    for n in range(1, len(slots)):
+        if chained[n]:
+            out += joint(slots[n - 1], slots[n], f"q{n}")
+    for n, (step, box) in enumerate(zip(steps, slots, strict=True)):
         x, y, w, h = box[:4]
         if isinstance(step, list):
             half = (h - 6) / 2
@@ -310,15 +374,16 @@ def draw(ink: Ink, name: str, theme: str) -> str:
             out += card(ink, step[1], (x, y + half + 6, w, half), f"q{n}")
         else:
             out += card(ink, step, (x, y, w, h), f"q{n}")
-    flat = [s for st in pic["steps"] for s in (st if isinstance(st, list) else [st])]
-    steps = "; ".join(f"{s[3]}: {' '.join(s[4])}" for s in flat)
+    flat = [s for st in steps for s in (st if isinstance(st, list) else [st])]
+    words = "; ".join(f"{s[3]}: {' '.join(s[4])}" for s in flat)
     head = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" '
         f'viewBox="0 0 {W} {height:.0f}" role="img" aria-labelledby="title desc">\n'
         f'<title id="title">{pic["name"]}, {pic["when"]}</title>\n'
-        f'<desc id="desc">The steps in order, with who does each. {steps}.</desc>\n'
-        "<!-- Made by scripts/make_picture.py. Text: Inter outlines, SIL OFL 1.1. -->\n"
-        f"<style>\n{css(theme, name, len(boxes))}\n</style>\n"
+        f'<desc id="desc">The steps in order, with who does each. {words}.</desc>\n'
+        "<!-- Made by scripts/make_picture.py. Text: Inter outlines, SIL OFL 1.1. Client logos:\n"
+        "     Kitden's own copies, as Kitden shows them. -->\n"
+        f"<style>\n{css(theme, name, len(slots))}\n</style>\n"
         f"<defs>{symbols()}</defs>\n"
     )
     return head + "\n".join(out) + "\n</svg>\n"
