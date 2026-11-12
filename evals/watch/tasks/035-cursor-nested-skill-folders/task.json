@@ -1,0 +1,21 @@
+{
+ "id": "035-cursor-nested-skill-folders",
+ "kind": "touched",
+ "source": "https://cursor.com/docs/context/skills",
+ "piece": {
+  "id": "https://cursor.com/docs/context/skills#Nested skill directories",
+  "client": "cursor",
+  "kind": "doc",
+  "version": "",
+  "url": "https://cursor.com/docs/context/skills",
+  "text": "Nested skill directories\n\n\n\n\nSkill directories can be organized into subdirectories. This is useful for grouping related skills by category, team, or domain. Cursor walks the skills root recursively and picks up any SKILL.md it finds:\n\n\n\n\n\n\n\n\n\n\n.cursor/└── skills/    ├── shipping/    │   ├── land-it/    │   │   └── SKILL.md    │   └── careful-merge-conflicts/    │       └── SKILL.md    ├── debugging/    │   └── using-datadog-mcp/    │       └── SKILL.md    └── workflow/        └── tdd/            └── SKILL.md\n\n\n\n\n\n\n\n\nThe category folder is purely organizational. The skill's identity comes from the folder containing SKILL.md (here land-it, tdd, etc.), not the parent category.\n\n\nCursor also discovers skills inside nested project subdirectories. A .cursor/skills/ (or .agents/skills/) folder anywhere inside your repository is picked up, so monorepos can colocate skills with the package they apply to:\n\n\n\n\n\n\n\n\n\n\nmy-monorepo/├── .cursor/skills/         # repo-wide skills│   └── land-it/SKILL.md└── apps/    └── web/        └── .cursor/skills/  # app-specific skills            └── deploy-web/SKILL.md\n\n\n\n\n\n\n\n\nSkills in nested project directories are automatically scoped to files inside that directory. In the example above, deploy-web is only surfaced when the agent works with files under apps/web/, while skills in the repo-wide .cursor/skills/ are available everywhere. This is similar to the paths frontmatter field — you don't need to set paths on a nested skill to scope it to its directory.",
+  "source": "https://cursor.com/docs/context/skills",
+  "key": "Nested skill directories",
+  "hash": "176ac20d174f5b159812c2a376855ca3e6ba44bd398c1f9cc8adb792722aa177"
+ },
+ "expect": {
+  "row": "Skills in `.cursor/skills`, `.agents/skills`, and with third-party on `.claude/skills` and `.codex/skills`; `disable-model-invocation` keeps the description out (2026-11-09)",
+  "effect": "wrong-data"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

@@ -1,0 +1,21 @@
+{
+ "id": "036-cursor-required-team-plugins",
+ "kind": "touched",
+ "source": "https://cursor.com/docs/plugins",
+ "piece": {
+  "id": "https://cursor.com/docs/plugins#Plugin installation modes",
+  "client": "cursor",
+  "kind": "doc",
+  "version": "",
+  "url": "https://cursor.com/docs/plugins",
+  "text": "Plugin installation modes\n\n\n\n\nAfter setting marketplace access, choose how each plugin is distributed to that audience:\n\n\n\n\nDefault Off: Developers can find the plugin and choose whether to install it.\n\n\nDefault On: The plugin is installed by default, but developers can opt out.\n\n\nRequired: The plugin is always installed and cannot be uninstalled.",
+  "source": "https://cursor.com/docs/plugins",
+  "key": "Plugin installation modes",
+  "hash": "a413145d4bc21718d41649ca8688a5c80d959cd0ad597ef0a0d231928b61135c"
+ },
+ "expect": {
+  "row": "Plugins are installed for the user or a project, with no on or off switch; menu words from Cursor 3.21 (2026-10-22)",
+  "effect": "minor"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

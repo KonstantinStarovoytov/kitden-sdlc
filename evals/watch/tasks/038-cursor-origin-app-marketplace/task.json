@@ -1,0 +1,21 @@
+{
+ "id": "038-cursor-origin-app-marketplace",
+ "kind": "untouched",
+ "source": "cursor-changelog",
+ "piece": {
+  "id": "cursor-changelog#Origin App Marketplace",
+  "client": "cursor",
+  "kind": "release",
+  "version": "Origin App Marketplace",
+  "url": "https://cursor.com/changelog",
+  "text": "Oct 13, 2026 · Changelog\n\n\n\n\nOrigin App Marketplace\n\n\nOrigin now integrates with over 20 apps for deployments, CI, code review, security, monitoring, and project management, from partners including Cloudflare, Linear, Sentry, and Socket Security.\n\n\nStarting today, the marketplace is also open to public submissions, so any team building developer tools can publish an app for Origin.\n\n\n#Apps for your stack\n\n\nThe marketplace now includes apps for:\n\n\n\n\nDeployments: Cloudflare, Netlify, Render, Spacelift, and Vercel\n\n\nCI: Buildkite, CircleCI, CloudBees, Depot, EngFlow, Namespace, and RWX\n\n\nCode review: CodeRabbit, Greptile, and Tenki\n\n\nSecurity: Artemis Security, Semgrep, Socket Security, and Upwind\n\n\nMonitoring: Sentry\n\n\nProject management: Linear\n\n\n\n\n\n\n\n#Publish to Marketplace\n\n\nTo submit an app:\n\n\n\n\nCreate an app in your namespace. It stays private to your namespace while you build.\n\n\nBuild against the Origin API. Apps authenticate with an app JWT and installation access tokens, receive webhook events, and write back check runs, pull request comments, and reviews.\n\n\nMake the app public, then submit it from the app's page with a slug, suggested tags, and a demo video. The video should show install, uninstall, and your core product flows.\n\n\nWe review the submission and list the app once it's approved.\n\n\n\n\n\n\n\n#Get started\n\n\nTry the apps in the Origin App Marketplace today.\n\n\nWant to build an Origin app? Start with the publishing guide and the Origin API reference.\n\n\nThe Origin Apps plugin can also answer questions from the live Origin API docs and plan a port to Origin for an app you already run.",
+  "source": "cursor-changelog",
+  "key": "Origin App Marketplace",
+  "hash": "acd58a8d75b5262c87d7437ab1ac7c86e114748a633587413388886173db2e22"
+ },
+ "expect": {
+  "row": null,
+  "effect": null
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

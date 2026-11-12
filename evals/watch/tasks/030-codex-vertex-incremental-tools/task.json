@@ -1,0 +1,21 @@
+{
+ "id": "030-codex-vertex-incremental-tools",
+ "kind": "untouched",
+ "source": "codex-releases",
+ "piece": {
+  "id": "codex-releases#rust-v0.167.2",
+  "client": "codex",
+  "kind": "release",
+  "version": "rust-v0.167.2",
+  "url": "https://github.com/openai/codex/releases",
+  "text": "## New Features\n\n- Codex now sends tool updates incrementally by default on Google Cloud Vertex AI. To opt out, set `incremental_tools_legacy_gcp = false` under `[features]` in `config.toml`. ([#60617](https://github.com/openai/codex/pull/60617), [#60848](https://github.com/openai/codex/pull/60848))\n\n## Changelog\n\nFull Changelog: https://github.com/openai/codex/compare/rust-v0.167.1...rust-v0.167.2",
+  "source": "codex-releases",
+  "key": "rust-v0.167.2",
+  "hash": "9b33d982509a854c6a1e7f422203299fc439246816c868afe05e4f3645866d6b"
+ },
+ "expect": {
+  "row": null,
+  "effect": null
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

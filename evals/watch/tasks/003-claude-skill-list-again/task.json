@@ -15,6 +15,7 @@
  },
  "expect": {
   "row": "A list with `isInitial` false holds only the skills added since the last list; the full list is sent again on resume (2026-11-10)",
-  "effect": "wrong-data"
- }
+  "effect": "minor"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

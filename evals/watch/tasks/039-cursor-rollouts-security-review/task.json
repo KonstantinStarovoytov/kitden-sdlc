@@ -1,0 +1,21 @@
+{
+ "id": "039-cursor-rollouts-security-review",
+ "kind": "untouched",
+ "source": "cursor-changelog",
+ "piece": {
+  "id": "cursor-changelog#Rollouts and Security Review",
+  "client": "cursor",
+  "kind": "release",
+  "version": "Rollouts and Security Review",
+  "url": "https://cursor.com/changelog",
+  "text": "Sep 23, 2026 · Changelog\n\n\n\n\nRollouts and Security Review\n\n\nToday we're launching two Cursor bots for the last mile of shipping code. Rollouts watches every change as it deploys and reports its health per environment. Security Review reports exploitable bugs on every pull request.\n\n\nBoth are available today on Teams and Enterprise plans.\n\n\n#Rollouts\n\n\nRollouts attaches a monitor to every pull request and watches the change as it deploys, reporting change health per environment: verified healthy, regression detected, or inconclusive. It's the Cursor version of Firetiger Change Monitors, rebuilt with the Bot Development Kit.\n\n\n\n\n\n\n\nEnable it from the dashboard and connect source control, your deploy system, and your telemetry provider. Rollouts starts watching on the next pull request.\n\n\n#Monitoring plans\n\n\nWhen a pull request opens, Rollouts reads the diff and the systems it touches, then writes a monitoring plan as a PR comment. The plan lists the risks it identified, the effect the change is meant to have, the signals it will check, and any gaps in instrumentation that would make the change hard to verify. Edit the plan in the PR and Rollouts uses your version.\n\n\n#Deploy tracking\n\n\nRollouts wakes on deploy events for the change's commit and runs the plan against your logs, metrics, and traces. It tracks each environment separately, so a change can be verified in staging and still flagged in production. Rollouts checks the change's intended effect alongside error and latency signals, and reports back on the PR when it reaches a verdict.\n\n\n#Regressions\n\n\nWhen Rollouts detects a regression, it names the change it suspects and notifies the author. Depending on configuration, it can also open a revert PR for review or hand the finding to a cloud agent for a fix. Rollouts does not merge or roll back on its own today.\n\n\n#Integrations\n\n\nRollouts connects to Origin or GitHub for source control, to your continuous delivery system for deploy events, and to Datadog and other telemetry providers for signals. Feature flag integration is coming soon.\n\n\n#Security Review\n\n\nSecurity Review is available today. It reads every pull request in the context of the codebase and posts one review comment reporting exploitable bugs. Style and quality stay with Bugbot.\n\n\n\n\n\nEnable it from the dashboard for the repositories you want reviewed. Draft PRs are skipped.\n\n\n#What it reports\n\n\nSecurity Review looks for injection across SQL, command, and template surfaces, along with authentication and authorization bypasses, including checks that a refactor stopped running. It also flags secrets and credentials committed to source, SSRF and unvalidated redirects, unsafe deserialization, and dependency changes that introduce known vulnerabilities. It traces where user input enters and what it passes through.\n\n\n#Findings\n\n\nEach finding carries a severity, the attack path, and a proposed fix. Dismiss one with a reason and Security Review won't raise it again on that PR.\n\n\n#Team rules\n\n\nAdd rules for your codebase, such as which client external calls must go through or which tables are never queried from a request handler, and Security Review enforces them on every PR.\n\n\n#Get started\n\n\nRollouts and Security Reviewer are available today on Teams and Enterprise plans. Enable either bot from the automations tab.\n\n\nFor the next 10 days, we're including usage credits so teams can try Rollouts on real changes. Teams and Enterprise customers receive credits for roughly 50 and 500 changes, respectively.",
+  "source": "cursor-changelog",
+  "key": "Rollouts and Security Review",
+  "hash": "20c556fa9065218c29c9238ce768347540861d43df60d2760434353039189cf6"
+ },
+ "expect": {
+  "row": null,
+  "effect": null
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

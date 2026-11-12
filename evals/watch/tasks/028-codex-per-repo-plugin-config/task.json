@@ -1,0 +1,21 @@
+{
+ "id": "028-codex-per-repo-plugin-config",
+ "kind": "touched",
+ "source": "codex-releases",
+ "piece": {
+  "id": "codex-releases#rust-v0.151.0",
+  "client": "codex",
+  "kind": "release",
+  "version": "rust-v0.151.0",
+  "url": "https://github.com/openai/codex/releases",
+  "text": "## New Features\n\n- Added a configurable grace period for discovering tools from optional MCP servers. (#41199)\n- Extensions can now inspect or replace MCP tool results before they reach the model. (#41202)\n- Plugin catalogs now combine per-repository configuration and report invalid project marketplaces without hiding valid plugins. (#41208)\n\n## Bug Fixes\n\n- Preserved restored permission profiles across TUI turns and prevented `/cd` from weakening sandbox restrictions. (#41192)\n- Kept tool availability and reasoning effort correct when switching models or falling back to another model. (#41195, #41206)\n- Improved remote sandbox enforcement using the executor’s actual home directory, operating system, and path conventions. (#41196, #41204, #41207, #41209)\n- Preserved structured MCP tool and resource errors in app-server responses. (#41196)\n- Counted nested subagent token usage toward root goal budgets. (#41183)\n- Prevented stale Guardian classifications from authorizing actions after permission state changes. (#41196)\n\n## Chores\n\n- Added telemetry for escalated stdin reviews and remote executor MCP discovery. (#41189, #41205)\n- Stabilized Guardian WebSocket and core fixture tests under slow or highly concurrent CI. (#41191, #41194)\n\n## Changelog\n\nFull Changelog: https://github.com/openai/codex/compare/rust-v0.150.0...rust-v0.151.0\n\n- #41183 Account subagent token usage toward root goals @copyberry\n- #41189 Instrument stdin review size checks @copyberry\n- #41191 Stabilize Guardian WebSocket tests @copyberry\n- #41192 Preserve restored permission profiles in TUI sessions @copyberry\n- #41193 Report affected capabilities from remote plugin syncs @copyberry\n- #41194 Harden core test fixture startup assertions @copyberry\n- #41195 Finalize model-specific tool plans in `ToolRouter` @copyberry\n- #41196 Improve sandboxing, MCP errors, and cached approvals @copyberry\n- #41199 Make the optional MCP startup grace configurable @copyberry\n- #41202 Let extensions process MCP tool results @copyberry\n- #41204 Propagate executor home directories into sandbox contexts @copyberry\n- #41205 Track executor MCP discovery telemetry @copyberry\n- #41206 Make Ultra reasoning fallback model-aware @copyberry\n- #41207 Propagate executor OS into turn environments @copyberry\n- #41208 Honor per-repository plugin configuration in catalog requests @copyberry\n- #41209 Align deny-read matching with executor path semantics @copyberry",
+  "source": "codex-releases",
+  "key": "rust-v0.151.0",
+  "hash": "277b9af488d61b6a3035b7cb12e52548e8fa6cc3c78936e8d7a07e9c93249cba"
+ },
+ "expect": {
+  "row": "`[plugins.\"<id>\"] enabled` in `config.toml`; installs are for the whole environment, none per project (2026-10-22)",
+  "effect": "minor"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

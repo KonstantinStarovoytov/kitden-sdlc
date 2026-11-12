@@ -15,6 +15,7 @@
  },
  "expect": {
   "row": "Session logs at `sessions/<year>/<month>/<day>/rollout-*.jsonl` in the Codex home; `.zst` logs are not opened (2026-11-09)",
-  "effect": "wrong-data"
- }
+  "effect": "minor"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

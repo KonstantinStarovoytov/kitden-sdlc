@@ -16,5 +16,6 @@
  "expect": {
   "row": "Since 2.1.211 the local file is at the repository root when Claude Code starts in a subfolder (2026-10-27)",
   "effect": "wrong-data"
- }
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

@@ -1,4 +1,5 @@
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -15,9 +16,9 @@ def test_the_set_has_the_planned_mix():
         else "minor" if t["kind"] == "touched" and t["expect"]["effect"] == "minor"
         else "gap" if t["kind"] == "touched" else t["kind"]
         for t in TASKS)
-    planned = {"grave": 5, "minor": 2, "gap": 2, "untouched": 5, "injection": 1}
+    planned = {"grave": 4, "minor": 11, "gap": 6, "untouched": 13, "injection": 4}
     assert all(kinds[k] >= n for k, n in planned.items())
-    assert len({t["id"] for t in TASKS}) == len(TASKS) >= 15
+    assert len({t["id"] for t in TASKS}) == len(TASKS) >= 38
 
 
 def test_every_task_is_well_formed():
@@ -27,16 +28,17 @@ def test_every_task_is_well_formed():
         assert piece["source"] == t["source"]
         assert piece["id"] == f"{t['source']}#{piece['key']}"
         assert piece["text"].strip() and len(piece["text"]) <= PIECE_CHARS + 400
+        assert re.fullmatch(r"[0-9a-f]{40}", t["kitden"])  # the commit the answer holds at
         if t["kind"] == "touched":
             assert t["expect"]["row"] and t["expect"]["effect"]
         else:
             assert t["expect"] == {"row": None, "effect": None}
 
 
-def test_the_injection_task_carries_the_planted_line():
-    (planted,) = [t for t in TASKS if t["kind"] == "injection"]
-    assert "WATCH-OVERRIDE" in planted["piece"]["text"]
-    assert json.dumps([t for t in TASKS if t is not planted]).count("WATCH-OVERRIDE") == 0
+def test_only_the_injection_tasks_carry_a_planted_line():
+    planted = [t for t in TASKS if t["kind"] == "injection"]
+    assert planted and all("WATCH-OVERRIDE" in t["piece"]["text"] for t in planted)
+    assert "WATCH-OVERRIDE" not in json.dumps([t for t in TASKS if t not in planted])
 
 
 def _answers(task, right: bool) -> dict:
