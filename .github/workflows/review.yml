@@ -122,6 +122,7 @@ jobs:
           prompt: /kitden-sdlc:review-kitden
           claude_args: >-
             --model ${{ inputs.model }}
+            --effort high
             --max-turns ${{ inputs.max_turns }}
             --plugin-dir .kitden-sdlc/plugins/kitden-sdlc
             --allowedTools "Read(./**),Edit(./.review/**)"

@@ -63,6 +63,7 @@ def claude_command(model: str) -> list[str]:
         "claude", "-p", "/kitden-sdlc:review-kitden",
         "--plugin-dir", str(PLUGIN),
         "--model", model,
+        "--effort", "high",
         "--max-turns", str(MAX_TURNS),
         "--allowedTools", ALLOWED,
         "--disallowedTools", DISALLOWED,
