@@ -56,7 +56,7 @@ not say whether the local files stay), and Claude Code 2.1.284 (Sonnet 5.5: the 
 
 | Task | Entry | Expected | Why |
 |---|---|---|---|
-| 001-claude-settings-local | Claude Code 2.1.211 | `Since 2.1.211 the local file is at the repository root...`, wrong-data, *disputed* | "Always allow" rules now save at the repository root; Kitden's permission checks (`changes/actions.py`) still read only the project's own local file. The row names only `claude_code.py` until Kitden PR #63, so the judge does not see that file yet. |
+| 001-claude-settings-local | Claude Code 2.1.211 | `Since 2.1.211 the local file is at the repository root...`, wrong-data, *disputed* | "Always allow" rules now save at the repository root; Kitden's permission checks (`changes/actions.py`) still read only the project's own local file. Pinned to f331dfb, where the row names that file too (Kitden PR #63). |
 | 002-claude-agents-md | Claude Code 2.1.277 | `Instruction files: ...`, minor | AGENTS.md is read when there is no CLAUDE.md. Kitden's Instructions map already follows it; the row does not list it. |
 | 003-claude-skill-list-again | Claude Code 2.1.304 | `A list with isInitial false holds only...`, minor | The skill list is sent again after compaction and `/reload-skills` sends only what changed. Kitden merges a partial list with what it knows, so it stays right; the row is out of date. |
 | 004-claude-fable-5-2 | Claude Code 2.1.321 | `Windows by model: ...`, minor | Fable 5.2 is the new default Fable model and the table knows only 5.1. Kitden works the window out from the log and says so. |
