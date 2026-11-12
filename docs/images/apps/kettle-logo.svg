@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Kitden Kettle, the Homebrew tap app: a brew kettle in the cellar. Its gauge shows the
+       version going up, and its tap pours a bottle: Homebrew's word for a built package. -->
+  <!-- Logo version: no background of its own; GitHub's badge color fills behind it. -->
+  <defs>
+    <linearGradient id="cellar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#33202A"/>
+      <stop offset="1" stop-color="#241620"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFD27A" stop-opacity=".5"/>
+      <stop offset=".6" stop-color="#FFB454" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#FFB454" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC56B"/>
+      <stop offset="1" stop-color="#FFA94A"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FFA94A"/>
+      <stop offset="1" stop-color="#FFD27A"/>
+    </linearGradient>
+  </defs>
+  <circle cx="246" cy="290" r="200" fill="url(#halo)"/>
+  <!-- steam, like the smoke over Kitden's house -->
+  <circle cx="210" cy="92" r="12" fill="#FFF3CF" opacity=".5"/>
+  <circle cx="232" cy="64" r="16" fill="#FFF3CF" opacity=".35"/>
+  <circle cx="262" cy="40" r="20" fill="#FFF3CF" opacity=".22"/>
+  <!-- lid -->
+  <path fill="#C85835" d="M150 150c0-22 38-36 86-36s86 14 86 36Z"/>
+  <circle cx="236" cy="108" r="12" fill="#C85835"/>
+  <!-- brew kettle body -->
+  <rect x="132" y="150" width="208" height="214" rx="30" fill="#C85835"/>
+  <rect x="120" y="150" width="232" height="22" rx="10" fill="#C85835"/>
+  <!-- rivets -->
+  <g fill="#E07A52"><circle cx="150" cy="196" r="5"/><circle cx="150" cy="330" r="5"/><circle cx="322" cy="196" r="5"/><circle cx="322" cy="330" r="5"/></g>
+  <!-- glowing gauge with an up arrow: the version goes up -->
+  <circle cx="236" cy="262" r="60" fill="url(#glass)"/>
+  <path fill="none" stroke="#FFF3CF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" d="M236 292v-58M210 258l26-26 26 26"/>
+  <!-- tap -->
+  <rect x="340" y="304" width="44" height="20" rx="8" fill="#C85835"/>
+  <rect x="372" y="290" width="14" height="30" rx="6" fill="#C85835"/>
+  <path fill="#C85835" d="M368 324h22v14c0 4-3 6-6 6h-10c-3 0-6-2-6-6Z"/>
+  <circle cx="379" cy="349" r="3.5" fill="#FFC56B"/>
+  <!-- bottle under the tap, standing on the hearth -->
+  <path fill="url(#glass)" d="M372 360h14v10c7 3 10 8 10 14v18c0 4-3 6-6 6h-22c-3 0-6-2-6-6v-18c0-6 3-11 10-14Z"/>
+  <rect x="369" y="354" width="20" height="9" rx="4" fill="#C85835"/>
+  <!-- stove and flame -->
+  <rect x="122" y="364" width="228" height="18" rx="8" fill="#C85835"/>
+  <path fill="url(#flame)" d="M196 410c0-16 12-22 12-34 10 8 14 15 14 22 4-5 6-11 6-18 13 9 20 20 20 30Z"/>
+  <path fill="url(#flame)" d="M250 410c0-12 9-18 11-27 8 7 15 16 15 27Z"/>
+  <rect x="112" y="408" width="296" height="38" rx="16" fill="#C85835"/>
+</svg>

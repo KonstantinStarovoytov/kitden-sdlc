@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Kitden Beacon, the release app: a lighthouse at night. Its lamp holds the
+       version tag it pins, and its beams carry the release out to every store. -->
+  <!-- Logo version: no background of its own; GitHub's badge color fills behind it. -->
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A2347"/>
+      <stop offset="1" stop-color="#121833"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFD27A" stop-opacity=".6"/>
+      <stop offset=".55" stop-color="#FFB454" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#FFB454" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC56B"/>
+      <stop offset="1" stop-color="#FFA94A"/>
+    </linearGradient>
+    <linearGradient id="beamL" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#FFD27A" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#FFD27A" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFD27A" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#FFD27A" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="176" r="172" fill="url(#halo)"/>
+  <!-- beams -->
+  <path d="M196 156 L70 122 L70 214 L196 192 Z" fill="url(#beamL)"/>
+  <path d="M316 156 L442 122 L442 214 L316 192 Z" fill="url(#beamR)"/>
+  <!-- roof -->
+  <path fill="#C85835" d="M256 66c6 0 11 3 14 8l34 46c4 6 0 14-7 14H215c-7 0-11-8-7-14l34-46c3-5 8-8 14-8Z"/>
+  <circle cx="256" cy="58" r="12" fill="#C85835"/>
+  <!-- lamp room glass with the version tag -->
+  <rect x="200" y="134" width="112" height="84" rx="12" fill="url(#glass)"/>
+  <path fill="#FFF3CF" d="M234 152h36c4 0 7 2 9 5l11 14c2 3 2 7 0 10l-11 14c-2 3-5 5-9 5h-36c-5 0-9-4-9-9v-30c0-5 4-9 9-9Z"/>
+  <circle cx="270" cy="176" r="7" fill="#C85835"/>
+  <rect x="190" y="128" width="18" height="96" rx="7" fill="#C85835"/>
+  <rect x="304" y="128" width="18" height="96" rx="7" fill="#C85835"/>
+  <!-- gallery -->
+  <rect x="172" y="218" width="168" height="26" rx="10" fill="#C85835"/>
+  <!-- tower -->
+  <path fill="#C85835" d="M204 244h104l20 168H184Z"/>
+  <!-- one light band, the lighthouse's mark -->
+  <path fill="#E07A52" d="M199 292h114l5 38H194Z"/>
+  <!-- an arched door glowing like the door of Kitden's house -->
+  <path fill="url(#glass)" d="M240 404v-30c0-9 7-16 16-16s16 7 16 16v30Z"/>
+  <!-- base -->
+  <rect x="150" y="404" width="212" height="40" rx="16" fill="#C85835"/>
+</svg>

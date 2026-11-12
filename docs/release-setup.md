@@ -48,7 +48,8 @@ Docs: [Registering a GitHub App](https://docs.github.com/en/apps/creating-github
 12. Scroll to Private keys and press Generate a private key. A `.pem` file downloads. Keep it
     until section 2 is done, then delete it. This key is stored only in Kitden's `release`
     environment, never in the tap: it can tag Kitden, and a tag publishes to PyPI.
-13. Display information, Upload a logo: [beacon.png](images/apps/beacon.png); background
+13. Display information, Upload a logo: [beacon-logo.png](images/apps/beacon-logo.png) (no background of its own, so the badge color fills
+    behind it with no visible square); background
     color `#182143`. Its own icon and color keep it apart from Lantern in every timeline.
 14. Open Install App, then Install on your account.
 15. Choose Only select repositories, then pick `kitden` and `homebrew-tap`. Nothing else.
@@ -132,7 +133,8 @@ New GitHub App:
 8. Press Create GitHub App.
 9. Copy the Client ID (it starts with `Iv`).
 10. Scroll to Private keys and press Generate a private key. A second `.pem` file downloads.
-11. Display information, Upload a logo: [kettle.png](images/apps/kettle.png); background
+11. Display information, Upload a logo: [kettle-logo.png](images/apps/kettle-logo.png) (no background of its own, so the badge color fills
+    behind it with no visible square); background
     color `#2B1B23`.
 12. Open Install App, then Install on your account, Only select repositories, then pick
     `homebrew-tap`. Nothing else.
