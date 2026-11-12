@@ -13,9 +13,11 @@ TRIES_MAX = 3
 TITLE_MAX = 100
 TEXT_MAX = 600
 VERSION_MAX = 100
-EFFECTS = ("breaks", "wrong-data", "minor", "gap")
+# The type and the severity of a finding: docs/watch-effects.md.
+EFFECTS = ("breaks", "wrong-data", "unknown", "outdated", "gap")
+SEVERITIES = ("major", "medium", "minor")
 STRINGS = ("piece", "client", "title", "changed", "version", "url", "row", "effect",
-           "user_gets", "systems", "why")
+           "severity", "user_gets", "systems", "why")
 CUT = ("title", "changed", "user_gets", "systems", "why")
 KEYS = {*STRINGS, "files", "sure"}
 TOP_KEYS = {"judged", "findings", "failed"}
@@ -55,6 +57,7 @@ def check(findings: dict, inp: dict) -> list[dict]:
         _need(isinstance(item["files"], list) and all(isinstance(f, str) for f in item["files"]),
               "files must be a list of strings")
         _need(item["effect"] in EFFECTS, "unknown effect")
+        _need(item["severity"] in SEVERITIES, "unknown severity")
         _need(item["piece"] in judged and item["piece"] in pieces, "piece not judged")
         src = pieces[item["piece"]]
         _need(all(item[k] == src[k] for k in ("url", "client", "version")), "url, client, version")
@@ -79,19 +82,28 @@ def _quiet(text: str, limit: int) -> str:
     return MENTION.sub("@" + WORD_JOINER, text)[:limit]
 
 
+def _kind(f: dict) -> tuple[str, str]:
+    """The type and severity. Findings kept in memory before docs/watch-effects.md say "minor"
+    and have no severity."""
+    effect = {"minor": "outdated"}.get(f["effect"], f["effect"])
+    return effect, f.get("severity") or "minor"
+
+
 def _grade(f: dict) -> int:
     if f.get("overflow"):
         return 0
     if f["effect"] in ("breaks", "wrong-data") and not f["sure"]:
         return 1
-    return 2 + ("breaks", "wrong-data", "gap", "minor").index(f["effect"])
+    effect, severity = _kind(f)
+    return 2 + 10 * SEVERITIES.index(severity) + EFFECTS.index(effect)
 
 
 def _not_judged(piece: dict) -> dict:
     title = f"Could not judge {piece['id']}"
     if SECRET_LIKE.search(title):
         title = f"Could not judge a piece of {piece['source']}"
-    return {"effect": "minor", "sure": False, "title": _quiet(title, TITLE_MAX),
+    return {"effect": "unknown", "severity": "medium", "sure": False,
+            "title": _quiet(title, TITLE_MAX),
             "client": piece["client"], "url": piece["url"], "version": piece["version"],
             "changed": f"The model failed on this piece {TRIES_MAX} times; it is now skipped.",
             "why": "Read the source by hand.", "user_gets": "not checked",
@@ -111,7 +123,7 @@ def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today
         if f["title"] in titles or f"{client_name(f)}: {f['title']}" in titles:
             continue
         titles.add(f["title"])
-        if f["effect"] in ("breaks", "wrong-data") and f["sure"]:
+        if f["effect"] in ("breaks", "wrong-data") and f["sure"] and f["severity"] == "major":
             first = (f["client"], f["row"]) not in grave_rows
             grave_rows.add((f["client"], f["row"]))
             if first and new["urgent"]["count"] < URGENT_PER_WEEK:
@@ -143,8 +155,9 @@ def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today
 
 
 def labels(finding: dict) -> list[str]:
-    effect = finding["effect"]
-    out = ["client-change", finding["client"], "kitden-gap" if effect == "gap" else effect]
+    effect, severity = _kind(finding)
+    out = ["client-change", finding["client"], "kitden-gap" if effect == "gap" else effect,
+           severity]
     return out + ([] if finding["sure"] else ["unsure"])
 
 
@@ -168,7 +181,8 @@ def word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]:
                 "changed": f"The text of {where} has the word `{word}`.",
                 "version": piece["version"],
                 "url": piece["url"], "row": label, "files": row.files,
-                "effect": "minor", "sure": False, "user_gets": "not checked",
+                "effect": "unknown", "severity": "minor", "sure": False,
+                "user_gets": "not checked",
                 "systems": "not checked",
                 "why": "The word is in the text; the model reported nothing for this row.",
             })

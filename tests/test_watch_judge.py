@@ -51,7 +51,8 @@ PIECE_A = piece()
 PIECE_B = piece("claude-code-changelog#2.1.321", "Other text.")
 SCREEN_ROW = [{"row": "the `skillOverrides` key", "title": "t", "changed": "c",
                "quote": "Changed skillOverrides."}]
-ASSESS_BREAK = {"effect": "breaks", "sure": True, "user_gets": "u", "shown_wrong": "s",
+ASSESS_BREAK = {"effect": "breaks", "severity": "major", "sure": True, "user_gets": "u",
+                "shown_wrong": "s",
                 "systems": "not checked", "why": "w", "title": "t"}
 
 
@@ -152,8 +153,8 @@ def test_break_that_holds_stays_sure():
     assert f["sure"] is True and f["why"] == "w" and model.refute_calls == 1
 
 
-def test_minor_and_unsure_findings_get_no_second_look():
-    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "minor"})
+def test_outdated_and_unsure_findings_get_no_second_look():
+    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "outdated"})
     judge(INP, model)
     assert model.refute_calls == 0
     model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "sure": False})
@@ -273,7 +274,8 @@ def test_the_model_checks_rows_by_id_and_only_touched_ones_become_changes():
     ids = row_ids(LIST_TEXT)
     assert ids == {"CC-01": ("claude-code", "the `skillOverrides` key"),
                    "CX-01": ("codex", "the `codexOnly` key")}
-    gap = Gap(quote="q", title="g", changed="c", user_gets="u", why="w", sure=True)
+    gap = Gap(quote="q", title="g", changed="c", user_gets="u", why="w", severity="major",
+              sure=True)
     got = named(Screened(rows=[_check(" CC-01 "), _check("CC-01", touched=False)], gaps=[gap]),
                 "claude-code", LIST_TEXT)
     assert [(c["row"], c["quote"]) for c in got] == [("the `skillOverrides` key", "q"),
@@ -314,7 +316,7 @@ def long_inp():
 
 def test_a_long_piece_is_screened_in_parts_cut_at_line_ends():
     inp, text = long_inp()
-    model = Parts(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "minor"})
+    model = Parts(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "outdated"})
     out = judge(inp, model)
     assert len(model.texts) == 3 and "".join(model.texts) == text
     assert all(len(t) <= PART_CHARS and t.endswith("\n") for t in model.texts)
@@ -369,10 +371,11 @@ def test_a_quote_may_differ_in_case_spacing_marks_and_skip_with_an_ellipsis():
     assert not quoted(" ... ", text)
 
 
-def test_wrong_data_that_names_nothing_wrong_becomes_an_unsure_minor():
+def test_wrong_data_that_names_nothing_wrong_becomes_an_unsure_outdated():
     model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "shown_wrong": " Nothing. "})
     f = judge(INP, model)["findings"][0]
-    assert (f["effect"], f["sure"]) == ("minor", False) and model.refute_calls == 0
+    assert (f["effect"], f["severity"], f["sure"]) == ("outdated", "minor", False)
+    assert model.refute_calls == 0
 
 
 def test_a_row_touched_in_two_parts_is_assessed_once_with_both_quotes():
@@ -390,7 +393,7 @@ def test_a_row_touched_in_two_parts_is_assessed_once_with_both_quotes():
             return super().assess(change, row, files)
 
     inp, _ = long_inp()
-    model = Twice(assess={**ASSESS_BREAK, "effect": "minor"})
+    model = Twice(assess={**ASSESS_BREAK, "effect": "outdated"})
     out = judge(inp, model)
     assert len(model.changes) == 1 and len(out["findings"]) == 1
     assert model.changes[0]["quote"].count("\n") == 2

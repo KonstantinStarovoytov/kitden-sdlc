@@ -15,7 +15,8 @@
  },
  "expect": {
   "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
-  "effect": "minor"
+  "effect": "outdated",
+  "severity": "minor"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

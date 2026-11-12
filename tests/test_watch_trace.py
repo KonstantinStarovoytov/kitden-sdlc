@@ -62,7 +62,7 @@ class Llm:
                                     gaps=[])
                 if schema is Assessed:
                     return Assessed(kitden_reads="k", client_now="c", shown_wrong="s",
-                                    effect="breaks", sure=True, user_gets="u",
+                                    effect="breaks", severity="major", sure=True, user_gets="u",
                                     systems="all", why="w", title="t")
                 return Refuted(reason="r", holds=True)
         return Bound()

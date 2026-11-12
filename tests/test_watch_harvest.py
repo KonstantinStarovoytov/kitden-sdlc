@@ -9,7 +9,7 @@ PIECE = {"id": PID, "client": "claude-code", "kind": "release", "version": "2.1.
          "key": "2.1.320", "hash": "h"}
 LINE = {"date": "2026-11-11", "piece": PID, "client": "claude-code", "version": "2.1.320",
         "url": "https://example.com", "row": "the `skillOverrides` key", "title": "t",
-        "effect": "breaks", "sure": True, "why": "w", "issue": ADDRESS}
+        "effect": "breaks", "severity": "major", "sure": True, "why": "w", "issue": ADDRESS}
 
 
 def issue(number=7, *labels, address=ADDRESS):
@@ -21,20 +21,28 @@ def test_a_confirmed_issue_gives_a_touched_task_with_the_archive_row_and_effect(
     assert skipped == []
     assert tasks == [{"id": "issue-7", "kind": "touched", "source": "claude-code-changelog",
                       "piece": PIECE,
-                      "expect": {"row": "the `skillOverrides` key", "effect": "breaks"}}]
+                      "expect": {"row": "the `skillOverrides` key", "effect": "breaks",
+                                 "severity": "major"}}]
 
 
 def test_a_gap_line_gives_a_gap_task():
     gap = {**LINE, "row": "", "effect": "gap"}
     tasks, _ = harvest([issue(7, "confirmed")], [gap], {PID: PIECE})
-    assert tasks[0]["expect"] == {"row": "gap", "effect": "gap"}
+    assert tasks[0]["expect"] == {"row": "gap", "effect": "gap", "severity": "major"}
+
+
+def test_an_old_minor_line_becomes_an_outdated_minor_task():
+    old = {k: v for k, v in LINE.items() if k != "severity"} | {"effect": "minor"}
+    tasks, skipped = harvest([issue(7, "confirmed")], [old], {PID: PIECE})
+    assert skipped == [] and tasks[0]["expect"]["effect"] == "outdated"
+    assert tasks[0]["expect"]["severity"] == "minor"
 
 
 def test_a_false_alarm_issue_gives_an_untouched_task():
     tasks, skipped = harvest([issue(7, "false-alarm")], [LINE], {PID: PIECE})
     assert skipped == []
     assert tasks[0]["kind"] == "untouched"
-    assert tasks[0]["expect"] == {"row": None, "effect": None}
+    assert tasks[0]["expect"] == {"row": None, "effect": None, "severity": None}
 
 
 def reasons(skipped):

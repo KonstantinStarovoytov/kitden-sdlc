@@ -20,22 +20,40 @@ to another product of the same vendor (a cloud service, a web app, an SDK, an AP
 even when its files or folders have names like the ones Kitden reads.
 
 Then find in the files the code that relies on the row, and ask: after this change, on a
-computer with the new client version, does that code still do the right thing?
+computer with the new client version, what does that code show or do? Take the first answer
+that is true:
 
 - `breaks`: a Kitden action fails, or writes something the client no longer accepts.
-- `wrong-data`: Kitden still runs but shows one thing while the client has another: an item,
-  a state, a number or a reader that is not the client's, or a list shown as complete that
-  misses items the client loads, or a hint to do what the client does not allow. This
-  includes a place, key, value or case the client now has and the code does not read, when
-  Kitden then shows something else. How many users meet the case does not matter.
-- `minor`: Kitden stays right, but the row or a comment is now out of date; or Kitden cannot
-  read something and says so (unknown, worked out) instead of showing a wrong value; or the
-  effect is too small for a user to notice.
+- `wrong-data`: Kitden shows one thing while the client has another: an item shown that the
+  client does not load, or an item it loads missing from a list Kitden shows as complete; a
+  state (on or off, allowed or denied, trusted, installed, broken) that is not the client's; a
+  file shown as read by a client that does not read it, or not shown for one that does; a
+  number that is not the client's; a hint to do what the client does not allow. A guess shown
+  as if it were the client's value is `wrong-data`. How many users meet the case does not
+  matter.
+- `unknown`: Kitden cannot read the new value and says so (unknown, worked out) instead of
+  showing a wrong one.
+- `outdated`: Kitden stays right, but the row or a code comment is no longer true.
 - `none`: the change does not touch what the code relies on. A fix or a speed-up inside the
   client, with the same files, keys, commands and numbers as before, is `none`.
 
-Judge the code as it is now. If the code already handles the new behaviour, the answer is
-`minor` or `none`, not `wrong-data`.
+Judge the code as it is now, and only what this change causes: if the code already handles
+the new behaviour, or Kitden was wrong in the same way before this client version, the answer
+is `outdated` or `none`, not `wrong-data`.
+
+Then the severity: what does a user who trusts Kitden here end up doing?
+
+- `major`: a wrong action with a result they did not expect. They rely on something that is
+  not so: an instruction file they think applies does not, a plugin they think runs is off, a
+  server they think is stopped loads, a denied tool is allowed, an action changes the wrong
+  thing.
+- `medium`: extra or useless steps, but nothing unexpected in the end: fixing a file that is
+  not broken, approving a server that was approved, following a hint that cannot work,
+  removing skills to make room that was not needed.
+- `minor`: what they do and how long it takes stay the same.
+
+When two fit, take the higher one. `outdated` is always `minor`; `unknown` is `minor` unless
+the user must look the value up elsewhere to take their next step (then `medium`).
 
 ## The fields
 
@@ -47,7 +65,8 @@ Fill them in this order: first what you read, then the verdict.
   one folder, the client now loads two"; "uses 200,000 for a model whose window is
   1,000,000"). Empty when Kitden stays right.
 - `effect`: as above. `breaks` and `wrong-data` need a `shown_wrong`. If you cannot name what
-  Kitden gets wrong, the answer is `minor` or `none`.
+  Kitden gets wrong, the answer is `unknown`, `outdated` or `none`.
+- `severity`: as above.
 - `sure`: true only when the change states the new behaviour plainly and you can point at
   the code that gets it wrong. If either part is a guess, `sure` is false.
 - `user_gets`: what the Kitden user sees or misses, in one sentence.

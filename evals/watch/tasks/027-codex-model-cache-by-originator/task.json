@@ -15,7 +15,8 @@
  },
  "expect": {
   "row": "`models_cache.json` holds `models[]` with `slug`, `display_name`, `context_window` (2026-11-09)",
-  "effect": "minor"
+  "effect": "unknown",
+  "severity": "minor"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

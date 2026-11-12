@@ -24,6 +24,7 @@ PART_CHARS = 4000  # a long piece is screened in parts: the model misses less in
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 DISAGREED = " A second look disagreed."
 GRAVE = ("breaks", "wrong-data")
+SEVERITIES = ("major", "medium", "minor")  # docs/watch-effects.md
 NOTHING = {"", "nothing", "none", "n/a", "-"}
 MARKS = str.maketrans({c: None for c in "`'\"\u2018\u2019\u201c\u201d"})
 
@@ -63,9 +64,14 @@ def _finding(inp: dict, piece: dict, label: str, row: Row | None, **kw) -> dict:
     return {"piece": piece["id"], "client": piece["client"], "version": piece["version"],
             "url": piece["url"], "row": label,
             "files": [f for f in row.files if f in inp["files"]] if row else [],
-            **{k: str(kw[k]) for k in ("title", "changed", "effect", "user_gets", "systems",
-                                       "why")},
+            **{k: str(kw[k]) for k in ("title", "changed", "effect", "severity", "user_gets",
+                                       "systems", "why")},
             "sure": bool(kw["sure"])}
+
+
+def _severity(value) -> str:
+    """The model's severity, or minor when it gave none the list knows."""
+    return value if value in SEVERITIES else "minor"
 
 
 def _parts(text: str) -> list[str]:
@@ -157,6 +163,7 @@ def build_graph(model: Model, late=lambda: False):
                 continue
             if label == "gap":
                 current.append(_finding(inp, piece, "", None, effect="gap",
+                                        severity=_severity(change.get("severity")),
                                         systems="not checked", **{
                                             k: change.get(k, "") for k in
                                             ("title", "changed", "user_gets", "why")},
@@ -176,10 +183,13 @@ def build_graph(model: Model, late=lambda: False):
         row = _rows(inp["list"])[(piece["client"], change["row"])]
         got = _call(piece["id"], model.assess, change, row, _files(row, inp))
         effect, sure = got.get("effect", ""), got.get("sure", False)
+        severity = _severity(got.get("severity"))
         if effect in GRAVE and got.get("shown_wrong", "").strip(" .").lower() in NOTHING:
-            effect, sure = "minor", False  # a break or wrong data names what Kitden gets wrong
+            effect, sure = "outdated", False  # a break or wrong data names what Kitden gets wrong
+        if effect == "outdated":
+            severity = "minor"  # Kitden stays right: no user does anything else
         f = _finding(inp, piece, change["row"], row, changed=change.get("changed", ""),
-                     effect=effect, sure=sure,
+                     effect=effect, severity=severity, sure=sure,
                      **{k: got.get(k, "") for k in ("title", "user_gets", "systems", "why")})
         update = {"to_assess": rest}
         if f["effect"] == "none":  # the code shows Kitden is not touched: no finding
@@ -269,6 +279,7 @@ class Gap(BaseModel):
     changed: str
     user_gets: str
     why: str
+    severity: Literal["major", "medium", "minor"]
     sure: bool
 
 
@@ -281,7 +292,8 @@ class Assessed(BaseModel):
     kitden_reads: str
     client_now: str
     shown_wrong: str
-    effect: Literal["breaks", "wrong-data", "minor", "none"]
+    effect: Literal["breaks", "wrong-data", "unknown", "outdated", "none"]
+    severity: Literal["major", "medium", "minor"]
     sure: bool
     user_gets: str
     systems: str

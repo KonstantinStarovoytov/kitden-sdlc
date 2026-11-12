@@ -24,7 +24,8 @@ class Client:
             Screened: Screened(rows=[RowCheck(row="CC-01", quote="q", touched=True, title="t",
                                               changed="c")], gaps=[]),
             Assessed: Assessed(kitden_reads="k", client_now="c", shown_wrong="s",
-                               effect="breaks", sure=True, user_gets="u", systems="s",
+                               effect="breaks", severity="major", sure=True,
+                               user_gets="u", systems="s",
                                why="w", title="t"),
             Refuted: Refuted(reason="r", holds=False),
         }[schema]

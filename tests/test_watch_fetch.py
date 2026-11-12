@@ -67,7 +67,7 @@ def test_third_failed_day_is_kept_once():
     assert state["fails"]["s"] == FAIL_DAYS and len(state["kept"]) == 1
     item = state["kept"][0]
     assert item["title"] == "Cannot read s for 3 days"
-    assert item["effect"] == "minor" and item["sure"] is True
+    assert (item["effect"], item["severity"], item["sure"]) == ("unknown", "medium", True)
     _, again = plan_run(state, {"s": None}, META)
     assert len(again["kept"]) == 1
 

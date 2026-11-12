@@ -49,7 +49,8 @@ def finding(n=0, **kw):
     f = {"piece": f"{PID}{n}", "client": "claude-code", "title": "skillOverrides renamed",
          "changed": "The key was renamed.", "version": "2.1.320", "url": URL,
          "row": "the `skillOverrides` key", "files": ["src/kitden/skills.py"],
-         "effect": "breaks", "sure": True, "user_gets": "Skills fail to load.",
+         "effect": "breaks", "severity": "major", "sure": True,
+         "user_gets": "Skills fail to load.",
          "systems": "all", "why": "Read in the notes."}
     return {**f, **kw}
 
@@ -65,7 +66,7 @@ def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
     title, body, labels = gh.issues[0]
     assert title == "Claude Code: skillOverrides renamed"
     assert body.splitlines()[0] == first_line()
-    assert labels == ["client-change", "claude-code", "breaks"]
+    assert labels == ["client-change", "claude-code", "breaks", "major"]
     assert "main and v0.7.2" in body
     assert {"claude-code", "breaks"} <= {name for name, *_ in gh.created_labels}
     assert "client-change" not in {name for name, *_ in gh.created_labels}

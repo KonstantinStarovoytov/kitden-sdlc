@@ -15,7 +15,8 @@
  },
  "expect": {
   "row": "Skills in `.cursor/skills`, `.agents/skills`, and with third-party on `.claude/skills` and `.codex/skills`; `disable-model-invocation` keeps the description out (2026-11-09)",
-  "effect": "wrong-data"
+  "effect": "wrong-data",
+  "severity": "major"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

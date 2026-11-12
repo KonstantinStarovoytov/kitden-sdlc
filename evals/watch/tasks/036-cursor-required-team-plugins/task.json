@@ -15,7 +15,8 @@
  },
  "expect": {
   "row": "Plugins are installed for the user or a project, with no on or off switch; menu words from Cursor 3.21 (2026-10-22)",
-  "effect": "wrong-data"
+  "effect": "wrong-data",
+  "severity": "medium"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

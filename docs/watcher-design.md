@@ -142,7 +142,8 @@ Three cheap helpers (owner, 2026-11-11):
 ### 5. What the owner sees
 
 **An urgent issue** is for a change the watcher is sure about that breaks a Kitden action or
-makes Kitden show wrong data. One issue per change. At most two a week (owner); a third goes
+makes Kitden show wrong data, with the severity `major` (docs/watch-effects.md). One issue per
+change. At most two a week (owner); a third goes
 to the top of the summary (call). A change that would be urgent but the watcher is not sure
 about also goes to the top of the summary, marked as such (call).
 
@@ -171,9 +172,11 @@ post job creates a missing label from `config/watch-labels.yml` (call):
 | `client-change` | Opened by the watcher: a client changed |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
-| `wrong-data` | Kitden shows something that is not true |
-| `minor` | Small; nothing a user would trip over |
+| `wrong-data` | Kitden shows one thing while the client has another |
+| `unknown` | Kitden cannot read the new value and says so |
+| `outdated` | Kitden stays right; the list or a comment is out of date |
 | `kitden-gap` | The client added something Kitden does not show yet (owner's name) |
+| `major`, `medium`, `minor` | How much it matters to a user (docs/watch-effects.md, owner) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary (call) |
 | `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |

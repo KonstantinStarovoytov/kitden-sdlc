@@ -16,9 +16,21 @@
 - name: wrong-data
   color: "d93f0b"
   description: "Kitden shows something that is not true"
-- name: minor
+- name: unknown
   color: "c5def5"
-  description: "Small; nothing a user would trip over"
+  description: "Kitden cannot read the new value and says so"
+- name: outdated
+  color: "e4e669"
+  description: "Kitden stays right; the list or a comment is out of date"
+- name: major
+  color: "5a0000"
+  description: "A user acts on it and gets a result they did not expect"
+- name: medium
+  color: "f9d0c4"
+  description: "A user does extra or useless steps"
+- name: minor
+  color: "ededed"
+  description: "What a user does stays the same"
 - name: kitden-gap
   color: "fbca04"
   description: "The client added something Kitden does not show yet"

@@ -32,7 +32,8 @@ class Fake:
 
     def assess(self, change, row, files):
         self.files = sorted(files)
-        return {"effect": "minor", "sure": False, "user_gets": "u", "systems": "s",
+        return {"effect": "outdated", "severity": "minor", "sure": False, "user_gets": "u",
+                "systems": "s",
                 "why": "w", "title": "t"}
 
     def refute(self, finding, row, files):
@@ -47,7 +48,8 @@ def test_each_task_gets_its_own_input_and_a_findings_file(tmp_path):
     (kitden / "src/skills.py").write_text("x = 1\n")
     (tasks / "001-a").mkdir(parents=True)
     task = {"id": "001-a", "kind": "touched", "source": "s", "piece": PIECE,
-            "expect": {"row": "the `skillOverrides` key", "effect": "minor"}}
+            "expect": {"row": "the `skillOverrides` key", "effect": "outdated",
+                      "severity": "minor"}}
     (tasks / "001-a/task.json").write_text(json.dumps(task))
     model = Fake()
     run_tasks(tasks, kitden, out, model, 10)
@@ -70,9 +72,11 @@ def setup(tmp_path, *tasks):
 
 
 TOUCHED = {"id": "001-a", "kind": "touched", "source": "s", "piece": PIECE,
-           "expect": {"row": "the `skillOverrides` key", "effect": "minor"}}
+           "expect": {"row": "the `skillOverrides` key", "effect": "outdated",
+                      "severity": "minor"}}
 UNTOUCHED = {"id": "002-b", "kind": "untouched", "source": "s",
-             "piece": {**PIECE, "id": "s#2"}, "expect": {"row": None, "effect": None}}
+             "piece": {**PIECE, "id": "s#2"},
+             "expect": {"row": None, "effect": None, "severity": None}}
 
 
 class FakeLangfuse:

@@ -18,7 +18,8 @@ FAIL_DAYS = 3
 
 def _unreadable(meta: dict, source: str) -> dict:
     return {
-        "effect": "minor", "sure": True, "title": f"Cannot read {source} for {FAIL_DAYS} days",
+        "effect": "unknown", "severity": "medium", "sure": True,
+        "title": f"Cannot read {source} for {FAIL_DAYS} days",
         "client": meta["client"], "changed": f"{source} could not be read",
         "why": "The watcher cannot see new changes from this source.",
         "user_gets": "Nothing yet.", "systems": "", "row": "", "files": [],

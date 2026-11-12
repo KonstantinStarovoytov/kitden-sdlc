@@ -15,7 +15,8 @@
  },
  "expect": {
   "row": "`[plugins.\"<id>\"] enabled` in `config.toml`; installs are for the whole environment, none per project (2026-10-22)",
-  "effect": "minor"
+  "effect": "outdated",
+  "severity": "minor"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

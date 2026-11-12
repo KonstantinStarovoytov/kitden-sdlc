@@ -11,7 +11,7 @@
       "url": "https://example.com/changelog",
       "row": "the `skillOverrides` key",
       "files": ["src/kitden/skills.py"],
-      "effect": "breaks",
+      "effect": "breaks", "severity": "major",
       "sure": true,
       "user_gets": "The skills action fails.",
       "systems": "not checked",

@@ -43,9 +43,11 @@ INP = make_inp()
 
 
 def finding(**kw):
+    effect = kw.get("effect", "outdated")
     base = {"piece": PID, "client": "claude-code", "title": "t", "changed": "c",
             "version": "2.1.320", "url": URL, "row": "the `skillOverrides` key",
-            "files": ["src/kitden/skills.py"], "effect": "minor", "sure": True,
+            "files": ["src/kitden/skills.py"], "effect": "outdated",
+            "severity": "minor" if effect in ("outdated", "unknown") else "major", "sure": True,
             "user_gets": "u", "systems": "not checked", "why": "w"}
     return {**base, **kw}
 
@@ -265,7 +267,7 @@ def test_third_try_marks_the_piece_seen_and_keeps_one_item():
     [item] = plan.state["kept"]
     assert item["title"] == f"Could not judge {PID}"
     assert (item["effect"], item["sure"], item["client"], item["url"], item["version"]) == (
-        "minor", False, "claude-code", URL, "2.1.320")
+        "unknown", False, "claude-code", URL, "2.1.320")
 
 
 def test_judged_piece_clears_its_tries():
@@ -279,18 +281,18 @@ def test_unjudged_piece_is_not_marked_seen():
 
 
 def test_rule6_monday_empties_kept_into_one_summary():
-    state = base_state(kept=[finding(effect="minor"), finding(effect="gap", title="g")])
+    state = base_state(kept=[finding(effect="outdated"), finding(effect="gap", title="g")])
     plan = route([], state, [], INP, date(2026, 11, 16))
-    assert [f["effect"] for f in plan.summary] == ["gap", "minor"] and plan.state["kept"] == []
+    assert [f["effect"] for f in plan.summary] == ["gap", "outdated"] and plan.state["kept"] == []
 
 
 def test_summary_order_and_kept_items_without_piece():
     unreadable = {k: v for k, v in finding(title="u").items() if k != "piece"}
     kept = [
-        finding(effect="minor", title="a"), unreadable, finding(effect="gap", title="b"),
+        finding(effect="outdated", title="a"), unreadable, finding(effect="gap", title="b"),
         finding(effect="wrong-data", title="c"), finding(effect="breaks", title="d"),
         finding(effect="breaks", sure=False, title="e"),
-        finding(effect="minor", title="f", overflow=True),
+        finding(effect="outdated", title="f", overflow=True),
     ]
     plan = route([], base_state(kept=kept), [], INP, date(2026, 11, 16))
     assert [f["title"] for f in plan.summary] == ["f", "e", "d", "c", "b", "a", "u"]
@@ -325,16 +327,21 @@ def test_route_does_not_change_its_inputs():
 
 def test_labels_for_an_unsure_gap():
     assert labels(finding(effect="gap", sure=False, client="cursor")) == [
-        "client-change", "cursor", "kitden-gap", "unsure"]
+        "client-change", "cursor", "kitden-gap", "major", "unsure"]
 
 
 def test_labels_for_a_sure_break():
-    assert labels(finding(effect="breaks")) == ["client-change", "claude-code", "breaks"]
+    assert labels(finding(effect="breaks")) == ["client-change", "claude-code", "breaks", "major"]
+
+
+def test_a_sure_medium_break_waits_for_the_summary():
+    plan = route([finding(effect="breaks", severity="medium")], base_state(), JUDGED, INP, NOW)
+    assert plan.urgent == [] and len(plan.state["kept"]) == 1
 
 
 def test_word_the_model_passed_over_becomes_an_unsure_item():
     hits = word_hits([], JUDGED, inp_piece_text("Renamed skillOverrides to skills.overrides"))
-    assert len(hits) == 1 and hits[0]["sure"] is False and hits[0]["effect"] == "minor"
+    assert len(hits) == 1 and hits[0]["sure"] is False and hits[0]["effect"] == "unknown"
     assert hits[0]["row"] == "the `skillOverrides` key"
     assert hits[0]["title"] == "Mentions `skillOverrides`" and hits[0]["files"] == [
         "src/kitden/skills.py"]

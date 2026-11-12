@@ -15,7 +15,8 @@
  },
  "expect": {
   "row": "`disable-model-invocation: true` in SKILL.md keeps the description out of context (2026-11-06)",
-  "effect": "wrong-data"
+  "effect": "wrong-data",
+  "severity": "medium"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

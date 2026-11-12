@@ -69,9 +69,11 @@ Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and t
 | `client-change` | Opened by the watcher: a client changed |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
-| `wrong-data` | Kitden shows something that is not true |
-| `minor` | Small; nothing a user would trip over |
+| `wrong-data` | Kitden shows one thing while the client has another |
+| `unknown` | Kitden cannot read the new value and says so |
+| `outdated` | Kitden stays right; the list or a comment is out of date |
 | `kitden-gap` | The client added something Kitden does not show yet |
+| `major`, `medium`, `minor` | What a user who trusts Kitden ends up doing: a wrong action, extra steps, or nothing else ([docs/watch-effects.md](docs/watch-effects.md)) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary |
 | `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |

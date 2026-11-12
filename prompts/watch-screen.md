@@ -41,16 +41,19 @@ or folders have names like the client's.
 
 ## `gaps`
 
-A gap is a place on the user's computer where the installed client keeps MCP servers,
-skills, plugins, hooks, marketplaces or instruction files, or a kind of them, or a setting
-that decides which of them load, that no row of this client is about. It may be new, or only
-named in a fix. If a row lists places, keys or values of the same thing and the piece adds one
-more, that row is touched: it is not a gap.
+A gap is a new source of MCP servers, skills, plugins, hooks, marketplaces or instruction
+files on the user's computer that no row of this client is about: a new place where the
+installed client keeps them, a new kind of them (for example plugins that come built in, with
+no install), or a setting that decides which of them load. It may be new, or only named in a
+fix. One more value, spelling, file name or sub-folder of what a row already covers touches
+that row: it is not a gap.
 
 For each gap give `quote` (the sentence, copied exactly), `title`, `changed`, `user_gets`
-(what a Kitden user does not see), `why` (why no row covers it) and `sure` (true only when the
-piece states the place, kind or setting plainly). One missing thing is one gap, however many
-sentences name it.
+(what a Kitden user does not see), `why` (why no row covers it), `severity` and `sure` (true
+only when the piece states the place, kind or setting plainly). `severity` is `major` when
+items there load and Kitden does not show them, or Kitden shows items the setting stops;
+`minor` when the setting changes only something Kitden does not show. One missing thing is
+one gap, however many sentences name it.
 
 Not a gap: fixes that name no such place, kind or setting; speed, limits and messages; how the
 client behaves in a chat; anything else Kitden does not show. Most pieces have no gap.
