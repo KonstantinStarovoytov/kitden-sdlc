@@ -6,9 +6,10 @@ For each task: an input.json built the way watch_fetch.py builds it (the clone's
 docs/clients.md and the files it names, the task's piece), the judge run on it, and
 <folder>/<id>/findings.json saved. WATCH_RUNS (default 1) runs all the tasks that many times,
 into <folder>/run-<n>/, since one run says little about a judge that varies. MAX_MODEL_CALLS
-is the limit for each task, as for one run of the judge. It needs OPENAI_API_KEY and
-WATCH_MODEL. With the Langfuse keys set, each run is also an experiment on the Langfuse
-dataset `watch-eval`, with the scores of each task.
+is the limit for each task, as for one run of the judge. It needs WATCH_MODEL and its maker's
+key: OPENAI_API_KEY, or ANTHROPIC_API_KEY for a `claude-` model. With the Langfuse keys set,
+each run is also an experiment on the Langfuse dataset `watch-eval`, with the scores of each
+task.
 """
 
 import argparse
@@ -23,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import watch_trace  # noqa: E402
 from watch_fetch import _git, build_input  # noqa: E402
-from watch_judge import MAX_MODEL_CALLS, OpenAIModel, judge  # noqa: E402
+from watch_judge import MAX_MODEL_CALLS, chat_model, judge  # noqa: E402
 from watch_list import parse_list  # noqa: E402
 from watch_score import load_tasks, task_scores  # noqa: E402
 
@@ -132,8 +133,10 @@ def main() -> None:
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
     runs = int(os.environ.get("WATCH_RUNS") or 1)
     try:
-        model = OpenAIModel(name)
+        model = chat_model(name)
         run_tasks(a.tasks, a.kitden, a.out, model, max_calls, model.name, runs)
+        if hasattr(model, "summary"):  # Claude counts its tokens and their cost
+            print(model.summary(), flush=True)
     finally:
         watch_trace.flush()
 

@@ -24,7 +24,7 @@ on:
       model:
         description: "Eval only: the model"
         type: choice
-        options: [gpt-6-luna, gpt-6.1-terra]
+        options: [gpt-6-luna, gpt-6.1-terra, claude-sonnet-5-5, claude-opus-5-5]
         default: gpt-6-luna
       effort:
         description: "Eval only: how hard the model thinks (default: the model's own)"
@@ -209,9 +209,8 @@ jobs:
 
   # 15 tasks, one after another, and a high effort can take minutes a call, so the limit is
   # 5 hours: the eval runs by hand and nobody waits for it. A task may take 40 minutes and
-  # one call 15. The
-  # key reaches only the step that runs the model; the scoring step has none. No write
-  # permission, so nothing in the pieces can write anywhere.
+  # one call 15. The model keys reach only the step that runs the model; the scoring step has
+  # none. No write permission, so nothing in the pieces can write anywhere.
   eval:
     if: vars.AGENTS_ENABLED == 'true' && inputs.eval
     runs-on: ubuntu-latest
@@ -234,11 +233,14 @@ jobs:
         with:
           version: "0.10.10"
       # MAX_MODEL_CALLS is the limit for each task. A long piece can touch many rows, and each
-      # one is a call or two, so 30: 450 calls for the 15 tasks at most. With the Langfuse keys the run is also an
-      # experiment there, with traces and the scores of each task; without them it is off.
+      # one is a call or two, so 30: 450 calls for the 15 tasks at most. The model named in
+      # `model` uses its maker's key: OpenAI's, or Anthropic's for a `claude-` model. With the
+      # Langfuse keys the run is also an experiment there, with traces and the scores of each
+      # task; without them it is off.
       - name: Judge the tasks
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MAX_MODEL_CALLS: "30"
           WATCH_DEADLINE_SECONDS: "2400"
           WATCH_CALL_SECONDS: "900"

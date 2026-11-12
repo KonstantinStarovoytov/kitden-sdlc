@@ -56,19 +56,59 @@ def _handler():
         return None
 
 
+def _attrs(step: str, model: str) -> tuple[list[str], dict, str | None]:
+    """The tags, metadata and session of one model call."""
+    piece_id = _piece.get()
+    tags = [t for t in (piece_id, model, commit()) if t]
+    metadata = {"step": step, "piece": piece_id, "model": model, "commit": commit()}
+    # One session per piece, model setting and commit, so other runs do not pile into it.
+    session = f"{piece_id} {model} {commit()[:7]}".strip()
+    return tags, metadata, session.encode("ascii", "ignore").decode()[:200] if piece_id else None
+
+
 def config(step: str, model: str) -> dict | None:
     """The LangChain config of one model call: Langfuse's handler and the call's tags."""
     if not enabled() or (handler := _handler()) is None:
         return None
-    piece_id = _piece.get()
-    tags = [t for t in (piece_id, model, commit()) if t]
-    metadata = {"langfuse_tags": tags, "step": step, "piece": piece_id, "model": model,
-                "commit": commit()}
-    if piece_id:
-        # One session per piece, model setting and commit, so other runs do not pile into it.
-        session = f"{piece_id} {model} {commit()[:7]}".strip()
-        metadata["langfuse_session_id"] = session.encode("ascii", "ignore").decode()[:200]
+    tags, metadata, session = _attrs(step, model)
+    metadata["langfuse_tags"] = tags
+    if session:
+        metadata["langfuse_session_id"] = session
     return {"callbacks": [handler], "run_name": step, "metadata": metadata}
+
+
+def _nothing(**_) -> None:
+    pass
+
+
+@contextmanager
+def generation(step: str, model: str, messages: list):
+    """A Langfuse generation around one call made without LangChain (Claude through Anthropic's
+    SDK), with the same tags and session as config(). Yields a function that records the
+    output, the token counts and the cost; without the keys it does nothing."""
+    if not enabled():
+        yield _nothing
+        return
+    try:
+        setup()
+        from langfuse import get_client, propagate_attributes
+
+        tags, metadata, session = _attrs(step, model)
+        attrs = propagate_attributes(session_id=session, tags=tags, metadata=metadata)
+        gen = get_client().start_as_current_observation(
+            name=step, as_type="generation", model=model, input=messages)
+    except Exception as e:  # noqa: BLE001 - Langfuse must never stop the judge
+        warn(e)
+        yield _nothing
+        return
+    with attrs, gen as observation:
+        def record(**details) -> None:
+            try:
+                observation.update(**details)
+            except Exception as e:  # noqa: BLE001
+                warn(e)
+
+        yield record
 
 
 def flush() -> None:

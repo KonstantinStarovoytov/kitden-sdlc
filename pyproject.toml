@@ -16,6 +16,7 @@ dev = [
     {include-group = "watch"},
 ]
 watch = [
+    "anthropic>=2.8.0",
     "langchain-openai>=1.7.4",
     "langfuse>=5.2.0",
     "langgraph>=1.2.20",

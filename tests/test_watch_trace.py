@@ -198,3 +198,59 @@ def test_the_sdk_log_lines_are_silenced(capsys):
     logging.getLogger("langfuse").error("Item 0 failed: sk-test")
     logging.getLogger("opentelemetry.sdk").error("export failed: sk-test")
     assert capsys.readouterr().err == ""
+
+
+class Observation:
+    def __init__(self, log, **kw):
+        self.log, self.kw = log, kw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def update(self, **details):
+        self.log.append(("update", details))
+
+
+def generation_langfuse(monkeypatch, log):
+    lf = types.ModuleType("langfuse")
+
+    def start(**kw):
+        log.append(("start", kw))
+        return Observation(log, **kw)
+
+    def propagate(**kw):
+        log.append(("attrs", kw))
+        return Observation(log)
+
+    lf.get_client = lambda: types.SimpleNamespace(start_as_current_observation=start,
+                                                  flush=lambda: None)
+    lf.propagate_attributes = propagate
+    monkeypatch.setitem(sys.modules, "langfuse", lf)
+
+
+def test_a_direct_call_is_a_generation_with_the_same_session_and_tags(monkeypatch):
+    keys(monkeypatch)
+    monkeypatch.setenv("GITHUB_SHA", "abc1234def")
+    log = []
+    generation_langfuse(monkeypatch, log)
+    with watch_trace.piece(PID), watch_trace.generation("screen", "claude-x medium", ["m"]) as rec:
+        rec(output={"a": 1}, usage_details={"input": 3})
+    (_, attrs), (_, start), (_, update) = log
+    assert attrs["session_id"] == f"{PID} claude-x medium abc1234"
+    assert attrs["tags"] == [PID, "claude-x medium", "abc1234def"]
+    assert start["as_type"] == "generation" and start["name"] == "screen"
+    assert update == {"output": {"a": 1}, "usage_details": {"input": 3}}
+
+
+def test_a_direct_call_without_keys_imports_nothing_and_a_failure_does_not_stop_it(
+        monkeypatch, capsys):
+    no_langfuse(monkeypatch)
+    with watch_trace.generation("screen", "m", []) as rec:
+        rec(output=1)
+    keys(monkeypatch)
+    with watch_trace.generation("screen", "m", []) as rec:
+        rec(output=1)
+    assert capsys.readouterr().err == "langfuse failed: ModuleNotFoundError\n"

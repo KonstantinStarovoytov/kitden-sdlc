@@ -308,6 +308,15 @@ def named(screened: Screened, client: str, list_text: str) -> list[dict]:
     return out + [{"row": "gap", **gap.model_dump()} for gap in screened.gaps]
 
 
+def chat_model(name: str):
+    """The model that answers for the judge: Claude through Anthropic's SDK, else OpenAI."""
+    if name.startswith("claude-"):
+        from watch_claude import ClaudeModel
+
+        return ClaudeModel(name)
+    return OpenAIModel(name)
+
+
 class OpenAIModel:
     def __init__(self, name: str):
         from langchain_openai import ChatOpenAI
@@ -350,7 +359,7 @@ def main():
         raise SystemExit(1)
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
     try:
-        out = judge(inp, OpenAIModel(name), max_calls)
+        out = judge(inp, chat_model(name), max_calls)
     finally:
         watch_trace.flush()
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")

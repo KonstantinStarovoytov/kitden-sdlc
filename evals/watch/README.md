@@ -57,8 +57,9 @@ that matters most. A gap task only needs one finding with the effect `gap`.
 
 ## Running it
 
-With `KITDEN` set to a clone of Kitden whose `docs/clients.md` exists, `WATCH_MODEL` and
-`OPENAI_API_KEY` set, and `D` a folder for the results:
+With `KITDEN` set to a clone of Kitden whose `docs/clients.md` exists, `WATCH_MODEL` set with
+its maker's key (`OPENAI_API_KEY`, or `ANTHROPIC_API_KEY` for a `claude-` model), and `D` a
+folder for the results:
 
 ```sh
 uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py \
@@ -68,6 +69,9 @@ uv run --locked --only-group watch --only-group watch-io python evals/watch_scor
 ```
 
 `WATCH_RUNS` (default 1) runs all the tasks that many times, into `"$D"/run-<n>/`.
+`WATCH_EFFORT` sets how hard the model thinks. A Claude model is called through Anthropic's
+own SDK, with the prompt and the list (or the Kitden files) cached, and prints its tokens and
+their cost at the end of the run.
 `MAX_MODEL_CALLS` (default 60) is the limit for each task. A long piece can touch many rows,
 so the `eval` job sets it to 30: 450 calls a run at most.
 The `eval` job of `.github/workflows/watch.yml` does the same on a manual run with `eval`
