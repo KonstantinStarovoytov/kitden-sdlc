@@ -10,7 +10,7 @@ untrusted text, a secret and write access at once.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/sdlc-dark.svg">
-  <img src="docs/images/sdlc-light.svg" width="720" alt="What kitden-sdlc runs: review (live), the client watcher (measuring) and the release flow (being built). In every lane the model only reads, and a script without a model writes.">
+  <img src="docs/images/sdlc-light.svg" width="720" alt="What kitden-sdlc runs: review (live), the client watcher (live) and the release flow (ready), with the bots that act in each. In every lane the model only reads, and a script without a model writes.">
 </picture>
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) [![checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)
@@ -19,11 +19,11 @@ untrusted text, a secret and write access at once.
 |---|---|---|
 | Review ([review.yml](.github/workflows/review.yml)) | Claude and Luna read each pull request; the Lantern app posts one "Agent review" comment | live on Kitden |
 | Workflow check ([check.yml](.github/workflows/check.yml)) | zizmor, actionlint and the rule checker on every workflow change | live on Kitden |
-| Client watcher ([watch.yml](.github/workflows/watch.yml)) | Claude Sonnet 5.5 reads the release notes of Claude Code, Codex and Cursor; a script opens issues in Kitden | measuring: the eval runs by hand, the daily run is off |
-| Weekly numbers ([numbers.yml](.github/workflows/numbers.yml)) | counts the reviews, no model | set up; first run on Monday |
-| Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; a job without a model opens the release pull request | being built |
-| Publish ([publish.yml](.github/workflows/publish.yml)) | no model; in the `release` environment it moves the `release` branch and opens the Homebrew pull request, and it publishes to the MCP Registry | being built |
-| Release watch ([release-watch.yml](.github/workflows/release-watch.yml)) | daily, no model: an issue when a release is due or a store is behind | being built |
+| Client watcher ([watch.yml](.github/workflows/watch.yml)) | Claude Sonnet 5.5 reads the release notes of Claude Code, Codex and Cursor; a script opens issues in Kitden | live: every day; the eval runs by hand |
+| Weekly numbers ([numbers.yml](.github/workflows/numbers.yml)) | counts the reviews, no model | live: every Monday |
+| Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; a job without a model opens the release pull request | ready in Kitden; the first release with it is still to come |
+| Publish ([publish.yml](.github/workflows/publish.yml)) | no model; in the `release` environment it moves the `release` branch and opens the Homebrew pull request, and it publishes to the MCP Registry | ready in Kitden; the first release with it is still to come |
+| Release watch ([release-watch.yml](.github/workflows/release-watch.yml)) | daily, no model: an issue when a release is due or a store is behind | set up in Kitden; runs every day |
 
 Every agent, its model and its limits: [docs/agents.md](docs/agents.md).
 
@@ -33,7 +33,7 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 
 | | Bot | What it does |
 |---|---|---|
-| <img src="https://avatars.githubusercontent.com/in/5695802?v=4" width="40" alt="Lantern"> | **Lantern**<br/>`kitden-lantern[bot]` | posts the "Agent review" comment; opens the watcher's and the release watch's issues |
+| <img src="docs/images/apps/lantern.svg" width="40" alt="Lantern"> | **Lantern**<br/>`kitden-lantern[bot]` | posts the "Agent review" comment; opens the watcher's and the release watch's issues |
 | <img src="docs/images/apps/beacon.svg" width="40" alt="Kitden Beacon"> | **Kitden Beacon**<br/>`kitden-beacon` | opens the release pull request, tags the release, moves the `release` branch, opens the Homebrew pull request |
 | <img src="docs/images/apps/kettle.svg" width="40" alt="Kitden Kettle"> | **Kitden Kettle**<br/>`kitden-kettle` | keeps the Homebrew formula up to date in the tap, every day |
 

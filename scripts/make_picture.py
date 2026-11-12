@@ -6,8 +6,9 @@ Writes docs/images/sdlc-light.svg and sdlc-dark.svg. The look follows Kitden's d
 the map's blocks, sockets and links, the lamps, the Quiet Den colors and Inter. Text is drawn
 as outlines from Kitden's Inter (SIL OFL 1.1), because GitHub shows the SVG through <img>,
 where no web font loads. Motion follows Kitden's rule "point, don't move": each lane's path
-lights up in the route color, rests, and lights again; nothing travels. It is still under
-reduced motion.
+lights up in the route color, its links draw from left to right, and the bot that acts there
+nods; then the picture rests. Live lanes breathe. It is still under reduced motion. The bots'
+marks are the app icons of docs/images/apps without their backgrounds.
 """
 
 import argparse
@@ -66,6 +67,10 @@ BLOCK_H = 78
 CYCLE = 13.0  # seconds: three lanes light one after another, then the picture rests
 LANE_STEP = 2.6  # seconds between lanes
 STEP = 0.32  # seconds between the parts of one lane
+ICON = 34  # a bot's mark in a block
+
+# The bots' marks, on a clear background: their <defs> go into the picture.
+MARKS = ROOT / "docs/images/apps/marks.svg"
 
 
 class Ink:
@@ -97,24 +102,38 @@ class Ink:
         return pen.getCommands()
 
 
+def symbols() -> str:
+    """The gradients and symbols of the bots' marks, from docs/images/apps/marks.svg."""
+    text = MARKS.read_text()
+    return text[text.index("<defs>") + len("<defs>"):text.index("</defs>")]
+
+
 def fits(ink, text, size, weight, room):
     width = ink.width(text, size, weight)
     if width > room:
         raise SystemExit(f"{text!r} is {width:.0f} wide, room is {room}")
 
 
-def block(ink, col, y, title, sub, lit, w=None):
+def block(ink, col, y, title, sub, lit, w=None, bot=None):
     x, width = COLS[col]
     width = w or width
-    fits(ink, title, 21, 600, width - 28)
-    fits(ink, sub, 18, 400, width - 28)
-    return [
+    room = width - 28 - (ICON + 8 if bot else 0)
+    fits(ink, title, 21, 600, room)
+    fits(ink, sub, 18, 400, room)
+    parts = [
         f'<rect class="block" x="{x}" y="{y}" width="{width}" height="{BLOCK_H}" rx="10"/>',
         f'<rect class="lit-block {lit}" x="{x}" y="{y}" width="{width}" '
         f'height="{BLOCK_H}" rx="10"/>',
         f'<path class="t" d="{ink.path(title, x + 14, y + 33, 21, 600)}"/>',
         f'<path class="s" d="{ink.path(sub, x + 14, y + 59, 18, 400)}"/>',
     ]
+    if bot:
+        ix, iy = x + width - 14 - ICON, y + (BLOCK_H - ICON) / 2
+        parts.append(f'<circle class="halo {lit}" cx="{ix + ICON / 2}" cy="{iy + ICON / 2}" '
+                     f'r="{ICON / 2 + 6}"/>')
+        parts.append(f'<g class="bot {lit}-nod"><use href="#{bot}" x="{ix}" y="{iy}" '
+                     f'width="{ICON}" height="{ICON}"/></g>')
+    return parts
 
 
 def link(x1, x2, y, cls):
@@ -122,7 +141,7 @@ def link(x1, x2, y, cls):
     d = f"M{x1} {y}C{mid} {y} {mid} {y} {x2} {y}"
     return [
         f'<path class="link" d="{d}"/>',
-        f'<path class="lit {cls}" d="{d}"/>',
+        f'<path class="lit {cls}" pathLength="1" d="{d}"/>',
         f'<circle class="sock" cx="{x1}" cy="{y}" r="4.5"/>',
         f'<circle class="sock" cx="{x2}" cy="{y}" r="4.5"/>',
     ]
@@ -143,12 +162,16 @@ def lane(ink, top, name, state, lamp_kind):
     return parts
 
 
-def chip(ink, x, y, text):
-    w = ink.width(text, 17, 400) + 24
-    return [
+def chip(ink, x, y, text, bot=None):
+    pad = 12 + (22 if bot else 0)
+    w = ink.width(text, 17, 400) + 12 + pad
+    parts = [
         f'<rect class="chip" x="{x}" y="{y}" width="{w:.1f}" height="32" rx="16"/>',
-        f'<path class="c" d="{ink.path(text, x + 12, y + 22, 17, 400)}"/>',
-    ], w
+        f'<path class="c" d="{ink.path(text, x + pad, y + 22, 17, 400)}"/>',
+    ]
+    if bot:
+        parts.append(f'<use href="#{bot}" x="{x + 9}" y="{y + 6}" width="20" height="20"/>')
+    return parts, w
 
 
 def css(theme, lanes):
@@ -167,15 +190,26 @@ def css(theme, lanes):
         f".lamp-on{{fill:{c['on']}}}",
         f".lamp-unk{{fill:none;stroke:{c['warn']};stroke-width:1.5;stroke-dasharray:2.5 2}}",
         f".lamp-pv{{fill:none;stroke:{c['route']};stroke-width:1.5;stroke-dasharray:2.5 2}}",
-        f".lit{{fill:none;stroke:{c['route']};stroke-width:2;opacity:0}}",
+        f".lit{{fill:none;stroke:{c['route']};stroke-width:2.5;stroke-linecap:round;"
+        "stroke-dasharray:1;stroke-dashoffset:0;opacity:0}",
         f".lit-block{{fill:{c['route_soft']};fill-opacity:.6;stroke:{c['route']};stroke-width:1.5;opacity:0}}",
+        f".halo{{fill:{c['route_soft']};opacity:0}}",
+        ".bot{transform-box:fill-box;transform-origin:center}",
         "@keyframes lit{0%{opacity:0}3%{opacity:1}24%{opacity:1}30%,100%{opacity:0}}",
+        "@keyframes draw{0%{opacity:1;stroke-dashoffset:1}5%{stroke-dashoffset:0}"
+        "24%{opacity:1;stroke-dashoffset:0}30%,100%{opacity:0;stroke-dashoffset:0}}",
+        "@keyframes nod{0%,100%{transform:scale(1)}4%{transform:scale(1.18)}"
+        "9%{transform:scale(1)}}",
+        "@keyframes breathe{0%,100%{opacity:1}50%{opacity:.4}}",
     ]
-    moving = []
+    moving = [".lamp-on{animation:breathe 3.2s ease-in-out infinite}"]
     for i, count in enumerate(lanes):
         for j in range(count):
             delay = 0.6 + i * LANE_STEP + j * STEP
-            moving.append(f".p{i}-{j}{{animation:lit {CYCLE}s {delay:.2f}s infinite ease-in-out}}")
+            timing = f"{CYCLE}s {delay:.2f}s infinite ease-in-out"
+            moving.append(f".p{i}-{j}{{animation:lit {timing}}}")
+            moving.append(f"path.p{i}-{j}{{animation:draw {timing}}}")
+            moving.append(f".p{i}-{j}-nod{{animation:nod {timing}}}")
     rules.append("@media (prefers-reduced-motion:no-preference){" + "".join(moving) + "}")
     return "\n".join(rules)
 
@@ -195,30 +229,32 @@ def draw(ink: Ink, theme: str) -> str:
     by = t + 38
     out += block(ink, "in", by, "Pull request", "in Kitden", "p0-x")
     out += block(ink, "model", by, "Claude, Luna", "read only", "p0-1")
-    out += block(ink, "out", by, "One comment", "posted by Lantern", "p0-3", w=WIDE)
+    out += block(ink, "out", by, "One comment", "posted by Lantern", "p0-3", w=WIDE,
+                 bot="lantern")
     y = by + BLOCK_H / 2
     out += link(166, 190, y, "p0-0") + link(354, 388, y, "p0-2")
     lanes.append(4)
 
-    # Client watcher: measuring.
+    # Client watcher: live.
     t = tops[1]
-    out += lane(ink, t, "Client watcher", "· measuring", "unk")
+    out += lane(ink, t, "Client watcher", "· live", "on")
     by = t + 38
     out += block(ink, "in", by, "Client docs", "3 AI clients", "p1-x")
-    out += block(ink, "model", by, "Luna", "judges", "p1-1")
-    out += block(ink, "out", by, "Issue in Kitden", "opened by Lantern", "p1-3", w=WIDE)
+    out += block(ink, "model", by, "Claude", "judges", "p1-1")
+    out += block(ink, "out", by, "Issue in Kitden", "opened by Lantern", "p1-3", w=WIDE,
+                 bot="lantern")
     y = by + BLOCK_H / 2
     out += link(166, 190, y, "p1-0") + link(354, 388, y, "p1-2")
     lanes.append(4)
 
-    # Release: being built.
+    # Release: ready, not run yet.
     t = tops[2]
-    out += lane(ink, t, "Release", "· being built", "pv")
+    out += lane(ink, t, "Release", "· ready", "pv")
     by = t + 38
     out += block(ink, "in", by, "New work", "on main", "p2-x")
     out += block(ink, "model", by, "Claude", "drafts", "p2-1")
     out += block(ink, "out", by, "Release PR", "you merge", "p2-3")
-    out += block(ink, "next", by, "Tag", "by a script", "p2-5")
+    out += block(ink, "next", by, "Tag", "Beacon", "p2-5", bot="beacon")
     y = by + BLOCK_H / 2
     out += link(166, 190, y, "p2-0") + link(354, 388, y, "p2-2") + link(540, 562, y, "p2-4")
     # The stores: quiet chips in a dashed group (like Kitden's "Add a plugin" block),
@@ -231,10 +267,11 @@ def draw(ink: Ink, theme: str) -> str:
     chips = []
     cx, row_y, right = box_x + pad, box_y + pad, box_x + box_w - pad
     for name in names:
-        _, w = chip(ink, 0, 0, name)
+        bot = "kettle" if name == "Homebrew" else None
+        _, w = chip(ink, 0, 0, name, bot)
         if cx + w > right:
             cx, row_y = box_x + pad, row_y + 40
-        parts, w = chip(ink, cx, row_y, name)
+        parts, w = chip(ink, cx, row_y, name, bot)
         chips += parts
         cx += w + 8
     box_h = row_y + 32 + pad - box_y
@@ -252,11 +289,11 @@ def draw(ink: Ink, theme: str) -> str:
     desc = (
         "Three lanes in Kitden's look. Left of the dashed line the model only reads; right of "
         "it a script without a model writes. Review is live: Claude and Luna read a pull "
-        "request, and Lantern posts one comment. The client watcher is measuring: Luna judges "
-        "the three clients' docs, and Lantern opens an issue in Kitden. The release flow is "
-        "being built: Claude drafts the release pull request, you merge it, a script tags it, "
-        "and scripts update PyPI, Homebrew, the MCP Registry, the Claude directory and the "
-        "release branch."
+        "request, and the Lantern app posts one comment. The client watcher is live: Claude "
+        "judges the three clients' docs, and Lantern opens an issue in Kitden. The release flow "
+        "is ready: Claude drafts the release pull request, you merge it, the Kitden Beacon app "
+        "tags it, and scripts update PyPI, Homebrew (kept current by the Kitden Kettle app), the "
+        "MCP Registry, the Claude directory and the release branch."
     )
     head = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" '
@@ -265,6 +302,7 @@ def draw(ink: Ink, theme: str) -> str:
         f'<desc id="desc">{desc}</desc>\n'
         "<!-- Made by scripts/make_picture.py. Text: Inter outlines, SIL OFL 1.1. -->\n"
         f"<style>\n{css(theme, lanes)}\n</style>\n"
+        f"<defs>{symbols()}</defs>\n"
     )
     return head + "\n".join(out) + "\n</svg>\n"
 
