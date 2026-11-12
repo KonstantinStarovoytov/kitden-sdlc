@@ -30,24 +30,32 @@ Every agent, its model and its limits: [docs/agents.md](docs/agents.md).
 | A pull request to `main` | Claude and Luna review it; Lantern posts one "Agent review" comment | read it; merging is yours | a comment |
 | A pull request changes a workflow | zizmor, actionlint, the rule checker | fix a red check | a red check |
 | Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | close each issue with `confirmed` or `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday |
-| Every day, 06:23 UTC | the release watch, no model | release, or let the store catch up | "Time for a release?", "Release vX.Y.Z is not everywhere" |
+| Every day, 06:23 UTC | the release watch, no model | run Release prep (the issue links to it), or re-run what it names | "Time for a release?", "Release vX.Y.Z is not everywhere" |
 | Every Monday, 06:00 UTC | the weekly numbers, no model | nothing | nothing |
 
 Bots never write `@name`. Every issue a bot opens has the label `automated`.
 
 ## How to release
 
+You never open an issue for a release. You press one button and merge one pull request.
+
+1. In Kitden on GitHub: **Actions → Release prep → Run workflow**. Keep "Use workflow from" on
+   `main`, leave the version empty (the agent picks it), press the green **Run workflow**.
+   When the bot's issue "Time for a release?" is open, its link takes you to the same page.
+2. Wait for the pull request **Kitden X.Y.Z** from Kitden Beacon. Read it, edit it if you want,
+   merge it.
+3. Done. The rest runs on its own:
+
 ```mermaid
 flowchart LR
-    A["Run Release prep<br/>(or from the issue<br/>Time for a release?)"] --> B["Pull request<br/>Kitden X.Y.Z"]
-    B -->|"you review<br/>and merge"| C["Tag vX.Y.Z"]
-    C --> D["PyPI and the<br/>GitHub release"]
-    D --> E["release branch,<br/>Homebrew,<br/>MCP Registry"]
+    A["You merge<br/>Kitden X.Y.Z"] --> B["Tag vX.Y.Z"]
+    B --> C["PyPI and the<br/>GitHub release"]
+    C --> D["release branch,<br/>Homebrew,<br/>MCP Registry"]
 ```
 
-You do two things: start it (Kitden → Actions → "Release prep" → Run workflow) and review
-one pull request. The rest runs on its own. The tag's run shows a table of every store's
-version.
+If a store is behind a day later, the bot opens "Release vX.Y.Z is not everywhere" and says
+what to re-run. Do not open issues with the bots' titles yourself: the bot finds its issues by
+the exact title, so it would rewrite or close yours.
 
 Two switches stop it all: `AGENTS_ENABLED` (everything) and `WATCH_LIVE` (the watcher's daily
 run).
