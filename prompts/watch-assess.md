@@ -41,19 +41,18 @@ Judge the code as it is now, and only what this change causes: if the code alrea
 the new behaviour, or Kitden was wrong in the same way before this client version, the answer
 is `outdated` or `none`, not `wrong-data`.
 
-Then the severity: what does a user who trusts Kitden here end up doing?
+Then the severity, for a user who trusts what Kitden shows. Stop at the first that holds:
 
-- `major`: a wrong action with a result they did not expect. They rely on something that is
-  not so: an instruction file they think applies does not, a plugin they think runs is off, a
-  server they think is stopped loads, a denied tool is allowed, an action changes the wrong
-  thing.
-- `medium`: extra or useless steps, but nothing unexpected in the end: fixing a file that is
-  not broken, approving a server that was approved, following a hint that cannot work,
-  removing skills to make room that was not needed.
-- `minor`: what they do and how long it takes stay the same.
+1. `major`: the user now believes the client does something it does not do: loads, runs,
+   applies, allows or uses something it does not, or does not when it does.
+2. `medium`: the user's picture of what the client does is right, but Kitden leads them to a
+   step that is not needed or cannot work: fix, approve, remove, search or retry something.
+3. `minor`: neither.
 
-When two fit, take the higher one. `outdated` is always `minor`; `unknown` is `minor` unless
-the user must look the value up elsewhere to take their next step (then `medium`).
+For `breaks`: `major` when the action changes something the user did not ask for, `medium`
+when it fails with an error and changes nothing. `outdated` is always `minor`; `unknown` is
+`minor` unless the user must look the value up elsewhere to take their next step (then
+`medium`).
 
 ## The fields
 

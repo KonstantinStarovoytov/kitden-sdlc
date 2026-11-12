@@ -44,8 +44,10 @@ or folders have names like the client's.
 A gap is a new source of MCP servers, skills, plugins, hooks, marketplaces or instruction
 files on the user's computer that no row of this client is about: a new place where the
 installed client keeps them, a new kind of them (for example plugins that come built in, with
-no install), or a setting that decides which of them load. It may be new, or only named in a
-fix. One more value, spelling, file name or sub-folder of what a row already covers touches
+no install), or a setting that decides which of them load. Report it even when it is old and
+only named in a fix. A row is about something when it names the same file or key, or the same
+kind of item, and answers the same question: where it is kept, whether it is on, or who reads
+it. One more value, spelling, file name or sub-folder of what a row already covers touches
 that row: it is not a gap.
 
 For each gap give `quote` (the sentence, copied exactly), `title`, `changed`, `user_gets`
