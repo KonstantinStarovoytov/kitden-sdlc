@@ -101,7 +101,9 @@ workflows live here, and Kitden calls them. The design is
   `install.*` wait and the last tag is 7 days old (sooner when one is labelled `bug`). It
   opens "Release vX.Y.Z is not everywhere" while a store is behind or different; Homebrew
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
-  no longer holds.
+  no longer holds. Both carry the label `automated` and open with one line saying who opened
+  them, that no model wrote them and that a maintainer confirms them, then three parts: what
+  happened, what it means, what to do.
 
 Identities: three GitHub Apps, each with its own name and icon, so nobody mistakes one
 for another. Lantern (a lantern on deep teal) comments and opens issues. Kitden Beacon (a

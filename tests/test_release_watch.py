@@ -98,9 +98,9 @@ def test_drift_body_lists_table_and_what_to_rerun():
     late = [rows[1], rows[2], rows[3]]
     body = drift_body("v0.8.0", rows, late)
     assert "| MCP Registry | 0.8.0 | latest 0.7.2 | behind |" in body
-    assert "MCP Registry" in body.split("Re-run")[1]
-    assert "Homebrew formula" in body.split("Re-run")[1]
-    assert "Glama" not in body.split("Re-run")[1]
+    assert "MCP Registry" in body.split("## What to do")[1]
+    assert "Homebrew formula" in body.split("## What to do")[1]
+    assert "Glama" not in body.split("## What to do")[1]
     # kitden-sdlc's publish jobs run inside the tag's "Checks and release" run.
     assert "`Publish` run" not in body
     assert "`stores / registry` job of the tag's `Checks and release` run" in body
@@ -125,11 +125,23 @@ def test_homebrew_desc_only_says_fix_the_tap():
         False,
     )
     old = Row("Homebrew formula", "0.8.0", "0.7.2, bottles kitden-0.7.2", False)
-    body = drift_body("v0.8.0", [desc], [desc]).split("Re-run")[1]
+    body = drift_body("v0.8.0", [desc], [desc]).split("## What to do")[1]
     assert "small PR" in body and "re-running `stores / homebrew` changes nothing" in body
-    body = drift_body("v0.8.0", [old], [old]).split("Re-run")[1]
+    body = drift_body("v0.8.0", [old], [old]).split("## What to do")[1]
     assert "re-run the `stores / homebrew` job" in body and "small PR" not in body
     assert release_watch.drift_title("v0.8.0") == "Release v0.8.0 is not everywhere"
+
+
+def test_bodies_say_who_opened_them_and_have_three_parts():
+    """The owner's format for issues opened by automation (shared with the watcher)."""
+    rows = [Row("MCP Registry", "0.8.0", "latest 0.7.2", False)]
+    for body in (proposal_body([7]), drift_body("v0.8.0", rows, rows)):
+        first = body.splitlines()[0]
+        assert "release-watch" in first and "no AI model" in first
+        assert "maintainer confirms" in first
+        assert f"https://github.com/{OWNER}/kitden/blob/main/AI_POLICY.md" in first
+        heads = [line for line in body.splitlines() if line.startswith("## ")]
+        assert heads == ["## What happened", "## What it means", "## What to do"]
 
 
 # upsert
@@ -313,6 +325,8 @@ def test_gh_cli_commands(monkeypatch):
     commands = [c[0] for c in calls]
     assert all(f"{OWNER}/kitden" in cmd for cmd in commands)
     assert commands[1][:3] == ["gh", "issue", "create"]
+    assert commands[1][commands[1].index("--label") + 1] == "automated"
     assert commands[2][:4] == ["gh", "issue", "edit", "4"]
+    assert commands[2][commands[2].index("--add-label") + 1] == "automated"
     assert commands[3][:4] == ["gh", "issue", "close", "4"]
     assert all(kw.get("check") is True for _, kw in calls)
