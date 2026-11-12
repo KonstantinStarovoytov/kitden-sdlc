@@ -6,11 +6,10 @@ untrusted text, a secret and write access at once.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/sdlc-dark.svg">
-  <img src="docs/images/sdlc-light.svg" width="860" alt="Three lanes, split by one border: on the left the model reads, on the right a script writes. Review, live: Claude and Luna read a pull request, and a script posts one comment. Client watcher, measuring: Luna judges client release notes and docs, and a script opens an issue in Kitden. Release, being built: Claude drafts the release, a script opens the release pull request, the owner merges it, and scripts tag it and publish to PyPI, Homebrew, the MCP Registry and the Claude directory.">
+  <img src="docs/images/sdlc-light.svg" width="720" alt="What kitden-sdlc runs: review (live), the client watcher (measuring) and the release flow (being built). In every lane the model only reads, and a script without a model writes.">
 </picture>
 
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) [![checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)
 
 | Part | What it does | Status |
 |---|---|---|
@@ -42,7 +41,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    more than the checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
    never share a job.
-8. An agent's comment starts with the title "Agent review", so it is clear an agent wrote it.
+8. An agent's comment starts with one line saying it is automated and which model wrote it
+   (today the "Agent review" title).
 
 ## Copy this
 
@@ -63,18 +63,21 @@ Then, once:
 1. Create the repository `kitden-sdlc` (or your copy) on GitHub.
 2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`.
-4. Set the variable `AGENTS_ENABLED` to `true`. For the client watcher, set `WATCH_LIVE` to `true` only after the eval has passed.
-5. Optional: to post the comment under a bot's own name, create a GitHub App with write
-   access to pull requests, install it on the repository, and save its client id as the variable
+4. Set the variable `AGENTS_ENABLED` to `true`; it switches review, the watcher, release prep and
+   release watch. For the client watcher, set `WATCH_LIVE` to `true` only after the eval has passed.
+5. Create a GitHub App, install it on the repository, and save its client id as the variable
    `AGENTS_APP_CLIENT_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's app
-   is called Lantern. Without an app the comment comes from `github-actions`. With your own
+   is called Lantern. For the review it is optional: it posts the comment under the bot's own
+   name (write access to pull requests), and without it the comment comes from `github-actions`.
+   Release watch and the client watcher need it, with write access to issues. With your own
    app, put its bot name into `BOTS` in `post_findings.py`.
 6. For the release flow, create a second GitHub App, the release app, with contents and pull
    requests write, on your project and its Homebrew tap. Save its client id as the variable
    `RELEASE_APP_CLIENT_ID`. Create the environment `release`, limited to `main` and `v*` tags,
    and save the app's private key there as the secret `RELEASE_APP_PRIVATE_KEY`. Do not reuse
    the review app: its key is stored in kitden-sdlc. `release.yml` publishes to PyPI through a
-   Trusted Publisher and the environment `pypi`; limit `pypi` to `v*` tags.
+   Trusted Publisher and the environment `pypi`; limit `pypi` to `v*` tags. Its publish step
+   expects a Homebrew tap: Kitden's is `homebrew-tap`, named in `publish.yml`.
 
 ## More
 

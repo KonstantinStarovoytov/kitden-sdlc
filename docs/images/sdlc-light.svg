@@ -1,131 +1,131 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="860" height="362" viewBox="0 0 860 362" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="560" viewBox="0 0 720 560" role="img" aria-labelledby="title desc">
   <title id="title">What kitden-sdlc runs</title>
-  <desc id="desc">Three lanes. Review, live: a pull request is read by Claude and Luna, and a script posts one comment. Client watcher, measuring: Luna judges client release notes and docs, and a script opens an issue in Kitden. Release, being built: when main has changes, Claude drafts the release, and scripts open the release pull request; the owner merges it, a tag follows, and scripts publish to PyPI, Homebrew, the MCP Registry and the Claude directory. A border splits every lane: on the left the model reads, on the right a script writes.</desc>
+  <desc id="desc">Three lanes, split by one border: on the left the model reads, on the right a script writes. Review, live: Claude and Luna read a pull request, and Lantern posts one comment. Client watcher, measuring: Luna judges client release notes, and Lantern opens an issue in Kitden. Release, being built: when main changed, Claude drafts the release and a script opens the release pull request; the owner merges it, a tag follows, and scripts update PyPI, Homebrew, the MCP Registry and the Claude directory.</desc>
   <style>
     /* Colors for a light page. sdlc-dark.svg has the same drawing with dark colors. */
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; fill: #1f2328; }
-    .node { font-size: 18px; }
-    .lane { font-size: 16px; font-weight: 600; }
-    .store { font-size: 15px; }
-    .head { font-size: 16px; font-weight: 600; }
-    .chip { font-size: 13px; font-weight: 600; }
-    .band { fill: #f6f8fa; stroke: #d1d9e0; }
-    .box { fill: #ffffff; stroke: #d1d9e0; stroke-width: 1.5; }
-    .model { fill: #fbefff; stroke: #8250df; stroke-width: 1.5; }
-    .script { fill: #ffffff; stroke: #1a7f37; stroke-width: 1.5; }
-    .arrow { stroke: #59636e; stroke-width: 1.5; fill: none; }
+    .node { font-size: 26px; }
+    .sub { font-size: 24px; fill: #59636e; }
+    .name { font-size: 26px; font-weight: 600; }
+    .head { font-size: 26px; font-weight: 600; }
+    .chip { font-size: 24px; font-weight: 600; }
+    .small { font-size: 24px; }
+    .band { fill: #f6f8fa; stroke: #d1d9e0; stroke-width: 1.5; }
+    .pill { fill: #ffffff; stroke: #d1d9e0; stroke-width: 1.5; }
+    .box { fill: #ffffff; stroke: #d1d9e0; stroke-width: 2; }
+    .model { fill: #fbefff; stroke: #8250df; stroke-width: 2; }
+    .script { fill: #ffffff; stroke: #1a7f37; stroke-width: 2; }
+    .arrow { stroke: #59636e; stroke-width: 2; fill: none; }
     .tip { fill: #59636e; }
-    .border { stroke: #59636e; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .border { stroke: #59636e; stroke-width: 2; stroke-dasharray: 7 6; }
     .reads { fill: #8250df; }
     .writes { fill: #1a7f37; }
-    .track-m { stroke: #8250df; stroke-opacity: 0.3; stroke-width: 2; }
-    .track-s { stroke: #1a7f37; stroke-opacity: 0.3; stroke-width: 2; }
+    .edge-m { stroke: #8250df; stroke-opacity: 0.45; stroke-width: 3; }
+    .edge-s { stroke: #1a7f37; stroke-opacity: 0.45; stroke-width: 3; }
     .live { fill: #dafbe1; } .live-t { fill: #116329; }
     .meas { fill: #fff8c5; } .meas-t { fill: #7d4e00; }
     .built { fill: #ddf4ff; } .built-t { fill: #0550ae; }
     .dot { opacity: 0; fill: #8250df; }
-    /* A dot runs along each lane and turns green where it crosses the border. */
+    /* A dot runs along the bottom of each lane and turns green where it crosses the border. */
     @media (prefers-reduced-motion: no-preference) {
-      .d1 { animation: lane12 10s linear infinite; }
-      .d2 { animation: lane12 10s linear -4s infinite; }
-      .d3 { animation: lane3 14s linear -7s infinite; }
+      .d1 { animation: run 10s linear infinite; }
+      .d2 { animation: run 10s linear -4s infinite; }
+      .d3 { animation: run 14s linear -8s infinite; }
     }
-    @keyframes lane12 {
+    @keyframes run {
       0% { transform: translateX(0); opacity: 0; fill: #8250df; }
       4% { opacity: 1; }
-      51.9% { fill: #8250df; }
-      52% { fill: #1a7f37; }
+      36.3% { fill: #8250df; }
+      36.5% { fill: #1a7f37; }
       76% { opacity: 1; }
-      80% { transform: translateX(524px); opacity: 0; }
-      100% { transform: translateX(524px); opacity: 0; fill: #1a7f37; }
-    }
-    @keyframes lane3 {
-      0% { transform: translateX(0); opacity: 0; fill: #8250df; }
-      4% { opacity: 1; }
-      39.7% { fill: #8250df; }
-      39.8% { fill: #1a7f37; }
-      76% { opacity: 1; }
-      80% { transform: translateX(684px); opacity: 0; }
-      100% { transform: translateX(684px); opacity: 0; fill: #1a7f37; }
+      80% { transform: translateX(672px); opacity: 0; }
+      100% { transform: translateX(672px); opacity: 0; fill: #1a7f37; }
     }
   </style>
   <defs>
-    <marker id="tip" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+    <marker id="tip" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
       <path class="tip" d="M0,0 L8,4 L0,8 z"/>
     </marker>
   </defs>
 
   <!-- The border: the model reads on the left, a script writes on the right. -->
-  <text class="head reads" x="348" y="22" text-anchor="end">the model reads</text>
-  <text class="head writes" x="380" y="22">a script writes</text>
+  <text class="head reads" x="316" y="32" text-anchor="end">the model reads</text>
+  <text class="head writes" x="344" y="32">a script writes</text>
 
   <!-- Lane 1: review -->
-  <rect class="band" x="8" y="34" width="844" height="100" rx="12"/>
-  <text class="lane" x="24" y="58">Review</text>
-  <rect class="live" x="88" y="44" width="44" height="20" rx="10"/>
-  <text class="chip live-t" x="110" y="58.5" text-anchor="middle">live</text>
-  <rect class="box" x="24" y="68" width="146" height="50" rx="8"/>
-  <text class="node" x="97" y="99" text-anchor="middle">Pull request</text>
-  <line class="arrow" x1="170" y1="93" x2="202" y2="93" marker-end="url(#tip)"/>
-  <rect class="model" x="204" y="68" width="146" height="50" rx="8"/>
-  <text class="node" x="277" y="87" text-anchor="middle">Claude + Luna</text>
-  <text class="node" x="277" y="108" text-anchor="middle">read</text>
-  <line class="arrow" x1="350" y1="93" x2="386" y2="93" marker-end="url(#tip)"/>
-  <rect class="script" x="388" y="68" width="160" height="50" rx="8"/>
-  <text class="node" x="468" y="99" text-anchor="middle">one comment</text>
-  <line class="track-m" x1="24" y1="126" x2="364" y2="126"/>
-  <line class="track-s" x1="364" y1="126" x2="548" y2="126"/>
-  <circle class="dot d1" cx="24" cy="126" r="4.5"/>
+  <rect class="band" x="8" y="70" width="704" height="108" rx="14"/>
+  <line class="edge-m" x1="24" y1="178" x2="330" y2="178"/>
+  <line class="edge-s" x1="330" y1="178" x2="696" y2="178"/>
+  <rect class="pill" x="20" y="52" width="124" height="36" rx="18"/>
+  <text class="name" x="82" y="79" text-anchor="middle">Review</text>
+  <rect class="live" x="628" y="52" width="76" height="36" rx="18"/>
+  <text class="chip live-t" x="666" y="78" text-anchor="middle">live</text>
+  <rect class="box" x="16" y="104" width="114" height="62" rx="10"/>
+  <text class="node" x="73" y="126" text-anchor="middle">pull</text>
+  <text class="node" x="73" y="156" text-anchor="middle">request</text>
+  <line class="arrow" x1="130" y1="135" x2="160" y2="135" marker-end="url(#tip)"/>
+  <rect class="model" x="162" y="104" width="154" height="62" rx="10"/>
+  <text class="node" x="239" y="126" text-anchor="middle">Claude and</text>
+  <text class="node" x="239" y="156" text-anchor="middle">Luna read</text>
+  <line class="arrow" x1="316" y1="135" x2="342" y2="135" marker-end="url(#tip)"/>
+  <rect class="script" x="344" y="104" width="360" height="62" rx="10"/>
+  <text class="node" x="524" y="126" text-anchor="middle">one comment</text>
+  <text class="sub" x="524" y="156" text-anchor="middle">Lantern posts it</text>
+  <circle class="dot d1" cx="24" cy="178" r="7"/>
 
   <!-- Lane 2: client watcher -->
-  <rect class="band" x="8" y="144" width="844" height="100" rx="12"/>
-  <text class="lane" x="24" y="168">Client watcher</text>
-  <rect class="meas" x="142" y="154" width="86" height="20" rx="10"/>
-  <text class="chip meas-t" x="185" y="168.5" text-anchor="middle">measuring</text>
-  <rect class="box" x="24" y="178" width="146" height="50" rx="8"/>
-  <text class="node" x="97" y="197" text-anchor="middle">client release</text>
-  <text class="node" x="97" y="218" text-anchor="middle">notes and docs</text>
-  <line class="arrow" x1="170" y1="203" x2="202" y2="203" marker-end="url(#tip)"/>
-  <rect class="model" x="204" y="178" width="146" height="50" rx="8"/>
-  <text class="node" x="277" y="209" text-anchor="middle">Luna judges</text>
-  <line class="arrow" x1="350" y1="203" x2="386" y2="203" marker-end="url(#tip)"/>
-  <rect class="script" x="388" y="178" width="160" height="50" rx="8"/>
-  <text class="node" x="468" y="209" text-anchor="middle">issue in Kitden</text>
-  <line class="track-m" x1="24" y1="236" x2="364" y2="236"/>
-  <line class="track-s" x1="364" y1="236" x2="548" y2="236"/>
-  <circle class="dot d2" cx="24" cy="236" r="4.5"/>
+  <rect class="band" x="8" y="214" width="704" height="108" rx="14"/>
+  <line class="edge-m" x1="24" y1="322" x2="330" y2="322"/>
+  <line class="edge-s" x1="330" y1="322" x2="696" y2="322"/>
+  <rect class="pill" x="20" y="196" width="214" height="36" rx="18"/>
+  <text class="name" x="127" y="223" text-anchor="middle">Client watcher</text>
+  <rect class="meas" x="554" y="196" width="150" height="36" rx="18"/>
+  <text class="chip meas-t" x="629" y="222" text-anchor="middle">measuring</text>
+  <rect class="box" x="16" y="248" width="114" height="62" rx="10"/>
+  <text class="node" x="73" y="270" text-anchor="middle">release</text>
+  <text class="node" x="73" y="300" text-anchor="middle">notes</text>
+  <line class="arrow" x1="130" y1="279" x2="160" y2="279" marker-end="url(#tip)"/>
+  <rect class="model" x="162" y="248" width="154" height="62" rx="10"/>
+  <text class="node" x="239" y="270" text-anchor="middle">Luna</text>
+  <text class="node" x="239" y="300" text-anchor="middle">judges</text>
+  <line class="arrow" x1="316" y1="279" x2="342" y2="279" marker-end="url(#tip)"/>
+  <rect class="script" x="344" y="248" width="360" height="62" rx="10"/>
+  <text class="node" x="524" y="270" text-anchor="middle">issue in Kitden</text>
+  <text class="sub" x="524" y="300" text-anchor="middle">Lantern opens it</text>
+  <circle class="dot d2" cx="24" cy="322" r="7"/>
 
   <!-- Lane 3: release -->
-  <rect class="band" x="8" y="254" width="844" height="100" rx="12"/>
-  <text class="lane" x="24" y="278">Release</text>
-  <rect class="built" x="92" y="264" width="92" height="20" rx="10"/>
-  <text class="chip built-t" x="138" y="278.5" text-anchor="middle">being built</text>
-  <rect class="box" x="24" y="288" width="146" height="50" rx="8"/>
-  <text class="node" x="97" y="307" text-anchor="middle">main has</text>
-  <text class="node" x="97" y="328" text-anchor="middle">changes</text>
-  <line class="arrow" x1="170" y1="313" x2="202" y2="313" marker-end="url(#tip)"/>
-  <rect class="model" x="204" y="288" width="146" height="50" rx="8"/>
-  <text class="node" x="277" y="319" text-anchor="middle">Claude drafts</text>
-  <line class="arrow" x1="350" y1="313" x2="386" y2="313" marker-end="url(#tip)"/>
-  <rect class="script" x="388" y="288" width="112" height="50" rx="8"/>
-  <text class="node" x="444" y="319" text-anchor="middle">release PR</text>
-  <line class="arrow" x1="500" y1="313" x2="522" y2="313" marker-end="url(#tip)"/>
-  <rect class="box" x="524" y="288" width="84" height="50" rx="8"/>
-  <text class="node" x="566" y="307" text-anchor="middle">owner</text>
-  <text class="node" x="566" y="328" text-anchor="middle">merges</text>
-  <line class="arrow" x1="608" y1="313" x2="630" y2="313" marker-end="url(#tip)"/>
-  <rect class="script" x="632" y="288" width="52" height="50" rx="8"/>
-  <text class="node" x="658" y="319" text-anchor="middle">tag</text>
-  <line class="arrow" x1="684" y1="313" x2="706" y2="313" marker-end="url(#tip)"/>
-  <line class="arrow" x1="710" y1="276" x2="710" y2="347"/>
-  <text class="store" x="718" y="288">PyPI</text>
-  <text class="store" x="718" y="306">Homebrew</text>
-  <text class="store" x="718" y="324">MCP Registry</text>
-  <text class="store" x="718" y="342">Claude directory</text>
-  <line class="track-m" x1="24" y1="346" x2="364" y2="346"/>
-  <line class="track-s" x1="364" y1="346" x2="708" y2="346"/>
-  <circle class="dot d3" cx="24" cy="346" r="4.5"/>
+  <rect class="band" x="8" y="358" width="704" height="194" rx="14"/>
+  <line class="edge-m" x1="24" y1="552" x2="330" y2="552"/>
+  <line class="edge-s" x1="330" y1="552" x2="696" y2="552"/>
+  <rect class="pill" x="20" y="340" width="130" height="36" rx="18"/>
+  <text class="name" x="85" y="367" text-anchor="middle">Release</text>
+  <rect class="built" x="544" y="340" width="160" height="36" rx="18"/>
+  <text class="chip built-t" x="624" y="366" text-anchor="middle">being built</text>
+  <rect class="box" x="16" y="392" width="114" height="62" rx="10"/>
+  <text class="node" x="73" y="414" text-anchor="middle">main</text>
+  <text class="node" x="73" y="444" text-anchor="middle">changed</text>
+  <line class="arrow" x1="130" y1="423" x2="160" y2="423" marker-end="url(#tip)"/>
+  <rect class="model" x="162" y="392" width="154" height="62" rx="10"/>
+  <text class="node" x="239" y="414" text-anchor="middle">Claude</text>
+  <text class="node" x="239" y="444" text-anchor="middle">drafts</text>
+  <line class="arrow" x1="316" y1="423" x2="342" y2="423" marker-end="url(#tip)"/>
+  <rect class="script" x="344" y="392" width="100" height="62" rx="10"/>
+  <text class="node" x="394" y="414" text-anchor="middle">release</text>
+  <text class="node" x="394" y="444" text-anchor="middle">PR</text>
+  <text class="small" x="535" y="413" text-anchor="middle">owner merges</text>
+  <line class="arrow" x1="444" y1="423" x2="626" y2="423" marker-end="url(#tip)"/>
+  <rect class="script" x="628" y="392" width="76" height="62" rx="10"/>
+  <text class="node" x="666" y="432" text-anchor="middle">tag</text>
+  <line class="arrow" x1="666" y1="454" x2="666" y2="480" marker-end="url(#tip)"/>
+  <text class="small writes" x="654" y="475" text-anchor="end">update</text>
+  <line class="arrow" x1="352" y1="484" x2="704" y2="484"/>
+  <text class="small" x="352" y="510">PyPI</text>
+  <text class="small" x="352" y="540">MCP Registry</text>
+  <text class="small" x="510" y="510">Homebrew</text>
+  <text class="small" x="510" y="540">Claude directory</text>
+  <circle class="dot d3" cx="24" cy="552" r="7"/>
 
   <!-- Drawn last, so it runs over every lane. -->
-  <line class="border" x1="364" y1="32" x2="364" y2="356"/>
+  <line class="border" x1="330" y1="44" x2="330" y2="556"/>
 </svg>
