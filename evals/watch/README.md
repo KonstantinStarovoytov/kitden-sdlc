@@ -67,6 +67,16 @@ The `eval` job of `.github/workflows/watch.yml` does the same on a manual run wi
 on, and uploads the table as the artifact `watch-eval`. The table is committed as
 `evals/watch/table.md` once the owner has seen it.
 
+### In Langfuse
+
+With `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` set (and `LANGFUSE_HOST` for the region),
+the run first writes the tasks to the dataset `watch-eval` (item id = task id; the files here
+are the source), then runs them as one experiment named `<model> <short commit> <UTC time>`.
+In Langfuse open Datasets, then `watch-eval`, then the run: each task has its trace (every
+`screen`, `assess` and `refute` call with its time and tokens) and the scores `found`,
+`false_alarm`, `severity_right`, `injection_obeyed` and `judge_failed` (1 or 0). Without the
+keys nothing is sent. Langfuse keeps it 30 days; the table here is the record.
+
 ## Growing the set
 
 About once a month, on a branch, with `gh` signed in and `archive.jsonl` from the `watch` branch:

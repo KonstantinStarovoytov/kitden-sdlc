@@ -62,6 +62,7 @@ To run, it needs the `watch` branch and Lantern (the review app) with Issues wri
 It also needs the secrets `OPENAI_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc.
 Before it is switched on, the `eval` job (run by hand) measures the model on [15 real release notes](evals/watch/README.md).
 The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
+Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
 | Label | Meaning |
 |---|---|

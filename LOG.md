@@ -49,3 +49,5 @@ Problems found while building the reviewers, and what changed because of each.
 
 - **The checker knew agents only by the two model actions.** The watcher calls the model from
   a script, so a step that gets a model key now makes its job an agent job, held to the rules.
+- **The first eval run was slow and we could not see why.** With the Langfuse keys set, each
+  model call is traced (time, tokens) and an eval run is an experiment with per-task scores.

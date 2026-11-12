@@ -234,11 +234,19 @@ The set grows from real cases (owner, 2026-11-11). The owner closes an urgent is
 and they come to `evals/` as a pull request. Summary items are not collected this way yet:
 one issue holds many of them (call).
 
+Traces and experiments go to Langfuse (cloud, free plan), only when its keys are set: each
+model call with its time and tokens, and each eval run with the scores of each task. Only the
+`eval` job gets the keys, so the daily run is not traced. Langfuse
+keeps them 30 days; the long record stays in the repo and on the `watch` branch. The prompts
+stay in git. What is sent there is public release notes and Kitden's public code.
+
 ### 10. What only the owner does
 
 - Saves `OPENAI_API_KEY`, `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY` in `kitden-sdlc`
   and sets `AGENTS_ENABLED` there.
 - Sets `WATCH_LIVE` to `true` after seeing the eval table; until then the daily watcher is off.
+- Optional: saves `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and sets the variable
+  `LANGFUSE_HOST` (the region's address) for traces and experiments in Langfuse.
 - Lets Lantern read and write issues in `kitden`.
 - Approves `docs/clients.md` in `kitden`.
 
