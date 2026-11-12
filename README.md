@@ -49,7 +49,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 Put [agents-review.yml](examples/agents-review.yml) and [agents-check.yml](examples/agents-check.yml)
 in your `.github/workflows/`. For the release flow, add [release.yml](examples/release.yml),
 [release-watch.yml](examples/release-watch.yml) and [release-prep.yml](examples/release-prep.yml).
-They are Kitden's own files; the `uses` pins are bumped at each release.
+They are Kitden's own files; the `uses` pins are bumped at each release. The one-time
+GitHub App, environment and rule setup is in [release-setup.md](docs/release-setup.md).
 
 - `kitden-sdlc`, or your copy of it, must be public: another repository's `uses` cannot
   reach a private one.

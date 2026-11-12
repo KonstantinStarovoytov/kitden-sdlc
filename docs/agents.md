@@ -103,6 +103,8 @@ variable `RELEASE_APP_CLIENT_ID`. Only the jobs that tag, move the branch, open 
 pull request and open the Homebrew pull request name that environment. No job that runs a
 model holds the release key: the agent's files are only data to the job that commits them.
 Lantern's key lives in kitden-sdlc for the watcher, so Lantern gets no write access to code.
+The owner's one-time setup of the app, environments and rules is in
+[release-setup.md](release-setup.md).
 
 ## What went wrong
 
