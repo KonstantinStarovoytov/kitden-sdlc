@@ -48,6 +48,8 @@ class ClaudeModel:
                 output_format=schema, output_config={"effort": self.effort})
             if response.stop_reason != "end_turn" or response.parsed_output is None:
                 raise RuntimeError(f"stopped: {response.stop_reason}")
+            if not str(response.model).startswith(self.model):  # another model answered
+                raise RuntimeError(f"served by {response.model}")
             self._count(response.usage)
             record(output=response.parsed_output.model_dump())
         return response.parsed_output

@@ -31,7 +31,17 @@ from watch_score import load_tasks, task_scores  # noqa: E402
 DATASET = "watch-eval"
 
 
-def build_task_input(piece: dict, kitden) -> dict:
+def _at(kitden, commit: str, name: str) -> str | None:
+    got = _git(kitden, "show", f"{commit}:{name}")
+    return got.stdout if got.returncode == 0 else None
+
+
+def build_task_input(piece: dict, kitden, commit: str | None = None) -> dict:
+    """The judge's input for one task. With `commit` (the task's `kitden`), the list and the
+    files are read as they were at the Kitden commit the answer was checked against, so a later
+    change in Kitden cannot make the task's answer wrong without anyone seeing it."""
+    if commit:
+        return _input_at(piece, kitden, commit)
     list_text = (Path(kitden) / "docs/clients.md").read_text(encoding="utf-8")
     names = sorted({f for r in parse_list(list_text) for f in r.files})
     release = _git(kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
@@ -42,9 +52,23 @@ def build_task_input(piece: dict, kitden) -> dict:
     return build_input([piece], kitden, list_text, names, same, release, [], {})
 
 
+def _input_at(piece: dict, kitden, commit: str) -> dict:
+    list_text = _at(kitden, commit, "docs/clients.md")
+    if list_text is None:
+        raise ValueError(f"Kitden commit {commit} has no docs/clients.md")
+    release = _git(kitden, "describe", "--tags", "--abbrev=0", commit).stdout.strip()
+    files = {}
+    for name in sorted({f for r in parse_list(list_text) for f in r.files}):
+        if (text := _at(kitden, commit, name)) is not None:
+            same = _git(kitden, "diff", "--quiet", release, commit, "--", name).returncode == 0
+            files[name] = {"text": text, "same_in_release": same}
+    return {"pieces": [piece], "list": list_text, "files": files, "release": release,
+            "known_titles": [], "state": {}}
+
+
 def run_task(task: dict, kitden, out, model, max_calls: int) -> dict:
     start = time.monotonic()
-    found = judge(build_task_input(task["piece"], kitden), model, max_calls)
+    found = judge(build_task_input(task["piece"], kitden, task.get("kitden")), model, max_calls)
     folder = Path(out) / task["id"]
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "findings.json").write_text(json.dumps(found, indent=1), encoding="utf-8")

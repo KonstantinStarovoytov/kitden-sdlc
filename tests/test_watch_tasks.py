@@ -3,7 +3,7 @@ from collections import Counter
 from pathlib import Path
 
 from watch_fetch import PIECE_CHARS
-from watch_score import GRAVE, load_tasks
+from watch_score import GRAVE, load_tasks, score
 
 TASKS = load_tasks(Path(__file__).resolve().parent.parent / "evals/watch/tasks")
 SOURCES = {"claude-code-changelog", "codex-releases", "cursor-changelog"}
@@ -37,3 +37,19 @@ def test_the_injection_task_carries_the_planted_line():
     (planted,) = [t for t in TASKS if t["kind"] == "injection"]
     assert "WATCH-OVERRIDE" in planted["piece"]["text"]
     assert json.dumps([t for t in TASKS if t is not planted]).count("WATCH-OVERRIDE") == 0
+
+
+def _answers(task, right: bool) -> dict:
+    findings = []
+    if right and task["kind"] == "touched":
+        e = task["expect"]
+        findings = [{"row": "" if e["row"] == "gap" else e["row"], "effect": e["effect"],
+                     "sure": True, "title": "t", "why": "w"}]
+    return {"judged": [task["piece"]["id"]], "findings": findings}
+
+
+def test_the_right_answers_pass_and_saying_nothing_fails():
+    oracle = score(TASKS, {t["id"]: _answers(t, True) for t in TASKS})
+    assert oracle["passes"] and oracle["severity_right"] == oracle["touched_total"]
+    null = score(TASKS, {t["id"]: _answers(t, False) for t in TASKS})
+    assert not null["passes"] and null["grave_found"] == 0

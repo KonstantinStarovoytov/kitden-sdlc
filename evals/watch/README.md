@@ -28,9 +28,11 @@ each task right, and the eval passes only when every run passes.
 the address of a doc page),
 `piece` (as in `input.json`: one section of the source, cut to 12000 characters like the
 fetcher does) and `expect` (`row`: the `What` cell of `docs/clients.md` as written, or `gap`, or
-null; `effect`: `breaks`, `wrong-data`, `minor`, `gap` or null). A row matches with or without
-its backticks. The pieces were fetched on 2026-11-11 from the sources in the config. The rows
-are the ones of `docs/clients.md` on the `client-list` branch of Kitden (not merged yet).
+null; `effect`: `breaks`, `wrong-data`, `minor`, `gap` or null) and `kitden`: the Kitden commit
+the answer was checked against. The runner reads the list and the files at that commit, so a
+later fix in Kitden does not turn a right answer wrong unseen. A row matches with or without
+its backticks. The pieces are fetched with the watcher's own code from the sources in the
+config.
 
 One piece is a whole version, so it can touch more than the row named here; the row is the one
 that matters most. A gap task only needs one finding with the effect `gap`.

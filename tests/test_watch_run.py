@@ -1,5 +1,6 @@
 import json
 import logging
+import subprocess
 import sys
 import types
 from datetime import UTC, datetime
@@ -193,11 +194,11 @@ def test_a_task_that_raises_runs_twice_at_most_and_still_fails_the_run(tmp_path,
     fake_langfuse(monkeypatch, FakeLangfuse())
     real, tries = watch_run.build_task_input, []
 
-    def build(piece, kitden):
+    def build(piece, kitden, commit=None):
         tries.append(piece["id"])
         if piece["id"] == "s#2":
             raise RuntimeError("clone text sk-test")
-        return real(piece, kitden)
+        return real(piece, kitden, commit)
 
     monkeypatch.setattr(watch_run, "build_task_input", build)
     model = Fake()
@@ -218,3 +219,29 @@ def test_several_runs_go_to_their_own_folders_and_experiments(tmp_path, monkeypa
     for n in (1, 2):
         assert (out / f"run-{n}/001-a/findings.json").exists()
     assert not (out / "001-a").exists() and client.run[1].endswith(" run 2")
+
+
+def git(folder, *args):
+    subprocess.run(["git", "-C", str(folder), *args], check=True, capture_output=True)
+
+
+def test_a_pinned_task_reads_kitden_as_it_was_at_its_commit(tmp_path):
+    kitden = tmp_path / "kitden"
+    (kitden / "docs").mkdir(parents=True)
+    (kitden / "src").mkdir()
+    (kitden / "docs/clients.md").write_text(LIST_TEXT)
+    (kitden / "src/skills.py").write_text("old = 1\n")
+    git(kitden, "init", "-q")
+    git(kitden, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "a", "--allow-empty")
+    git(kitden, "add", "-A")
+    git(kitden, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "b")
+    git(kitden, "tag", "v1")
+    pinned = subprocess.run(["git", "-C", str(kitden), "rev-parse", "HEAD"], check=True,
+                            capture_output=True, text=True).stdout.strip()
+    (kitden / "src/skills.py").write_text("new = 2\n")
+    git(kitden, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "c")
+    inp = watch_run.build_task_input(PIECE, kitden, pinned)
+    assert inp["files"]["src/skills.py"] == {"text": "old = 1\n", "same_in_release": True}
+    assert inp["release"] == "v1" and inp["list"] == LIST_TEXT
+    unpinned = watch_run.build_task_input(PIECE, kitden)
+    assert unpinned["files"]["src/skills.py"]["text"] == "new = 2\n"

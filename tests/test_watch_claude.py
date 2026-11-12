@@ -30,7 +30,8 @@ class Client:
         }[schema]
         usage = types.SimpleNamespace(input_tokens=1000, cache_creation_input_tokens=2000,
                                       cache_read_input_tokens=10000, output_tokens=500)
-        return types.SimpleNamespace(stop_reason=self.stop, parsed_output=out, usage=usage)
+        return types.SimpleNamespace(stop_reason=self.stop, parsed_output=out, usage=usage,
+                                     model=request["model"])
 
 
 @pytest.fixture
