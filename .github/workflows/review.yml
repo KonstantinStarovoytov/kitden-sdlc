@@ -138,7 +138,9 @@ jobs:
   luna:
     needs: cap
     if: needs.cap.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: on the ubuntu26 image the action's drop-sudo step fails before the
+    # model runs (openai/codex-action#188). Back to ubuntu-latest once that is fixed.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read # check out the code
@@ -225,6 +227,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read # compare the last reviewed commit with this one
       pull-requests: write # post the comment
     steps:
       # Without these two the checkout below would fall back to the pull request's code.
@@ -269,9 +272,13 @@ jobs:
           client-id: ${{ inputs.app_client_id }}
           private-key: ${{ secrets.app_private_key }}
           permission-pull-requests: write
+      # The comment keeps the findings of earlier runs. GH_READ_TOKEN compares the commit
+      # the last run reviewed with this one, to tell which of them were fixed since; the
+      # app's token may only write to pull requests.
       - name: Post the review
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          GH_READ_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

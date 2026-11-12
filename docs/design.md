@@ -173,7 +173,9 @@ comparison in part 6.
 - One review comment per pull request for both reviewers, with no inline comments, edited in
   place on later pushes (owner, 2026-11-10: no comment spam, one short plain review). Each
   finding is one line with a link to the file and line; a finding both reviewers made is
-  listed once. Until a product guard exists, the comment says when a change adds something a
+  listed once. Each run reviews the whole change again and the models vary, so a finding
+  the latest run does not repeat stays, marked fixed only when its lines changed (owner,
+  2026-11-12). Until a product guard exists, the comment says when a change adds something a
   user can see or set: a route, a command, a setting, a page element, a dependency. This is
   a note for the owner, not a verdict (call).
 - It never approves, requests changes or pushes.
