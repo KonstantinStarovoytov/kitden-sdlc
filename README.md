@@ -8,11 +8,6 @@ AI reviewers, a client watcher and a release flow for
 [Kitden](https://github.com/KonstantinStarovoytov/kitden), with rules so no agent job holds
 untrusted text, a secret and write access at once.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/sdlc-dark.svg">
-  <img src="docs/images/sdlc-light.svg" width="720" alt="Who does what: you decide, a model (Claude, Luna) only reads and writes text, a bot (Lantern, Kitden Beacon, Kitden Kettle) posts and publishes. Review: the models read a pull request, Lantern comments, you fix or merge. Client watcher: Claude reads the clients' release notes, Lantern opens an issue, you confirm or close it. Release: you start it, Claude drafts, Beacon opens the pull request, you merge; then Beacon publishes and Kettle updates Homebrew.">
-</picture>
-
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) [![checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)
 
 | Part | What it does | Status |
@@ -49,27 +44,33 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 
 Bots never write `@name`. Every issue a bot opens has the label `automated`.
 
-## How to release
+### Review
 
-You never open an issue for a release. You press one button and merge one pull request.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/review-dark.svg">
+  <img src="docs/images/review-light.svg" width="720" alt="Review: you open a pull request; a daily cap of 10; Claude Sonnet 5.5 and GPT-6 Luna each read the change on their own; Lantern merges both reviews into one comment, keeping fixed findings marked; you fix or merge, and it never approves or blocks.">
+</picture>
 
-1. In Kitden on GitHub: **Actions → Release prep → Run workflow**. Keep "Use workflow from" on
-   `main`, leave the version empty (the agent picks it), press the green **Run workflow**.
-   When the bot's issue "Time for a release?" is open, its link takes you to the same page.
-2. Wait for the pull request **Kitden X.Y.Z** from Kitden Beacon. Read it, edit it if you want,
-   merge it.
-3. Done. The rest runs on its own:
+### Client watcher
 
-```mermaid
-flowchart LR
-    A["You merge<br/>Kitden X.Y.Z"] --> B["Tag vX.Y.Z"]
-    B --> C["PyPI and the<br/>GitHub release"]
-    C --> D["release branch,<br/>Homebrew,<br/>MCP Registry"]
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/watcher-dark.svg">
+  <img src="docs/images/watcher-light.svg" width="720" alt="Client watcher: every day at 05:17 UTC a script fetches the new parts of the release notes and docs of Claude Code, Codex and Cursor; Claude Sonnet 5.5 checks every row of Kitden's list with a quote, reads Kitden's code for a type and a severity, and takes a second look at a sure break or wrong data; Lantern opens an issue for a sure major one at once (two a week at most) and puts the rest in Monday's summary; you confirm it or close it as a false alarm.">
+</picture>
 
-If a store is behind a day later, the bot opens "Release vX.Y.Z is not everywhere" and says
-what to re-run. Do not open issues with the bots' titles yourself: the bot finds its issues by
-the exact title, so it would rewrite or close yours.
+
+### Release
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/release-dark.svg">
+  <img src="docs/images/release-light.svg" width="720" alt="Release: you start Release prep; a script gathers the changes; Claude drafts the release notes, README and policy edits; a script checks and prepares; Beacon opens the pull request Kitden X.Y.Z; you review and merge it; Beacon tags it; the build is tested on Linux and macOS, then goes to PyPI and the GitHub release; Beacon moves the release branch and opens the Homebrew pull request; the MCP Registry is published and a table of every store follows. Every day Kettle keeps the Homebrew formula up to date and Lantern opens an issue when a store is behind or a release is due.">
+</picture>
+
+You never open an issue for a release. In Kitden on GitHub: **Actions → Release prep → Run
+workflow**, keep "Use workflow from" on `main`, leave the version empty, press the green
+**Run workflow**. Then review and merge the pull request **Kitden X.Y.Z**. The bot's issue
+"Time for a release?" links to the same page. Do not open issues with the bots' titles
+yourself: the bot finds its issues by the exact title and would rewrite or close yours.
 
 Two switches stop it all: `AGENTS_ENABLED` (everything) and `WATCH_LIVE` (the watcher's daily
 run).
