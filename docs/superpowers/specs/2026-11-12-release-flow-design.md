@@ -85,10 +85,16 @@ Lantern's private key is stored in kitden-sdlc for the client watcher. So Lanter
 write access to Kitden's code or to the tap: whoever holds a key that can push a `v*` tag can
 publish to PyPI.
 
-- **A new release-only GitHub App** (the release app), installed on `kitden` (contents and
-  pull-requests write) and on `homebrew-tap` (contents and pull-requests write). Its private
-  key is stored only in Kitden, as a secret of a new environment `release`. Only the auto-tag,
-  open-pr and Homebrew jobs use that environment. No model job does.
+- **A new release-only GitHub App** (the release app), installed on `kitden` (contents,
+  pull-requests and workflows write) and on `homebrew-tap` (contents and pull-requests write).
+  Workflows write, because GitHub refuses an app's tag or branch move whose commits change
+  `.github/workflows` without it (Ruling 21). Its private key is stored only in Kitden, as a
+  secret of a new environment `release`. Only the auto-tag, release-branch, open-pr and
+  Homebrew jobs use that environment. No model job does.
+- **A tap-only GitHub App** (`kitden-tap-bump`, contents and pull-requests write, installed
+  only on `homebrew-tap`) for the tap's autobump, which runs `brew bump`, code from outside the
+  tap. Its key (`TAP_APP_PRIVATE_KEY`) is the only app key stored in the tap; the release app's
+  key never is (Ruling 20).
 - **Why an app at all:** a tag or PR made with `GITHUB_TOKEN` starts no workflows, and
   Kitden does not let Actions create PRs ("can_approve_pull_request_reviews": false).
 - **Harden what exists** (state checked 2026-11-12): the `pypi` environment has no protection
@@ -227,8 +233,8 @@ So:
    the release app. It dispatches `publish.yml` with the PR number and head SHA. Fork PRs never
    qualify. After it, the bottle block's `root_url` is checked. Builder: the tap's
    `autobump.yml` opens its PRs with `GITHUB_TOKEN`, and such PRs start no workflows, so
-   `tests.yml` may not run on them today. If it does not, autobump uses the release app's
-   token instead.
+   `tests.yml` may not run on them today. If it does not, autobump uses the tap app's token
+   instead (never the release app's: Ruling 20), and step 1 also accepts the tap app's bot.
 2. **From the release:** if Kitden's runtime dependencies did not change since the last tag,
    the `publish` workflow edits `url` and `sha256` (and `desc`, when it differs from
    `listing.toml`'s `brew`) in `Formula/kitden.rb` on a branch `bump-kitden-X.Y.Z` in the tap

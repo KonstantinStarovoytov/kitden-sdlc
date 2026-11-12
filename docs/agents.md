@@ -88,7 +88,9 @@ workflows live here, and Kitden calls them. The design is
   job moves Kitden's `release` branch to the tag and another opens the formula pull request in
   the Homebrew tap. A third publishes `server.json` to the MCP Registry with GitHub's OIDC
   token and no secret. The last job writes a table of every store's version to the job summary.
-  The Claude directory and Kitden's marketplaces read the `release` branch.
+  The Claude directory and Kitden's marketplaces read the `release` branch. It has no run of
+  its own: its jobs show inside the tag's Checks and release run as `stores / registry`,
+  `stores / release-branch`, `stores / homebrew` and `stores / summary`.
 - [release-watch.yml](../.github/workflows/release-watch.yml): once a day, no model. Lantern
   opens or updates "Time for a release?" while merged changes to `src/`, `plugins/` or
   `install.*` wait and the last tag is 7 days old (sooner when one is labelled `bug`). It
@@ -97,12 +99,18 @@ workflows live here, and Kitden calls them. The design is
   no longer holds.
 
 Identities: the release app is a second GitHub App, apart from Lantern. It can write contents
-and pull requests in Kitden and in the tap. Its private key is stored only in Kitden, as the
-secret `RELEASE_APP_PRIVATE_KEY` of the environment `release`, and its client id is the
-variable `RELEASE_APP_CLIENT_ID`. Only the jobs that tag, move the branch, open the release
-pull request and open the Homebrew pull request name that environment. No job that runs a
-model holds the release key: the agent's files are only data to the job that commits them.
-Lantern's key lives in kitden-sdlc for the watcher, so Lantern gets no write access to code.
+and pull requests in Kitden and in the tap, and workflows in Kitden (GitHub refuses an app's
+tag or branch move whose commits change `.github/workflows` otherwise). Its private key is
+stored only in Kitden, as the secret `RELEASE_APP_PRIVATE_KEY` of the environment `release`,
+and its client id is the variable `RELEASE_APP_CLIENT_ID`. Only the jobs that tag, move the
+branch, open the release pull request and open the Homebrew pull request name that
+environment. No job that runs a model holds the release key: the agent's files are only data
+to the job that commits them. Lantern's key lives in kitden-sdlc for the watcher, so Lantern
+gets no write access to code. The tap has a third app of its own, `kitden-tap-bump` (contents
+and pull requests write, on the tap only), whose key `TAP_APP_PRIVATE_KEY` is the only app key
+stored in the tap: its daily autobump runs `brew bump`, code from outside the tap, so it must
+never hold the release key. The tap's auto-pull accepts bump pull requests from the release
+app's bot (`RELEASE_APP_BOT`), the tap app's bot (`TAP_APP_BOT`) and `github-actions[bot]`.
 The owner's one-time setup of the app, environments and rules is in
 [release-setup.md](release-setup.md).
 

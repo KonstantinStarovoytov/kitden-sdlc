@@ -72,13 +72,20 @@ Then, once:
    name (write access to pull requests), and without it the comment comes from `github-actions`.
    Release watch and the client watcher need it, with write access to issues. With your own
    app, put its bot name into `BOTS` in `post_findings.py`.
-6. For the release flow, create a second GitHub App, the release app, with contents and pull
-   requests write, on your project and its Homebrew tap. Save its client id as the variable
-   `RELEASE_APP_CLIENT_ID`. Create the environment `release`, limited to `main` and `v*` tags,
-   and save the app's private key there as the secret `RELEASE_APP_PRIVATE_KEY`. Do not reuse
-   the review app: its key is stored in kitden-sdlc. `release.yml` publishes to PyPI through a
-   Trusted Publisher and the environment `pypi`; limit `pypi` to `v*` tags. Its publish step
-   expects a Homebrew tap: Kitden's is `homebrew-tap`, named in `publish.yml`.
+6. For the release flow, create a second GitHub App, the release app, with contents, pull
+   requests and workflows write, on your project and its Homebrew tap. Save its client id as
+   the variable `RELEASE_APP_CLIENT_ID`. Create the environment `release`, limited to `main`
+   and `v*` tags, and save the app's private key there, and only there, as the secret
+   `RELEASE_APP_PRIVATE_KEY`. Do not reuse the review app: its key is stored in kitden-sdlc.
+   `release.yml` publishes to PyPI through a Trusted Publisher and the environment `pypi`;
+   limit `pypi` to `v*` tags. Its publish step expects a Homebrew tap: Kitden's is
+   `homebrew-tap`, named in `publish.yml`. The tap needs its own setup too: a third app, the
+   tap app (Kitden's is `kitden-tap-bump`), with contents and pull requests write, installed on
+   the tap only, for the tap's daily `brew bump`. In the tap, save the variables
+   `TAP_APP_CLIENT_ID`, `TAP_APP_BOT` (the tap app's bot login) and `RELEASE_APP_BOT` (the
+   release app's), and the secret `TAP_APP_PRIVATE_KEY`. Never store the release app's key in
+   the tap: `brew bump` runs code from outside it. Every step, with exact names:
+   [release-setup.md](docs/release-setup.md).
 
 ## More
 
