@@ -15,7 +15,7 @@
  },
  "expect": {
   "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers`, `disabledMcpjsonServers` and `enableAllProjectMcpServers` in `~/.claude.json`",
-  "effect": "minor"
+  "effect": "wrong-data"
  },
  "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }
