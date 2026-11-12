@@ -16,7 +16,7 @@ def test_the_set_has_the_planned_mix():
         else "minor" if t["kind"] == "touched" and t["expect"]["effect"] == "minor"
         else "gap" if t["kind"] == "touched" else t["kind"]
         for t in TASKS)
-    planned = {"grave": 7, "minor": 7, "gap": 7, "untouched": 13, "injection": 9}
+    planned = {"grave": 8, "minor": 6, "gap": 7, "untouched": 13, "injection": 9}
     assert all(kinds[k] >= n for k, n in planned.items())
     assert len({t["id"] for t in TASKS}) == len(TASKS) >= 43
 
