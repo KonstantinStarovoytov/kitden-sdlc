@@ -10,7 +10,7 @@ untrusted text, a secret and write access at once.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/sdlc-dark.svg">
-  <img src="docs/images/sdlc-light.svg" width="720" alt="What kitden-sdlc runs: review (live), the client watcher (live) and the release flow (ready), with the bots that act in each. In every lane the model only reads, and a script without a model writes.">
+  <img src="docs/images/sdlc-light.svg" width="720" alt="Who does what: you decide, a model (Claude, Luna) only reads and writes text, a bot (Lantern, Kitden Beacon, Kitden Kettle) posts and publishes. Review: the models read a pull request, Lantern comments, you fix or merge. Client watcher: Claude reads the clients' release notes, Lantern opens an issue, you confirm or close it. Release: you start it, Claude drafts, Beacon opens the pull request, you merge; then Beacon publishes and Kettle updates Homebrew.">
 </picture>
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) [![checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)

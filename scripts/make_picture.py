@@ -3,10 +3,11 @@
 Run: uv run --with fonttools --with brotli python scripts/make_picture.py [--font PATH]
 
 Writes docs/images/sdlc-light.svg and sdlc-dark.svg. The look follows Kitden's docs/design.md:
-the map's blocks, sockets and links, the lamps, the Quiet Den colors and Inter. Text is drawn
+the map's blocks, sockets and links, the lamps, the Quiet Den colors and Inter. It shows who
+does what: you decide, a model only reads and writes text, a bot posts and publishes. Text is drawn
 as outlines from Kitden's Inter (SIL OFL 1.1), because GitHub shows the SVG through <img>,
 where no web font loads. Motion follows Kitden's rule "point, don't move": each lane's path
-lights up in the route color, its links draw from left to right, and the bot that acts there
+lights up in the route color, its links draw from left to right, and whoever acts there
 nods; then the picture rests. Live lanes breathe. It is still under reduced motion. The bots'
 marks are the app icons of docs/images/apps without their backgrounds.
 """
@@ -60,14 +61,9 @@ THEMES = {
 }
 
 W = 720
-COLS = {"in": (16, 150), "model": (190, 164), "out": (388, 152), "next": (562, 142)}
-WIDE = 316  # "out" stretched to the right edge
-BORDER_X = 371
-BLOCK_H = 78
 CYCLE = 13.0  # seconds: three lanes light one after another, then the picture rests
 LANE_STEP = 2.6  # seconds between lanes
 STEP = 0.32  # seconds between the parts of one lane
-ICON = 34  # a bot's mark in a block
 
 # The bots' marks, on a clear background: their <defs> go into the picture.
 MARKS = ROOT / "docs/images/apps/marks.svg"
@@ -114,28 +110,6 @@ def fits(ink, text, size, weight, room):
         raise SystemExit(f"{text!r} is {width:.0f} wide, room is {room}")
 
 
-def block(ink, col, y, title, sub, lit, w=None, bot=None):
-    x, width = COLS[col]
-    width = w or width
-    room = width - 28 - (ICON + 8 if bot else 0)
-    fits(ink, title, 21, 600, room)
-    fits(ink, sub, 18, 400, room)
-    parts = [
-        f'<rect class="block" x="{x}" y="{y}" width="{width}" height="{BLOCK_H}" rx="10"/>',
-        f'<rect class="lit-block {lit}" x="{x}" y="{y}" width="{width}" '
-        f'height="{BLOCK_H}" rx="10"/>',
-        f'<path class="t" d="{ink.path(title, x + 14, y + 33, 21, 600)}"/>',
-        f'<path class="s" d="{ink.path(sub, x + 14, y + 59, 18, 400)}"/>',
-    ]
-    if bot:
-        ix, iy = x + width - 14 - ICON, y + (BLOCK_H - ICON) / 2
-        parts.append(f'<circle class="halo {lit}" cx="{ix + ICON / 2}" cy="{iy + ICON / 2}" '
-                     f'r="{ICON / 2 + 6}"/>')
-        parts.append(f'<g class="bot {lit}-nod"><use href="#{bot}" x="{ix}" y="{iy}" '
-                     f'width="{ICON}" height="{ICON}"/></g>')
-    return parts
-
-
 def link(x1, x2, y, cls):
     mid = (x1 + x2) / 2
     d = f"M{x1} {y}C{mid} {y} {mid} {y} {x2} {y}"
@@ -154,26 +128,6 @@ def lamp(kind, cx, cy):
     return [f'<circle class="{cls}" cx="{cx}" cy="{cy}" r="4.5"/>']
 
 
-def lane(ink, top, name, state, lamp_kind):
-    parts = lamp(lamp_kind, 22, top + 18)
-    parts.append(f'<path class="t" d="{ink.path(name, 36, top + 26, 22, 600)}"/>')
-    x = 36 + ink.width(name, 22, 600) + 10
-    parts.append(f'<path class="s" d="{ink.path(state, x, top + 26, 19, 400)}"/>')
-    return parts
-
-
-def chip(ink, x, y, text, bot=None):
-    pad = 12 + (22 if bot else 0)
-    w = ink.width(text, 17, 400) + 12 + pad
-    parts = [
-        f'<rect class="chip" x="{x}" y="{y}" width="{w:.1f}" height="32" rx="16"/>',
-        f'<path class="c" d="{ink.path(text, x + pad, y + 22, 17, 400)}"/>',
-    ]
-    if bot:
-        parts.append(f'<use href="#{bot}" x="{x + 9}" y="{y + 6}" width="20" height="20"/>')
-    return parts, w
-
-
 def css(theme, lanes):
     c = THEMES[theme]
     rules = [
@@ -188,6 +142,7 @@ def css(theme, lanes):
         f".group{{fill:none;stroke:{c['off']};stroke-opacity:.6;stroke-width:1.5;"
         "stroke-dasharray:5 4}",
         f".lamp-on{{fill:{c['on']}}}",
+        f".who-you{{color:{c['ink2']}}}.who-model{{color:{c['route']}}}",
         f".lamp-unk{{fill:none;stroke:{c['warn']};stroke-width:1.5;stroke-dasharray:2.5 2}}",
         f".lamp-pv{{fill:none;stroke:{c['route']};stroke-width:1.5;stroke-dasharray:2.5 2}}",
         f".lit{{fill:none;stroke:{c['route']};stroke-width:2.5;stroke-linecap:round;"
@@ -214,95 +169,157 @@ def css(theme, lanes):
     return "\n".join(rules)
 
 
+# Two more marks for the legend and the cards: you, and a model. They take the text color.
+PEOPLE = """
+<symbol id="you" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2" fill="currentColor"/>
+<path fill="currentColor" d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5Z"/></symbol>
+<symbol id="model" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.5c.6 4.6 2.9 6.9
+7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z"/>
+<circle cx="19" cy="18.5" r="2" fill="currentColor"/></symbol>
+"""
+CARD_H = 92
+GAP = 22
+MARGIN = 16
+
+
+def mark(who, x, y, size, cls):
+    """The mark of whoever acts: a bot's icon, a model's spark or a person."""
+    kind = {"you": "who-you", "model": "who-model"}.get(who, "")
+    use = f'<use class="{kind}" href="#{who}" x="{x}" y="{y}" width="{size}" height="{size}"/>'
+    return f'<g class="bot {cls}-nod">{use}</g>'
+
+
+def card(ink, x, y, w, who, name, lines, cls):
+    room = w - 24
+    fits(ink, name, 17, 600, room - 34)
+    for line in lines:
+        fits(ink, line, 16, 400, room)
+    out = [
+        f'<rect class="block" x="{x}" y="{y}" width="{w:.1f}" height="{CARD_H}" rx="10"/>',
+        f'<rect class="lit-block {cls}" x="{x}" y="{y}" width="{w:.1f}" height="{CARD_H}" '
+        'rx="10"/>',
+        mark(who, x + 12, y + 12, 26, cls),
+        f'<path class="t" d="{ink.path(name, x + 46, y + 31, 17, 600)}"/>',
+    ]
+    for n, line in enumerate(lines):
+        out.append(f'<path class="s" d="{ink.path(line, x + 12, y + 60 + n * 21, 16, 400)}"/>')
+    return out
+
+
+def row(ink, top, steps, lane_no):
+    """Cards from left to right with links between them; returns parts and their count."""
+    count = len(steps)
+    w = (W - 2 * MARGIN - (count - 1) * GAP) / count
+    out, part = [], 0
+    for n, (who, name, lines) in enumerate(steps):
+        x = MARGIN + n * (w + GAP)
+        if n:
+            out += link(x - GAP, x, top + CARD_H / 2, f"p{lane_no}-{part}")
+            part += 1
+        out += card(ink, x, top, w, who, name, lines, f"p{lane_no}-{part}")
+        part += 1
+    return out, part
+
+
+def heading(ink, top, name, when, lamp_kind):
+    parts = lamp(lamp_kind, MARGIN + 6, top + 13)
+    parts.append(f'<path class="t" d="{ink.path(name, MARGIN + 20, top + 21, 20, 600)}"/>')
+    x = MARGIN + 20 + ink.width(name, 20, 600) + 10
+    parts.append(f'<path class="s" d="{ink.path(when, x, top + 21, 17, 400)}"/>')
+    return parts
+
+
+def legend(ink, y):
+    items = [(["you"], "You decide"), (["model"], "A model reads, writes text"),
+             (["lantern", "beacon", "kettle"], "A bot posts, no model")]
+    out, x = [], MARGIN
+    for marks, text in items:
+        for m in marks:
+            out.append(mark(m, x, y - 16, 20, "legend"))
+            x += 22
+        out.append(f'<path class="h" d="{ink.path(text, x + 4, y, 15, 400)}"/>')
+        x += 4 + ink.width(text, 15, 400) + 22
+    if x - 22 > W - MARGIN:
+        raise SystemExit(f"the legend is {x - 22:.0f} wide, room is {W - MARGIN}")
+    return out
+
+
 def draw(ink: Ink, theme: str) -> str:
     out = [f'<rect class="bg" x="0.75" y="0.75" width="{W - 1.5}" height="0" rx="12"/>']
-    head_y = 34
-    out.append(f'<path class="h" d="{ink.path("The model reads", 190, head_y, 19, 600)}"/>')
-    out.append(f'<path class="h" d="{ink.path("A script writes", 388, head_y, 19, 600)}"/>')
-
-    tops = [52, 186, 320]
+    out += legend(ink, 34)
+    out.append(f'<line class="border" x1="{MARGIN}" y1="50" x2="{W - MARGIN}" y2="50"/>')
     lanes = []
 
-    # Review: live.
-    t = tops[0]
-    out += lane(ink, t, "Review", "· live", "on")
-    by = t + 38
-    out += block(ink, "in", by, "Pull request", "in Kitden", "p0-x")
-    out += block(ink, "model", by, "Claude, Luna", "read only", "p0-1")
-    out += block(ink, "out", by, "One comment", "posted by Lantern", "p0-3", w=WIDE,
-                 bot="lantern")
-    y = by + BLOCK_H / 2
-    out += link(166, 190, y, "p0-0") + link(354, 388, y, "p0-2")
-    lanes.append(4)
+    top = 66
+    out += heading(ink, top, "Review", "· on every pull request", "on")
+    parts, count = row(ink, top + 32, [
+        ("model", "Claude, Luna", ["read the change"]),
+        ("lantern", "Lantern", ["posts one comment"]),
+        ("you", "You", ["fix or merge"]),
+    ], 0)
+    out += parts
+    lanes.append(count)
 
-    # Client watcher: live.
-    t = tops[1]
-    out += lane(ink, t, "Client watcher", "· live", "on")
-    by = t + 38
-    out += block(ink, "in", by, "Client docs", "3 AI clients", "p1-x")
-    out += block(ink, "model", by, "Claude", "judges", "p1-1")
-    out += block(ink, "out", by, "Issue in Kitden", "opened by Lantern", "p1-3", w=WIDE,
-                 bot="lantern")
-    y = by + BLOCK_H / 2
-    out += link(166, 190, y, "p1-0") + link(354, 388, y, "p1-2")
-    lanes.append(4)
+    top += 32 + CARD_H + 26
+    out += heading(ink, top, "Client watcher", "· every day", "on")
+    parts, count = row(ink, top + 32, [
+        ("model", "Claude", ["reads the release notes", "of 3 AI clients"]),
+        ("lantern", "Lantern", ["opens an issue in Kitden"]),
+        ("you", "You", ["confirm it or close it", "as a false alarm"]),
+    ], 1)
+    out += parts
+    lanes.append(count)
 
-    # Release: ready, not run yet.
-    t = tops[2]
-    out += lane(ink, t, "Release", "· ready", "pv")
-    by = t + 38
-    out += block(ink, "in", by, "New work", "on main", "p2-x")
-    out += block(ink, "model", by, "Claude", "drafts", "p2-1")
-    out += block(ink, "out", by, "Release PR", "you merge", "p2-3")
-    out += block(ink, "next", by, "Tag", "Beacon", "p2-5", bot="beacon")
-    y = by + BLOCK_H / 2
-    out += link(166, 190, y, "p2-0") + link(354, 388, y, "p2-2") + link(540, 562, y, "p2-4")
-    # The stores: quiet chips in a dashed group (like Kitden's "Add a plugin" block),
-    # fed from the tag.
-    box_x, box_y, box_w, pad = 388, by + BLOCK_H + 24, W - 16 - 388, 12
-    tag_x = COLS["next"][0] + COLS["next"][1] / 2
-    d = f"M{tag_x} {by + BLOCK_H}C{tag_x} {box_y - 8} {tag_x} {box_y - 8} {tag_x} {box_y}"
-    out.append(f'<path class="link" d="{d}"/><path class="lit p2-6" d="{d}"/>')
-    names = ["PyPI", "Homebrew", "MCP Registry", "release branch", "Claude directory"]
-    chips = []
-    cx, row_y, right = box_x + pad, box_y + pad, box_x + box_w - pad
-    for name in names:
-        bot = "kettle" if name == "Homebrew" else None
-        _, w = chip(ink, 0, 0, name, bot)
-        if cx + w > right:
-            cx, row_y = box_x + pad, row_y + 40
-        parts, w = chip(ink, cx, row_y, name, bot)
-        chips += parts
-        cx += w + 8
-    box_h = row_y + 32 + pad - box_y
-    out.append(
-        f'<rect class="group" x="{box_x}" y="{box_y}" width="{box_w}" height="{box_h}" rx="10"/>'
-    )
-    out += chips
-    for sx, sy in ((tag_x, by + BLOCK_H), (tag_x, box_y)):
-        out.append(f'<circle class="sock" cx="{sx}" cy="{sy}" r="4.5"/>')
-    lanes.append(7)
-    height = box_y + box_h + 16
+    top += 32 + CARD_H + 26
+    out += heading(ink, top, "Release", "· when you start it", "pv")
+    parts, count = row(ink, top + 32, [
+        ("you", "You", ["start", "Release prep"]),
+        ("model", "Claude", ["drafts the notes", "and the README"]),
+        ("beacon", "Beacon", ["opens the", "release PR"]),
+        ("you", "You", ["review it", "and merge"]),
+    ], 2)
+    out += parts
+    # After the merge, on their own: a strip under the cards.
+    sy = top + 32 + CARD_H + 22
+    lines = ["Then on their own: Beacon tags it and publishes to PyPI, the GitHub release,",
+             "the MCP Registry and the release branch; Kettle updates Homebrew."]
+    for line in lines:
+        fits(ink, line, 16, 400, W - 2 * MARGIN - 24 - 54)
+    sh = 20 + 21 * len(lines)
+    last_x = W - MARGIN - ((W - 2 * MARGIN - 3 * GAP) / 4) / 2
+    d = f"M{last_x} {sy - 22}L{last_x} {sy}"
+    out.append(f'<path class="link" d="{d}"/><path class="lit p2-{count}" pathLength="1" d="{d}"/>')
+    out.append(f'<rect class="group" x="{MARGIN}" y="{sy}" width="{W - 2 * MARGIN}" '
+               f'height="{sh}" rx="10"/>')
+    out.append(f'<rect class="lit-block p2-{count}" x="{MARGIN}" y="{sy}" '
+               f'width="{W - 2 * MARGIN}" height="{sh}" rx="10"/>')
+    out.append(mark("beacon", MARGIN + 12, sy + (sh - 24) / 2, 24, f"p2-{count}"))
+    out.append(mark("kettle", MARGIN + 38, sy + (sh - 24) / 2, 24, f"p2-{count}"))
+    for n, line in enumerate(lines):
+        text = ink.path(line, MARGIN + 74, sy + 26 + n * 21, 16, 400)
+        out.append(f'<path class="s" d="{text}"/>')
+    lanes.append(count + 1)
+    height = sy + sh + 16
 
-    out.append(f'<line class="border" x1="{BORDER_X}" y1="46" x2="{BORDER_X}" y2="{height - 14}"/>')
     out[0] = out[0].replace('height="0"', f'height="{height - 1.5}"')
     desc = (
-        "Three lanes in Kitden's look. Left of the dashed line the model only reads; right of "
-        "it a script without a model writes. Review is live: Claude and Luna read a pull "
-        "request, and the Lantern app posts one comment. The client watcher is live: Claude "
-        "judges the three clients' docs, and Lantern opens an issue in Kitden. The release flow "
-        "is ready: Claude drafts the release pull request, you merge it, the Kitden Beacon app "
-        "tags it, and scripts update PyPI, Homebrew (kept current by the Kitden Kettle app), the "
-        "MCP Registry, the Claude directory and the release branch."
+        "Who does what in kitden-sdlc. You decide; a model (Claude, Luna) only reads and writes "
+        "text; a bot (Lantern, Kitden Beacon, Kitden Kettle) posts and publishes, with no model. "
+        "Review, on every pull request: Claude and Luna read the change, Lantern posts one "
+        "comment, you fix or merge. Client watcher, every day: Claude reads what Claude Code, "
+        "Codex and Cursor changed, Lantern opens an issue in Kitden, you confirm it or close it "
+        "as a false alarm. Release, when you start it: you start Release prep, Claude drafts the "
+        "notes and the README, Beacon opens the release pull request, you review and merge it; "
+        "then Beacon tags it and publishes it, and Kettle updates Homebrew."
     )
     head = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" '
         f'viewBox="0 0 {W} {height:.0f}" role="img" aria-labelledby="title desc">\n'
-        '<title id="title">What kitden-sdlc runs</title>\n'
+        '<title id="title">Who does what in kitden-sdlc</title>\n'
         f'<desc id="desc">{desc}</desc>\n'
         "<!-- Made by scripts/make_picture.py. Text: Inter outlines, SIL OFL 1.1. -->\n"
         f"<style>\n{css(theme, lanes)}\n</style>\n"
-        f"<defs>{symbols()}</defs>\n"
+        f"<defs>{symbols()}{PEOPLE}</defs>\n"
     )
     return head + "\n".join(out) + "\n</svg>\n"
 
