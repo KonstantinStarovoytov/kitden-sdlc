@@ -66,7 +66,7 @@ def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
     title, body, labels = gh.issues[0]
     assert title == "Claude Code: skillOverrides renamed"
     assert body.splitlines()[0] == first_line()
-    assert labels == ["client-change", "claude-code", "breaks", "major"]
+    assert labels == ["automated", "client-change", "claude-code", "breaks", "major"]
     assert "main and v0.7.2" in body
     assert {"claude-code", "breaks"} <= {name for name, *_ in gh.created_labels}
     assert "client-change" not in {name for name, *_ in gh.created_labels}
@@ -94,10 +94,10 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
     state = {**STATE, "kept": kept}
     gh = FakeGitHub()
     run(inp(0, state=state), None, gh, tmp_path, MON)
-    assert len(gh.issues) == 1 and gh.issues[0][2] == ["client-change", "summary"]
+    assert len(gh.issues) == 1 and gh.issues[0][2] == ["automated", "client-change", "summary"]
     title, body, _ = gh.issues[0]
     assert title == "Client changes, week of 2026-11-09"
-    assert body.count("### ") == 2 and "minor" in body
+    assert body.count("\n## ") == 2 and "minor" in body
 
 
 def test_release_not_checked_when_a_file_differs():
@@ -144,17 +144,28 @@ def test_every_missing_label_is_created_on_each_run(tmp_path):
 
 def test_what_it_touches_shows_where_the_user_sees_it():
     _, body = render_urgent(finding(), inp())
-    assert "the `skillOverrides` key, seen in 2.1, src/kitden/skills.py" in body
+    assert "- Row in `docs/clients.md`: the `skillOverrides` key (seen in 2.1)" in body
+    assert "- Files: `src/kitden/skills.py`" in body
     _, body = render_urgent(finding(row="not a row"), inp())
     assert "seen in" not in body
 
 
 def test_first_line_names_the_model_of_the_run(monkeypatch):
     monkeypatch.delenv("WATCH_MODEL", raising=False)
-    assert "(gpt-6-luna)" in first_line()
+    assert "Written by a model;" in first_line()
     monkeypatch.setenv("WATCH_MODEL", "gpt-7")
     _, body = render_urgent(finding(), inp())
-    assert body.splitlines()[0] == "Automated issue by Kitden's client watcher (gpt-7)."
+    assert body.splitlines()[0] == first_line()
+    assert "Written by gpt-7; a maintainer checks it" in body.splitlines()[0]
+
+
+def test_an_issue_has_the_sections_a_reader_needs_and_the_ai_policy():
+    _, body = render_urgent(finding(), inp(), "o/kitden")
+    for heading in ("What changed", "What it means for Kitden", "Why", "Where in Kitden",
+                    "Scale", "How sure", "For maintainers"):
+        assert f"\n## {heading}\n" in body
+    assert "**Breaks, major.**" in body
+    assert "https://github.com/o/kitden/blob/main/AI_POLICY.md" in body.splitlines()[0]
 
 
 def long_items(n):
@@ -167,7 +178,7 @@ def test_long_summary_is_cut_with_a_count_of_the_rest():
     items = long_items(100)
     _, body, rest = render_summary(items, MON)
     assert len(body) <= SUMMARY_MAX
-    shown = body.count("### ")
+    shown = body.count("\n## ")
     assert 0 < shown < 100 and rest == items[shown:]
     assert body.rstrip().endswith(f"…and {100 - shown} more items in the next summary")
 
@@ -175,7 +186,7 @@ def test_long_summary_is_cut_with_a_count_of_the_rest():
 def test_items_cut_from_the_summary_are_kept_for_the_next_one(tmp_path):
     gh = FakeGitHub()
     run(inp(0, state={**STATE, "kept": long_items(100)}), None, gh, tmp_path, MON)
-    shown = gh.issues[0][1].count("### ")
+    shown = gh.issues[0][1].count("\n## ")
     state = json.loads((tmp_path / "state.json").read_text())
     assert [k["title"] for k in state["kept"]] == [f"t{i}" for i in range(shown, 100)]
 

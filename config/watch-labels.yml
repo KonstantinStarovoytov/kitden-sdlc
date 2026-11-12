@@ -1,3 +1,6 @@
+- name: automated
+  color: "bfdadc"
+  description: "Opened by an automated check; a maintainer confirms it before work starts"
 - name: client-change
   color: "1d76db"
   description: "Opened by the watcher: a client changed"

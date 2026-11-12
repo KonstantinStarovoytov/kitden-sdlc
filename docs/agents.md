@@ -57,8 +57,16 @@ The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WAT
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
+Every issue starts with one line: an automated check opened it, which model wrote it, and that
+a maintainer checks it before anyone works on it (with a link to Kitden's AI policy). Then the
+same sections each time: what changed, what it means for Kitden (type and severity in plain
+words), why, where in Kitden, scale, how sure, and what a maintainer does with it. Add
+`good first issue` or `help wanted` only after `confirmed`, so no contributor works on a false
+alarm.
+
 | Label | Meaning |
 |---|---|
+| `automated` | Opened by an automated check; a maintainer confirms it before work starts |
 | `client-change` | Opened by the watcher: a client changed |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |

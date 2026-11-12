@@ -327,11 +327,12 @@ def test_route_does_not_change_its_inputs():
 
 def test_labels_for_an_unsure_gap():
     assert labels(finding(effect="gap", sure=False, client="cursor")) == [
-        "client-change", "cursor", "kitden-gap", "major", "unsure"]
+        "automated", "client-change", "cursor", "kitden-gap", "major", "unsure"]
 
 
 def test_labels_for_a_sure_break():
-    assert labels(finding(effect="breaks")) == ["client-change", "claude-code", "breaks", "major"]
+    assert labels(finding(effect="breaks")) == [
+        "automated", "client-change", "claude-code", "breaks", "major"]
 
 
 def test_a_sure_medium_break_waits_for_the_summary():
