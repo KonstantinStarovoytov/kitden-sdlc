@@ -51,3 +51,9 @@ Problems found while building the reviewers, and what changed because of each.
   a script, so a step that gets a model key now makes its job an agent job, held to the rules.
 - **The first eval run was slow and we could not see why.** With the Langfuse keys set, each
   model call is traced (time, tokens) and an eval run is an experiment with per-task scores.
+
+## 2026-11-12
+
+- **Luna failed on the ubuntu26 image.** The Codex action's drop-sudo step could not restrict
+  the D-Bus socket there (openai/codex-action#188). The `luna` job runs on `ubuntu-24.04`
+  until that is fixed; drop-sudo stays.

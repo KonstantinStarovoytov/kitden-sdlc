@@ -138,7 +138,9 @@ jobs:
   luna:
     needs: cap
     if: needs.cap.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: on the ubuntu26 image the action's drop-sudo step fails before the
+    # model runs (openai/codex-action#188). Back to ubuntu-latest once that is fixed.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read # check out the code
