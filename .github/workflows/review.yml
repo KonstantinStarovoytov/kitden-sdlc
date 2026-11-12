@@ -274,7 +274,9 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CLAUDE_MODEL: ${{ inputs.model }}
         run: >-
           uv run --no-project python scripts/post_findings.py
           --claude claude/findings.json --luna luna/findings.json
+          --claude-model "$CLAUDE_MODEL"
           --repo "$REPO" --pr "$PR_NUMBER" --head-sha "$HEAD_SHA"

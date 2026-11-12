@@ -140,6 +140,7 @@ def quiet_mentions(text: str) -> str:
 # --- Building the comment ---
 
 REVIEWERS = {"claude": "Claude", "luna": "Luna"}
+
 TITLE = "**Agent review**"
 MARKER = re.compile(r"<!-- kitden-sdlc:review claude=(\d+|x) luna=(\d+|x) both=(\d+) -->\s*\Z")
 # The accounts that post for us: the review app, and the workflow's own token when the
@@ -149,6 +150,15 @@ BOTS = ("kitden-lantern[bot]", "github-actions[bot]")
 SAFE_PATH = re.compile(r"[\w./+-]+\Z")
 # Characters that mean something in Markdown or HTML.
 SPECIAL = re.compile(r"[\\`*_{}\[\]()#!|~<>&]")
+
+
+def model_label(model: str) -> str:
+    """How the comment names the Claude reviewer: its model family, like Luna is named
+    by its model. `claude-sonnet-5-5` gives Sonnet; anything else gives Claude."""
+    parts = model.split("-")
+    if len(parts) > 1 and parts[0] == "claude" and parts[1].isalpha():
+        return parts[1].capitalize()
+    return "Claude"
 
 
 def marker(reports: dict[str, Report | None], items: list[Item]) -> str:
@@ -211,7 +221,7 @@ def one_line(text: str) -> str:
     return quiet_mentions(plain)
 
 
-def _bullet(item: Item, repo: str, head_sha: str) -> str:
+def _bullet(item: Item, repo: str, head_sha: str, names: dict[str, str]) -> str:
     f = item.finding
     place = f"{f.path}:{f.line}"
     # A ".." part would lead the link out of the repository.
@@ -219,23 +229,26 @@ def _bullet(item: Item, repo: str, head_sha: str) -> str:
         place = f"[`{place}`](https://github.com/{repo}/blob/{head_sha}/{quote(f.path)}#L{f.line})"
     else:
         place = one_line(place)
-    who = "both" if len(item.by) > 1 else REVIEWERS[item.by[0]]
+    who = "both" if len(item.by) > 1 else names[item.by[0]]
     return f"- {place} — {one_line(f.text)} *({who})*"
 
 
-def review_body(reports: dict[str, Report | None], repo: str, head_sha: str) -> str:
-    """The whole comment. `reports` has None for a reviewer that gave no usable answer."""
+def review_body(
+    reports: dict[str, Report | None], repo: str, head_sha: str, names: dict[str, str] = REVIEWERS
+) -> str:
+    """The whole comment. `reports` has None for a reviewer that gave no usable answer.
+    `names` are the reviewers' names as the comment shows them."""
     parts = [TITLE]
     answered = [report for name in REVIEWERS if (report := reports.get(name))]
     items = merge(reports)
     if answered:
         parts.append(one_line(answered[0].summary))
         if items:
-            bullets = "\n".join(_bullet(item, repo, head_sha) for item in items)
+            bullets = "\n".join(_bullet(item, repo, head_sha, names) for item in items)
             parts.append(f"**To check ({len(items)})**\n{bullets}")
         else:
             parts.append("No problems found.")
-    silent = [REVIEWERS[name] for name in REVIEWERS if not reports.get(name)]
+    silent = [names[name] for name in REVIEWERS if not reports.get(name)]
     if silent:
         parts.append(" and ".join(silent) + " gave no usable answer this time.")
     parts.append("<sub>👍 useful · 👎 wrong</sub>")
@@ -311,6 +324,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--claude", type=Path, required=True, help="Claude's findings.json")
     parser.add_argument("--luna", type=Path, required=True, help="Luna's findings.json")
+    parser.add_argument("--claude-model", default="", help="Claude's model, for its name")
     parser.add_argument("--repo", default="owner/repo")
     parser.add_argument("--pr", type=int)
     parser.add_argument("--head-sha", default="0000000")
@@ -331,7 +345,8 @@ def main(argv: list[str]) -> int:
         for report in reports.values():
             if report:
                 refuse_secret_like(report)
-        body = review_body(reports, args.repo, args.head_sha)
+        names = {**REVIEWERS, "claude": model_label(args.claude_model)}
+        body = review_body(reports, args.repo, args.head_sha, names)
         if args.dry_run:
             print(body)
         else:
