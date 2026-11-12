@@ -2,7 +2,12 @@ from pathlib import Path
 
 import yaml
 
-from check_agent_workflows import check_workflow, is_agent_workflow, main
+from check_agent_workflows import (
+    _in_release_environment,
+    check_workflow,
+    is_agent_workflow,
+    main,
+)
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
 REVIEW = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/review.yml"
@@ -372,3 +377,47 @@ def test_release_environment_only_without_model_and_on_main_or_tag():
     for name in (".github/workflows/publish.yml", "examples/release.yml"):
         doc = yaml.safe_load((ROOT / name).read_text())
         assert check_workflow(doc, name) == []
+        assert any(_in_release_environment(job) for job in doc["jobs"].values()), name
+
+
+RUNS_MODEL = "holds the release environment and runs a model"
+
+
+def _flagged(text: str) -> bool:
+    return any(RUNS_MODEL in v for v in run(text))
+
+
+def test_release_job_with_model_secret_in_job_env_fails():
+    text = RELEASE_JOB.replace(
+        "    environment: release\n",
+        "    environment: release\n    env:\n      K: ${{ secrets.ANTHROPIC_API_KEY }}\n",
+    )
+    assert _flagged(text)
+
+
+def test_release_job_with_model_secret_in_call_secrets_fails():
+    text = RELEASE_JOB.replace(
+        "    runs-on: ubuntu-latest\n    environment: release\n",
+        "    environment: release\n    uses: o/r/.github/workflows/x.yml@SHA\n"
+        "    secrets:\n      k: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\n",
+    ).replace("    steps:\n      - run: echo publish\n", "")
+    assert _flagged(text)
+
+
+def test_release_job_with_model_secret_in_run_fails():
+    text = RELEASE_JOB.replace("echo publish", "curl -H ${{ secrets.OPENAI_API_KEY }} x")
+    assert _flagged(text)
+
+
+def test_expression_environment_with_model_step_fails():
+    text = RELEASE_JOB.replace(
+        "environment: release", "environment: ${{ inputs.env }}"
+    ).replace("      - run: echo publish\n", "      - uses: openai/codex-action@SHA\n")
+    assert _flagged(text)
+
+
+def test_capitalised_release_environment_with_model_step_fails():
+    text = RELEASE_JOB.replace("environment: release", "environment: Release").replace(
+        "      - run: echo publish\n", "      - uses: anthropics/claude-code-action@SHA\n"
+    )
+    assert _flagged(text)

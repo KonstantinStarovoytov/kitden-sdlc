@@ -92,16 +92,27 @@ def _in_release_environment(job: dict) -> bool:
     environment = job.get("environment")
     if isinstance(environment, dict):
         environment = environment.get("name")
-    return environment == "release"
+    # Fail closed: names are not case-sensitive, and an expression could be `release`.
+    name = str(environment or "")
+    return "${{" in name or name.lower() == "release"
+
+
+def _job_mentions_model_secret(job: dict) -> bool:
+    """Whole-job match, so a secret in job env, `secrets:` or a `run:` string is seen."""
+    parts = [job.get("env"), job.get("with"), job.get("secrets")]
+    for step in job.get("steps") or []:
+        parts += [step.get("env"), step.get("with"), step.get("run")]
+    return any(MODEL_SECRET.search(str(part)) for part in parts if part)
 
 
 def _release_violations(doc: dict) -> list[tuple[int, str]]:
     """Rule 1, for every workflow: the job that holds the release key never runs a model."""
     found: list[tuple[int, str]] = []
-    holders = [name for name, job in _jobs(doc).items() if _in_release_environment(job)]
+    jobs = _jobs(doc)
+    holders = [name for name, job in jobs.items() if _in_release_environment(job)]
     for name in holders:
-        job = doc["jobs"][name]
-        if _has_model_step(job) or _script_agent_steps(job):
+        job = jobs[name]
+        if _has_model_step(job) or _job_mentions_model_secret(job):
             found.append((1, f"job {name} holds the release environment and runs a model"))
     for event in ("pull_request_target", "issue_comment"):
         if event in _events(doc):
