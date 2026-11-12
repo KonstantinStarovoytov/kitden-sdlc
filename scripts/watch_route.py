@@ -156,8 +156,8 @@ def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today
 
 def labels(finding: dict) -> list[str]:
     effect, severity = _kind(finding)
-    out = ["client-change", finding["client"], "kitden-gap" if effect == "gap" else effect,
-           severity]
+    out = ["automated", "client-change", finding["client"],
+           "kitden-gap" if effect == "gap" else effect, severity]
     return out + ([] if finding["sure"] else ["unsure"])
 
 

@@ -15,6 +15,7 @@ from watch_route import (
     TEXT_MAX,
     VERSION_MAX,
     BadFindings,
+    _kind,
     _quiet,
     check,
     client_name,
@@ -64,9 +65,35 @@ class GhApi:
         return self._run(*args).strip()
 
 
-def first_line() -> str:
-    model = os.environ.get("WATCH_MODEL") or "gpt-6-luna"
-    return f"Automated issue by Kitden's client watcher ({model})."
+# Shown with every finding: docs/watch-effects.md says the same in more words.
+TYPE_TEXT = {
+    "breaks": ("Breaks",
+               "A Kitden action fails, or writes something the client no longer accepts."),
+    "wrong-data": ("Wrong data", "Kitden shows one thing while the client has another."),
+    "unknown": ("Unknown", "Kitden cannot read the new value and says so."),
+    "outdated": ("Outdated", "Kitden stays right; its list or a code comment is out of date."),
+    "gap": ("Gap", "The client keeps something that Kitden does not show yet."),
+}
+SEVERITY_TEXT = {
+    "major": "A user who trusts Kitden here does a wrong action and gets a result they did not "
+             "expect.",
+    "medium": "A user does extra or useless steps, but nothing unexpected happens.",
+    "minor": "What a user does stays the same.",
+}
+MAINTAINERS_SUMMARY = ("To confirm an item or mark it a false alarm, open an issue for it; this "
+                       "summary is only a list.")
+HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
+MAINTAINERS = ("Close it with `confirmed` if this is right, or `false-alarm` if it is not. Add "
+               "`good first issue` or `help wanted` only after it is confirmed.")
+
+
+def first_line(repo: str = "") -> str:
+    """The first line of every issue: who opened it, which model wrote it, what happens next."""
+    model = os.environ.get("WATCH_MODEL") or "a model"
+    policy = f" ([AI policy](https://github.com/{repo}/blob/main/AI_POLICY.md))" if repo else ""
+    return (f"Opened by Kitden's [client watcher]({HOW_IT_WORKS}), an automated check of the "
+            f"release notes and docs of Claude Code, Codex and Cursor. Written by {model}; a "
+            f"maintainer checks it before anyone works on it{policy}.")
 
 
 def _version(item: dict) -> str:
@@ -90,31 +117,55 @@ def _scale(item: dict, inp: dict) -> str:
             f"- Systems: {item.get('systems') or 'not checked'}\n- Kitden versions: {kitden}")
 
 
-def _item(item: dict, inp: dict) -> str:
+def _where(item: dict, inp: dict) -> str:
     row = _quiet(item.get("row") or "", TEXT_MAX)
-    touches = ", ".join(x for x in [row, _seen_in(item, inp), *(item.get("files") or [])] if x)
+    lines = []
+    if row:
+        seen = _seen_in(item, inp)
+        lines.append(f"- Row in `docs/clients.md`: {row}" + (f" ({seen})" if seen else ""))
+    else:
+        lines.append("- No row in `docs/clients.md` is about it.")
+    files = item.get("files") or []
+    if files:
+        lines.append("- Files: " + ", ".join(f"`{f}`" for f in files))
+    return "\n".join(lines)
+
+
+def _item(item: dict, inp: dict, level: str = "##") -> str:
+    """One finding in sections, the same in an urgent issue and in the summary."""
+    effect, severity = _kind(item)
+    name, means = TYPE_TEXT.get(effect, (effect, ""))
     who = " ".join(x for x in (client_name(item), _version(item)) if x)
+    source = f"\n\nSource: {item['url']}" if item.get("url") else ""
+    sure = ("Sure: the note says it plainly and the code shows it." if item.get("sure")
+            else "Not sure: the note or the code leaves room for doubt; check before acting.")
     return "\n\n".join([
-        f"**What changed**\n{who}: {item.get('changed', '')}\n{item.get('url', '')}",
-        f"**What it touches**\n{touches or 'not checked'}",
-        f"**What the user gets**\n{item.get('user_gets', '')}",
-        f"**Scale**\n{_scale(item, inp)}",
-        f"**How sure**\n{'Sure' if item.get('sure') else 'Not sure'}. {item.get('why', '')}",
+        f"{level} What changed\n\n{who}: {item.get('changed', '')}{source}",
+        f"{level} What it means for Kitden\n\n**{name}, {severity}.** {means} "
+        f"{SEVERITY_TEXT.get(severity, '')}\n\n{item.get('user_gets', '')}".rstrip(),
+        f"{level} Why\n\n{item.get('why', '')}".rstrip(),
+        f"{level} Where in Kitden\n\n{_where(item, inp)}",
+        f"{level} Scale\n\n{_scale(item, inp)}",
+        f"{level} How sure\n\n{sure}",
     ])
 
 
-def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
+def render_urgent(finding: dict, inp: dict, repo: str = "") -> tuple[str, str]:
     title = f"{client_name(finding)}: {finding['title']}"
-    return title, f"{first_line()}\n\n{_item(finding, inp)}\n"
+    return title, (f"{first_line(repo)}\n\n{_item(finding, inp)}\n\n"
+                   f"## For maintainers\n\n{MAINTAINERS}\n")
 
 
-def render_summary(items: list[dict], today: date,
-                   inp: dict | None = None) -> tuple[str, str, list[dict]]:
+def render_summary(items: list[dict], today: date, inp: dict | None = None,
+                   repo: str = "") -> tuple[str, str, list[dict]]:
     """Return the title, the body and the items that did not fit, for the next summary."""
     inp = inp or {"files": {}, "release": "the latest release"}
     monday = today - timedelta(days=today.weekday())
-    blocks = [f"### {i['title']}\n\n`{'` `'.join(labels(i))}`\n\n{_item(i, inp)}" for i in items]
-    body, rest = first_line(), []
+    blocks = [f"## {i['title']}\n\n`{'` `'.join(labels(i))}`\n\n{_item(i, inp, '###')}"
+              for i in items]
+    body = (f"{first_line(repo)}\n\nThe changes of this week that are not urgent, the gravest "
+            f"first. {MAINTAINERS_SUMMARY}")
+    rest = []
     for n, block in enumerate(blocks):
         if len(body) + len(block) + 100 > SUMMARY_MAX:
             body += f"\n\n…and {len(blocks) - n} more items in the next summary"
@@ -139,10 +190,11 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
     found += word_hits(found, judged, inp)
     plan = route(found, inp["state"], judged, inp, today, failed)
 
-    posts = [(*render_urgent(f, inp), labels(f)) for f in plan.urgent]
+    repo = getattr(gh, "repo", "")
+    posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
     if plan.summary:
-        title, body, rest = render_summary(plan.summary, today, inp)
-        posts.append((title, body, ["client-change", "summary"]))
+        title, body, rest = render_summary(plan.summary, today, inp, repo)
+        posts.append((title, body, ["automated", "client-change", "summary"]))
         plan.state["kept"] = rest + plan.state["kept"]
     have = gh.label_names()
     for entry in yaml.safe_load(LABELS_FILE.read_text()):
