@@ -46,50 +46,15 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 
 ## Copy this
 
-Put [agents-review.yml](examples/agents-review.yml) and [agents-check.yml](examples/agents-check.yml)
-in your `.github/workflows/`. For the release flow, add [release.yml](examples/release.yml),
-[release-watch.yml](examples/release-watch.yml) and [release-prep.yml](examples/release-prep.yml).
-They are Kitden's own files; the `uses` pins are bumped at each release. The one-time
-GitHub App, environment and rule setup is in [release-setup.md](docs/release-setup.md).
-
-- `kitden-sdlc`, or your copy of it, must be public: another repository's `uses` cannot
-  reach a private one.
-- The review skill, the Luna prompt and `count_reviews.py` (`REPO`, `MAINTAINER`) are about
-  Kitden, and so are the release skills, `release_check.py` and
-  [platform-rules.md](docs/platform-rules.md). Rewrite them for your project.
-- The model and the `uses` pins in the caller files are Kitden's choices. Change them to yours.
-
-Then, once:
-
-1. Create the repository `kitden-sdlc` (or your copy) on GitHub.
-2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
-3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`.
-4. Set the variable `AGENTS_ENABLED` to `true`; it switches review, the watcher, release prep and
-   release watch. For the client watcher, set `WATCH_LIVE` to `true` only after the eval has passed.
-5. Create a GitHub App, install it on the repository, and save its client id as the variable
-   `AGENTS_APP_CLIENT_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's app
-   is called Lantern. For the review it is optional: it posts the comment under the bot's own
-   name (write access to pull requests), and without it the comment comes from `github-actions`.
-   Release watch and the client watcher need it, with write access to issues. With your own
-   app, put its bot name into `BOTS` in `post_findings.py`.
-6. For the release flow, create a second GitHub App, the release app, with contents, pull
-   requests and workflows write, on your project and its Homebrew tap. Save its client id as
-   the variable `RELEASE_APP_CLIENT_ID`. Create the environment `release`, limited to `main`
-   and `v*` tags, and save the app's private key there, and only there, as the secret
-   `RELEASE_APP_PRIVATE_KEY`. Do not reuse the review app: its key is stored in kitden-sdlc.
-   `release.yml` publishes to PyPI through a Trusted Publisher and the environment `pypi`;
-   limit `pypi` to `v*` tags. Its publish step expects a Homebrew tap: Kitden's is
-   `homebrew-tap`, named in `publish.yml`. The tap needs its own setup too: a third app, the
-   tap app (Kitden's is `kitden-tap-bump`), with contents and pull requests write, installed on
-   the tap only, for the tap's daily `brew bump`. In the tap, save the variables
-   `TAP_APP_CLIENT_ID`, `TAP_APP_BOT` (the tap app's bot login) and `RELEASE_APP_BOT` (the
-   release app's), and the secret `TAP_APP_PRIVATE_KEY`. Never store the release app's key in
-   the tap: `brew bump` runs code from outside it. Every step, with exact names:
-   [release-setup.md](docs/release-setup.md).
+The callers in [examples/](examples/) are Kitden's own workflow files. Copy them into your
+`.github/workflows/`, rewrite the Kitden-specific skills and prompts, then do the one-time
+setup: [docs/setup.md](docs/setup.md) for review and the watcher,
+[docs/release-setup.md](docs/release-setup.md) for the release flow.
 
 ## More
 
 - [docs/agents.md](docs/agents.md): every agent and workflow, the watcher's labels, the release flow
+- [docs/setup.md](docs/setup.md) and [docs/release-setup.md](docs/release-setup.md): the one-time setup
 - [LOG.md](LOG.md): what went wrong while building, and what changed
 - Designs: [reviewers](docs/design.md), [client watcher](docs/watcher-design.md),
   [release flow](docs/superpowers/specs/2026-11-12-release-flow-design.md)

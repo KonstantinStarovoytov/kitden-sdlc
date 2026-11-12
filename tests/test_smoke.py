@@ -23,7 +23,9 @@ def relative_links(path: Path) -> list[str]:
     return links
 
 
-@pytest.mark.parametrize("name", ["README.md", "docs/agents.md"])
+@pytest.mark.parametrize(
+    "name", ["README.md", "docs/agents.md", "docs/setup.md", "docs/release-setup.md"]
+)
 def test_readme_links_exist(name):
     page = ROOT / name
     links = relative_links(page)
