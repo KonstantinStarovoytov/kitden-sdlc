@@ -9,7 +9,20 @@ Kitden is `KonstantinStarovoytov/kitden`. The tap is `KonstantinStarovoytov/home
 
 1. Merge the kitden-sdlc pull request first.
 2. Merge the tap pull request second.
-3. Merge Kitden's pull request last, and only after steps 1 to 6 below are done.
+3. Merge Kitden's pull request last, and only after sections 1 to 6 below are done.
+
+## Already set up for the reviewers: check they are there
+
+The release workflows need these too. If one is missing, release prep and release watch skip
+or fail without much noise.
+
+1. Kitden, Settings, Secrets and variables, Actions, Variables: `AGENTS_ENABLED` is `true`.
+2. Same page, Secrets: `CLAUDE_CODE_OAUTH_TOKEN` exists (release prep's agent uses it).
+3. Same page: variable `AGENTS_APP_CLIENT_ID` and secret `AGENTS_APP_PRIVATE_KEY` exist
+   (Lantern, used by release watch).
+4. Lantern's app, Permissions: Issues is Read and write, and it is installed on Kitden.
+5. PyPI, the `kitden` project, Publishing: the Trusted Publisher names repository `kitden`,
+   workflow `release.yml`, environment `pypi`.
 
 ## 1. The release GitHub App
 
@@ -24,9 +37,9 @@ Docs: [Registering a GitHub App](https://docs.github.com/en/apps/creating-github
 7. Leave every other permission at No access.
 8. Where can this app be installed: Only on this account.
 9. Press Create GitHub App.
-10. Copy the Client ID (it starts with `Iv`). You need it in steps 3 and 5.
+10. Copy the Client ID (it starts with `Iv`). You need it in sections 3 and 5.
 11. Scroll to Private keys and press Generate a private key. A `.pem` file downloads. Keep it
-    until step 3 and 5 are done, then delete it.
+    until sections 2 and 5 are done, then delete it.
 12. Open Install App, then Install on your account.
 13. Choose Only select repositories, then pick `kitden` and `homebrew-tap`. Nothing else.
 14. The bot login is the app's slug plus `[bot]`: `kitden-release[bot]`. (If GitHub changed the
@@ -81,6 +94,12 @@ Then the branch rule. New ruleset, New branch ruleset:
 5. Tick Block force pushes.
 6. Create.
 
+Last, Kitden's own `main`. The release app can write Contents on Kitden, so `main` must stop it:
+
+1. Kitden, Settings, Rules, Rulesets (or Branches), open the rule for `main`.
+2. Check that it requires a pull request before merging.
+3. Check the bypass list does not contain `kitden-release`, Lantern or GitHub Actions.
+
 ## 5. The tap
 
 Go to `homebrew-tap`, Settings, Secrets and variables, Actions.
@@ -129,3 +148,7 @@ publish request that is now waiting. Saving this cancels a waiting request.
    `release` branch, MCP Registry, Homebrew). Each should say done.
 6. Kitden, Issues: the release-watch issue "Release vX.Y.Z is not everywhere" appears only
    while a store is behind. No such issue after a day means every store is in step.
+
+If it fails, look at the first red job in the run. The usual sign is the "Sign in as the
+release app" step saying the key or client id is empty: a secret or variable from sections
+2, 3 or 5 is missing or in the wrong place. Copy the red step's message and tell the builder.
