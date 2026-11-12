@@ -91,6 +91,9 @@ jobs:
           owner: KonstantinStarovoytov
           repositories: kitden
           permission-contents: write
+          # GitHub refuses an app's ref update that brings changes to .github/workflows
+          # unless the token may write workflows.
+          permission-workflows: write
       # `force=false` makes GitHub itself refuse an update that is not a fast-forward.
       - name: Move the release branch to the tag
         env:
@@ -272,6 +275,14 @@ jobs:
           else
             echo "go=true" >> "$GITHUB_OUTPUT"
           fi
+      # bump-formula reads the sdist's sha256 from PyPI, which may lag the upload.
+      - name: Wait for PyPI
+        if: steps.deps.outputs.go == 'true'
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: >-
+          uv run --no-config --no-project python .kitden-sdlc/scripts/release_publish.py
+          wait-pypi "$VERSION"
       - name: Update the formula
         id: open
         if: steps.deps.outputs.go == 'true'
@@ -325,9 +336,11 @@ jobs:
           gh api -X PUT "repos/$repo/contents/Formula/kitden.rb" \
             -f message="kitden $VERSION" -f branch="$branch" -f sha="$blob" \
             -f content="$(base64 -w0 tap/Formula/kitden.rb)" --silent
-          url="$(gh pr create --repo "$repo" --base main --head "$branch" \
-            --title "kitden $VERSION" \
-            --body "Kitden $VERSION is on PyPI and its runtime dependencies did not change, so only the url, sha256 and desc change. Opened by Kitden's publish workflow.")"
+          # Through the API too: gh pr create needs a git checkout of the tap to run in.
+          title="kitden $VERSION"
+          body="Kitden $VERSION is on PyPI and its runtime dependencies did not change, so only the url, sha256 and desc change. Opened by Kitden's publish workflow."
+          url="$(gh api -X POST "repos/$repo/pulls" -f base=main -f head="$branch" \
+            -f title="$title" -f body="$body" --jq .html_url)"
           echo "Opened $url." >> "$GITHUB_STEP_SUMMARY"
 
   # The table of every store. It runs when a job above failed too: then it shows where.
