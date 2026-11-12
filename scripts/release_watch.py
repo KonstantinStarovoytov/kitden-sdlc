@@ -46,6 +46,12 @@ PREP = f"https://github.com/{REPO_SLUG}/actions/workflows/release-prep.yml"
 PREP_NAME = "Release prep"  # the `name:` of examples/release-prep.yml
 PREP_BRANCH = "prepare-v"  # release prep's own PRs, which bump the version: not a reason
 PER_PAGE = 100
+LABEL = "automated"  # every issue opened by automation carries it (the owner's rule)
+AI_POLICY = f"https://github.com/{REPO_SLUG}/blob/main/AI_POLICY.md"
+HEADER = (
+    "Opened by release-watch, a daily check in kitden-sdlc with no AI model. "
+    f"A maintainer confirms it before work starts ([AI policy]({AI_POLICY}))."
+)
 
 # How to put each place right. Places not listed here are changed by hand. kitden-sdlc's
 # publish workflow runs inside the tag's `Checks and release` run, as its `stores / ...` jobs.
@@ -107,10 +113,16 @@ def propose(
 def proposal_body(prs: list[int]) -> str:
     links = "\n".join(f"- {PULL.format(number=number)}" for number in sorted(prs))
     return (
+        f"{HEADER}\n\n"
+        "## What happened\n\n"
         "These merged pull requests changed what users get since the last release:\n\n"
         f"{links}\n\n"
-        f"To prepare the release, run [{PREP_NAME}]({PREP}). "
-        "It picks the version and writes the notes.\n\n"
+        "## What it means\n\n"
+        "Users do not have these changes yet: they reach PyPI, Homebrew and the plugin only "
+        "with a release.\n\n"
+        "## What to do\n\n"
+        f"Run [{PREP_NAME}]({PREP}). It picks the version, writes the notes and opens the "
+        "release pull request for you to review and merge.\n\n"
         "This issue is updated every day and closes itself when a release is made."
     )
 
@@ -122,9 +134,15 @@ def drift_title(tag: str) -> str:
 def drift_body(tag: str, rows: list[Row], late: list[Row]) -> str:
     fixes = "\n".join(f"- {row.place}: {fix_for(row)}" for row in late)
     return (
+        f"{HEADER}\n\n"
+        "## What happened\n\n"
         f"Kitden {tag} is behind or different in these places:\n\n"
         f"{summary(rows)}\n\n"
-        f"Re-run or fix:\n\n{fixes}\n\n"
+        "## What it means\n\n"
+        f"People who install Kitden from these places do not get {tag}, or see an old "
+        "description.\n\n"
+        "## What to do\n\n"
+        f"{fixes}\n\n"
         "This issue is updated every day and closes itself when every store is right."
     )
 
@@ -158,10 +176,10 @@ class GhCli:
         return None
 
     def create(self, title: str, body: str) -> None:
-        self._gh("issue", "create", "--title", title, "--body", body)
+        self._gh("issue", "create", "--title", title, "--body", body, "--label", LABEL)
 
     def edit(self, number: int, body: str) -> None:
-        self._gh("issue", "edit", str(number), "--body", body)
+        self._gh("issue", "edit", str(number), "--body", body, "--add-label", LABEL)
 
     def close(self, number: int) -> None:
         self._gh("issue", "close", str(number))
