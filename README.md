@@ -23,6 +23,16 @@ untrusted text, a secret and write access at once.
 
 Every agent, its model and its limits: [docs/agents.md](docs/agents.md).
 
+## The bots
+
+All the automation posts as one of three GitHub Apps, so you always see which one did what.
+
+| | Bot | What it does |
+|---|---|---|
+| <img src="https://avatars.githubusercontent.com/in/5695802?v=4" width="40" alt="Lantern"> | **Lantern**<br/>`kitden-lantern[bot]` | posts the "Agent review" comment; opens the watcher's and the release watch's issues |
+| <img src="docs/images/apps/beacon.svg" width="40" alt="Kitden Beacon"> | **Kitden Beacon**<br/>`kitden-beacon` | opens the release pull request, tags the release, moves the `release` branch, opens the Homebrew pull request |
+| <img src="docs/images/apps/kettle.svg" width="40" alt="Kitden Kettle"> | **Kitden Kettle**<br/>`kitden-kettle` | keeps the Homebrew formula up to date in the tap, every day |
+
 ## How it works
 
 | When | What runs | You do | You hear |
