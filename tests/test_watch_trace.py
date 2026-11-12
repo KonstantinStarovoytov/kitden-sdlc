@@ -214,7 +214,7 @@ class Observation:
         self.log.append(("update", details))
 
 
-def generation_langfuse(monkeypatch, log):
+def span_langfuse(monkeypatch, log):
     lf = types.ModuleType("langfuse")
 
     def start(**kw):
@@ -231,26 +231,26 @@ def generation_langfuse(monkeypatch, log):
     monkeypatch.setitem(sys.modules, "langfuse", lf)
 
 
-def test_a_direct_call_is_a_generation_with_the_same_session_and_tags(monkeypatch):
+def test_a_direct_call_is_a_span_with_the_same_session_and_tags(monkeypatch):
     keys(monkeypatch)
     monkeypatch.setenv("GITHUB_SHA", "abc1234def")
     log = []
-    generation_langfuse(monkeypatch, log)
-    with watch_trace.piece(PID), watch_trace.generation("screen", "claude-x medium", ["m"]) as rec:
-        rec(output={"a": 1}, usage_details={"input": 3})
+    span_langfuse(monkeypatch, log)
+    with watch_trace.piece(PID), watch_trace.call("screen", "claude-x medium", ["m"]) as rec:
+        rec(output={"a": 1})
     (_, attrs), (_, start), (_, update) = log
     assert attrs["session_id"] == f"{PID} claude-x medium abc1234"
     assert attrs["tags"] == [PID, "claude-x medium", "abc1234def"]
-    assert start["as_type"] == "generation" and start["name"] == "screen"
-    assert update == {"output": {"a": 1}, "usage_details": {"input": 3}}
+    assert start["as_type"] == "span" and start["name"] == "screen"
+    assert update == {"output": {"a": 1}}
 
 
 def test_a_direct_call_without_keys_imports_nothing_and_a_failure_does_not_stop_it(
         monkeypatch, capsys):
     no_langfuse(monkeypatch)
-    with watch_trace.generation("screen", "m", []) as rec:
+    with watch_trace.call("screen", "m", []) as rec:
         rec(output=1)
     keys(monkeypatch)
-    with watch_trace.generation("screen", "m", []) as rec:
+    with watch_trace.call("screen", "m", []) as rec:
         rec(output=1)
     assert capsys.readouterr().err == "langfuse failed: ModuleNotFoundError\n"

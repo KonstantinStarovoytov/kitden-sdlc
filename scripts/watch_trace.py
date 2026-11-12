@@ -82,10 +82,11 @@ def _nothing(**_) -> None:
 
 
 @contextmanager
-def generation(step: str, model: str, messages: list):
-    """A Langfuse generation around one call made without LangChain (Claude through Anthropic's
-    SDK), with the same tags and session as config(). Yields a function that records the
-    output, the token counts and the cost; without the keys it does nothing."""
+def call(step: str, model: str, messages: list):
+    """A Langfuse span around one call made without LangChain (Claude through Anthropic's SDK),
+    with the same tags and session as config(). The SDK traces the request itself, with the
+    model, the tokens and the cost, so this span holds only the step and the parsed answer.
+    Yields a function that records the answer; without the keys it does nothing."""
     if not enabled():
         yield _nothing
         return
@@ -96,7 +97,7 @@ def generation(step: str, model: str, messages: list):
         tags, metadata, session = _attrs(step, model)
         attrs = propagate_attributes(session_id=session, tags=tags, metadata=metadata)
         gen = get_client().start_as_current_observation(
-            name=step, as_type="generation", model=model, input=messages)
+            name=step, as_type="span", input=messages)
     except Exception as e:  # noqa: BLE001 - Langfuse must never stop the judge
         warn(e)
         yield _nothing

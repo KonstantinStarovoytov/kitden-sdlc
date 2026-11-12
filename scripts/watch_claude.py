@@ -42,15 +42,14 @@ class ClaudeModel:
 
     def _ask(self, step: str, schema, system: list[dict], user: list[dict]):
         messages = [{"role": "user", "content": user}]
-        with watch_trace.generation(step, self.name, [*system, *user]) as record:
+        with watch_trace.call(step, self.name, [*system, *user]) as record:
             response = self.client.messages.parse(
                 model=self.model, max_tokens=MAX_TOKENS, system=system, messages=messages,
                 output_format=schema, output_config={"effort": self.effort})
             if response.stop_reason != "end_turn" or response.parsed_output is None:
                 raise RuntimeError(f"stopped: {response.stop_reason}")
-            got = self._count(response.usage)
-            record(output=response.parsed_output.model_dump(), usage_details=got,
-                   cost_details={"total": self._cost(got)})
+            self._count(response.usage)
+            record(output=response.parsed_output.model_dump())
         return response.parsed_output
 
     def _count(self, usage) -> dict[str, int]:
