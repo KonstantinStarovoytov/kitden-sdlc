@@ -1,0 +1,257 @@
+# Checks on every push to main and every pull request, including kitden-sdlc's release check
+# of the names and descriptions in listing.toml. A push to main whose version has release notes
+# and no tag yet is tagged. A tag v<version> also builds the package, publishes it to PyPI,
+# creates a GitHub release with the built files and docs/releases/v<version>.md as its notes,
+# then updates the other stores through kitden-sdlc's publish workflow.
+name: Checks and release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # The checks run on macOS and on Ubuntu; only the macOS job builds the package.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    # A normal run takes about ten minutes.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.10.10"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "25"
+          # No cache: the built package must not come from files a pull request could plant.
+          package-manager-cache: false
+      - run: uv sync --locked
+      # Linux keeps server secrets in the desktop keyring through secret-tool.
+      - name: A keyring on the session bus (Ubuntu)
+        if: runner.os == 'Linux'
+        # When the Ubuntu mirrors are down, fail in minutes, not in half an hour.
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update -q -o Acquire::Retries=3
+          sudo apt-get install -yq -o Acquire::Retries=3 libsecret-tools gnome-keyring dbus
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      # The Python tests, with a floor on how much of the package they run.
+      - run: uv run pytest -q --cov=kitden --cov-fail-under=94 --cov-report=term:skip-covered
+      # One real round trip through secret-tool, with the bus where a desktop session has it
+      # ($XDG_RUNTIME_DIR/bus). The keyring is unlocked with a throwaway password; secret-tool
+      # runs once by itself first, so a broken keyring shows its own error, not Kitden's.
+      - name: The real keyring (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          XDG_RUNTIME_DIR="$(mktemp -d)"
+          export XDG_RUNTIME_DIR
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+          dbus-daemon --session --address="$DBUS_SESSION_BUS_ADDRESS" --fork
+          printf 'kitden-ci' | gnome-keyring-daemon --unlock --components=secrets
+          sleep 1
+          dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus \
+            org.freedesktop.DBus.ListNames | grep -q org.freedesktop.secrets
+          printf 'ci' | secret-tool store --label=ci service kitden-ci account smoke
+          test "$(secret-tool lookup service kitden-ci account smoke)" = ci
+          secret-tool clear service kitden-ci account smoke
+          KITDEN_REAL_KEYRING=1 uv run pytest -q tests/unit/test_real_keyring.py -rs
+      # The page's own tests, in Node with a stand-in DOM.
+      - run: node --test tests/frontend/*.test.mjs
+      # The page opens within its time budgets (docs/development.md, Speed).
+      - run: uv run python scripts/measure-start.py
+      # The workflow files themselves have no known weak spots.
+      - run: uvx zizmor==1.32.0 .github
+      # No dependency with a known vulnerability.
+      - run: uv run --with pip-audit==2.10.1 pip-audit --progress-spinner off --skip-editable
+      - name: The tag names the package version
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/')
+        run: test "$GITHUB_REF_NAME" = "v$(uv version --short)"
+      - name: The tag has release notes
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          test -s "docs/releases/$GITHUB_REF_NAME.md" || {
+            echo "::error::Write docs/releases/$GITHUB_REF_NAME.md before you tag"
+            exit 1
+          }
+      # The names and descriptions agree with listing.toml and fit each store's limits; on a
+      # tag also the version and its notes. kitden-sdlc's main is protected, like the
+      # workflows called from it.
+      # The pull request could commit .kitden-sdlc as a link; checkout would follow it.
+      - name: Clear the kitden-sdlc folder (macOS)
+        if: runner.os == 'macOS'
+        run: rm -rf .kitden-sdlc
+      - name: Check out kitden-sdlc (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KonstantinStarovoytov/kitden-sdlc
+          ref: main
+          path: .kitden-sdlc
+          persist-credentials: false
+      - name: The release check (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then set -- --tag "$GITHUB_REF_NAME"; fi
+          uv run --no-config --no-project python .kitden-sdlc/scripts/release_check.py . "$@"
+      - run: uv build
+        if: runner.os == 'macOS'
+      - name: The built files hold the package and nothing else
+        if: runner.os == 'macOS'
+        run: scripts/check-dist.sh dist
+      - name: The wheel runs outside the checkout
+        if: runner.os == 'macOS'
+        run: uv run --isolated --no-project --with dist/*.whl -- kitden --version
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+
+  # Trusted Publishing: PyPI trusts this repository, workflow and environment; no token is stored.
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      - run: uv publish --trusted-publishing always dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - name: Create the GitHub release with the built files and its notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --notes-file "docs/releases/$GITHUB_REF_NAME.md" --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # Auto-tag: when main's version has release notes and no tag yet, tag it. The tag is made
+  # with the release app's token, so it starts this workflow on the tag, which publishes;
+  # a tag made with the job's own token would start nothing. Only after the checks pass.
+  autotag:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read # read the version, the tags and the notes
+    concurrency:
+      group: autotag
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The script that decides. kitden-sdlc's main is protected, like the workflows called
+      # from it. A commit could hold .kitden-sdlc as a link; checkout would follow it.
+      - name: Clear the kitden-sdlc folder
+        run: rm -rf .kitden-sdlc
+      - name: Check out kitden-sdlc
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KonstantinStarovoytov/kitden-sdlc
+          ref: main
+          path: .kitden-sdlc
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      - name: Does this version need a tag?
+        id: tag
+        run: |
+          version="$(uv version --short)"
+          git tag --list 'v*' > "$RUNNER_TEMP/tags.txt"
+          need="$(uv run --no-config --no-project python .kitden-sdlc/scripts/release_publish.py \
+            needs-tag "$version" --tags "$RUNNER_TEMP/tags.txt" --notes "docs/releases/v$version.md")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "need=$need" >> "$GITHUB_OUTPUT"
+          echo "v$version needs a tag: $need" >> "$GITHUB_STEP_SUMMARY"
+      - name: Sign in as the release app
+        id: app
+        if: steps.tag.outputs.need == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: KonstantinStarovoytov
+          repositories: kitden
+          permission-contents: write
+          # GitHub refuses an app's new ref when its commits change .github/workflows
+          # unless the token may write workflows.
+          permission-workflows: write
+      # An annotated tag on the commit this run checked, through the API: no token in git.
+      - name: Tag
+        if: steps.tag.outputs.need == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          object="$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/tags" -f tag="v$VERSION" \
+            -f message="Kitden $VERSION" -f object="$GITHUB_SHA" -f type=commit --jq .sha)"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" \
+            -f sha="$object" --silent
+          echo "Tagged v$VERSION at ${GITHUB_SHA:0:7}." >> "$GITHUB_STEP_SUMMARY"
+
+  # The tag's version without the "v", for the stores job.
+  version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+  # After PyPI and the GitHub release: the MCP Registry, the release branch, the Homebrew PR
+  # and a summary of every store, in kitden-sdlc's publish workflow. No model runs in it.
+  stores:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release, version]
+    uses: KonstantinStarovoytov/kitden-sdlc/.github/workflows/publish.yml@main
+    permissions:
+      contents: read # check out Kitden at the tag
+      id-token: write # the MCP Registry trusts GitHub's OIDC token
+    with:
+      version: ${{ needs.version.outputs.version }}
+    secrets:
+      # A secret of the `release` environment, passed by name: only the called jobs that name
+      # that environment get its value.
+      release_app_private_key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

@@ -1,0 +1,6 @@
+short = "Shows what Claude Code, Codex and Cursor load on this computer: MCP servers, plugins, skills, hooks"
+brew = "Show and change what AI coding clients load"
+tagline = "See what your coding agents load. Change it with confidence."
+plugin = "Ask what your coding agents load and whether your skills fit. Uses the Kitden program and offers to install it."
+display_name = "Kitden"
+keywords = ["mcp", "setup", "claude-code", "codex", "cursor"]

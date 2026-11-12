@@ -1,7 +1,7 @@
 {
   "name": "kitden-sdlc",
   "version": "0.1.1",
-  "description": "Skills that let an AI agent review Kitden pull requests.",
+  "description": "Skills that let an AI agent review Kitden pull requests and draft its releases.",
   "author": {
     "name": "Konstantin Starovoytov"
   }

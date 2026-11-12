@@ -1,7 +1,7 @@
 [project]
 name = "kitden-sdlc"
 version = "0.1.0"
-description = "The AI agents that review pull requests of the Kitden project."
+description = "AI reviewers, a client watcher and a release flow for Kitden, with rules so no agent job holds untrusted text, a secret and write access at once."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"

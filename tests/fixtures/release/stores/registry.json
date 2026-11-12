@@ -1,0 +1,70 @@
+{
+  "servers": [
+    {
+      "server": {
+        "name": "io.github.KonstantinStarovoytov/kitden",
+        "version": "0.6.1"
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "io.github.KonstantinStarovoytov/kitden",
+        "version": "0.6.5"
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "io.github.KonstantinStarovoytov/kitden",
+        "version": "0.7.0"
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "io.github.KonstantinStarovoytov/kitden",
+        "version": "0.7.1"
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "io.github.KonstantinStarovoytov/kitden",
+        "version": "0.7.2"
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "name": "io.github.KonstantinStarovoytov/kitden",
+        "version": "0.8.0"
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "isLatest": true
+        }
+      }
+    }
+  ]
+}

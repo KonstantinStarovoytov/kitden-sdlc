@@ -1,0 +1,4 @@
+[project]
+name = "kitden"
+version = "1.2.3"
+description = "Shows what Claude Code, Codex and Cursor load on this computer: MCP servers, plugins, skills, hooks"

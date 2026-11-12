@@ -1,0 +1,14 @@
+{
+  "name": "kitden",
+  "description": "See what your coding agents load. Change it with confidence.",
+  "owner": { "name": "Konstantin Starovoytov" },
+  "plugins": [
+    {
+      "name": "kitden",
+      "source": "./plugins/kitden",
+      "displayName": "Kitden",
+      "description": "Ask what your coding agents load and whether your skills fit. Uses the Kitden program and offers to install it.",
+      "keywords": ["mcp", "setup", "claude-code", "codex", "cursor"]
+    }
+  ]
+}
