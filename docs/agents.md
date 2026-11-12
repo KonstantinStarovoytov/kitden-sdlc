@@ -98,7 +98,13 @@ workflows live here, and Kitden calls them. The design is
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
   no longer holds.
 
-Identities: the release app is a second GitHub App, apart from Lantern. It can write contents
+Identities: three GitHub Apps, each with its own name and icon, so nobody mistakes one
+for another. Lantern (a lantern on deep teal) comments and opens issues. Kitden Beacon (a
+lighthouse on night blue, `kitden-beacon`) is the release app. Kitden Kettle (a brew kettle
+on cellar red, `kitden-kettle`) bumps the Homebrew formula. The icons are in
+[images/apps](images/apps/).
+
+The release app, Beacon, is apart from Lantern. It can write contents
 and pull requests in Kitden and in the tap, and workflows in Kitden (GitHub refuses an app's
 tag or branch move whose commits change `.github/workflows` otherwise). Its private key is
 stored only in Kitden, as the secret `RELEASE_APP_PRIVATE_KEY` of the environment `release`,
@@ -106,7 +112,7 @@ and its client id is the variable `RELEASE_APP_CLIENT_ID`. Only the jobs that ta
 branch, open the release pull request and open the Homebrew pull request name that
 environment. No job that runs a model holds the release key: the agent's files are only data
 to the job that commits them. Lantern's key lives in kitden-sdlc for the watcher, so Lantern
-gets no write access to code. The tap has a third app of its own, `kitden-tap-bump` (contents
+gets no write access to code. The tap has its own app, Kettle (`kitden-kettle`; contents
 and pull requests write, on the tap only), whose key `TAP_APP_PRIVATE_KEY` is the only app key
 stored in the tap: its daily autobump runs `brew bump`, code from outside the tap, so it must
 never hold the release key. The tap's auto-pull accepts bump pull requests from the release

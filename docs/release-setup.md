@@ -32,7 +32,8 @@ or fail without much noise.
 Docs: [Registering a GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app).
 
 1. Open github.com, your profile picture, Settings, Developer settings, GitHub Apps, New GitHub App.
-2. GitHub App name: `kitden-release`.
+2. GitHub App name: `Kitden Beacon` (GitHub makes the slug `kitden-beacon`). Description:
+   "Releases Kitden: tags the version and updates every store."
 3. Homepage URL: the Kitden repository's address.
 4. Webhook: untick Active.
 5. Repository permissions, Contents: Read and write.
@@ -47,10 +48,12 @@ Docs: [Registering a GitHub App](https://docs.github.com/en/apps/creating-github
 12. Scroll to Private keys and press Generate a private key. A `.pem` file downloads. Keep it
     until section 2 is done, then delete it. This key is stored only in Kitden's `release`
     environment, never in the tap: it can tag Kitden, and a tag publishes to PyPI.
-13. Open Install App, then Install on your account.
-14. Choose Only select repositories, then pick `kitden` and `homebrew-tap`. Nothing else.
+13. Display information, Upload a logo: [beacon.png](images/apps/beacon.png); background
+    color `#182143`. Its own icon and color keep it apart from Lantern in every timeline.
+14. Open Install App, then Install on your account.
+15. Choose Only select repositories, then pick `kitden` and `homebrew-tap`. Nothing else.
     (Kitden's publish job opens the formula pull request in the tap with this app.)
-15. The bot login is the app's slug plus `[bot]`: `kitden-release[bot]`. (If GitHub changed the
+16. The bot login is the app's slug plus `[bot]`: `kitden-beacon[bot]`. (If GitHub changed the
     slug, use the slug in the app's public page address.)
 
 ## 2. Kitden: environments
@@ -85,7 +88,7 @@ request moves it from there on):
 Then the tag rule. Kitden, Settings, Rules, Rulesets, New ruleset, New tag ruleset:
 
 1. Ruleset name: `release tags`. Enforcement status: Active.
-2. Bypass list, Add bypass: the `kitden-release` app, Always allow.
+2. Bypass list, Add bypass: the `kitden-beacon` app, Always allow.
 3. Bypass list, Add bypass: Repository admin (that is you), Always allow. (Only these two
    may create a `v*` tag.)
 4. Target tags, Add target, Include by pattern: `v*`.
@@ -96,7 +99,7 @@ Then the tag rule. Kitden, Settings, Rules, Rulesets, New ruleset, New tag rules
 Then the branch rule. New ruleset, New branch ruleset:
 
 1. Ruleset name: `release branch`. Enforcement status: Active.
-2. Bypass list, Add bypass: the `kitden-release` app, Always allow.
+2. Bypass list, Add bypass: the `kitden-beacon` app, Always allow.
 3. Target branches, Add target, Include by pattern: `release`.
 4. Tick Restrict updates (only the bypass list may push). Tick Restrict deletions.
 5. Tick Block force pushes.
@@ -107,7 +110,7 @@ Last, Kitden's own `main`. The release app can write Contents on Kitden, so `mai
 1. Kitden, Settings, Rules, Rulesets, open the ruleset for `main`.
 2. Check its Enforcement status is Active and its target branches include `main`.
 3. Check that it requires a pull request before merging.
-4. Check the bypass list does not contain `kitden-release`, Lantern or GitHub Actions.
+4. Check the bypass list does not contain `kitden-beacon`, Lantern or GitHub Actions.
 
 ## 5. The tap: its own app
 
@@ -118,7 +121,8 @@ never stored in the tap.
 First the tap app. github.com, your profile picture, Settings, Developer settings, GitHub Apps,
 New GitHub App:
 
-1. GitHub App name: `kitden-tap-bump`.
+1. GitHub App name: `Kitden Kettle` (slug `kitden-kettle`). Description: "Bumps the kitden
+   formula in the Homebrew tap."
 2. Homepage URL: the tap repository's address.
 3. Webhook: untick Active.
 4. Repository permissions, Contents: Read and write.
@@ -128,15 +132,17 @@ New GitHub App:
 8. Press Create GitHub App.
 9. Copy the Client ID (it starts with `Iv`).
 10. Scroll to Private keys and press Generate a private key. A second `.pem` file downloads.
-11. Open Install App, then Install on your account, Only select repositories, then pick
+11. Display information, Upload a logo: [kettle.png](images/apps/kettle.png); background
+    color `#2B1B23`.
+12. Open Install App, then Install on your account, Only select repositories, then pick
     `homebrew-tap`. Nothing else.
-12. Its bot login is `kitden-tap-bump[bot]` (the slug plus `[bot]`, as in section 1).
+13. Its bot login is `kitden-kettle[bot]` (the slug plus `[bot]`, as in section 1).
 
 Then go to `homebrew-tap`, Settings, Secrets and variables, Actions.
 
 1. Variables tab, New repository variable: `TAP_APP_CLIENT_ID`, the tap app's Client ID.
-2. Variables tab, New repository variable: `TAP_APP_BOT`, value `kitden-tap-bump[bot]`.
-3. Variables tab, New repository variable: `RELEASE_APP_BOT`, value `kitden-release[bot]`.
+2. Variables tab, New repository variable: `TAP_APP_BOT`, value `kitden-kettle[bot]`.
+3. Variables tab, New repository variable: `RELEASE_APP_BOT`, value `kitden-beacon[bot]`.
    (Both exact: the tap only auto-pulls bump pull requests opened by these two logins or by
    `github-actions[bot]`.)
 4. Secrets tab, New repository secret: `TAP_APP_PRIVATE_KEY`, the whole tap app `.pem` file.
@@ -176,7 +182,7 @@ publish request that is now waiting. Saving this cancels a waiting request.
 ## 9. Check that it works
 
 1. Kitden, Actions, Release prep, Run workflow on `main`.
-2. Wait. A pull request named `Kitden X.Y.Z` appears, opened by `kitden-release[bot]`.
+2. Wait. A pull request named `Kitden X.Y.Z` appears, opened by `kitden-beacon[bot]`.
 3. Read it. Merge it with a **merge commit** (not squash, not rebase).
 4. Kitden, Actions, Checks and release: the run on `main` tags the version (job `autotag`).
    A second Checks and release run starts on the tag `vX.Y.Z`. kitden-sdlc's publish workflow

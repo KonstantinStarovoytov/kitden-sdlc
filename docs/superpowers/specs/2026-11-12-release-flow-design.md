@@ -91,7 +91,7 @@ publish to PyPI.
   `.github/workflows` without it (Ruling 21). Its private key is stored only in Kitden, as a
   secret of a new environment `release`. Only the auto-tag, release-branch, open-pr and
   Homebrew jobs use that environment. No model job does.
-- **A tap-only GitHub App** (`kitden-tap-bump`, contents and pull-requests write, installed
+- **A tap-only GitHub App** (`kitden-kettle`, contents and pull-requests write, installed
   only on `homebrew-tap`) for the tap's autobump, which runs `brew bump`, code from outside the
   tap. Its key (`TAP_APP_PRIVATE_KEY`) is the only app key stored in the tap; the release app's
   key never is (Ruling 20).

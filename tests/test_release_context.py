@@ -141,7 +141,7 @@ def test_guard_stops_when_switch_off():
 
 
 def test_guard_stops_on_an_open_release_pr():
-    reason = guard([pr("prepare-v0.9.0", "app/kitden-release", True)], enabled=True)
+    reason = guard([pr("prepare-v0.9.0", "app/kitden-beacon", True)], enabled=True)
     assert "prepare-v0.9.0" in reason
 
 
