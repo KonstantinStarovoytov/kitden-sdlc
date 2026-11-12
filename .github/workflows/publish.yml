@@ -1,0 +1,380 @@
+name: Publish
+
+# Reusable workflow: after PyPI has a new Kitden version, put it everywhere else. Kitden's
+# release.yml calls it on a tag, after its own PyPI and GitHub release jobs. No job here runs a
+# model. Each job writes to one place with its own short-lived token:
+#   release-branch: moves Kitden's `release` branch to the tag (release app, Kitden only)
+#   registry:       publishes server.json to the MCP Registry (GitHub OIDC, no secret)
+#   homebrew:       opens the formula PR in the tap (release app, the tap only)
+#   summary:        writes every store's version to the job summary (read only)
+# The release app's key lives only in Kitden's `release` environment; the jobs that use it
+# name that environment. The design is docs/superpowers/specs/2026-11-12-release-flow-design.md.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "The version that was just released, like 1.2.3"
+        type: string
+        required: true
+    secrets:
+      # An environment secret: the caller passes it by name, and it has a value only in the
+      # jobs below that name the `release` environment.
+      release_app_private_key:
+        required: true
+
+permissions: {}
+
+jobs:
+  # Refuse anything but a vX.Y.Z tag in Kitden that names the same version.
+  check:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
+      - name: Check out kitden-sdlc
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .kitden-sdlc
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      - name: Check the version and the tag
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "KonstantinStarovoytov/kitden" ]; then
+            echo "::error::This workflow publishes Kitden only, not $GITHUB_REPOSITORY"
+            exit 1
+          fi
+          uv run --no-config --no-project python .kitden-sdlc/scripts/release_publish.py \
+            check-version "$VERSION"
+          if [ "$GITHUB_REF" != "refs/tags/v$VERSION" ]; then
+            echo "::error::The run is for $GITHUB_REF, not the tag v$VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # Fast-forward only: the `release` branch never loses a commit. The Claude directory and
+  # Kitden's marketplace read the plugin from it.
+  release-branch:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: release
+    permissions: {}
+    steps:
+      - name: Sign in as the release app
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.release_app_private_key }}
+          owner: KonstantinStarovoytov
+          repositories: kitden
+          permission-contents: write
+      # `force=false` makes GitHub itself refuse an update that is not a fast-forward.
+      - name: Move the release branch to the tag
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          repo="repos/KonstantinStarovoytov/kitden"
+          sha="$(gh api "$repo/commits/v$VERSION" --jq .sha)"
+          if ! status="$(gh api "$repo/compare/release...$sha" --jq .status 2>/dev/null)"; then
+            if gh api "$repo/branches/release" --silent 2>/dev/null; then
+              echo "::error::Could not compare the release branch with v$VERSION"
+              exit 1
+            fi
+            gh api -X POST "$repo/git/refs" -f ref=refs/heads/release -f sha="$sha" --silent
+            echo "Created the release branch at v$VERSION (${sha:0:7})." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          case "$status" in
+            identical)
+              echo "The release branch is already at v$VERSION." >> "$GITHUB_STEP_SUMMARY" ;;
+            ahead)
+              gh api -X PATCH "$repo/git/refs/heads/release" -f sha="$sha" -F force=false --silent
+              echo "Moved the release branch to v$VERSION (${sha:0:7})." >> "$GITHUB_STEP_SUMMARY" ;;
+            *)
+              echo "::error::v$VERSION is $status from the release branch, not ahead: not moved"
+              exit 1 ;;
+          esac
+
+  # GitHub's OIDC token proves this run is Kitden's, so the registry needs no secret.
+  registry:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read # check out server.json at the tag
+      id-token: write # log in to the MCP Registry
+    env:
+      # The latest release on 2026-11-12. The SHA-256 is from registry_1.8.9_checksums.txt
+      # of that release, and matched the downloaded file.
+      MCP_PUBLISHER_VERSION: v1.8.9
+      MCP_PUBLISHER_SHA256: 4d527ca8f1ced0394c962dc925c2a4a4addef441cbefd62501c875e9481823a8
+    steps:
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
+      - name: Check out Kitden at the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: kitden
+          persist-credentials: false
+      - name: Check out kitden-sdlc
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .kitden-sdlc
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      - name: Wait for PyPI
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: >-
+          uv run --no-config --no-project python .kitden-sdlc/scripts/release_publish.py
+          wait-pypi "$VERSION"
+      - name: Is it in the registry already?
+        id: has
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          has="$(uv run --no-config --no-project python \
+            .kitden-sdlc/scripts/release_publish.py registry-has "$VERSION")"
+          echo "has=$has" >> "$GITHUB_OUTPUT"
+          if [ "$has" = true ]; then
+            echo "The MCP Registry already has $VERSION." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Check server.json
+        if: steps.has.outputs.has == 'false'
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          seen="$(jq -r .version kitden/server.json)"
+          if [ "$seen" != "$VERSION" ]; then
+            echo "::error::server.json at the tag is $seen, not $VERSION"
+            exit 1
+          fi
+      - name: Get mcp-publisher
+        if: steps.has.outputs.has == 'false'
+        run: |
+          archive=mcp-publisher_linux_amd64.tar.gz
+          cd "$RUNNER_TEMP"
+          curl --fail --location --silent --show-error --output "$archive" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/$archive"
+          echo "$MCP_PUBLISHER_SHA256  $archive" | sha256sum --check --strict
+          tar xzf "$archive" mcp-publisher
+      - name: Publish to the MCP Registry
+        if: steps.has.outputs.has == 'false'
+        working-directory: kitden
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          "$RUNNER_TEMP/mcp-publisher" login github-oidc
+          "$RUNNER_TEMP/mcp-publisher" publish
+          echo "Published $VERSION to the MCP Registry." >> "$GITHUB_STEP_SUMMARY"
+
+  # When Kitden's runtime dependencies changed, the formula's resources must change too. The
+  # tap's daily autobump does that the next day (PyPI files under a day old are refused), so
+  # this job then does nothing. Otherwise it opens the PR, and the tap builds the bottles.
+  homebrew:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read # read Kitden's history at the tag
+    steps:
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
+      - name: Check out Kitden at the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: kitden
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out kitden-sdlc
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .kitden-sdlc
+          persist-credentials: false
+      - name: Check out the tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KonstantinStarovoytov/homebrew-tap
+          ref: main
+          path: tap
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      - name: Did the dependencies change?
+        id: deps
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          if ! previous="$(git -C kitden describe --tags --abbrev=0 --match 'v[0-9]*' "v$VERSION^")"; then
+            echo "No tag before v$VERSION: the tap's autobump updates the formula." \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git -C kitden show "$previous:pyproject.toml" > "$RUNNER_TEMP/old-pyproject.toml"
+          changed="$(uv run --no-config --no-project python \
+            .kitden-sdlc/scripts/release_publish.py deps-changed \
+            "$RUNNER_TEMP/old-pyproject.toml" kitden/pyproject.toml)"
+          if [ "$changed" = true ]; then
+            echo "Runtime dependencies changed since $previous: the tap's daily autobump opens" \
+              "the formula PR tomorrow." >> "$GITHUB_STEP_SUMMARY"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update the formula
+        id: open
+        if: steps.deps.outputs.go == 'true'
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          listing=()
+          if [ -f kitden/listing.toml ]; then
+            listing=(--listing kitden/listing.toml)
+          fi
+          changed="$(uv run --no-config --no-project python \
+            .kitden-sdlc/scripts/release_publish.py bump-formula \
+            tap/Formula/kitden.rb "$VERSION" "${listing[@]}")"
+          if [ "$changed" = false ]; then
+            echo "The formula already has $VERSION." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "go=$changed" >> "$GITHUB_OUTPUT"
+      - name: Sign in as the release app
+        id: app
+        if: steps.open.outputs.go == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.release_app_private_key }}
+          owner: KonstantinStarovoytov
+          repositories: homebrew-tap
+          permission-contents: write
+          permission-pull-requests: write
+      # Through the API, so no token is written into git, and the commit is the app's.
+      - name: Open the formula PR
+        if: steps.open.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          repo="KonstantinStarovoytov/homebrew-tap"
+          branch="bump-kitden-$VERSION"
+          base="$(git -C tap rev-parse HEAD)"
+          blob="$(git -C tap rev-parse HEAD:Formula/kitden.rb)"
+          open="$(gh pr list --repo "$repo" --head "$branch" --state open --json number --jq length)"
+          if [ "$open" != 0 ]; then
+            echo "The tap already has an open PR from $branch." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # A branch with no open PR: a run that stopped half way, or a PR that was closed.
+          if gh api "repos/$repo/branches/$branch" --silent 2> /dev/null; then
+            echo "::error::The tap has the branch $branch but no open PR from it. Delete the branch and re-run this job."
+            exit 1
+          fi
+          gh api -X POST "repos/$repo/git/refs" -f ref="refs/heads/$branch" -f sha="$base" --silent
+          gh api -X PUT "repos/$repo/contents/Formula/kitden.rb" \
+            -f message="kitden $VERSION" -f branch="$branch" -f sha="$blob" \
+            -f content="$(base64 -w0 tap/Formula/kitden.rb)" --silent
+          url="$(gh pr create --repo "$repo" --base main --head "$branch" \
+            --title "kitden $VERSION" \
+            --body "Kitden $VERSION is on PyPI and its runtime dependencies did not change, so only the url, sha256 and desc change. Opened by Kitden's publish workflow.")"
+          echo "Opened $url." >> "$GITHUB_STEP_SUMMARY"
+
+  # The table of every store. It runs when a job above failed too: then it shows where.
+  summary:
+    needs: [check, release-branch, registry, homebrew]
+    if: >-
+      !cancelled() && startsWith(github.ref, 'refs/tags/v')
+      && needs.check.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # read Kitden's history and its release
+    steps:
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
+      - name: Check out Kitden at the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: kitden
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out kitden-sdlc
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .kitden-sdlc
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      - name: Write the summary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          : > "$RUNNER_TEMP/changed.txt"
+          if previous="$(git -C kitden describe --tags --abbrev=0 --match 'v[0-9]*' "v$VERSION^")"; then
+            git -C kitden diff --name-only "$previous" "v$VERSION" > "$RUNNER_TEMP/changed.txt"
+          fi
+          uv run --no-config --no-project python .kitden-sdlc/scripts/release_publish.py \
+            summary "v$VERSION" --changed "$RUNNER_TEMP/changed.txt" --out "$GITHUB_STEP_SUMMARY"

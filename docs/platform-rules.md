@@ -34,3 +34,32 @@ we checked it.
   [Formula Cookbook](https://docs.brew.sh/Formula-Cookbook#fill-in-the-desc) and
   [Description Guidelines](https://docs.brew.sh/Description-Guidelines).
 - Checked: 2026-11-12.
+
+## Publishing (`.github/workflows/publish.yml`)
+
+How the publish workflow signs in to each place, and what we checked.
+
+- **MCP Registry through GitHub OIDC.** A job with `id-token: write` (and `contents: read`)
+  runs `mcp-publisher login github-oidc`, then `mcp-publisher publish` next to `server.json`.
+  No secret is stored. The guide pins an `mcp-publisher` release on purpose instead of the
+  moving `releases/latest`, and warns that a token for an organisation namespace can publish
+  any server under `io.github.<org>/*`. We pin `v1.8.9` (the latest on 2026-11-12) and check
+  the archive's SHA-256 from that release's `registry_1.8.9_checksums.txt`.
+  Source: the registry's GitHub Actions guide,
+  <https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/github-actions.mdx>.
+  Checked: 2026-11-12.
+- **The release app's key, an environment secret, in a reusable workflow.** The called job
+  must name the environment (`environment: release`); the caller job cannot. The caller still
+  passes the secret by name (`release_app_private_key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}`),
+  which works even when the secret exists only in the environment. A secret the caller does not
+  pass is an empty string, so the workflow marks it `required: true`. Variables (`vars`) in a
+  called workflow come from the caller's repository.
+  Sources: <https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows>
+  ("Using inputs and secrets in a reusable workflow") and
+  <https://docs.github.com/en/actions/reference/workflows-and-actions/variables>.
+  Checked: 2026-11-12.
+- **The Claude plugin directory has no API.** Its listing comes from `plugin.json` and the
+  README of the live version; the data handling answers are given in the developer portal,
+  <https://claude.ai/directory/manage> (Submissions, then the plugin). The release summary
+  links that page when `listing.toml` or `PRIVACY.md` changed since the last tag.
+  Source: <https://claude.com/docs/plugins/submit>. Checked: 2026-11-12.
