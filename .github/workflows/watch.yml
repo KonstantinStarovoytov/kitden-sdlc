@@ -207,7 +207,7 @@ jobs:
           git commit -m "Update the watcher's memory"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch
 
-  # 38 tasks, one after another, and a high effort can take minutes a call, so the limit is
+  # The tasks run one after another, and a high effort can take minutes a call, so the limit is
   # 5 hours: the eval runs by hand and nobody waits for it. A task may take 40 minutes and
   # one call 15. The model keys reach only the step that runs the model; the scoring step has
   # none. No write permission, so nothing in the pieces can write anywhere.
@@ -234,7 +234,7 @@ jobs:
         with:
           version: "0.10.10"
       # MAX_MODEL_CALLS is the limit for each task. A long piece can touch many rows, and each
-      # one is a call or two, so 30: 1140 calls for the 38 tasks at most. The model named in
+      # one is a call or two, so 30 (evals/watch/README.md). The model named in
       # `model` uses its maker's key: OpenAI's, or Anthropic's for a `claude-` model. With the
       # Langfuse keys the run is also an experiment there, with traces and the scores of each
       # task; without them it is off.
