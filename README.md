@@ -1,96 +1,61 @@
 # kitden-sdlc
 
-A solo maintainer wants a second pair of eyes on every change, but not a bigger product and
-not a bot that can leak a secret. These are the AI reviewers that look at pull requests of
-[Kitden](https://github.com/KonstantinStarovoytov/kitden), and the rules that keep them safe.
+AI reviewers, a client watcher and a release flow for
+[Kitden](https://github.com/KonstantinStarovoytov/kitden), with rules so no agent job holds
+untrusted text, a secret and write access at once.
 
-Status: the reviewers are built and tested on a laptop. They go live when the repository and
-the secrets are set up. There are no live numbers yet; [numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md) will fill in.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/sdlc-dark.svg">
+  <img src="docs/images/sdlc-light.svg" width="860" alt="Three lanes, split by one border: on the left the model reads, on the right a script writes. Review, live: Claude and Luna read a pull request, and a script posts one comment. Client watcher, measuring: Luna judges client release notes and docs, and a script opens an issue in Kitden. Release, being built: Claude drafts the release, a script opens the release pull request, the owner merges it, and scripts tag it and publish to PyPI, Homebrew, the MCP Registry and the Claude directory.">
+</picture>
 
-## The agents
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)
 
-| Agent | Runs when | Model | May do | Limits |
-|---|---|---|---|---|
-| `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](evals/README.md); meant to run on a Max subscription, once set up | read the checkout, write findings | see below |
-| `luna` reviewer | the same | GPT-6 Luna; meant to run on a project API key with a $5 monthly budget, once set up | read in a sandbox with no network, answer with findings | see below |
-| workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
-| weekly numbers | every Monday | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
-| client watcher | every day at 05:17 UTC, or by hand | GPT-6 Luna, on the same key as the `luna` reviewer | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` and `WATCH_LIVE` switches |
+| Part | What it does | Status |
+|---|---|---|
+| Review ([review.yml](.github/workflows/review.yml)) | Claude and Luna read each pull request; the Lantern app posts one "Agent review" comment | live on Kitden |
+| Workflow check ([check.yml](.github/workflows/check.yml)) | zizmor, actionlint and the rule checker on every workflow change | live on Kitden |
+| Client watcher ([watch.yml](.github/workflows/watch.yml)) | Luna reads the release notes of Claude Code, Codex and Cursor; a script opens issues in Kitden | measuring: the eval runs by hand, the daily run is off |
+| Weekly numbers ([numbers.yml](.github/workflows/numbers.yml)) | counts the reviews, no model | set up; first run on Monday |
+| Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; a job without a model opens the release pull request | being built |
+| Publish ([publish.yml](.github/workflows/publish.yml)) | no model; in the `release` environment it moves the `release` branch and opens the Homebrew pull request, and it publishes to the MCP Registry | being built |
+| Release watch ([release-watch.yml](.github/workflows/release-watch.yml)) | daily, no model: an issue when a release is due or a store is behind | being built |
 
-A pull request gets one short review comment for both reviewers, never a comment per
-finding. A job without a model writes it and edits it in place on later pushes, so only the
-first one sends a notification. A finding both reviewers made is listed once.
-
-The two reviewers work by different methods, so they do not repeat each other's blind spots.
-Claude's skill follows Anthropic's
-[code-review plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review):
-report only what is surely wrong, and check each finding before keeping it. Luna's prompt
-follows the review rubric of [OpenAI's Codex](https://github.com/openai/codex). Both sources
-are under Apache-2.0; the text here is rewritten for Kitden.
-
-Limits for both reviewers: 15 minutes, 5 findings each, at most 10 reviews a day, fork pull
-requests and bots skipped, the `AGENTS_ENABLED` variable switches everything off, and the
-label `no-agent-review` skips one pull request. The reviewers only comment: they never
-approve and never block ([merge policy](MERGE_POLICY.md)).
+Every agent, its model and its limits: [docs/agents.md](docs/agents.md).
 
 ## The rules
 
 Every workflow that runs an agent must follow [RULES.md](RULES.md). A script checks them.
 
-1. No job holds untrusted text, a secret and write permission together.
+1. No job holds untrusted text, a secret and write permission together. A job in the
+   `release` environment never runs a model.
 2. `pull_request` only; skip forks, bots and when the switch is off. A scheduled agent runs
    on a schedule or by hand only, and every job checks the switch.
 3. `permissions: {}` at the top; each job asks for the least.
 4. Every action is pinned to a full SHA. The caller may use this repository's workflows at
    `main`, which is protected.
-5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has no turn
-   limit, only the 15 minutes. An agent that is a script has `MAX_MODEL_CALLS` and runs one
-   at a time.
+5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has only
+   the 15 minutes. An agent that is a script has `MAX_MODEL_CALLS` and runs one at a time.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Luna
-   can run shell commands, but only in a read-only sandbox without network, and it can read more
-   than the checkout.
-7. Secrets arrive as named inputs and are never printed; the two keys never share a job.
-8. Every comment starts with the title "Agent review", so it is clear an agent wrote it.
-
-## The client watcher
-
-Once a day a job reads the release notes and docs of Claude Code, Codex and Cursor and asks a
-model whether anything touches what Kitden shows. It opens an issue in Kitden for a sure
-break or wrong data (two a week at most) and one summary issue in the first run of the week,
-normally Monday. It keeps its memory on the `watch` branch. The design is in [docs/watcher-design.md](docs/watcher-design.md).
-To run, it needs the `watch` branch and Lantern (the review app) with Issues write on Kitden.
-It also needs the secrets `OPENAI_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc.
-Before it is switched on, the `eval` job (run by hand) measures the model on [15 real release notes](evals/watch/README.md).
-The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
-Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
-
-| Label | Meaning |
-|---|---|
-| `client-change` | Opened by the watcher: a client changed |
-| `claude-code`, `codex`, `cursor` | Which client |
-| `breaks` | A Kitden action stops working |
-| `wrong-data` | Kitden shows something that is not true |
-| `minor` | Small; nothing a user would trip over |
-| `kitden-gap` | The client added something Kitden does not show yet |
-| `unsure` | The watcher is not sure Kitden is touched |
-| `summary` | The weekly summary |
-| `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
-
-## What went wrong
-
-The first versions broke in several ways: [LOG.md](LOG.md). The design is in
-[docs/design.md](docs/design.md) and the plan in [docs/plan.md](docs/plan.md).
+   can run shell commands, but only in a read-only sandbox without network, and it can read
+   more than the checkout.
+7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
+   never share a job.
+8. An agent's comment starts with the title "Agent review", so it is clear an agent wrote it.
 
 ## Copy this
 
 Put [agents-review.yml](examples/agents-review.yml) and [agents-check.yml](examples/agents-check.yml)
-in your `.github/workflows/`. They are Kitden's own files; the `uses` pins are bumped at each
-release.
+in your `.github/workflows/`. For the release flow, add [release.yml](examples/release.yml),
+[release-watch.yml](examples/release-watch.yml) and [release-prep.yml](examples/release-prep.yml).
+They are Kitden's own files; the `uses` pins are bumped at each release.
 
 - `kitden-sdlc`, or your copy of it, must be public: another repository's `uses` cannot
   reach a private one.
 - The review skill, the Luna prompt and `count_reviews.py` (`REPO`, `MAINTAINER`) are about
-  Kitden. Rewrite them for your project.
+  Kitden, and so are the release skills, `release_check.py` and
+  [platform-rules.md](docs/platform-rules.md). Rewrite them for your project.
 - The model and the `uses` pins in the caller files are Kitden's choices. Change them to yours.
 
 Then, once:
@@ -104,3 +69,18 @@ Then, once:
    `AGENTS_APP_CLIENT_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's app
    is called Lantern. Without an app the comment comes from `github-actions`. With your own
    app, put its bot name into `BOTS` in `post_findings.py`.
+6. For the release flow, create a second GitHub App, the release app, with contents and pull
+   requests write, on your project and its Homebrew tap. Save its client id as the variable
+   `RELEASE_APP_CLIENT_ID`. Create the environment `release`, limited to `main` and `v*` tags,
+   and save the app's private key there as the secret `RELEASE_APP_PRIVATE_KEY`. Do not reuse
+   the review app: its key is stored in kitden-sdlc. `release.yml` publishes to PyPI through a
+   Trusted Publisher and the environment `pypi`; limit `pypi` to `v*` tags.
+
+## More
+
+- [docs/agents.md](docs/agents.md): every agent and workflow, the watcher's labels, the release flow
+- [LOG.md](LOG.md): what went wrong while building, and what changed
+- Designs: [reviewers](docs/design.md), [client watcher](docs/watcher-design.md),
+  [release flow](docs/superpowers/specs/2026-11-12-release-flow-design.md)
+- [MERGE_POLICY.md](MERGE_POLICY.md): the reviewers only comment, never approve or block
+- Evals: [review tasks](evals/README.md), [watch tasks](evals/watch/README.md)
