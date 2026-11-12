@@ -15,6 +15,8 @@
  },
  "expect": {
   "row": "Windows by model: 1,000,000 tokens at 3 characters per token for opus-5-5 and fable-5-1; 200,000 at 4 for sonnet-4-6 (2026-11-06)",
-  "effect": "wrong-data"
- }
+  "effect": "unknown",
+  "severity": "minor"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
 }

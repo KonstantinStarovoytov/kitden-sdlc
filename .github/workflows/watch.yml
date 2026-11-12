@@ -16,9 +16,26 @@ on:
   workflow_dispatch:
     inputs:
       eval:
-        description: "Run the eval on the 15 tasks of evals/watch instead of the daily run"
+        description: "Run the eval on the tasks of evals/watch instead of the daily run"
         type: boolean
         default: false
+      # The three below are read by the eval only. The daily run uses WATCH_MODEL of this
+      # file at effort medium: the setting that passed the eval (evals/watch/results).
+      model:
+        description: "Eval only: the model"
+        type: choice
+        options: [claude-sonnet-5-5, gpt-6-luna, gpt-6.1-terra, claude-opus-5-5]
+        default: claude-sonnet-5-5
+      effort:
+        description: "Eval only: how hard the model thinks (default: the model's own)"
+        type: choice
+        options: [default, low, medium, high, xhigh, max]
+        default: default
+      runs:
+        description: "Eval only: how many times to run all the tasks (the judge varies)"
+        type: choice
+        options: ["1", "2", "3"]
+        default: "3"
 
 permissions: {}
 
@@ -28,7 +45,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  WATCH_MODEL: gpt-6-luna
+  WATCH_MODEL: claude-sonnet-5-5
 
 jobs:
   fetch:
@@ -106,7 +123,8 @@ jobs:
       # The model's only step: text in, a findings file out. No tools, no write permission.
       - name: Judge
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WATCH_EFFORT: medium
           MAX_MODEL_CALLS: "60"
         run: >-
           uv run --locked --only-group watch python scripts/watch_judge.py
@@ -190,20 +208,22 @@ jobs:
           git commit -m "Update the watcher's memory"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:watch
 
-  # 15 tasks, one after another, take longer than a daily run, so the limit is 45 minutes. The
-  # key reaches only the step that runs the model; the scoring step has none. No write
-  # permission, so nothing in the pieces can write anywhere.
+  # The tasks run one after another, and a high effort can take minutes a call, so the limit is
+  # 5 hours: the eval runs by hand and nobody waits for it. A task may take 40 minutes and
+  # one call 15. The model keys reach only the step that runs the model; the scoring step has
+  # none. No write permission, so nothing in the pieces can write anywhere.
   eval:
     if: vars.AGENTS_ENABLED == 'true' && inputs.eval
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 300
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # All of the history and tags: the input compares main with the latest release.
+      # All of the history and tags: each task reads Kitden at its own commit and compares it
+      # with the latest release before it.
       - name: Check out kitden
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -214,13 +234,21 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
-      # MAX_MODEL_CALLS is the limit for each task. A task has one piece, so 10 is enough:
-      # 150 calls for the 15 tasks at most. With the Langfuse keys the run is also an
-      # experiment there, with traces and the scores of each task; without them it is off.
+      # MAX_MODEL_CALLS is the limit for each task. A long piece can touch many rows, and each
+      # one is a call or two, so 30 (evals/watch/README.md). The model named in
+      # `model` uses its maker's key: OpenAI's, or Anthropic's for a `claude-` model. With the
+      # Langfuse keys the run is also an experiment there, with traces and the scores of each
+      # task; without them it is off.
       - name: Judge the tasks
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          MAX_MODEL_CALLS: "10"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAX_MODEL_CALLS: "30"
+          WATCH_DEADLINE_SECONDS: "2400"
+          WATCH_CALL_SECONDS: "900"
+          WATCH_MODEL: ${{ inputs.model }}
+          WATCH_EFFORT: ${{ inputs.effort != 'default' && inputs.effort || '' }}
+          WATCH_RUNS: ${{ inputs.runs }}
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}

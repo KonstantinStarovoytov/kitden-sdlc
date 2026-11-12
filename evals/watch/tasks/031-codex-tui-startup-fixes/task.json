@@ -1,0 +1,22 @@
+{
+ "id": "031-codex-tui-startup-fixes",
+ "kind": "untouched",
+ "source": "codex-releases",
+ "piece": {
+  "id": "codex-releases#rust-v0.162.1",
+  "client": "codex",
+  "kind": "release",
+  "version": "rust-v0.162.1",
+  "url": "https://github.com/openai/codex/releases",
+  "text": "## Bug Fixes\n\n- Fixed a TUI crash when asynchronous questions contain multiple lines, preserving line breaks and complete hyperlink destinations. (#51866)\n- Fixed startup failures caused by differences between a running background server's feature settings and CLI defaults. Compatibility checks now apply only to explicit command-line feature overrides. (#52648)\n\nFull Changelog: https://github.com/openai/codex/compare/rust-v0.162.0...rust-v0.162.1",
+  "source": "codex-releases",
+  "key": "rust-v0.162.1",
+  "hash": "381b005b61db42e513aceadac679efbea351be5032a91459dff544387f2b3722"
+ },
+ "expect": {
+  "row": null,
+  "effect": null,
+  "severity": null
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

@@ -4,9 +4,12 @@ Usage: watch_run.py --kitden <clone> --tasks evals/watch/tasks --out <folder>
 
 For each task: an input.json built the way watch_fetch.py builds it (the clone's
 docs/clients.md and the files it names, the task's piece), the judge run on it, and
-<folder>/<id>/findings.json saved. MAX_MODEL_CALLS is the limit for each task, as for one run
-of the judge. It needs OPENAI_API_KEY and WATCH_MODEL. With the Langfuse keys set, the run is
-also an experiment on the Langfuse dataset `watch-eval`, with the scores of each task.
+<folder>/<id>/findings.json saved. WATCH_RUNS (default 1) runs all the tasks that many times,
+into <folder>/run-<n>/, since one run says little about a judge that varies. MAX_MODEL_CALLS
+is the limit for each task, as for one run of the judge. It needs WATCH_MODEL and its maker's
+key: OPENAI_API_KEY, or ANTHROPIC_API_KEY for a `claude-` model. With the Langfuse keys set,
+each run is also an experiment on the Langfuse dataset `watch-eval`, with the scores of each
+task.
 """
 
 import argparse
@@ -21,14 +24,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import watch_trace  # noqa: E402
 from watch_fetch import _git, build_input  # noqa: E402
-from watch_judge import MAX_MODEL_CALLS, OpenAIModel, judge  # noqa: E402
+from watch_judge import MAX_MODEL_CALLS, chat_model, judge  # noqa: E402
 from watch_list import parse_list  # noqa: E402
 from watch_score import load_tasks, task_scores  # noqa: E402
 
 DATASET = "watch-eval"
 
 
-def build_task_input(piece: dict, kitden) -> dict:
+def _at(kitden, commit: str, name: str) -> str | None:
+    got = _git(kitden, "show", f"{commit}:{name}")
+    return got.stdout if got.returncode == 0 else None
+
+
+def build_task_input(piece: dict, kitden, commit: str | None = None) -> dict:
+    """The judge's input for one task. With `commit` (the task's `kitden`), the list and the
+    files are read as they were at the Kitden commit the answer was checked against, so a later
+    change in Kitden cannot make the task's answer wrong without anyone seeing it."""
+    if commit:
+        return _input_at(piece, kitden, commit)
     list_text = (Path(kitden) / "docs/clients.md").read_text(encoding="utf-8")
     names = sorted({f for r in parse_list(list_text) for f in r.files})
     release = _git(kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
@@ -39,9 +52,23 @@ def build_task_input(piece: dict, kitden) -> dict:
     return build_input([piece], kitden, list_text, names, same, release, [], {})
 
 
+def _input_at(piece: dict, kitden, commit: str) -> dict:
+    list_text = _at(kitden, commit, "docs/clients.md")
+    if list_text is None:
+        raise ValueError(f"Kitden commit {commit} has no docs/clients.md")
+    release = _git(kitden, "describe", "--tags", "--abbrev=0", commit).stdout.strip()
+    files = {}
+    for name in sorted({f for r in parse_list(list_text) for f in r.files}):
+        if (text := _at(kitden, commit, name)) is not None:
+            same = _git(kitden, "diff", "--quiet", release, commit, "--", name).returncode == 0
+            files[name] = {"text": text, "same_in_release": same}
+    return {"pieces": [piece], "list": list_text, "files": files, "release": release,
+            "known_titles": [], "state": {}}
+
+
 def run_task(task: dict, kitden, out, model, max_calls: int) -> dict:
     start = time.monotonic()
-    found = judge(build_task_input(task["piece"], kitden), model, max_calls)
+    found = judge(build_task_input(task["piece"], kitden, task.get("kitden")), model, max_calls)
     folder = Path(out) / task["id"]
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "findings.json").write_text(json.dumps(found, indent=1), encoding="utf-8")
@@ -59,11 +86,12 @@ def dataset_items(tasks: list[dict]) -> list[dict]:
             for t in tasks]
 
 
-def run_name(model_name: str, now: datetime) -> str:
-    return f"{model_name} {watch_trace.commit()[:7] or 'local'} {now:%Y-%m-%dT%H:%MZ}"
+def run_name(model_name: str, now: datetime, run: int = 0) -> str:
+    name = f"{model_name} {watch_trace.commit()[:7] or 'local'} {now:%Y-%m-%dT%H:%MZ}"
+    return f"{name} run {run}" if run else name
 
 
-def experiment(tasks: list[dict], run_one, model_name: str) -> None:
+def experiment(tasks: list[dict], run_one, model_name: str, run: int = 0) -> None:
     """Run the tasks as one experiment on the dataset; each trace gets its task's scores."""
     watch_trace.setup()
     from langfuse import Evaluation, get_client
@@ -82,16 +110,24 @@ def experiment(tasks: list[dict], run_one, model_name: str) -> None:
         return run_one(by_id[item.id])
 
     def scores(*, output, metadata, **kwargs):
-        return [Evaluation(name=k, value=v, data_type="BOOLEAN")
+        return [Evaluation(name=k, value=v,
+                           data_type="NUMERIC" if k == "other_findings" else "BOOLEAN")
                 for k, v in task_scores(by_id[metadata["id"]], output).items()]
 
-    lf.run_experiment(name=DATASET, run_name=run_name(model_name, datetime.now(UTC)),
+    lf.run_experiment(name=DATASET, run_name=run_name(model_name, datetime.now(UTC), run),
                       data=items, task=task, evaluators=[scores], max_concurrency=1,
                       metadata={"model": model_name, "commit": watch_trace.commit()})
 
 
-def run_tasks(tasks_dir, kitden, out, model, max_calls: int, model_name: str = "") -> None:
+def run_tasks(tasks_dir, kitden, out, model, max_calls: int, model_name: str = "",
+              runs: int = 1) -> None:
     tasks = load_tasks(tasks_dir)
+    for k in range(1, runs + 1):
+        where, run = (Path(out) / f"run-{k}", k) if runs > 1 else (Path(out), 0)
+        _one_run(tasks, kitden, where, model, max_calls, model_name, run)
+
+
+def _one_run(tasks, kitden, out, model, max_calls: int, model_name: str, run: int) -> None:
     done = {}
 
     def one(task: dict) -> dict:
@@ -100,7 +136,7 @@ def run_tasks(tasks_dir, kitden, out, model, max_calls: int, model_name: str = "
 
     if watch_trace.enabled():
         try:
-            experiment(tasks, one, model_name)
+            experiment(tasks, one, model_name, run)
         except Exception as e:  # noqa: BLE001 - Langfuse must never stop the eval
             watch_trace.warn(e)
     # Without Langfuse, or for what its experiment did not finish.
@@ -119,8 +155,12 @@ def main() -> None:
         print("WATCH_MODEL is not set", file=sys.stderr)
         raise SystemExit(1)
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
+    runs = int(os.environ.get("WATCH_RUNS") or 1)
     try:
-        run_tasks(a.tasks, a.kitden, a.out, OpenAIModel(name), max_calls, name)
+        model = chat_model(name)
+        run_tasks(a.tasks, a.kitden, a.out, model, max_calls, model.name, runs)
+        if hasattr(model, "summary"):  # Claude counts its tokens and their cost
+            print(model.summary(), flush=True)
     finally:
         watch_trace.flush()
 

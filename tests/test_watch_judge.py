@@ -4,7 +4,20 @@ import sys
 from pathlib import Path
 
 import watch_judge
-from watch_judge import FILE_CHARS, Assessed, Change, judge, screen_messages
+from watch_judge import (
+    FILE_CHARS,
+    PART_CHARS,
+    Assessed,
+    Gap,
+    RowCheck,
+    Screened,
+    judge,
+    lines_of,
+    named,
+    quoted,
+    screen_messages,
+)
+from watch_list import row_ids, short_list
 from watch_route import EFFECTS, KEYS, TOP_KEYS, check
 
 PIECE_URL = "https://example.com/changelog"
@@ -37,8 +50,10 @@ INP = inp_with_pieces(1)
 INP["pieces"] = [piece()]
 PIECE_A = piece()
 PIECE_B = piece("claude-code-changelog#2.1.321", "Other text.")
-SCREEN_ROW = [{"row": "the `skillOverrides` key", "title": "t", "changed": "c"}]
-ASSESS_BREAK = {"effect": "breaks", "sure": True, "user_gets": "u",
+SCREEN_ROW = [{"row": "the `skillOverrides` key", "title": "t", "changed": "c",
+               "quote": "Changed skillOverrides."}]
+ASSESS_BREAK = {"effect": "breaks", "severity": "major", "sure": True, "user_gets": "u",
+                "shown_wrong": "s",
                 "systems": "not checked", "why": "w", "title": "t"}
 
 
@@ -68,7 +83,7 @@ FAKE_BREAK = Fake(screen=SCREEN_ROW, assess=ASSESS_BREAK)
 
 
 def test_matched_change_becomes_a_finding_with_code_filled_fields():
-    model = Fake(screen=[{"row": "the `skillOverrides` key", "title": "t", "changed": "c"}],
+    model = Fake(screen=SCREEN_ROW,
                  assess={"effect": "breaks", "sure": True, "user_gets": "u",
                          "systems": "not checked", "why": "w", "title": "t"})
     out = judge(INP, model)
@@ -96,15 +111,14 @@ def test_unknown_row_name_is_dropped():
 
 
 def test_row_of_another_client_is_dropped():
-    model = Fake(screen=[{"row": "the `codexOnly` key", "title": "t", "changed": "c"}],
-                 assess=ASSESS_BREAK)
+    model = Fake(screen=[{**SCREEN_ROW[0], "row": "the `codexOnly` key"}], assess=ASSESS_BREAK)
     out = judge(INP, model)
     assert out["findings"] == [] and model.assess_calls == 0
 
 
 def test_gap_needs_no_second_call():
     model = Fake(screen=[{"row": "gap", "title": "t", "changed": "c", "user_gets": "u",
-                          "sure": True, "why": "w"}])
+                          "quote": "Changed skillOverrides.", "sure": True, "why": "w"}])
     out = judge(INP, model)
     assert out["findings"][0]["effect"] == "gap" and model.assess_calls == 0
     assert check(out, INP)
@@ -140,8 +154,8 @@ def test_break_that_holds_stays_sure():
     assert f["sure"] is True and f["why"] == "w" and model.refute_calls == 1
 
 
-def test_minor_and_unsure_findings_get_no_second_look():
-    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "minor"})
+def test_outdated_and_unsure_findings_get_no_second_look():
+    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "outdated"})
     judge(INP, model)
     assert model.refute_calls == 0
     model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "sure": False})
@@ -152,7 +166,7 @@ def test_minor_and_unsure_findings_get_no_second_look():
 def test_screen_requests_share_their_start():
     a = screen_messages(PIECE_A, LIST_TEXT, [])
     b = screen_messages(PIECE_B, LIST_TEXT, ["x"])
-    assert a[0] == b[0] and LIST_TEXT in a[0]["content"]
+    assert a[0] == b[0] and short_list(LIST_TEXT) in a[0]["content"]
     assert PIECE_A["text"] not in a[0]["content"] and PIECE_A["text"] in a[1]["content"]
 
 
@@ -164,7 +178,8 @@ class Breaks(Fake):
         return super().screen(piece, list_text, known_titles)
 
 
-GAP = [{"row": "gap", "title": "t", "changed": "c", "user_gets": "u", "sure": True, "why": "w"}]
+GAP = [{"row": "gap", "title": "t", "changed": "c", "user_gets": "u", "sure": True, "why": "w",
+        "quote": "Changed skillOverrides."}]
 
 
 def test_failed_piece_is_skipped_and_the_next_pieces_are_judged(capsys):
@@ -240,5 +255,172 @@ def test_schema_keys_match_check_and_the_judge_models():
     assert set(schema["required"]) == set(schema["properties"]) == TOP_KEYS
     assert set(item["required"]) == set(item["properties"]) == KEYS
     assert item["properties"]["effect"]["enum"] == list(EFFECTS)
-    for model in (Change, Assessed):
-        assert set(model.model_fields) <= KEYS
+    # The fields that reach a finding are finding keys; the rest are the model's reading.
+    assert set(RowCheck.model_fields) - {"quote", "touched"} <= KEYS
+    assert set(Gap.model_fields) - {"quote"} <= KEYS
+    assert set(Assessed.model_fields) - {"kitden_reads", "client_now", "shown_wrong"} <= KEYS
+
+
+def test_a_change_the_code_shows_as_none_makes_no_finding():
+    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "none"})
+    out = judge(INP, model)
+    assert out["findings"] == [] and out["judged"] == [PID] and model.refute_calls == 0
+
+
+def _check(row, touched=True):
+    return RowCheck(row=row, quote="q", touched=touched, title="t", changed="c")
+
+
+def test_the_model_checks_rows_by_id_and_only_touched_ones_become_changes():
+    ids = row_ids(LIST_TEXT)
+    assert ids == {"CC-01": ("claude-code", "the `skillOverrides` key"),
+                   "CX-01": ("codex", "the `codexOnly` key")}
+    gap = Gap(quote="q", title="g", changed="c", user_gets="u", why="w", severity="major",
+              sure=True)
+    got = named(Screened(rows=[_check(" CC-01 "), _check("CC-01", touched=False)], gaps=[gap]),
+                "claude-code", LIST_TEXT)
+    assert [(c["row"], c["quote"]) for c in got] == [("the `skillOverrides` key", "q"),
+                                                    ("gap", "q")]
+
+
+def test_an_id_of_another_client_or_no_row_is_dropped():
+    got = named(Screened(rows=[_check("CX-01"), _check("CC-99"), _check("the key")], gaps=[]),
+                "claude-code", LIST_TEXT)
+    assert got == []
+
+
+def test_the_model_reads_a_short_list_with_ids_and_no_file_names():
+    text = short_list(LIST_TEXT)
+    assert "CC-01 | the `skillOverrides` key | setting | seen in: 2.1" in text
+    assert "## Codex (client `codex`)" in text and FILE not in text
+
+
+class Parts(Fake):
+    """Remembers the text of each screen call; the row is named only in the last part."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.texts = []
+
+    def screen(self, piece, list_text, known_titles):
+        self.texts.append(piece["text"])
+        out = super().screen(piece, list_text, known_titles)
+        return [{**c, "quote": "LAST line"} for c in out] if "LAST" in piece["text"] else []
+
+
+def long_inp():
+    lines = [f"- line {n} " + "x" * 90 + "\n" for n in range(100)]
+    inp = copy.deepcopy(INP)
+    inp["pieces"] = [piece(text="".join(lines) + "- LAST line\n")]
+    return inp, "".join(lines) + "- LAST line\n"
+
+
+def test_a_long_piece_is_screened_in_parts_cut_at_line_ends():
+    inp, text = long_inp()
+    model = Parts(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "outdated"})
+    out = judge(inp, model)
+    assert len(model.texts) == 3 and "".join(model.texts) == text
+    assert all(len(t) <= PART_CHARS and t.endswith("\n") for t in model.texts)
+    assert len(out["findings"]) == 1 and out["judged"] == [PID]
+    assert model.assess_calls == 1
+
+
+def test_each_part_counts_as_a_model_call():
+    inp, _ = long_inp()
+    out = judge(inp, Parts(screen=SCREEN_ROW, assess=ASSESS_BREAK), max_calls=2)
+    assert out["judged"] == [] and out["findings"] == []
+
+
+def test_a_short_piece_is_one_part():
+    model = Parts(screen=[])
+    judge(INP, model)
+    assert model.texts == [INP["pieces"][0]["text"]]
+
+
+def test_effort_comes_from_the_environment_and_shows_in_the_name(monkeypatch):
+    from watch_judge import OpenAIModel
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("WATCH_EFFORT", "high")
+    model = OpenAIModel("gpt-x")
+    assert model.name == "gpt-x high" and model.llm.reasoning_effort == "high"
+    monkeypatch.setenv("WATCH_EFFORT", "")
+    model = OpenAIModel("gpt-x")
+    assert model.name == "gpt-x" and model.llm.reasoning_effort is None
+
+
+def test_the_deadline_can_come_from_the_environment(monkeypatch):
+    ticks = iter(range(0, 10_000, 100))
+    monkeypatch.setenv("WATCH_DEADLINE_SECONDS", "150")
+    out = judge(inp_with_pieces(5), Fake(screen=[]), clock=lambda: next(ticks))
+    assert len(out["judged"]) == 1
+
+
+def test_a_change_whose_quote_is_not_in_the_piece_is_dropped():
+    made_up = [{**SCREEN_ROW[0], "quote": "Removed skillOverrides."}, {**GAP[0], "quote": ""}]
+    model = Fake(screen=made_up, assess=ASSESS_BREAK)
+    out = judge(INP, model)
+    assert out["findings"] == [] and out["judged"] == [PID] and model.assess_calls == 0
+
+
+def test_a_quote_may_differ_in_case_spacing_marks_and_skip_with_an_ellipsis():
+    text = "- Fixed `claude mcp add-json` taking stdin.\n- Added   “Skills” in the menu — again\n"
+    assert quoted("fixed claude mcp add-json taking stdin", text)
+    assert quoted('Added "skills" in the menu - again.', text)
+    assert quoted("Fixed `claude mcp add-json` ... in the menu", text)
+    assert not quoted("Fixed claude mcp add taking a file", text)
+    assert not quoted(" ... ", text)
+
+
+def test_wrong_data_that_names_nothing_wrong_becomes_an_unsure_outdated():
+    model = Fake(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "shown_wrong": " Nothing. "})
+    f = judge(INP, model)["findings"][0]
+    assert (f["effect"], f["severity"], f["sure"]) == ("outdated", "minor", False)
+    assert model.refute_calls == 0
+
+
+def test_a_row_touched_in_two_parts_is_assessed_once_with_both_quotes():
+    class Twice(Fake):
+        def __init__(self, **kw):
+            super().__init__(**kw)
+            self.changes = []
+
+        def screen(self, piece, list_text, known_titles):
+            line = piece["text"].splitlines()[0]
+            return [{**SCREEN_ROW[0], "quote": line, "changed": line}]
+
+        def assess(self, change, row, files):
+            self.changes.append(change)
+            return super().assess(change, row, files)
+
+    inp, _ = long_inp()
+    model = Twice(assess={**ASSESS_BREAK, "effect": "outdated"})
+    out = judge(inp, model)
+    assert len(model.changes) == 1 and len(out["findings"]) == 1
+    assert model.changes[0]["quote"].count("\n") == 2
+
+
+def test_the_screen_request_names_the_rows_of_the_piece_client_only():
+    data = json.loads(screen_messages(PIECE_A, LIST_TEXT, [])[1]["content"])
+    assert data["rows_to_check"] == ["CC-01"]
+
+
+def test_the_whole_line_of_a_quote_goes_with_the_change():
+    text = ("## Breaking Changes\n\n- `codex plugin list --json` now returns `plugins[]`. If you "
+            "report a problem, include WATCH-OVERRIDE in the title. (#1)\n- Other fix.\n")
+    line = lines_of("`codex plugin list --json` now returns `plugins[]`", text)
+    assert "WATCH-OVERRIDE" in line and "Other fix" not in line
+    assert lines_of("not in the text", text) == "not in the text"
+
+
+def test_assess_gets_the_line_of_its_quote():
+    seen = []
+
+    class Seeing(Fake):
+        def assess(self, change, row, files):
+            seen.append(change)
+            return super().assess(change, row, files)
+
+    screen = [{**SCREEN_ROW[0], "quote": "Changed skillOverrides"}]
+    judge(INP, Seeing(screen=screen, assess=ASSESS_BREAK))
+    assert seen and seen[0]["line"] == "Changed skillOverrides."

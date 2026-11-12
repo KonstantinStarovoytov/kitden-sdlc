@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 CLIENTS = {"Claude Code": "claude-code", "Codex": "codex", "Cursor": "cursor"}
 TICKS = re.compile(r"`([^`]+)`")
+PREFIX = {"claude-code": "CC", "codex": "CX", "cursor": "CU"}
 
 
 @dataclass
@@ -41,6 +42,30 @@ def parse_list(text: str) -> list[Row]:
 def row_labels(text: str) -> dict[tuple[str, str], str]:
     """For each (client, what) the row's label as the list writes it, with its backticks."""
     return {(client, cells[0].replace("`", "")): cells[0] for client, cells in _table_rows(text)}
+
+
+def row_ids(text: str) -> dict[str, tuple[str, str]]:
+    """A short id for each row, by its place in its client's table: id -> (client, label)."""
+    ids: dict[str, tuple[str, str]] = {}
+    count: dict[str, int] = {}
+    for client, cells in _table_rows(text):
+        count[client] = count.get(client, 0) + 1
+        ids[f"{PREFIX[client]}-{count[client]:02d}"] = (client, cells[0])
+    return ids
+
+
+def short_list(text: str) -> str:
+    """The list as the model reads it: one line a row, with its id, and no file names."""
+    kinds = {(client, cells[0]): (cells[1], cells[3]) for client, cells in _table_rows(text)}
+    names = {slug: name for name, slug in CLIENTS.items()}
+    out, last = [], None
+    for row_id, (client, label) in row_ids(text).items():
+        if client != last:
+            out.append(f"\n## {names[client]} (client `{client}`)")
+            last = client
+        kind, seen_in = kinds[(client, label)]
+        out.append(f"{row_id} | {label} | {kind} | seen in: {seen_in}")
+    return "\n".join(out).strip() + "\n"
 
 
 def doc_pages(rows: list[Row]) -> dict[str, str]:

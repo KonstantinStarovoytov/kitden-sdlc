@@ -8,7 +8,7 @@ import pytest
 import watch_judge
 import watch_trace
 from tests.test_watch_judge import INP, LIST_TEXT, PID, piece
-from watch_judge import Assessed, Change, Refuted, Screened, judge
+from watch_judge import Assessed, Refuted, RowCheck, Screened, judge
 
 ROW = "the `skillOverrides` key"
 
@@ -57,10 +57,12 @@ class Llm:
             def invoke(self, messages, config=None):
                 llm.calls.append((schema.__name__, messages, config))
                 if schema is Screened:
-                    return Screened(changes=[Change(row=ROW, title="t", changed="c",
-                                                    user_gets="u", sure=True, why="w")])
+                    return Screened(rows=[RowCheck(row="CC-01", quote="Changed skillOverrides.",
+                                                   touched=True, title="t", changed="c")],
+                                    gaps=[])
                 if schema is Assessed:
-                    return Assessed(effect="breaks", sure=True, user_gets="u",
+                    return Assessed(kitden_reads="k", client_now="c", shown_wrong="s",
+                                    effect="breaks", severity="major", sure=True, user_gets="u",
                                     systems="all", why="w", title="t")
                 return Refuted(reason="r", holds=True)
         return Bound()
@@ -105,7 +107,7 @@ def test_on_with_keys_the_handler_goes_to_every_model_call(monkeypatch):
     for step, c in zip(steps, configs, strict=True):
         assert c["run_name"] == step
         assert c["metadata"]["langfuse_tags"] == [PID, "gpt-test", "abc1234def"]
-        assert c["metadata"]["langfuse_session_id"] == f"{PID} abc1234"
+        assert c["metadata"]["langfuse_session_id"] == f"{PID} gpt-test abc1234"
         assert c["metadata"]["step"] == step
         assert c["metadata"]["commit"] == "abc1234def"
 
@@ -161,14 +163,14 @@ def test_the_cli_flushes_at_the_end(tmp_path, monkeypatch):
     assert flushed == [1]
 
 
-def test_without_a_commit_the_session_is_the_piece_cut_to_200_ascii(monkeypatch):
+def test_without_a_commit_the_session_is_the_piece_and_model_cut_to_200_ascii(monkeypatch):
     keys(monkeypatch)
     fake_langfuse(monkeypatch)
     with watch_trace.piece("p" * 300 + "é"):
         session = watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"]
     assert session == "p" * 200
     with watch_trace.piece(PID):
-        assert watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"] == PID
+        assert watch_trace.config("screen", "m")["metadata"]["langfuse_session_id"] == f"{PID} m"
 
 
 def test_an_empty_host_is_dropped_before_langfuse_is_imported(monkeypatch):
@@ -196,3 +198,59 @@ def test_the_sdk_log_lines_are_silenced(capsys):
     logging.getLogger("langfuse").error("Item 0 failed: sk-test")
     logging.getLogger("opentelemetry.sdk").error("export failed: sk-test")
     assert capsys.readouterr().err == ""
+
+
+class Observation:
+    def __init__(self, log, **kw):
+        self.log, self.kw = log, kw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def update(self, **details):
+        self.log.append(("update", details))
+
+
+def span_langfuse(monkeypatch, log):
+    lf = types.ModuleType("langfuse")
+
+    def start(**kw):
+        log.append(("start", kw))
+        return Observation(log, **kw)
+
+    def propagate(**kw):
+        log.append(("attrs", kw))
+        return Observation(log)
+
+    lf.get_client = lambda: types.SimpleNamespace(start_as_current_observation=start,
+                                                  flush=lambda: None)
+    lf.propagate_attributes = propagate
+    monkeypatch.setitem(sys.modules, "langfuse", lf)
+
+
+def test_a_direct_call_is_a_span_with_the_same_session_and_tags(monkeypatch):
+    keys(monkeypatch)
+    monkeypatch.setenv("GITHUB_SHA", "abc1234def")
+    log = []
+    span_langfuse(monkeypatch, log)
+    with watch_trace.piece(PID), watch_trace.call("screen", "claude-x medium", ["m"]) as rec:
+        rec(output={"a": 1})
+    (_, attrs), (_, start), (_, update) = log
+    assert attrs["session_id"] == f"{PID} claude-x medium abc1234"
+    assert attrs["tags"] == [PID, "claude-x medium", "abc1234def"]
+    assert start["as_type"] == "span" and start["name"] == "screen"
+    assert update == {"output": {"a": 1}}
+
+
+def test_a_direct_call_without_keys_imports_nothing_and_a_failure_does_not_stop_it(
+        monkeypatch, capsys):
+    no_langfuse(monkeypatch)
+    with watch_trace.call("screen", "m", []) as rec:
+        rec(output=1)
+    keys(monkeypatch)
+    with watch_trace.call("screen", "m", []) as rec:
+        rec(output=1)
+    assert capsys.readouterr().err == "langfuse failed: ModuleNotFoundError\n"

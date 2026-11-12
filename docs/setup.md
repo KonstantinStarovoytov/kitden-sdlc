@@ -22,7 +22,8 @@ Before you start:
 
 1. Create the repository `kitden-sdlc` (or your copy) on GitHub.
 2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
-3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`.
+3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`. For the
+   client watcher, make an Anthropic API key with a monthly limit; save it as `ANTHROPIC_API_KEY`.
 4. Set the variable `AGENTS_ENABLED` to `true`; it switches review, the watcher, release prep
    and release watch. For the client watcher, set `WATCH_LIVE` to `true` only after the eval
    has passed.

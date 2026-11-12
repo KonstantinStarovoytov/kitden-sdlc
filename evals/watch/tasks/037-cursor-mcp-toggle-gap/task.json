@@ -1,0 +1,22 @@
+{
+ "id": "037-cursor-mcp-toggle-gap",
+ "kind": "touched",
+ "source": "https://cursor.com/docs/plugins",
+ "piece": {
+  "id": "https://cursor.com/docs/plugins#MCP servers",
+  "client": "cursor",
+  "kind": "doc",
+  "version": "",
+  "url": "https://cursor.com/docs/plugins",
+  "text": "MCP servers\n\n\n\n\nToggle personal and team-distributed MCP servers on or off from Customize:\n\n\n\n\nOpen Customize in the sidebar\n\n\nFind the MCP server you want to change\n\n\nUse the toggle to enable or disable it\n\n\n\n\nDisabled servers won't load or appear in chat.",
+  "source": "https://cursor.com/docs/plugins",
+  "key": "MCP servers",
+  "hash": "245cfb713a0315b0cc834c2fc57e5fcb00e936b9ac34f88c6e57167ce0231b9f"
+ },
+ "expect": {
+  "row": "gap",
+  "effect": "gap",
+  "severity": "major"
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}

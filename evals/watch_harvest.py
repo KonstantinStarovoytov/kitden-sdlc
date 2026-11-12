@@ -22,7 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from watch_fetch import PIECE_CHARS, _read  # noqa: E402
 from watch_pages import get, load_sources, sections  # noqa: E402
 
-GRAVE_AND_MINOR = ("breaks", "wrong-data", "minor", "gap")
+GRAVE_AND_MINOR = ("breaks", "wrong-data", "unknown", "outdated", "gap")
+# Archive lines older than docs/watch-effects.md say "minor" and have no severity.
+OLD = {"minor": "outdated"}
 
 
 def _skip(issue: dict, why: str) -> dict:
@@ -31,11 +33,12 @@ def _skip(issue: dict, why: str) -> dict:
 
 def _task(issue: dict, line: dict, piece: dict, kind: str) -> dict:
     if kind == "untouched":
-        expect = {"row": None, "effect": None}
+        expect = {"row": None, "effect": None, "severity": None}
     else:
-        expect = {"row": line["row"] or "gap", "effect": line["effect"]}
+        expect = {"row": line["row"] or "gap", "effect": OLD.get(line["effect"], line["effect"]),
+                  "severity": line.get("severity") or "minor"}
     return {"id": f"issue-{issue['number']}", "kind": kind, "source": piece["source"],
-            "piece": piece, "expect": expect}
+            "piece": piece, "expect": expect, "kitden": line["kitden"]}
 
 
 def harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict],
@@ -59,9 +62,12 @@ def harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict],
             skipped.append(_skip(issue, "the task exists"))
         elif line is None:
             skipped.append(_skip(issue, "no archive line"))
+        elif not line.get("kitden"):
+            skipped.append(_skip(issue, "the archive line has no Kitden commit"))
         elif line["piece"] not in pieces:
             skipped.append(_skip(issue, "the piece could not be fetched again"))
-        elif marks == {"confirmed"} and line.get("effect") not in GRAVE_AND_MINOR:
+        elif marks == {"confirmed"} and OLD.get(effect := line.get("effect"), effect) not in \
+                GRAVE_AND_MINOR:
             skipped.append(_skip(issue, "the archive line has no effect"))
         else:
             kind = "touched" if marks == {"confirmed"} else "untouched"

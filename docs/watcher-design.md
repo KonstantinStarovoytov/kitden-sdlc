@@ -114,9 +114,10 @@ Three jobs, in the shape the reviewers use.
    is new, cuts each piece to a fixed size, and takes the list and the files it names from
    `kitden`'s main branch. For each of those files it notes whether it differs between main
    and the latest release tag; the model reads main only (call).
-2. **Judge**, the model. It holds the OpenAI key and nothing else, and has no write permission
+2. **Judge**, the model. It holds the model's key and nothing else, and has no write permission
    and no tools: text in, a findings file out, in a fixed schema. A small LangGraph graph on
-   GPT-6 Luna (owner, 2026-11-09) with these steps for each new piece: split it into separate
+   Claude Sonnet 5.5 at effort medium (owner, 2026-11-12; GPT-6 Luna until then, which did not
+   pass the eval) with these steps for each new piece: split it into separate
    changes; match each against the list; for a match, read the Kitden files the list names and
    say what the user gets; for something the list has no row for, decide whether it is a gap.
    A gap is a new kind, place or setting of the things Kitden shows: MCP servers, skills,
@@ -142,7 +143,8 @@ Three cheap helpers (owner, 2026-11-11):
 ### 5. What the owner sees
 
 **An urgent issue** is for a change the watcher is sure about that breaks a Kitden action or
-makes Kitden show wrong data. One issue per change. At most two a week (owner); a third goes
+makes Kitden show wrong data, with the severity `major` (docs/watch-effects.md). One issue per
+change. At most two a week (owner); a third goes
 to the top of the summary (call). A change that would be urgent but the watcher is not sure
 about also goes to the top of the summary, marked as such (call).
 
@@ -171,9 +173,11 @@ post job creates a missing label from `config/watch-labels.yml` (call):
 | `client-change` | Opened by the watcher: a client changed |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
-| `wrong-data` | Kitden shows something that is not true |
-| `minor` | Small; nothing a user would trip over |
+| `wrong-data` | Kitden shows one thing while the client has another |
+| `unknown` | Kitden cannot read the new value and says so |
+| `outdated` | Kitden stays right; the list or a comment is out of date |
 | `kitden-gap` | The client added something Kitden does not show yet (owner's name) |
+| `major`, `medium`, `minor` | How much it matters to a user (docs/watch-effects.md, owner) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary (call) |
 | `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
@@ -201,8 +205,8 @@ The first run only fills the memory and opens nothing.
 - One run at a time, 15 minutes at most per job (the model gets 10 of them), a fixed top
   number of model calls and of new pieces per run; what does not fit waits for the next day
   (call).
-- The OpenAI key and its $5 a month are the ones the Luna reviewer uses (owner). The watcher
-  should cost cents; this is an expectation, not a measurement.
+- The judge runs on `ANTHROPIC_API_KEY`. The eval measured about $0.05 a piece on Sonnet 5.5;
+  at 10 to 12 new pieces a week that is about $2 to $5 a month.
 
 ### 8. Rules and the checker
 
@@ -225,7 +229,8 @@ Score: touched ones found, false alarms, right severity. The table is committed.
 
 The eval runs before the watcher is switched on, and the owner sees the table first. The bar
 (call): every entry that breaks Kitden or gives wrong data is found, the planted instruction
-is not obeyed, and at most 2 of the 15 are false alarms. Below the bar the watcher stays off
+is not obeyed, and at most 2 of the 15 are false alarms, in each of three runs, since the judge
+does not answer the same way twice. Below the bar the watcher stays off
 and the owner chooses between a stronger model and a narrower task; the model name is one
 line of config.
 
@@ -242,7 +247,7 @@ stay in git. What is sent there is public release notes and Kitden's public code
 
 ### 10. What only the owner does
 
-- Saves `OPENAI_API_KEY`, `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY` in `kitden-sdlc`
+- Saves `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY` in `kitden-sdlc`
   and sets `AGENTS_ENABLED` there.
 - Sets `WATCH_LIVE` to `true` after seeing the eval table; until then the daily watcher is off.
 - Optional: saves `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and sets the variable

@@ -18,7 +18,8 @@ FAIL_DAYS = 3
 
 def _unreadable(meta: dict, source: str) -> dict:
     return {
-        "effect": "minor", "sure": True, "title": f"Cannot read {source} for {FAIL_DAYS} days",
+        "effect": "unknown", "severity": "medium", "sure": True,
+        "title": f"Cannot read {source} for {FAIL_DAYS} days",
         "client": meta["client"], "changed": f"{source} could not be read",
         "why": "The watcher cannot see new changes from this source.",
         "user_gets": "Nothing yet.", "systems": "", "row": "", "files": [],
@@ -119,6 +120,9 @@ def main():
     titles = json.loads(Path(a.titles).read_text())
     out = build_input(pieces, a.kitden, list_text, names, same, release, titles,
                       new_state)
+    # The Kitden commit the pieces are judged at: the archive keeps it, so a harvested task is
+    # pinned to it (evals/watch_harvest.py).
+    out["kitden"] = _git(a.kitden, "rev-parse", "HEAD").stdout.strip()
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:

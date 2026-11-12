@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import asdict
@@ -13,14 +14,20 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
 import watch_trace
-from watch_list import Row, parse_list, row_labels
+from watch_list import Row, parse_list, row_ids, row_labels, short_list
 
 MAX_MODEL_CALLS = 60
 DEADLINE_SECONDS = 600
 FAILS_IN_A_ROW = 3
 FILE_CHARS = 40000
+LINES_MAX = 5  # lines of the note given with a quote
+PART_CHARS = 4000  # a long piece is screened in parts: the model misses less in a short text
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 DISAGREED = " A second look disagreed."
+GRAVE = ("breaks", "wrong-data")
+SEVERITIES = ("major", "medium", "minor")  # docs/watch-effects.md
+NOTHING = {"", "nothing", "none", "n/a", "-"}
+MARKS = str.maketrans({c: None for c in "`'\"\u2018\u2019\u201c\u201d"})
 
 
 class Model(Protocol):
@@ -33,6 +40,7 @@ class State(TypedDict):
     inp: dict
     max_calls: int
     i: int
+    part: int
     calls: int
     stop: bool
     streak: int
@@ -57,9 +65,50 @@ def _finding(inp: dict, piece: dict, label: str, row: Row | None, **kw) -> dict:
     return {"piece": piece["id"], "client": piece["client"], "version": piece["version"],
             "url": piece["url"], "row": label,
             "files": [f for f in row.files if f in inp["files"]] if row else [],
-            **{k: str(kw[k]) for k in ("title", "changed", "effect", "user_gets", "systems",
-                                       "why")},
+            **{k: str(kw[k]) for k in ("title", "changed", "effect", "severity", "user_gets",
+                                       "systems", "why")},
             "sure": bool(kw["sure"])}
+
+
+def _severity(value) -> str:
+    """The model's severity, or minor when it gave none the list knows."""
+    return value if value in SEVERITIES else "minor"
+
+
+def _parts(text: str) -> list[str]:
+    """The text cut at line ends into parts of about PART_CHARS."""
+    parts, now = [], ""
+    for line in text.splitlines(keepends=True):
+        if now and len(now) + len(line) > PART_CHARS:
+            parts.append(now)
+            now = ""
+        now += line
+    return [*parts, now] if now or not parts else parts
+
+
+def _plain(text: str) -> str:
+    text = text.translate(MARKS).replace("\u2014", "-").replace("\u2013", "-").lower()
+    return " ".join(text.split())
+
+
+def quoted(quote: str, text: str) -> bool:
+    """True when the quote is in the text: every bit of it between "..." marks, ignoring case,
+    spacing, quote marks and backticks. A change whose quote is not there is not trusted."""
+    bits = [_plain(b).strip(" .") for b in re.split(r"\.\.\.|\u2026", quote)]
+    bits = [b for b in bits if b]
+    plain = _plain(text)
+    return bool(bits) and all(b in plain for b in bits)
+
+
+def lines_of(quote: str, text: str) -> str:
+    """The whole lines of the text that hold the quote, so a later step sees what else the
+    line says (a planted request next to a real-looking claim). The quote when no line holds a
+    bit of it."""
+    bits = [_plain(b).strip(" .") for b in re.split(r"\.\.\.|\u2026", quote)]
+    bits = [b for b in bits if b]
+    lines = [line.strip() for line in text.splitlines()
+             if line.strip() and any(b in _plain(line) for b in bits)]
+    return "\n".join(list(dict.fromkeys(lines))[:LINES_MAX]) or quote
 
 
 def _full(state: State) -> bool:
@@ -89,9 +138,19 @@ def _stops(node, late):
             streak = state["streak"] + 1
             return {"calls": state["calls"] + 1, "i": state["i"] + 1, "streak": streak,
                     "stop": streak >= FAILS_IN_A_ROW, "current": [], "to_assess": [],
-                    "to_refute": [],
+                    "to_refute": [], "part": 0,
                     "failed": [*state["failed"], state["inp"]["pieces"][state["i"]]["id"]]}
     return run
+
+
+def _join(to_assess: list[dict], change: dict) -> list[dict]:
+    """One change a row and piece: a row touched again (in a later part) joins the first."""
+    for n, old in enumerate(to_assess):
+        if old["row"] == change["row"]:
+            both = {k: f"{old.get(k, '')}\n{change.get(k, '')}".strip()
+                    for k in ("changed", "quote", "line")}
+            return [*to_assess[:n], {**old, **both}, *to_assess[n + 1:]]
+    return [*to_assess, change]
 
 
 def build_graph(model: Model, late=lambda: False):
@@ -106,19 +165,29 @@ def build_graph(model: Model, late=lambda: False):
     def screen(state: State) -> dict:
         inp = state["inp"]
         piece, rows = inp["pieces"][state["i"]], _rows(inp["list"])
-        current, to_assess = [], []
-        titles = inp["known_titles"] + [f["title"] for f in state["findings"]]
-        for change in _call(piece["id"], model.screen, piece, inp["list"], titles):
+        parts = _parts(piece["text"])
+        part = {**piece, "text": parts[state["part"]]}
+        current, to_assess = [*state["current"]], [*state["to_assess"]]
+        titles = inp["known_titles"] + [f["title"] for f in state["findings"] + current]
+        for change in _call(piece["id"], model.screen, part, inp["list"], titles):
             label = change.get("row", "none")
+            if not quoted(change.get("quote", ""), part["text"]):
+                continue
             if label == "gap":
                 current.append(_finding(inp, piece, "", None, effect="gap",
+                                        severity=_severity(change.get("severity")),
                                         systems="not checked", **{
                                             k: change.get(k, "") for k in
                                             ("title", "changed", "user_gets", "why")},
                                         sure=change.get("sure", False)))
             elif (piece["client"], label) in rows:
-                to_assess.append({**change, "row": label})
-        return settle(state, {"current": current, "to_assess": to_assess, "to_refute": []})
+                line = lines_of(change.get("quote", ""), part["text"])
+                to_assess = _join(to_assess, {**change, "row": label, "line": line})
+        if state["part"] + 1 < len(parts):  # more of this piece to read before the next step
+            return {"current": current, "to_assess": to_assess, "part": state["part"] + 1,
+                    "calls": state["calls"] + 1}
+        return settle(state, {"current": current, "to_assess": to_assess, "to_refute": [],
+                              "part": 0})
 
     def assess(state: State) -> dict:
         inp = state["inp"]
@@ -126,11 +195,19 @@ def build_graph(model: Model, late=lambda: False):
         change, *rest = state["to_assess"]
         row = _rows(inp["list"])[(piece["client"], change["row"])]
         got = _call(piece["id"], model.assess, change, row, _files(row, inp))
-        f = _finding(inp, piece, change["row"], row, changed=change.get("changed", ""), **{
-            k: got.get(k, "") for k in ("title", "effect", "user_gets", "systems", "why")},
-            sure=got.get("sure", False))
+        effect, sure = got.get("effect", ""), got.get("sure", False)
+        severity = _severity(got.get("severity"))
+        if effect in GRAVE and got.get("shown_wrong", "").strip(" .").lower() in NOTHING:
+            effect, sure = "outdated", False  # a break or wrong data names what Kitden gets wrong
+        if effect == "outdated":
+            severity = "minor"  # Kitden stays right: no user does anything else
+        f = _finding(inp, piece, change["row"], row, changed=change.get("changed", ""),
+                     effect=effect, severity=severity, sure=sure,
+                     **{k: got.get(k, "") for k in ("title", "user_gets", "systems", "why")})
         update = {"to_assess": rest}
-        if f["effect"] in ("breaks", "wrong-data") and f["sure"]:
+        if f["effect"] == "none":  # the code shows Kitden is not touched: no finding
+            pass
+        elif f["effect"] in GRAVE and f["sure"]:
             update["to_refute"] = [*state["to_refute"], f]
         else:
             update["current"] = [*state["current"], f]
@@ -147,6 +224,8 @@ def build_graph(model: Model, late=lambda: False):
     def after(state: State) -> str:
         if state["stop"] or state["i"] >= len(state["inp"]["pieces"]):
             return END
+        if state["part"]:
+            return "screen"
         if state["to_assess"]:
             return "assess"
         if state["to_refute"]:
@@ -163,10 +242,17 @@ def build_graph(model: Model, late=lambda: False):
     return graph.compile()
 
 
+def _seconds(name: str, default: int) -> int:
+    return int(os.environ.get(name) or default)
+
+
 def judge(inp: dict, model: Model, max_calls: int = MAX_MODEL_CALLS,
-          deadline: float = DEADLINE_SECONDS, clock=time.monotonic) -> dict:
+          deadline: float | None = None, clock=time.monotonic) -> dict:
+    # WATCH_DEADLINE_SECONDS gives a slow setting (a high effort) more time than the default.
+    if deadline is None:
+        deadline = _seconds("WATCH_DEADLINE_SECONDS", DEADLINE_SECONDS)
     end_at = clock() + deadline
-    start = {"inp": inp, "max_calls": max_calls, "i": 0, "calls": 0, "stop": False,
+    start = {"inp": inp, "max_calls": max_calls, "i": 0, "part": 0, "calls": 0, "stop": False,
              "streak": 0, "to_assess": [], "to_refute": [], "current": [], "judged": [],
              "failed": [], "findings": []}
     graph = build_graph(model, lambda: clock() > end_at)
@@ -179,9 +265,10 @@ def _prompt(name: str) -> str:
 
 
 def screen_messages(piece: dict, list_text: str, known_titles: list[str]) -> list[dict]:
+    rows = [i for i, (client, _) in row_ids(list_text).items() if client == piece["client"]]
     data = {"piece": {k: piece[k] for k in ("client", "kind", "version", "url", "text")},
-            "known_titles": known_titles}
-    return [{"role": "system", "content": _prompt("screen") + list_text},
+            "rows_to_check": rows, "known_titles": known_titles}
+    return [{"role": "system", "content": _prompt("screen") + short_list(list_text)},
             {"role": "user", "content": json.dumps(data, indent=1)}]
 
 
@@ -190,21 +277,36 @@ def _messages(name: str, data: dict) -> list[dict]:
             {"role": "user", "content": json.dumps(data, indent=1)}]
 
 
-class Change(BaseModel):
+# The fields come in the order the model should think: the quote before the verdict.
+class RowCheck(BaseModel):
     row: str
+    quote: str
+    touched: bool
+    title: str
+    changed: str
+
+
+class Gap(BaseModel):
+    quote: str
     title: str
     changed: str
     user_gets: str
-    sure: bool
     why: str
+    severity: Literal["major", "medium", "minor"]
+    sure: bool
 
 
 class Screened(BaseModel):
-    changes: list[Change]
+    rows: list[RowCheck]
+    gaps: list[Gap]
 
 
 class Assessed(BaseModel):
-    effect: Literal["breaks", "wrong-data", "minor"]
+    kitden_reads: str
+    client_now: str
+    shown_wrong: str
+    effect: Literal["breaks", "wrong-data", "unknown", "outdated", "none"]
+    severity: Literal["major", "medium", "minor"]
     sure: bool
     user_gets: str
     systems: str
@@ -217,12 +319,41 @@ class Refuted(BaseModel):
     holds: bool
 
 
+def named(screened: Screened, client: str, list_text: str) -> list[dict]:
+    """The model checks the rows by their short ids; the graph wants a change for each touched
+    row, under the row's label, and one for each gap. An id that is not a row of the piece's
+    client is dropped."""
+    ids = row_ids(list_text)
+    out = []
+    for check in screened.rows:
+        row_client, label = ids.get(check.row.strip(), ("", ""))
+        if check.touched and row_client == client:
+            out.append({"row": label, "quote": check.quote, "title": check.title,
+                        "changed": check.changed, "user_gets": "", "why": "", "sure": False})
+    return out + [{"row": "gap", **gap.model_dump()} for gap in screened.gaps]
+
+
+def chat_model(name: str):
+    """The model that answers for the judge: Claude through Anthropic's SDK, else OpenAI."""
+    if name.startswith("claude-"):
+        from watch_claude import ClaudeModel
+
+        return ClaudeModel(name)
+    return OpenAIModel(name)
+
+
 class OpenAIModel:
     def __init__(self, name: str):
         from langchain_openai import ChatOpenAI
 
-        self.name = name
-        self.llm = ChatOpenAI(model=name, max_retries=2, timeout=60)
+        # WATCH_EFFORT is how hard the model thinks (low, medium, high, xhigh, max); unset or
+        # empty leaves the model's own default. The name in the traces carries it.
+        effort = os.environ.get("WATCH_EFFORT") or None
+        self.name = f"{name} {effort}" if effort else name
+        # A long piece takes the model a minute or two, so one call may wait three;
+        # WATCH_CALL_SECONDS gives a slow setting more.
+        self.llm = ChatOpenAI(model=name, reasoning_effort=effort, max_retries=1,
+                              timeout=_seconds("WATCH_CALL_SECONDS", 180))
 
     def _ask(self, step: str, schema: type[BaseModel], messages: list[dict]) -> BaseModel:
         config = watch_trace.config(step, self.name)
@@ -230,7 +361,7 @@ class OpenAIModel:
 
     def screen(self, piece, list_text, known_titles):
         out = self._ask("screen", Screened, screen_messages(piece, list_text, known_titles))
-        return [c.model_dump() for c in out.changes]
+        return named(out, piece["client"], list_text)
 
     def assess(self, change, row, files):
         data = {"change": change, "row": asdict(row), "files": files}
@@ -253,7 +384,7 @@ def main():
         raise SystemExit(1)
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
     try:
-        out = judge(inp, OpenAIModel(name), max_calls)
+        out = judge(inp, chat_model(name), max_calls)
     finally:
         watch_trace.flush()
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")

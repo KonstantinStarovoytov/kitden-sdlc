@@ -11,7 +11,7 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | `luna` reviewer | the same | GPT-6 Luna; runs on a project API key with a $5 monthly budget | read in a sandbox with no network, answer with findings | see below |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
 | weekly numbers | every Monday at 06:00 UTC | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
-| client watcher | every day at 05:17 UTC, or by hand | GPT-6 Luna, on the same key as the `luna` reviewer | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` and `WATCH_LIVE` switches |
+| client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` and `WATCH_LIVE` switches |
 | release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context, write files to one output folder; jobs without the model set the version, record the README pictures and open the release pull request as the release app | 25 minutes, 40 turns, one run at a time, the `AGENTS_ENABLED` switch; it stops while a release pull request is open |
 | release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time, the `AGENTS_ENABLED` switch |
 | publish | a `vX.Y.Z` tag in Kitden, after PyPI | none | move the `release` branch, publish to the MCP Registry, open the Homebrew pull request, write a summary | no model; each job writes to one place with its own short-lived token |
@@ -51,7 +51,7 @@ model whether anything touches what Kitden shows. It opens an issue in Kitden fo
 break or wrong data (two a week at most) and one summary issue in the first run of the week,
 normally Monday. It keeps its memory on the `watch` branch. The design is in [watcher-design.md](watcher-design.md).
 To run, it needs the `watch` branch and Lantern (the review app) with Issues write on Kitden.
-It also needs the secrets `OPENAI_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc.
+It also needs the secrets `ANTHROPIC_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc (`OPENAI_API_KEY` too, to run the eval on Luna or Terra).
 Before it is switched on, the `eval` job (run by hand) measures the model on [the watch tasks](../evals/watch/README.md).
 The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
 Today the eval runs by hand and `WATCH_LIVE` is not set, so the daily run is off.
@@ -62,9 +62,11 @@ Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and t
 | `client-change` | Opened by the watcher: a client changed |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
-| `wrong-data` | Kitden shows something that is not true |
-| `minor` | Small; nothing a user would trip over |
+| `wrong-data` | Kitden shows one thing while the client has another |
+| `unknown` | Kitden cannot read the new value and says so |
+| `outdated` | Kitden stays right; the list or a comment is out of date |
 | `kitden-gap` | The client added something Kitden does not show yet |
+| `major`, `medium`, `minor` | What a user who trusts Kitden ends up doing: a wrong action, extra steps, or nothing else ([watch-effects.md](watch-effects.md)) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary |
 | `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |

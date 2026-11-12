@@ -1,0 +1,22 @@
+{
+ "id": "032-codex-windows-remote-mcp-env",
+ "kind": "untouched",
+ "source": "codex-releases",
+ "piece": {
+  "id": "codex-releases#rust-v0.160.1",
+  "client": "codex",
+  "kind": "release",
+  "version": "rust-v0.160.1",
+  "url": "https://github.com/openai/codex/releases",
+  "text": "## Bug Fixes\n\n- Preserve `SYSTEMROOT`, `TEMP`, and `TMP` when launching remote stdio MCP servers with explicitly configured remote environment variables, allowing Unix hosts to retain the Windows executor's startup environment.\n\n## Changelog\n\n- [#51121](https://github.com/openai/codex/pull/51121): Backport Windows remote MCP environment preservation to 0.160.",
+  "source": "codex-releases",
+  "key": "rust-v0.160.1",
+  "hash": "17a422e81b41090ac0064e0ca4a249cacbe0f73756e9fec163694b818cdf1d3b"
+ },
+ "expect": {
+  "row": null,
+  "effect": null,
+  "severity": null
+ },
+ "kitden": "1afc2d671be050ae8cefdb6cb867e0b02463ab06"
+}
