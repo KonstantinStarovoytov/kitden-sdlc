@@ -214,3 +214,57 @@ def test_summary_keeps_a_pipe_from_breaking_the_table():
 def test_cli_rejects_a_bad_tag():
     result = subprocess.run([sys.executable, str(SCRIPT), "0.8.0"], capture_output=True, text=True)
     assert result.returncode == 2
+
+
+def test_marketplace_without_kitden_entry():
+    text = '{"plugins": [{"name": "other", "source": {"ref": "release"}}]}'
+    row = rows_by_place(marketplace=text)["Marketplace entry"]
+    assert row.ok is False
+    assert row.seen == "no kitden entry"
+
+
+def test_listing_without_short_is_unreadable():
+    text = 'brew = "x"\n'
+    rows = rows_by_place(listing=text)
+    for place in ("Homebrew formula", "GitHub description"):
+        assert rows[place].ok is None
+    assert "no short" in rows["GitHub description"].expected
+
+
+def test_listing_without_brew_is_unreadable():
+    rows = rows_by_place(listing='short = "x"\n')
+    assert rows["Homebrew formula"].ok is None
+
+
+def test_listing_that_does_not_decode_is_unreadable():
+    def fetch(url: str) -> str:
+        if url == URLS["listing"]:
+            b"\xff".decode()
+        return make_fetch()(url)
+
+    rows = {row.place: row for row in read_all(TAG, fetch)}
+    assert rows["GitHub description"].ok is None
+    assert rows["PyPI"].ok is True
+
+
+def test_registry_ignores_other_servers():
+    data = json.loads((STORES / "registry.json").read_text())
+    for server in data["servers"]:
+        server["_meta"]["io.modelcontextprotocol.registry/official"]["isLatest"] = False
+    decoy = {
+        "server": {"name": "io.github.someone/kitden-fork", "version": "0.8.0"},
+        "_meta": {"io.modelcontextprotocol.registry/official": {"isLatest": True}},
+    }
+    data["servers"].append(decoy)
+    assert rows_by_place(registry=json.dumps(data))["MCP Registry"].ok is False
+
+
+def test_token_goes_to_api_github_only():
+    api = release_stores.build_request(release_stores.REPO, "secret")
+    assert api.get_header("Authorization") == "Bearer secret"
+    for url in (release_stores.PYPI, release_stores.FORMULA, release_stores.REGISTRY):
+        assert release_stores.build_request(url, "secret").get_header("Authorization") is None
+    assert (
+        release_stores.build_request(release_stores.REPO, None).get_header("Authorization") is None
+    )
+    assert api.get_header("User-agent") == "kitden-sdlc-release"

@@ -5,9 +5,11 @@ vX.Y.Z` to print the table (the release workflow writes it to the job summary).
 """
 
 import json
+import os
 import re
 import sys
 import tomllib
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -26,6 +28,7 @@ MARKETPLACE = (
 REPO = f"https://api.github.com/repos/{OWNER}/kitden"
 LISTING = f"https://raw.githubusercontent.com/{OWNER}/kitden/{{tag}}/listing.toml"
 
+MCP_NAME = f"io.github.{OWNER}/kitden"
 OFFICIAL = "io.modelcontextprotocol.registry/official"
 TAG = re.compile(r"v(\d+\.\d+\.\d+)\Z")
 HOMEBREW = "Homebrew formula"
@@ -41,12 +44,18 @@ class Row:
     ok: bool | None  # None means check by hand
 
 
-def fetch_url(url: str) -> str:
+def build_request(url: str, token: str | None) -> urllib.request.Request:
+    """The request for `url`. The GitHub token goes to api.github.com only, never elsewhere."""
     if not url.startswith("https://"):
         raise ValueError(f"only https URLs: {url}")
-    request = urllib.request.Request(  # noqa: S310
-        url, headers={"User-Agent": "kitden-sdlc-release"}
-    )
+    headers = {"User-Agent": "kitden-sdlc-release"}
+    if token and urllib.parse.urlsplit(url).hostname == "api.github.com":
+        headers["Authorization"] = f"Bearer {token}"
+    return urllib.request.Request(url, headers=headers)  # noqa: S310
+
+
+def fetch_url(url: str) -> str:
+    request = build_request(url, os.environ.get("GITHUB_TOKEN"))
     with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310
         return response.read().decode()
 
@@ -72,7 +81,11 @@ def _release(tag: str, fetch: Fetch) -> tuple[str, bool]:
 
 def _registry(version: str, fetch: Fetch) -> tuple[str, bool]:
     entries = json.loads(fetch(REGISTRY))["servers"]
-    latest = [e["server"]["version"] for e in entries if e["_meta"][OFFICIAL]["isLatest"]]
+    latest = [
+        e["server"]["version"]
+        for e in entries
+        if e["server"]["name"] == MCP_NAME and e["_meta"][OFFICIAL]["isLatest"]
+    ]
     if not latest:
         return "no latest version", False
     return f"latest {latest[0]}", latest[0] == version
@@ -106,7 +119,9 @@ def _branch(tag: str, fetch: Fetch) -> tuple[str, bool]:
 
 def _marketplace(fetch: Fetch) -> tuple[str, bool]:
     plugins = json.loads(fetch(MARKETPLACE))["plugins"]
-    entry = next(p for p in plugins if p["name"] == "kitden")
+    entry = next((p for p in plugins if p["name"] == "kitden"), None)
+    if entry is None:
+        return "no kitden entry", False
     source = entry["source"]
     ref = source.get("ref", "none") if isinstance(source, dict) else "none"
     return ref, ref == "release"
@@ -120,10 +135,15 @@ def _description(listing: dict | None, fetch: Fetch) -> tuple[str, bool | None]:
 
 
 def _load_listing(tag: str, fetch: Fetch) -> tuple[dict | None, str]:
+    """The listing at the tag, or None and why. A listing without short or brew is unreadable."""
     try:
-        return tomllib.loads(fetch(LISTING.format(tag=tag))), ""
-    except (OSError, tomllib.TOMLDecodeError) as error:
+        listing = tomllib.loads(fetch(LISTING.format(tag=tag)))
+    except (OSError, ValueError) as error:  # ValueError: bad TOML or bytes that do not decode
         return None, str(error)
+    for field in ("short", "brew"):
+        if not isinstance(listing.get(field), str):
+            return None, f"no {field}"
+    return listing, ""
 
 
 def read_all(tag: str, fetch: Fetch) -> list[Row]:
