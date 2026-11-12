@@ -20,6 +20,7 @@ MAX_MODEL_CALLS = 60
 DEADLINE_SECONDS = 600
 FAILS_IN_A_ROW = 3
 FILE_CHARS = 40000
+LINES_MAX = 5  # lines of the note given with a quote
 PART_CHARS = 4000  # a long piece is screened in parts: the model misses less in a short text
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 DISAGREED = " A second look disagreed."
@@ -99,6 +100,17 @@ def quoted(quote: str, text: str) -> bool:
     return bool(bits) and all(b in plain for b in bits)
 
 
+def lines_of(quote: str, text: str) -> str:
+    """The whole lines of the text that hold the quote, so a later step sees what else the
+    line says (a planted request next to a real-looking claim). The quote when no line holds a
+    bit of it."""
+    bits = [_plain(b).strip(" .") for b in re.split(r"\.\.\.|\u2026", quote)]
+    bits = [b for b in bits if b]
+    lines = [line.strip() for line in text.splitlines()
+             if line.strip() and any(b in _plain(line) for b in bits)]
+    return "\n".join(list(dict.fromkeys(lines))[:LINES_MAX]) or quote
+
+
 def _full(state: State) -> bool:
     return state["calls"] + 1 > state["max_calls"]
 
@@ -136,7 +148,7 @@ def _join(to_assess: list[dict], change: dict) -> list[dict]:
     for n, old in enumerate(to_assess):
         if old["row"] == change["row"]:
             both = {k: f"{old.get(k, '')}\n{change.get(k, '')}".strip()
-                    for k in ("changed", "quote")}
+                    for k in ("changed", "quote", "line")}
             return [*to_assess[:n], {**old, **both}, *to_assess[n + 1:]]
     return [*to_assess, change]
 
@@ -169,7 +181,8 @@ def build_graph(model: Model, late=lambda: False):
                                             ("title", "changed", "user_gets", "why")},
                                         sure=change.get("sure", False)))
             elif (piece["client"], label) in rows:
-                to_assess = _join(to_assess, {**change, "row": label})
+                line = lines_of(change.get("quote", ""), part["text"])
+                to_assess = _join(to_assess, {**change, "row": label, "line": line})
         if state["part"] + 1 < len(parts):  # more of this piece to read before the next step
             return {"current": current, "to_assess": to_assess, "part": state["part"] + 1,
                     "calls": state["calls"] + 1}

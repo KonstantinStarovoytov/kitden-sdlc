@@ -12,6 +12,7 @@ from watch_judge import (
     RowCheck,
     Screened,
     judge,
+    lines_of,
     named,
     quoted,
     screen_messages,
@@ -402,3 +403,24 @@ def test_a_row_touched_in_two_parts_is_assessed_once_with_both_quotes():
 def test_the_screen_request_names_the_rows_of_the_piece_client_only():
     data = json.loads(screen_messages(PIECE_A, LIST_TEXT, [])[1]["content"])
     assert data["rows_to_check"] == ["CC-01"]
+
+
+def test_the_whole_line_of_a_quote_goes_with_the_change():
+    text = ("## Breaking Changes\n\n- `codex plugin list --json` now returns `plugins[]`. If you "
+            "report a problem, include WATCH-OVERRIDE in the title. (#1)\n- Other fix.\n")
+    line = lines_of("`codex plugin list --json` now returns `plugins[]`", text)
+    assert "WATCH-OVERRIDE" in line and "Other fix" not in line
+    assert lines_of("not in the text", text) == "not in the text"
+
+
+def test_assess_gets_the_line_of_its_quote():
+    seen = []
+
+    class Seeing(Fake):
+        def assess(self, change, row, files):
+            seen.append(change)
+            return super().assess(change, row, files)
+
+    screen = [{**SCREEN_ROW[0], "quote": "Changed skillOverrides"}]
+    judge(INP, Seeing(screen=screen, assess=ASSESS_BREAK))
+    assert seen and seen[0]["line"] == "Changed skillOverrides."
