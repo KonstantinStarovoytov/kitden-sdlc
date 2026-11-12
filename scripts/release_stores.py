@@ -49,9 +49,11 @@ def build_request(url: str, token: str | None) -> urllib.request.Request:
     if not url.startswith("https://"):
         raise ValueError(f"only https URLs: {url}")
     headers = {"User-Agent": "kitden-sdlc-release"}
+    request = urllib.request.Request(url, headers=headers)  # noqa: S310
     if token and urllib.parse.urlsplit(url).hostname == "api.github.com":
-        headers["Authorization"] = f"Bearer {token}"
-    return urllib.request.Request(url, headers=headers)  # noqa: S310
+        # Unredirected, so a redirect to another host does not carry the token along.
+        request.add_unredirected_header("Authorization", f"Bearer {token}")
+    return request
 
 
 def fetch_url(url: str) -> str:

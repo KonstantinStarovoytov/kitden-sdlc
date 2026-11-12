@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 import release_stores
@@ -234,12 +235,13 @@ def test_listing_without_short_is_unreadable():
 def test_listing_without_brew_is_unreadable():
     rows = rows_by_place(listing='short = "x"\n')
     assert rows["Homebrew formula"].ok is None
+    assert rows["GitHub description"].ok is None
 
 
 def test_listing_that_does_not_decode_is_unreadable():
     def fetch(url: str) -> str:
         if url == URLS["listing"]:
-            b"\xff".decode()
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
         return make_fetch()(url)
 
     rows = {row.place: row for row in read_all(TAG, fetch)}
@@ -261,6 +263,8 @@ def test_registry_ignores_other_servers():
 
 def test_token_goes_to_api_github_only():
     api = release_stores.build_request(release_stores.REPO, "secret")
+    assert api.unredirected_hdrs["Authorization"] == "Bearer secret"
+    assert "Authorization" not in api.headers
     assert api.get_header("Authorization") == "Bearer secret"
     for url in (release_stores.PYPI, release_stores.FORMULA, release_stores.REGISTRY):
         assert release_stores.build_request(url, "secret").get_header("Authorization") is None
@@ -268,3 +272,11 @@ def test_token_goes_to_api_github_only():
         release_stores.build_request(release_stores.REPO, None).get_header("Authorization") is None
     )
     assert api.get_header("User-agent") == "kitden-sdlc-release"
+
+
+def test_token_does_not_follow_a_redirect():
+    api = release_stores.build_request(release_stores.REPO, "secret")
+    handler = urllib.request.HTTPRedirectHandler()
+    moved = handler.redirect_request(api, None, 302, "Found", {}, "https://example.com/x")
+    assert moved is not None
+    assert moved.get_header("Authorization") is None
