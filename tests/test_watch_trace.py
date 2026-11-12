@@ -82,7 +82,7 @@ def test_off_without_keys_nothing_is_imported_or_passed(monkeypatch, capsys):
     m = model()
     out = judge(INP, m)
     watch_trace.flush()
-    assert [c[0] for c in m.llm.calls] == ["Screened", "Screened", "Assessed", "Refuted"]
+    assert [c[0] for c in m.llm.calls] == ["Screened", "Assessed", "Refuted"]
     assert all(config is None for _, _, config in m.llm.calls)
     assert len(out["findings"]) == 1 and capsys.readouterr().err == ""
 
@@ -99,9 +99,9 @@ def test_on_with_keys_the_handler_goes_to_every_model_call(monkeypatch):
     fake_langfuse(monkeypatch)
     m = model()
     judge(INP, m)
-    steps = ["screen", "screen", "assess", "refute"]
+    steps = ["screen", "assess", "refute"]
     configs = [config for _, _, config in m.llm.calls]
-    assert len(configs) == 4
+    assert len(configs) == 3
     handlers = {id(c["callbacks"][0]) for c in configs}
     assert len(handlers) == 1 and isinstance(configs[0]["callbacks"][0], Handler)
     for step, c in zip(steps, configs, strict=True):

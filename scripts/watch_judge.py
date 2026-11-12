@@ -21,7 +21,6 @@ DEADLINE_SECONDS = 600
 FAILS_IN_A_ROW = 3
 FILE_CHARS = 40000
 PART_CHARS = 4000  # a long piece is screened in parts: the model misses less in a short text
-SCREENS = 2  # each part is screened twice: the model misses a row now and then, not twice
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 DISAGREED = " A second look disagreed."
 GRAVE = ("breaks", "wrong-data")
@@ -94,8 +93,8 @@ def quoted(quote: str, text: str) -> bool:
     return bool(bits) and all(b in plain for b in bits)
 
 
-def _full(state: State, cost: int = 1) -> bool:
-    return state["calls"] + cost > state["max_calls"]
+def _full(state: State) -> bool:
+    return state["calls"] + 1 > state["max_calls"]
 
 
 class _Failed(Exception):
@@ -111,9 +110,9 @@ def _call(piece_id: str, fn, *args):
         raise _Failed from None
 
 
-def _stops(node, late, cost=1):
+def _stops(node, late):
     def run(state: State) -> dict:
-        if _full(state, cost) or late():
+        if _full(state) or late():
             return {"stop": True}
         try:
             return node(state)
@@ -137,8 +136,8 @@ def _join(to_assess: list[dict], change: dict) -> list[dict]:
 
 
 def build_graph(model: Model, late=lambda: False):
-    def settle(state: State, update: dict, cost: int = 1) -> dict:
-        new = {**state, **update, "calls": state["calls"] + cost}
+    def settle(state: State, update: dict) -> dict:
+        new = {**state, **update, "calls": state["calls"] + 1}
         if not new["to_assess"] and not new["to_refute"]:
             new["judged"] = [*new["judged"], new["inp"]["pieces"][new["i"]]["id"]]
             new["findings"] = [*new["findings"], *new["current"]]
@@ -152,18 +151,10 @@ def build_graph(model: Model, late=lambda: False):
         part = {**piece, "text": parts[state["part"]]}
         current, to_assess = [*state["current"]], [*state["to_assess"]]
         titles = inp["known_titles"] + [f["title"] for f in state["findings"] + current]
-        changes, seen = [], set()
-        for _ in range(SCREENS):
-            changes += _call(piece["id"], model.screen, part, inp["list"], titles)
-        for change in changes:
+        for change in _call(piece["id"], model.screen, part, inp["list"], titles):
             label = change.get("row", "none")
             if not quoted(change.get("quote", ""), part["text"]):
                 continue
-            # The screens are joined: a row once, a gap once for each sentence it rests on.
-            same = (label, _plain(change["quote"]) if label == "gap" else "")
-            if same in seen:
-                continue
-            seen.add(same)
             if label == "gap":
                 current.append(_finding(inp, piece, "", None, effect="gap",
                                         systems="not checked", **{
@@ -174,9 +165,9 @@ def build_graph(model: Model, late=lambda: False):
                 to_assess = _join(to_assess, {**change, "row": label})
         if state["part"] + 1 < len(parts):  # more of this piece to read before the next step
             return {"current": current, "to_assess": to_assess, "part": state["part"] + 1,
-                    "calls": state["calls"] + SCREENS}
+                    "calls": state["calls"] + 1}
         return settle(state, {"current": current, "to_assess": to_assess, "to_refute": [],
-                              "part": 0}, SCREENS)
+                              "part": 0})
 
     def assess(state: State) -> dict:
         inp = state["inp"]
@@ -219,7 +210,7 @@ def build_graph(model: Model, late=lambda: False):
         return "screen"
 
     graph = StateGraph(State)
-    graph.add_node("screen", _stops(screen, late, SCREENS))
+    graph.add_node("screen", _stops(screen, late))
     graph.add_node("assess", _stops(assess, late))
     graph.add_node("refute", _stops(refute, late))
     graph.add_conditional_edges(START, after)

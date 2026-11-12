@@ -123,15 +123,15 @@ def test_gap_needs_no_second_call():
 
 
 def test_call_limit_leaves_pieces_unjudged():
-    out = judge(inp_with_pieces(3), Fake(screen=[{"row": "none"}]), max_calls=4)
+    out = judge(inp_with_pieces(3), Fake(screen=[{"row": "none"}]), max_calls=2)
     assert len(out["judged"]) == 2
 
 
 def test_piece_with_unfinished_calls_is_not_judged():
     model = Fake(screen=SCREEN_ROW, assess=ASSESS_BREAK, refute=False)
-    out = judge(INP, model, max_calls=3)
+    out = judge(INP, model, max_calls=2)
     assert out == {"judged": [], "findings": [], "failed": []}
-    assert (model.screen_calls, model.assess_calls, model.refute_calls) == (2, 1, 0)
+    assert (model.screen_calls, model.assess_calls, model.refute_calls) == (1, 1, 0)
 
 
 def test_output_passes_check():
@@ -170,7 +170,7 @@ def test_screen_requests_share_their_start():
 
 class Breaks(Fake):
     def screen(self, piece, list_text, known_titles):
-        if piece["id"].endswith("2.1.1"):
+        if self.screen_calls == 1:
             self.screen_calls += 1
             raise TimeoutError("request data")
         return super().screen(piece, list_text, known_titles)
@@ -185,7 +185,7 @@ def test_failed_piece_is_skipped_and_the_next_pieces_are_judged(capsys):
     out = judge(inp_with_pieces(3), model)
     assert out["judged"] == ["claude-code-changelog#2.1.0", "claude-code-changelog#2.1.2"]
     assert out["failed"] == ["claude-code-changelog#2.1.1"]
-    assert len(out["findings"]) == 2 and model.screen_calls == 5
+    assert len(out["findings"]) == 2 and model.screen_calls == 3
     err = capsys.readouterr().err
     assert "claude-code-changelog#2.1.1" in err and "TimeoutError" in err
     assert "request data" not in err
@@ -205,13 +205,13 @@ def test_failed_assess_drops_the_piece_and_its_findings():
 def test_three_failed_pieces_in_a_row_stop_the_run():
     model = BadAssess(screen=SCREEN_ROW)
     out = judge(inp_with_pieces(5), model)
-    assert len(out["failed"]) == 3 and out["judged"] == [] and model.screen_calls == 6
+    assert len(out["failed"]) == 3 and out["judged"] == [] and model.screen_calls == 3
 
 
 def test_later_screens_see_the_titles_found_earlier_in_the_run():
     model = Fake(screen=GAP)
     judge(inp_with_pieces(2), model)
-    assert model.seen_titles == [["old"], ["old"], ["old", "t"], ["old", "t"]]
+    assert model.seen_titles == [["old"], ["old", "t"]]
 
 
 def test_screen_first_message_stays_the_same_with_new_titles():
@@ -316,7 +316,7 @@ def test_a_long_piece_is_screened_in_parts_cut_at_line_ends():
     inp, text = long_inp()
     model = Parts(screen=SCREEN_ROW, assess={**ASSESS_BREAK, "effect": "minor"})
     out = judge(inp, model)
-    assert len(model.texts) == 6 and "".join(model.texts[::2]) == text
+    assert len(model.texts) == 3 and "".join(model.texts) == text
     assert all(len(t) <= PART_CHARS and t.endswith("\n") for t in model.texts)
     assert len(out["findings"]) == 1 and out["judged"] == [PID]
     assert model.assess_calls == 1
@@ -331,7 +331,7 @@ def test_each_part_counts_as_a_model_call():
 def test_a_short_piece_is_one_part():
     model = Parts(screen=[])
     judge(INP, model)
-    assert model.texts == [INP["pieces"][0]["text"]] * 2
+    assert model.texts == [INP["pieces"][0]["text"]]
 
 
 def test_effort_comes_from_the_environment_and_shows_in_the_name(monkeypatch):
@@ -399,29 +399,3 @@ def test_a_row_touched_in_two_parts_is_assessed_once_with_both_quotes():
 def test_the_screen_request_names_the_rows_of_the_piece_client_only():
     data = json.loads(screen_messages(PIECE_A, LIST_TEXT, [])[1]["content"])
     assert data["rows_to_check"] == ["CC-01"]
-
-
-class Turns(Fake):
-    """Answers each screen call with the next output in turn."""
-
-    def __init__(self, turns, **kw):
-        super().__init__(**kw)
-        self.turns = turns
-
-    def screen(self, piece, list_text, known_titles):
-        self.screen_calls += 1
-        return copy.deepcopy(self.turns[(self.screen_calls - 1) % len(self.turns)])
-
-
-def test_each_part_is_screened_twice_and_a_row_one_screen_missed_is_kept():
-    model = Turns([[], SCREEN_ROW], assess={**ASSESS_BREAK, "effect": "minor"})
-    out = judge(INP, model)
-    assert model.screen_calls == 2 and model.assess_calls == 1 and len(out["findings"]) == 1
-
-
-def test_a_row_or_gap_both_screens_found_counts_once():
-    model = Turns([[*SCREEN_ROW, *GAP], [*SCREEN_ROW, *GAP]],
-                  assess={**ASSESS_BREAK, "effect": "minor"})
-    out = judge(INP, model)
-    assert model.assess_calls == 1
-    assert sorted(f["effect"] for f in out["findings"]) == ["gap", "minor"]
