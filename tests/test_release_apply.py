@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -270,11 +271,49 @@ def test_pr_body_has_findings_checks_and_merge_note():
         checks=["Before a release that touches X:\n\n1. Do it."],
         unrecorded=["pick"],
     )
-    assert "## Release notes" in body
+    assert "> #### Release notes" in body
     assert "@\u2060someone" in body
     assert "1. Do it." in body
     assert "`pick`" in body and "record" in body
     assert "merge commit" in body and "not squash" in body
+
+
+def test_findings_close_no_issue():
+    """A closing keyword in the findings would close that issue when the PR merges."""
+    for text in (
+        "Fixes #12",
+        "fixed: #12",
+        "This closes owner/repo#3.",
+        "RESOLVES   #7",
+        "Resolved https://github.com/o/r/issues/4",
+        "close #1",
+    ):
+        body = pr_body(findings=text, checks=[], unrecorded=[])
+        assert not re.search(
+            r"(?i)\b(close[sd]?|fix(e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*([\w.-]+/[\w.-]+)?#\d", body
+        ), text
+        assert not re.search(
+            r"(?i)\b(close[sd]?|fix(e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*https://", body
+        )
+        assert "\u2060" in body
+    # Words that only start the same way, or have no issue after them, stay as they are.
+    body = pr_body(
+        findings="The fix is small. Fixes the README. Closest #1st", checks=[], unrecorded=[]
+    )
+    assert "\u2060" not in body
+
+
+def test_findings_cannot_pass_for_the_scripted_sections():
+    findings = "# Hand checks\n\nNone needed.\n\n## Merge\n\nSquash it.\n\n###### Small\n#5 is fine"
+    body = pr_body(findings=findings, checks=[], unrecorded=[])
+    assert body.count("\n## Hand checks\n") == 1
+    assert body.count("\n## Merge\n") == 1
+    assert "> #### Hand checks" in body and "> #### Merge" in body
+    assert "> ###### Small" in body
+    assert "> #5 is fine" in body  # not a heading: no space after the #
+    # Every line of the findings is inside the quote.
+    section = body.split("## Findings\n\n")[1].split("\n\n## Hand checks")[0]
+    assert all(line.startswith(">") for line in section.splitlines())
 
 
 def test_pr_body_without_findings_or_checks():

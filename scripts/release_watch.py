@@ -22,6 +22,7 @@ from typing import Protocol
 
 from release_stores import (
     COMMIT,
+    HOMEBREW,
     OWNER,
     REPO,
     TAG,
@@ -42,19 +43,38 @@ REPO_SLUG = f"{OWNER}/kitden"
 PROPOSAL_TITLE = "Time for a release?"
 PULL = f"https://github.com/{REPO_SLUG}/pull/{{number}}"
 PREP = f"https://github.com/{REPO_SLUG}/actions/workflows/release-prep.yml"
+PREP_NAME = "Release prep"  # the `name:` of examples/release-prep.yml
+PREP_BRANCH = "prepare-v"  # release prep's own PRs, which bump the version: not a reason
 PER_PAGE = 100
 
-# How to put each place right. Places not listed here are changed by hand.
+# How to put each place right. Places not listed here are changed by hand. kitden-sdlc's
+# publish workflow runs inside the tag's `Checks and release` run, as its `stores / ...` jobs.
+RUN = "the tag's `Checks and release` run"
 RERUN = {
-    "PyPI": "re-run the failed jobs of the tag's `Checks and release` run",
-    "GitHub release": "re-run the failed jobs of the tag's `Checks and release` run",
-    "MCP Registry": "re-run the `registry` job of the tag's `Publish` run",
-    "release branch": "re-run the `release-branch` job of the tag's `Publish` run",
-    "Homebrew formula": "re-run the `homebrew` job of the tag's `Publish` run, or merge the "
-    "tap's bump PR",
+    "PyPI": f"re-run the failed jobs of {RUN}",
+    "GitHub release": f"re-run the failed jobs of {RUN}",
+    "MCP Registry": f"re-run the `stores / registry` job of {RUN}",
+    "release branch": f"re-run the `stores / release-branch` job of {RUN}",
+    HOMEBREW: f"re-run the `stores / homebrew` job of {RUN}, or, when the dependencies "
+    "changed, look at the tap's `bump-kitden-` PR from its daily autobump and its "
+    "`auto-pull` run",
     "Marketplace entry": "by hand: `ref` in `.claude-plugin/marketplace.json` must be `release`",
     "GitHub description": "by hand: set the repository description to `short` in `listing.toml`",
 }
+# The version and the bottles are right but the desc is not: the homebrew job leaves a formula
+# that already has the version alone, so re-running it changes nothing.
+HOMEBREW_DESC = (
+    "by hand: the version is right but the tap's `desc` is not `brew` in `listing.toml`; fix "
+    "`desc` in the tap's `Formula/kitden.rb` with a small PR there, or let the next release "
+    "fix it (re-running `stores / homebrew` changes nothing)"
+)
+
+
+def fix_for(row: Row) -> str:
+    """How to put this row's place right."""
+    if row.place == HOMEBREW and "desc differs" in row.seen:
+        return HOMEBREW_DESC
+    return RERUN.get(row.place, "by hand")
 
 
 def _user_facing(path: str) -> bool:
@@ -89,7 +109,7 @@ def proposal_body(prs: list[int]) -> str:
     return (
         "These merged pull requests changed what users get since the last release:\n\n"
         f"{links}\n\n"
-        f"To prepare the release, run [Prepare release]({PREP}). "
+        f"To prepare the release, run [{PREP_NAME}]({PREP}). "
         "It picks the version and writes the notes.\n\n"
         "This issue is updated every day and closes itself when a release is made."
     )
@@ -100,7 +120,7 @@ def drift_title(tag: str) -> str:
 
 
 def drift_body(tag: str, rows: list[Row], late: list[Row]) -> str:
-    fixes = "\n".join(f"- {row.place}: {RERUN.get(row.place, 'by hand')}" for row in late)
+    fixes = "\n".join(f"- {row.place}: {fix_for(row)}" for row in late)
     return (
         f"Kitden {tag} is behind or different in these places:\n\n"
         f"{summary(rows)}\n\n"
@@ -193,10 +213,17 @@ def _files(number: int, fetch: Fetch) -> list[str]:
         page += 1
 
 
+def _is_prep(number: int, fetch: Fetch) -> bool:
+    """True for release prep's own PR (head branch prepare-vX.Y.Z)."""
+    pull = json.loads(fetch(_api(f"pulls/{number}")))
+    return pull["head"]["ref"].startswith(PREP_BRANCH)
+
+
 def gather(fetch: Fetch, now: datetime) -> Data | None:
     """The newest vX.Y.Z tag, its age, and the PRs merged into main since, with files and labels.
 
-    None when there is no tag. A read that fails raises, so the job fails and shows it.
+    Release prep's own PRs are left out. None when there is no tag. A read that fails raises,
+    so the job fails and shows it.
     """
     tag = _latest_tag(fetch)
     if tag is None:
@@ -207,6 +234,7 @@ def gather(fetch: Fetch, now: datetime) -> Data | None:
     query = f"repo:{REPO_SLUG} is:pr is:merged base:main merged:>{date}"
     search = urllib.parse.urlencode({"q": query, "per_page": PER_PAGE})
     items = json.loads(fetch(f"https://api.github.com/search/issues?{search}"))["items"]
+    items = [item for item in items if not _is_prep(item["number"], fetch)]
     changed = {item["number"]: _files(item["number"], fetch) for item in items}
     labels = {item["number"]: [label["name"] for label in item["labels"]] for item in items}
     return Data(tag, (now - made).total_seconds() / 86400, changed, labels)

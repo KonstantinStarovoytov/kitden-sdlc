@@ -2,6 +2,7 @@ import json
 import re
 import urllib.parse
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -76,6 +77,10 @@ def test_proposal_has_no_version():
     assert f"https://github.com/{OWNER}/kitden/pull/7" in body
     assert f"https://github.com/{OWNER}/kitden/pull/12" in body
     assert f"https://github.com/{OWNER}/kitden/actions/workflows/release-prep.yml" in body
+    # The workflow's own name, as GitHub shows it (examples/release-prep.yml).
+    assert "[Release prep](" in body
+    prep = (Path(__file__).resolve().parent.parent / "examples/release-prep.yml").read_text()
+    assert re.search(r"(?m)^name: Release prep$", prep)
     assert release_watch.PROPOSAL_TITLE == "Time for a release?"
 
 
@@ -96,6 +101,34 @@ def test_drift_body_lists_table_and_what_to_rerun():
     assert "MCP Registry" in body.split("Re-run")[1]
     assert "Homebrew formula" in body.split("Re-run")[1]
     assert "Glama" not in body.split("Re-run")[1]
+    # kitden-sdlc's publish jobs run inside the tag's "Checks and release" run.
+    assert "`Publish` run" not in body
+    assert "`stores / registry` job of the tag's `Checks and release` run" in body
+    assert "`stores / homebrew` job of the tag's `Checks and release` run" in body
+
+
+def test_every_rerun_names_a_real_job():
+    """Every job named in the advice is a job of publish.yml, called as `stores`."""
+    publish = (Path(__file__).resolve().parent.parent / ".github/workflows/publish.yml").read_text()
+    jobs = set(re.findall(r"(?m)^  ([a-z-]+):$", publish))
+    advice = " ".join([*release_watch.RERUN.values(), release_watch.HOMEBREW_DESC])
+    named = re.findall(r"`stores / ([a-z-]+)`", advice)
+    assert named and set(named) <= jobs
+
+
+def test_homebrew_desc_only_says_fix_the_tap():
+    """A formula at the right version is never bumped again, so re-running cannot fix its desc."""
+    desc = Row(
+        "Homebrew formula",
+        "0.8.0",
+        "0.8.0, bottles kitden-0.8.0; desc differs from listing.toml brew",
+        False,
+    )
+    old = Row("Homebrew formula", "0.8.0", "0.7.2, bottles kitden-0.7.2", False)
+    body = drift_body("v0.8.0", [desc], [desc]).split("Re-run")[1]
+    assert "small PR" in body and "re-running `stores / homebrew` changes nothing" in body
+    body = drift_body("v0.8.0", [old], [old]).split("Re-run")[1]
+    assert "re-run the `stores / homebrew` job" in body and "small PR" not in body
     assert release_watch.drift_title("v0.8.0") == "Release v0.8.0 is not everywhere"
 
 
@@ -140,9 +173,10 @@ def search_url(since: str) -> str:
     )
 
 
-def make_fetch(date="2026-11-01T10:00:00Z", prs=None, files=None, tags=None):
+def make_fetch(date="2026-11-01T10:00:00Z", prs=None, files=None, tags=None, heads=None):
     prs = prs if prs is not None else {}
     files = files or {}
+    heads = heads or {}
     tags = tags if tags is not None else ["v0.7.2", "v0.8.0", "v0.10.0", "v0.9.9", "vnext"]
     seen: list[str] = []
 
@@ -157,6 +191,9 @@ def make_fetch(date="2026-11-01T10:00:00Z", prs=None, files=None, tags=None):
                 {"number": n, "labels": [{"name": x} for x in labels]} for n, labels in prs.items()
             ]
             return json.dumps({"items": items})
+        for number in prs:
+            if url == api(f"pulls/{number}"):
+                return json.dumps({"head": {"ref": heads.get(number, f"topic-{number}")}})
         for number, names in files.items():
             if url == api(f"pulls/{number}/files?per_page=100&page=1"):
                 return json.dumps([{"filename": name} for name in names])
@@ -177,6 +214,20 @@ def test_gather_picks_newest_tag_and_reads_prs():
     assert data.age_days == pytest.approx(11.0 + 2 / 24)
     assert data.changed == {11: ["src/a.py"], 12: ["docs/x.md", "install.sh"]}
     assert data.labels == {11: ["bug"], 12: []}
+
+
+def test_gather_leaves_out_release_prep_prs():
+    """Release prep's own PR bumps the version in src/, which is not a reason to release."""
+    fetch = make_fetch(
+        prs={20: [], 21: []},
+        files={20: ["src/kitden/__init__.py", "docs/releases/v0.10.0.md"], 21: ["src/a.py"]},
+        heads={20: "prepare-v0.10.0", 21: "prepare-docs"},
+    )
+    data = gather(fetch, NOW)
+    assert data is not None
+    assert data.changed == {21: ["src/a.py"]}
+    assert data.labels == {21: []}
+    assert api("pulls/20/files?per_page=100&page=1") not in fetch.seen  # type: ignore[attr-defined]
 
 
 def test_gather_without_a_tag():

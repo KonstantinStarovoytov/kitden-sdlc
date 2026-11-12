@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-from post_findings import SECRET_LIKE, quiet_mentions
+from post_findings import SECRET_LIKE, WORD_JOINER, quiet_mentions
 from release_bump import current_version
 
 VERSION = re.compile(r"\d+\.\d+\.\d+\Z", re.ASCII)
@@ -45,6 +45,15 @@ SCENE = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*\Z", re.ASCII)
 THEMES = ("light", "dark")
 IMAGE_TYPES = ("png", "webp")
 FINDINGS_MAX = 40_000
+# "Fixes #12", "closes: owner/repo#3", "Resolved https://github.com/o/r/issues/4": GitHub would
+# close that issue when the PR merges. A word joiner after the keyword breaks the pattern.
+CLOSING = re.compile(
+    r"\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
+    r"(?=[ \t]*:?[ \t]*(?:[\w.-]+/[\w.-]+)?#\d|[ \t]*:?[ \t]*https?://github\.com/)",
+    re.IGNORECASE,
+)
+# A Markdown heading of any level, which could pass for one of this body's own sections.
+HEADING = re.compile(r"^ {0,3}(#{1,6})(?=[ \t]|$)", re.MULTILINE)
 MODEL = re.compile(r"[\w.:-]{1,80}\Z", re.ASCII)
 
 CHECKS_HEADING = "## Check before a release"
@@ -205,6 +214,15 @@ def hand_checks(doc: str, changed: list[str]) -> list[str]:
     return picked
 
 
+def quiet_findings(text: str) -> str:
+    """The agent's findings, made safe to show in the PR body: no mention pings anyone, no
+    closing keyword closes an issue, and every heading is level 4 or lower, inside a quote, so
+    none passes for this body's own "Hand checks" or "Merge" sections."""
+    text = CLOSING.sub(lambda m: m.group(1) + WORD_JOINER, quiet_mentions(text))
+    text = HEADING.sub(lambda m: "#" * max(4, len(m.group(1))), text)
+    return "\n".join(f"> {line}" if line else ">" for line in text.splitlines())
+
+
 def pr_body(findings: str, checks: list[str], unrecorded: list[str], model: str = "") -> str:
     """The release pull request's body. Raises ValueError when the findings look like they
     hold a secret."""
@@ -220,7 +238,7 @@ def pr_body(findings: str, checks: list[str], unrecorded: list[str], model: str 
         f"scripts. The first commit holds the notes, the README, the version and the "
         f"pictures; the second, if there is one, the policy files and `listing.toml`.",
         "## Findings",
-        quiet_mentions(findings) if findings else "No findings from the agent.",
+        quiet_findings(findings) if findings else "No findings from the agent.",
         "## Hand checks",
         "\n\n---\n\n".join(checks)
         if checks
