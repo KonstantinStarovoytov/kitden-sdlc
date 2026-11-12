@@ -3,14 +3,16 @@ and the release.
 
 Run: uv run --with fonttools --with brotli python scripts/make_picture.py [--font PATH]
 
-Writes docs/images/<name>-light.svg and <name>-dark.svg for review, watcher and release. Each
-picture has three columns: you, a model, and the bots and scripts. The steps go from top to
-bottom, each card in the column of whoever does it. The look follows Kitden's docs/design.md:
-the map's blocks, sockets and links, the Quiet Den colors and Inter. Text is drawn as outlines
-from Kitden's Inter (SIL OFL 1.1), because GitHub shows the SVG through <img>, where no web
-font loads. Motion follows Kitden's rule "point, don't move": the steps light one after
-another and the links between them draw, then the picture rests. It is still under reduced
-motion. The bots' marks are the app icons of docs/images/apps without their backgrounds.
+Writes docs/images/<name>-light.svg and <name>-dark.svg for review, watcher and release. The
+steps run as a snake, left to right and back; each card shows who does it: your steps are
+filled, a model's are dashed, a bot shows its mark. Only Kitden's own colors are used; the
+pictures tell apart by their title, when they run and the shape of the snake. The look
+follows Kitden's docs/design.md: the map's blocks and links, the Quiet Den colors and Inter.
+Text is drawn as outlines from Kitden's Inter (SIL OFL 1.1), because GitHub shows the SVG
+through <img>, where no web font loads. Motion follows Kitden's rule "point, don't move": the
+steps light one after another and the links between them draw, then the picture rests. It is
+still under reduced motion. The bots' marks are the app icons of docs/images/apps without
+their backgrounds.
 """
 
 import argparse
@@ -43,89 +45,71 @@ THEMES = {
 
 W = 720
 MARGIN = 16
-HEAD = 64  # the column titles
-GAP_X = 14  # between columns
-GAP_Y = 22  # between rows
-STEP = 0.45  # seconds between steps
+TURN = 22  # room at each side for the snake's turn
+GAP_X = 26  # between cards in a row
+GAP_Y = 30  # between rows
+HEAD = 70  # the title band and the legend
+STEP = 0.4  # seconds between steps
 REST = 4.0  # seconds the picture rests at the end
-TITLE, LINE = 16, 14  # text sizes
+TITLE, LINE = 15, 13.5  # text sizes
 
 # The bots' marks, on a clear background: their <defs> go into the picture.
 MARKS = ROOT / "docs/images/apps/marks.svg"
 YOU = """<symbol id="you" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2" fill="currentColor"/>
 <path fill="currentColor" d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5Z"/></symbol>"""
 
-COLUMNS = (("you", "You", "you decide"), ("model", "A model", "reads, writes text only"),
-           ("bot", "Bots and scripts", "post and publish, no model"))
-
-# A step: (id, column, mark or None, title, detail lines). A row holds one or more steps; two
-# steps in one column of a row run side by side. Edges join steps, top to bottom.
+# A step: (id, who, mark or None, title, detail lines); who is you, model, bot or script. A
+# list of two steps is one slot with two steps side by side in time (stacked). The steps run
+# as a snake: left to right, then right to left, `per_row` slots a row.
 PICTURES = {
     "review": {
-        "title": "Review: two models read every pull request, one comment comes back",
-        "widths": (152, 318, 190),
-        "rows": [
-            [("open", "you", "you", "Open a PR", ["to main in Kitden"])],
-            [("cap", "bot", None, "A daily cap", ["at most 10 reviews a day"])],
-            [("claude", "model", None, "Claude", ["Sonnet 5.5 reads", "the change; tools",
-                                                  "only read"]),
-             ("luna", "model", None, "GPT-6 Luna", ["reads it on its own,", "with no network"])],
-            [("post", "bot", "lantern", "Lantern", ["merges both reviews", "into one comment;",
-                                                    "fixed ones stay, marked"])],
-            [("merge", "you", "you", "Fix or merge", ["it never approves", "or blocks"])],
+        "name": "Review",
+        "when": "on every pull request",
+        "per_row": 5,
+        "gap": 18,
+        "steps": [
+            ("open", "you", "you", "You", ["open a pull", "request"]),
+            ("cap", "script", None, "Daily cap", ["10 reviews", "a day at most"]),
+            [("claude", "model", None, "Claude", ["Sonnet 5.5"]),
+             ("luna", "model", None, "Luna", ["GPT-6, offline"])],
+            ("post", "bot", "lantern", "Lantern", ["merges both", "into one", "comment"]),
+            ("merge", "you", "you", "You", ["fix or merge;", "no approvals"]),
         ],
-        "edges": [("open", "cap"), ("cap", "claude"), ("cap", "luna"), ("claude", "post"),
-                  ("luna", "post"), ("post", "merge")],
     },
     "watcher": {
-        "title": "Client watcher: every day, it checks what Claude Code, Codex and Cursor changed",
-        "widths": (160, 236, 264),
-        "rows": [
-            [("fetch", "bot", None, "Fetch, 05:17 UTC", ["new parts of the release notes",
-                                                          "and docs of the three clients"])],
-            [("screen", "model", None, "Claude Sonnet 5.5", ["checks every row of Kitden's",
-                                                              "list, with a quote"])],
-            [("assess", "model", None, "Reads Kitden's code", ["gives a type and a severity:",
-                                                               "major, medium or minor"])],
-            [("second", "model", None, "A second look", ["checks a sure break",
-                                                         "or wrong data again"])],
-            [("issue", "bot", "lantern", "Lantern", ["a sure major one: an issue",
-                                                     "at once, two a week at most;",
-                                                     "the rest: Monday's summary"])],
-            [("decide", "you", "you", "Confirm it", ["or close it as", "a false alarm"])],
+        "name": "Client watcher",
+        "when": "every day, 05:17 UTC",
+        "per_row": 3,
+        "steps": [
+            ("fetch", "script", None, "Fetch", ["new release notes, docs", "of 3 AI clients"]),
+            ("screen", "model", None, "Claude Sonnet 5.5", ["checks every row of",
+                                                             "Kitden's list, with a quote"]),
+            ("assess", "model", None, "Reads Kitden's code", ["type and severity:",
+                                                               "major, medium, minor"]),
+            ("issue", "bot", "lantern", "Lantern", ["sure major: an issue now;",
+                                                    "others: Monday's summary"]),
+            ("second", "model", None, "A second look", ["at a sure break", "or wrong data"]),
+            ("decide", "you", "you", "You", ["confirm it, or close", "it as a false alarm"]),
         ],
-        "edges": [("fetch", "screen"), ("screen", "assess"), ("assess", "second"),
-                  ("second", "issue"), ("issue", "decide")],
     },
     "release": {
-        "title": "Release: you start it and merge one pull request; the rest runs on its own",
-        "widths": (160, 190, 310),
-        "rows": [
-            [("start", "you", "you", "Start", ["Release prep", "in Kitden's Actions"])],
-            [("gather", "bot", None, "Gather the changes", ["log, merged pull requests,",
-                                                           "diff since the last tag"])],
-            [("draft", "model", None, "Claude drafts", ["the release notes,",
-                                                        "README, policy edits"])],
-            [("prep", "bot", None, "Check and prepare", ["set the version, record the",
-                                                         "README pictures on macOS"])],
-            [("pr", "bot", "beacon", "Beacon", ["opens the pull request", "Kitden X.Y.Z"])],
-            [("merge", "you", "you", "Review", ["and merge it"])],
-            [("tag", "bot", "beacon", "Beacon", ["tags vX.Y.Z"])],
-            [("build", "bot", None, "Build and test", ["on Linux and macOS, then PyPI",
-                                                       "and the GitHub release"])],
-            [("stores", "bot", "beacon", "Beacon", ["moves the release branch (Claude",
-                                                    "directory, marketplaces), opens",
-                                                    "the Homebrew pull request"])],
-            [("registry", "bot", None, "MCP Registry", ["published with GitHub's token,",
-                                                       "then one table of every store"])],
-            [("kettle", "bot", "kettle", "Kettle, every day", ["keeps the Homebrew formula",
-                                                               "up to date"])],
-            [("watch", "bot", "lantern", "Lantern, every day", ["an issue when a store is",
-                                                                "behind or a release is due"])],
+        "name": "Release",
+        "when": "when you start it",
+        "per_row": 4,
+        "steps": [
+            ("start", "you", "you", "You", ["start Release prep"]),
+            ("gather", "script", None, "Gather", ["changes since", "the last tag"]),
+            ("draft", "model", None, "Claude", ["drafts the notes,", "README, policy"]),
+            ("prep", "script", None, "Prepare", ["version, checks,", "README pictures"]),
+            ("pr", "bot", "beacon", "Beacon", ["opens the PR", "Kitden X.Y.Z"]),
+            ("merge", "you", "you", "You", ["review", "and merge"]),
+            ("tag", "bot", "beacon", "Beacon", ["tags vX.Y.Z"]),
+            ("build", "script", None, "Build, test", ["tests, PyPI,", "GitHub release"]),
+            ("stores", "bot", "beacon", "Beacon", ["release branch,", "Homebrew PR"]),
+            ("registry", "script", None, "MCP Registry", ["and a table of", "every store"]),
+            ("kettle", "bot", "kettle", "Kettle", ["daily: Homebrew", "formula current"]),
+            ("watch", "bot", "lantern", "Lantern", ["daily: an issue if", "a store is behind"]),
         ],
-        "edges": [("start", "gather"), ("gather", "draft"), ("draft", "prep"), ("prep", "pr"),
-                  ("pr", "merge"), ("merge", "tag"), ("tag", "build"), ("build", "stores"),
-                  ("stores", "registry")],
     },
 }
 
@@ -171,88 +155,123 @@ def fits(ink, text, size, weight, room):
         raise SystemExit(f"{text!r} is {width:.0f} wide, room is {room:.0f}")
 
 
-def card_height(lines) -> float:
-    return 40 + LINE * 1.35 * len(lines) + 4
+def gap(pic) -> float:
+    return pic.get("gap", GAP_X)
 
 
-def layout(pic):
-    """Each step's box: x, y, width, height, column."""
-    widths = pic["widths"]
-    if sum(widths) + GAP_X * (len(widths) - 1) != W - 2 * MARGIN:
-        raise SystemExit(f"the columns are {sum(widths)} wide; with the gaps they must fill "
-                         f"{W - 2 * MARGIN}")
-    xs, x = {}, MARGIN
-    for (key, *_), width in zip(COLUMNS, widths, strict=True):
-        xs[key] = (x, width)
-        x += width + GAP_X
-    boxes, y = {}, HEAD + 12
-    for row in pic["rows"]:
-        h = max(card_height(step[4]) for step in row)
-        by_col = {}
-        for step in row:
-            by_col.setdefault(step[1], []).append(step)
-        for col, steps in by_col.items():
-            cx, cw = xs[col]
-            w = (cw - GAP_X * (len(steps) - 1)) / len(steps)
-            for n, step in enumerate(steps):
-                boxes[step[0]] = (cx + n * (w + GAP_X), y, w, h, col)
-        y += h + GAP_Y
-    return xs, boxes, y - GAP_Y + 18
+def slot_w(pic) -> float:
+    per_row = pic["per_row"]
+    return (W - 2 * (MARGIN + TURN) - (per_row - 1) * gap(pic)) / per_row
+
+
+def card_h(pic) -> float:
+    def need(step):
+        return 36 + LINE * 1.3 * len(step[4]) + 8
+    singles = [need(s) for s in pic["steps"] if isinstance(s, tuple)]
+    stacked = [2 * (need(s) - 6) + 6 for pair in pic["steps"] if isinstance(pair, list)
+               for s in pair[:1]]
+    return max(singles + stacked)
+
+
+def slots(pic):
+    """The box of each slot, in snake order: (x, y, w, h, row, column)."""
+    per, w, h = pic["per_row"], slot_w(pic), card_h(pic)
+    out = []
+    for n in range(len(pic["steps"])):
+        r, c = divmod(n, per)
+        col = c if r % 2 == 0 else per - 1 - c
+        x = MARGIN + TURN + col * (w + gap(pic))
+        y = HEAD + 16 + r * (h + GAP_Y)
+        out.append((x, y, w, h, r, col))
+    return out
 
 
 def card(ink, step, box, cls):
-    sid, col, mark, title, lines = step
-    x, y, w, h, _ = box
-    shift = 30 if mark else 0
-    fits(ink, title, TITLE, 600, w - 24 - shift)
+    _, who, mark, title, lines = step
+    x, y, w, h = box
+    shift = 26 if mark else 0
+    fits(ink, title, TITLE, 600, w - 22 - shift)
     for line in lines:
-        fits(ink, line, LINE, 400, w - 24)
-    kind = "you" if col == "you" else "block"
+        fits(ink, line, LINE, 400, w - 22)
+    style = {"you": "you", "model": "model"}.get(who, "block")
     out = [
-        f'<rect class="{kind}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="10"/>',
+        f'<rect class="{style}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="9"/>',
         f'<rect class="lit-block {cls}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" '
-        f'height="{h:.1f}" rx="10"/>',
+        f'height="{h:.1f}" rx="9"/>',
     ]
     if mark:
         tint = ' class="who-you"' if mark == "you" else ""
-        out.append(f'<use{tint} href="#{mark}" x="{x + 12:.1f}" y="{y + 9:.1f}" width="22" '
-                   'height="22"/>')
-    out.append(f'<path class="t" d="{ink.path(title, x + 12 + shift, y + 26, TITLE, 600)}"/>')
+        out.append(f'<use{tint} href="#{mark}" x="{x + 10:.1f}" y="{y + 8:.1f}" width="20" '
+                   'height="20"/>')
+    out.append(f'<path class="t" d="{ink.path(title, x + 11 + shift, y + 24, TITLE, 600)}"/>')
     for n, line in enumerate(lines):
-        text = ink.path(line, x + 12, y + 48 + n * LINE * 1.35, LINE, 400)
+        text = ink.path(line, x + 11, y + 44 + n * LINE * 1.3, LINE, 400)
         out.append(f'<path class="s" d="{text}"/>')
     return out
 
 
-def edge(a, b, cls):
-    ax, ay = a[0] + a[2] / 2, a[1] + a[3]
-    bx, by = b[0] + b[2] / 2, b[1]
-    mid = (ay + by) / 2
-    d = f"M{ax:.1f} {ay:.1f}C{ax:.1f} {mid:.1f} {bx:.1f} {mid:.1f} {bx:.1f} {by:.1f}"
-    return [
-        f'<path class="link" d="{d}"/>',
-        f'<path class="lit {cls}" pathLength="1" d="{d}"/>',
-        f'<circle class="sock" cx="{ax:.1f}" cy="{ay:.1f}" r="4"/>',
-        f'<circle class="sock" cx="{bx:.1f}" cy="{by:.1f}" r="4"/>',
-    ]
+def joint(a, b, cls):
+    """From slot a to slot b: across within a row, or around the end into the next row."""
+    ax, ay, aw, ah, ar, _ = a
+    bx, by, bw, bh, br, _ = b
+    if ar == br:
+        right = bx > ax
+        x1 = ax + aw if right else ax
+        x2 = bx if right else bx + bw
+        y = ay + ah / 2
+        d = f"M{x1:.1f} {y:.1f}L{x2:.1f} {y:.1f}"
+    else:
+        at_right = ar % 2 == 0
+        x = ax + aw if at_right else ax
+        y1, y2 = ay + ah / 2, by + bh / 2
+        out_x = x + TURN * (1 if at_right else -1)
+        d = (f"M{x:.1f} {y1:.1f}C{out_x:.1f} {y1:.1f} {out_x:.1f} {y1:.1f} {out_x:.1f} "
+             f"{y1 + 12:.1f}L{out_x:.1f} {y2 - 12:.1f}C{out_x:.1f} {y2:.1f} {out_x:.1f} "
+             f"{y2:.1f} {x:.1f} {y2:.1f}")
+    return [f'<path class="link" d="{d}"/>', f'<path class="lit {cls}" pathLength="1" d="{d}"/>']
 
 
-def css(theme, count):
+def legend(ink, y):
+    out, x = [], MARGIN + 4
+    items = [("you", "you decide"), ("model", "a model: reads, writes text"),
+             ("bots", "a bot or script: posts, no model")]
+    for kind, text in items:
+        if kind == "you":
+            out.append(f'<use class="who-you" href="#you" x="{x}" y="{y - 12}" width="15" '
+                       'height="15"/>')
+            x += 19
+        elif kind == "model":
+            out.append(f'<rect class="model" x="{x}" y="{y - 12}" width="22" height="15" rx="4"/>')
+            x += 27
+        else:
+            for m in ("lantern", "beacon", "kettle"):
+                out.append(f'<use href="#{m}" x="{x}" y="{y - 13}" width="16" height="16"/>')
+                x += 17
+            x += 2
+        out.append(f'<path class="c" d="{ink.path(text, x, y, 13, 400)}"/>')
+        x += ink.width(text, 13, 400) + 18
+    if x > W - MARGIN:
+        raise SystemExit(f"the legend is {x:.0f} wide, room is {W - MARGIN}")
+    return out
+
+
+def css(theme, name, count):
     c = THEMES[theme]
+    accent = c["route"]
     cycle = count * STEP + REST
     rules = [
         f".bg{{fill:{c['canvas']};stroke:{c['wire']}}}",
+        f".band{{fill:{accent}}}",
+        f".when{{fill:none;stroke:{accent};stroke-width:1.5}}.w{{fill:{accent}}}",
         f".block{{fill:{c['panel']};stroke:{c['wire']};stroke-width:1.5}}",
-        f".you{{fill:{c['panel']};stroke:{c['route']};stroke-opacity:.55;stroke-width:1.5}}",
-        f".lane{{fill:{c['dim']}}}",
-        f".t{{fill:{c['ink']}}}.s{{fill:{c['ink3']}}}.h{{fill:{c['ink2']}}}.c{{fill:{c['ink3']}}}",
+        f".model{{fill:{c['panel']};stroke:{c['off']};stroke-width:1.5;stroke-dasharray:4 3}}",
+        f".you{{fill:{c['route_soft']};stroke:{c['route']};stroke-width:1.5}}",
+        f".t{{fill:{c['ink']}}}.s{{fill:{c['ink3']}}}.c{{fill:{c['ink3']}}}",
         f".who-you{{color:{c['route']}}}",
-        f".link{{fill:none;stroke:{c['link']};stroke-width:1.5}}",
-        f".sock{{fill:{c['panel']};stroke:{c['off']};stroke-width:1.5}}",
-        f".lit{{fill:none;stroke:{c['route']};stroke-width:2.5;stroke-linecap:round;"
+        f".link{{fill:none;stroke:{c['link']};stroke-width:2;stroke-linecap:round}}",
+        f".lit{{fill:none;stroke:{accent};stroke-width:2.5;stroke-linecap:round;"
         "stroke-dasharray:1;stroke-dashoffset:0;opacity:0}",
-        f".lit-block{{fill:{c['route_soft']};fill-opacity:.55;stroke:{c['route']};"
-        "stroke-width:1.5;opacity:0}",
+        f".lit-block{{fill:none;stroke:{accent};stroke-width:2;opacity:0}}",
     ]
     on, off = 100 * 0.15 / cycle, 100 * (count * STEP + 1.2) / cycle
     rules.append(f"@keyframes lit{{0%{{opacity:0}}{on:.1f}%{{opacity:1}}{off:.1f}%{{opacity:1}}"
@@ -270,32 +289,36 @@ def css(theme, count):
 
 def draw(ink: Ink, name: str, theme: str) -> str:
     pic = PICTURES[name]
-    xs, boxes, height = layout(pic)
+    boxes = slots(pic)
+    height = boxes[-1][1] + boxes[-1][3] + 18
     out = [f'<rect class="bg" x="0.75" y="0.75" width="{W - 1.5}" height="{height - 1.5:.1f}" '
-           'rx="12"/>']
-    for key, label, note in COLUMNS:
-        x, w = xs[key]
-        out.append(f'<rect class="lane" x="{x}" y="{HEAD - 50}" width="{w}" '
-                   f'height="{height - HEAD + 36:.1f}" rx="10"/>')
-        fits(ink, label, 15, 600, w - 20)
-        fits(ink, note, 13, 400, w - 20)
-        out.append(f'<path class="h" d="{ink.path(label, x + 10, HEAD - 28, 15, 600)}"/>')
-        out.append(f'<path class="c" d="{ink.path(note, x + 10, HEAD - 10, 13, 400)}"/>')
-    order = [step[0] for row in pic["rows"] for step in row]
-    step_no = {sid: n for n, sid in enumerate(order)}
-    for a, b in pic["edges"]:
-        out += edge(boxes[a], boxes[b], f"q{step_no[b]}")
-    for row in pic["rows"]:
-        for step in row:
-            out += card(ink, step, boxes[step[0]], f"q{step_no[step[0]]}")
-    steps = "; ".join(f"{s[3]}: {' '.join(s[4])}" for row in pic["rows"] for s in row)
+           'rx="12"/>',
+           f'<rect class="band" x="{MARGIN}" y="16" width="4" height="26" rx="2"/>',
+           f'<path class="t" d="{ink.path(pic["name"], MARGIN + 14, 36, 21, 600)}"/>']
+    px = MARGIN + 14 + ink.width(pic["name"], 21, 600) + 12
+    pw = ink.width(pic["when"], 13, 600) + 20
+    out.append(f'<rect class="when" x="{px:.1f}" y="18" width="{pw:.1f}" height="22" rx="11"/>')
+    out.append(f'<path class="w" d="{ink.path(pic["when"], px + 10, 33.5, 13, 600)}"/>')
+    out += legend(ink, 62)
+    for n in range(1, len(boxes)):
+        out += joint(boxes[n - 1], boxes[n], f"q{n}")
+    for n, (step, box) in enumerate(zip(pic["steps"], boxes, strict=True)):
+        x, y, w, h = box[:4]
+        if isinstance(step, list):
+            half = (h - 6) / 2
+            out += card(ink, step[0], (x, y, w, half), f"q{n}")
+            out += card(ink, step[1], (x, y + half + 6, w, half), f"q{n}")
+        else:
+            out += card(ink, step, (x, y, w, h), f"q{n}")
+    flat = [s for st in pic["steps"] for s in (st if isinstance(st, list) else [st])]
+    steps = "; ".join(f"{s[3]}: {' '.join(s[4])}" for s in flat)
     head = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" '
         f'viewBox="0 0 {W} {height:.0f}" role="img" aria-labelledby="title desc">\n'
-        f'<title id="title">{pic["title"]}</title>\n'
-        f'<desc id="desc">Three columns: you, a model, and the bots and scripts. {steps}.</desc>\n'
+        f'<title id="title">{pic["name"]}, {pic["when"]}</title>\n'
+        f'<desc id="desc">The steps in order, with who does each. {steps}.</desc>\n'
         "<!-- Made by scripts/make_picture.py. Text: Inter outlines, SIL OFL 1.1. -->\n"
-        f"<style>\n{css(theme, len(order))}\n</style>\n"
+        f"<style>\n{css(theme, name, len(boxes))}\n</style>\n"
         f"<defs>{symbols()}</defs>\n"
     )
     return head + "\n".join(out) + "\n</svg>\n"
