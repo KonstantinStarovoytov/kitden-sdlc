@@ -54,6 +54,11 @@ Problems found while building the reviewers, and what changed because of each.
 
 ## 2026-11-12
 
+- **A valid finding vanished on the next push.** On Kitden pull request 70 the second push
+  fixed only a type error, the new review did not repeat the ROADMAP.md finding, and the
+  comment was overwritten with "No problems found". The comment now keeps its findings in a
+  hidden line: one not repeated stays, marked fixed only when its lines changed, and the
+  counts keep it.
 - **Luna failed on the ubuntu26 image.** The Codex action's drop-sudo step could not restrict
   the D-Bus socket there (openai/codex-action#188). The `luna` job runs on `ubuntu-24.04`
   until that is fixed; drop-sudo stays.

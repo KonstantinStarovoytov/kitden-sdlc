@@ -1,7 +1,14 @@
-"""Put the AI reviewers' findings on a pull request as one comment, edited in place."""
+"""Put the AI reviewers' findings on a pull request as one comment, edited in place.
+
+Each run reviews the whole pull request again, and the models do not say the same thing
+every time. So the comment remembers its findings, and a finding the latest review does not
+repeat stays in the comment: as fixed when the lines it points to changed since, or else as
+not repeated.
+"""
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -30,8 +37,18 @@ SECRET_LIKE = re.compile(
 MENTION = re.compile(r"(?<!\w)@(?=\w)")
 WORD_JOINER = "\u2060"
 # How close (in lines) two reviewers' findings in one file may be and still count as
-# the same finding.
+# the same finding. Also how far an earlier finding may have moved and still be the
+# same as a new one.
 NEAR_LINES = 5
+# An earlier finding counts as fixed when a line this close to it changed.
+TOUCH_LINES = 2
+# The most findings the comment keeps. Past it the oldest fixed ones go first; the
+# counts in the marker still keep them.
+ITEMS_MAX = 30
+# GitHub's compare lists at most this many files. With that many we cannot tell what
+# changed, so no earlier finding is marked fixed.
+COMPARE_FILES_MAX = 300
+COMMIT = re.compile(r"[0-9a-f]{7,40}\Z")
 
 
 @dataclass
@@ -50,10 +67,29 @@ class Report:
 
 @dataclass
 class Item:
-    """One line of the review: a finding and the reviewers who found it."""
+    """One line of the review: a finding and the reviewers who found it.
+
+    `at` is the commit its path and line refer to, `seen` the last reviewed commit that
+    reported it, and `fixed` the commit that changed its lines after it was last reported
+    (empty while it is not fixed). `now` is True when this run reported it; it is not kept
+    for the next run."""
 
     finding: Finding
     by: list[str]
+    seen: str = ""
+    at: str = ""
+    fixed: str = ""
+    now: bool = False
+
+
+@dataclass
+class Earlier:
+    """What the comment remembers from the runs before this one."""
+
+    head: str  # the commit the last run reviewed
+    answered: list[str]  # reviewers that gave a usable answer in any run
+    items: list[Item]
+    dropped: dict[str, int]  # findings left out of the comment, counted as in the marker
 
 
 class SecretLikeError(Exception):
@@ -74,17 +110,24 @@ def _problem(data) -> str | None:
     if not isinstance(findings, list):
         return "findings must be a list"
     for item in findings[:FINDINGS_MAX]:
-        if not isinstance(item, dict) or set(item) != FINDING_KEYS:
-            return f"each finding needs exactly the keys {sorted(FINDING_KEYS)}"
-        if not isinstance(item["path"], str):
-            return "finding path must be a string"
-        line = item["line"]
-        if isinstance(line, bool) or not isinstance(line, int) or line < 1:
-            return "finding line must be an integer of 1 or more"
-        if item["kind"] not in KINDS:
-            return f"finding kind must be one of {list(KINDS)}"
-        if not isinstance(item["text"], str):
-            return "finding text must be a string"
+        problem = _finding_problem(item, FINDING_KEYS)
+        if problem:
+            return problem
+    return None
+
+
+def _finding_problem(item, keys: set[str]) -> str | None:
+    if not isinstance(item, dict) or set(item) != keys:
+        return f"each finding needs exactly the keys {sorted(keys)}"
+    if not isinstance(item["path"], str):
+        return "finding path must be a string"
+    line = item["line"]
+    if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+        return "finding line must be an integer of 1 or more"
+    if item["kind"] not in KINDS:
+        return f"finding kind must be one of {list(KINDS)}"
+    if not isinstance(item["text"], str):
+        return "finding text must be a string"
     return None
 
 
@@ -144,6 +187,16 @@ SHORT_NAMES = {"sonnet": "Sonn"}
 
 TITLE = "**Agent review**"
 MARKER = re.compile(r"<!-- kitden-sdlc:review claude=(\d+|x) luna=(\d+|x) both=(\d+) -->\s*\Z")
+# The findings the comment remembers, as JSON in an HTML comment. These characters are
+# escaped in it: < > & and - so the text cannot end the HTML comment, @ # and / so it
+# holds no mention, issue reference or link GitHub could act on. Model text in the
+# visible part is escaped too (one_line), so only this script writes a line that starts
+# with "<!--".
+STATE = re.compile(r"^<!-- kitden-sdlc:state (\{[^\n]*\}) -->$", re.MULTILINE)
+STATE_ESCAPED = "<>&-@#/"
+STATE_KEYS = {"head", "answered", "items", "dropped"}
+ITEM_KEYS = FINDING_KEYS | {"by", "seen", "at", "fixed"}
+COUNT_KEYS = {*REVIEWERS, "both"}
 # The accounts that post for us: the review app, and the workflow's own token when the
 # app is not set up. Only their comments are ours.
 BOTS = ("kitden-lantern[bot]", "github-actions[bot]")
@@ -163,14 +216,18 @@ def model_label(model: str) -> str:
     return "Claude"
 
 
-def marker(reports: dict[str, Report | None], items: list[Item]) -> str:
+def marker(answered: list[str], items: list[Item], dropped: dict[str, int] | None = None) -> str:
     """The comment's last line. count_reviews.py reads it: findings only this reviewer
-    made (x when it gave no answer), and findings both made."""
+    made (x when it never gave an answer on this pull request), and findings both made.
+    Earlier findings count too, also the ones left out of the comment."""
+    dropped = dropped or {}
     counts = [
-        f"{name}={sum(i.by == [name] for i in items) if reports.get(name) else 'x'}"
+        f"{name}={sum(i.by == [name] for i in items) + dropped.get(name, 0)}"
+        if name in answered
+        else f"{name}=x"
         for name in REVIEWERS
     ]
-    both = sum(len(i.by) > 1 for i in items)
+    both = sum(len(i.by) > 1 for i in items) + dropped.get("both", 0)
     return f"<!-- kitden-sdlc:review {' '.join(counts)} both={both} -->"
 
 
@@ -190,6 +247,83 @@ def our_marker(comment: dict) -> dict[str, int | None] | None:
     if (comment.get("user") or {}).get("login") not in BOTS:
         return None
     return read_marker(comment.get("body") or "")
+
+
+def find_ours(comments: list[dict]) -> dict | None:
+    """Our review comment on the pull request, or None."""
+    return next((c for c in comments if our_marker(c)), None)
+
+
+def state_line(earlier: Earlier) -> str:
+    """The hidden line that lets the next run know this run's findings."""
+    data = {
+        "head": earlier.head,
+        "answered": earlier.answered,
+        "items": [
+            {
+                "path": i.finding.path,
+                "line": i.finding.line,
+                "kind": i.finding.kind,
+                "text": i.finding.text,
+                "by": i.by,
+                "seen": i.seen,
+                "at": i.at,
+                "fixed": i.fixed,
+            }
+            for i in earlier.items
+        ],
+        "dropped": earlier.dropped,
+    }
+    text = json.dumps(data, ensure_ascii=True, separators=(",", ":"))
+    # None of these is part of JSON's own syntax here (no number is negative), so each
+    # can only stand inside a string, where \\uXXXX means the same.
+    for char in STATE_ESCAPED:
+        text = text.replace(char, f"\\u{ord(char):04x}")
+    return f"<!-- kitden-sdlc:state {text} -->"
+
+
+def _item_from(data) -> Item | None:
+    if _finding_problem(data, ITEM_KEYS):
+        return None
+    by = data["by"]
+    if not isinstance(by, list) or not by or len(set(by)) != len(by) or set(by) - set(REVIEWERS):
+        return None
+    if not all(isinstance(data[k], str) and COMMIT.match(data[k]) for k in ("seen", "at")):
+        return None
+    fixed = data["fixed"]
+    if not isinstance(fixed, str) or (fixed and not COMMIT.match(fixed)):
+        return None
+    finding = Finding(data["path"], data["line"], data["kind"], _cut(data["text"], TEXT_MAX))
+    return Item(finding, [n for n in REVIEWERS if n in by], data["seen"], data["at"], fixed)
+
+
+def read_state(body: str) -> Earlier | None:
+    """The findings an earlier run left in our comment, or None when there are none or
+    they do not read back cleanly."""
+    found = STATE.findall(body)
+    if not found:
+        return None
+    try:
+        data = json.loads(found[-1])
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or set(data) != STATE_KEYS:
+        return None
+    head, answered, raw_items, dropped = (data[k] for k in ("head", "answered", "items", "dropped"))
+    if not isinstance(head, str) or not COMMIT.match(head):
+        return None
+    if not isinstance(answered, list) or not set(answered) <= set(REVIEWERS):
+        return None
+    if not isinstance(raw_items, list) or len(raw_items) > ITEMS_MAX:
+        return None
+    if not isinstance(dropped, dict) or set(dropped) != COUNT_KEYS:
+        return None
+    if not all(isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in dropped.values()):
+        return None
+    items = [item for raw in raw_items if (item := _item_from(raw))]
+    if len(items) != len(raw_items):
+        return None
+    return Earlier(head, [n for n in REVIEWERS if n in answered], items, dropped)
 
 
 def merge(reports: dict[str, Report | None]) -> list[Item]:
@@ -216,6 +350,156 @@ def merge(reports: dict[str, Report | None]) -> list[Item]:
     return sorted(items, key=lambda i: -len(i.by))  # stable: the rest keep their order
 
 
+# --- What changed since the last review ---
+
+
+HUNK = re.compile(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+@dataclass
+class FileChange:
+    """How one file changed between the last reviewed commit and this one. Line numbers
+    on the left are the old file's."""
+
+    path: str  # its name now
+    removed: bool = False
+    known: bool = True  # False when GitHub sent no diff for it
+    touched: frozenset[int] = frozenset()  # lines removed, or next to added ones
+    moved: dict[int, int] | None = None  # old line -> new line, inside the hunks
+    shifts: tuple[tuple[int, int], ...] = ()  # (first old line after a hunk, lines it adds)
+
+    def touches(self, line: int) -> bool:
+        return self.removed or any(abs(t - line) <= TOUCH_LINES for t in self.touched)
+
+    def new_line(self, line: int) -> int:
+        if self.moved and line in self.moved:
+            return self.moved[line]
+        return max(1, line + sum(delta for after, delta in self.shifts if after <= line))
+
+
+def parse_patch(path: str, patch: str) -> FileChange:
+    """Read the hunks of one file's diff: which old lines changed, and where the rest went."""
+    touched: set[int] = set()
+    moved: dict[int, int] = {}
+    shifts: list[tuple[int, int]] = []
+    old = new = 0
+    for text in patch.splitlines():
+        hunk = HUNK.match(text)
+        if hunk:
+            old_start, new_start = int(hunk[1]), int(hunk[3])
+            old_len, new_len = int(hunk[2] or 1), int(hunk[4] or 1)
+            # A length of 0 means the hunk sits after that line, not on it.
+            old = old_start if old_len else old_start + 1
+            new = new_start if new_len else new_start + 1
+            shifts.append((old + old_len, new_len - old_len))
+        elif not old:
+            continue  # before the first hunk
+        elif text.startswith(" "):
+            moved[old] = new
+            old, new = old + 1, new + 1
+        elif text.startswith("-"):
+            touched.add(old)
+            moved[old] = new
+            old += 1
+        elif text.startswith("+"):
+            touched.update((old - 1, old))
+            new += 1
+    return FileChange(path, touched=frozenset(touched), moved=moved, shifts=tuple(shifts))
+
+
+def file_changes(compare) -> dict[str, FileChange] | None:
+    """The files GitHub's compare says changed, by their old name, or None when the
+    answer does not tell us enough (no answer, a force push, too many files)."""
+    if not isinstance(compare, dict) or compare.get("status") not in ("ahead", "identical"):
+        return None
+    files = compare.get("files") or []
+    if not isinstance(files, list) or len(files) >= COMPARE_FILES_MAX:
+        return None
+    changes: dict[str, FileChange] = {}
+    for f in files:
+        if not isinstance(f, dict) or not isinstance(f.get("filename"), str):
+            return None
+        name: str = f["filename"]
+        before = f.get("previous_filename")
+        old = before if isinstance(before, str) else name
+        patch = f.get("patch")
+        if f.get("status") == "removed":
+            changes[old] = FileChange(name, removed=True)
+        elif isinstance(patch, str):
+            changes[old] = parse_patch(name, patch)
+        else:
+            # Only a rename with no other change is known to need no diff.
+            changes[old] = FileChange(name, known=f.get("changes") == 0)
+    return changes
+
+
+def carry(
+    now: list[Item], earlier: Earlier | None, head: str, changes: dict[str, FileChange] | None
+) -> list[Item]:
+    """This run's items, then the earlier ones it did not repeat: first those still open,
+    then the fixed ones. `changes` is what changed since `earlier.head`; None when unknown.
+
+    An earlier finding that this run reports again (same file, within NEAR_LINES after
+    following the diff) is one item, found by everyone who found it."""
+    for item in now:
+        item.seen = item.at = head
+        item.now = True
+    if not earlier:
+        return now
+    if earlier.head == head:
+        changes = {}
+    matched: set[int] = set()
+    open_: list[Item] = []
+    fixed: list[Item] = []
+    for old in earlier.items:
+        f = old.finding
+        # Only a finding whose line refers to the last reviewed commit can follow its diff.
+        known = changes is not None and old.at == earlier.head
+        change = changes.get(f.path) if changes is not None and known else None
+        follows = known and (change is None or (change.known and not change.removed))
+        path, line = f.path, f.line
+        if change and follows:
+            path, line = change.path, change.new_line(f.line)
+        same = next(
+            (
+                i
+                for i in now
+                if id(i) not in matched
+                and i.finding.path == path
+                and abs(i.finding.line - line) <= NEAR_LINES
+            ),
+            None,
+        )
+        if same:
+            matched.add(id(same))
+            same.by = [n for n in REVIEWERS if n in same.by or n in old.by]
+        elif old.fixed:
+            fixed.append(old)
+        elif change and (change.removed or (change.known and change.touches(f.line))):
+            fixed.append(Item(f, old.by, old.seen, old.at, head))
+        elif follows:
+            open_.append(Item(Finding(path, line, f.kind, f.text), old.by, old.seen, head))
+        else:
+            open_.append(old)
+    now = sorted(now, key=lambda i: -len(i.by))
+    return now + open_ + fixed
+
+
+def trim(items: list[Item], dropped: dict[str, int]) -> tuple[list[Item], dict[str, int]]:
+    """Keep at most ITEMS_MAX items, in carry's order. The first to go is the oldest fixed
+    one (fixed ones are listed oldest first), then the last earlier open one (each run
+    puts its own first, so the last has been carried longest). This run's findings stay.
+    What is left out is added to `dropped`."""
+    items, dropped = list(items), dict(dropped)
+    while len(items) > ITEMS_MAX:
+        earlier = [i for i in items if not i.now]
+        gone = next((i for i in items if i.fixed), None) or (earlier[-1] if earlier else items[-1])
+        items.remove(gone)
+        key = "both" if len(gone.by) > 1 else gone.by[0]
+        dropped[key] = dropped.get(key, 0) + 1
+    return items, dropped
+
+
 def one_line(text: str) -> str:
     """Model text as plain text on one line: it cannot start a heading or a list, add a
     link, a picture or HTML, or ping anybody."""
@@ -223,38 +507,74 @@ def one_line(text: str) -> str:
     return quiet_mentions(plain)
 
 
-def _bullet(item: Item, repo: str, head_sha: str, names: dict[str, str]) -> str:
+def _bullet(item: Item, repo: str, names: dict[str, str] = REVIEWERS, note: str = "") -> str:
     f = item.finding
     place = f"{f.path}:{f.line}"
     # A ".." part would lead the link out of the repository.
     if SAFE_PATH.match(f.path) and not f.path.startswith("/") and ".." not in f.path.split("/"):
-        place = f"[`{place}`](https://github.com/{repo}/blob/{head_sha}/{quote(f.path)}#L{f.line})"
+        url = f"https://github.com/{repo}/blob/{item.at}/{quote(f.path)}#L{f.line}"
+        place = f"[`{place}`]({url})"
     else:
         place = one_line(place)
     who = "both" if len(item.by) > 1 else names[item.by[0]]
-    return f"- {place} — {one_line(f.text)} *({who})*"
+    return f"- {place} — {one_line(f.text)} *({who}{note})*"
 
 
 def review_body(
-    reports: dict[str, Report | None], repo: str, head_sha: str, names: dict[str, str] = REVIEWERS
+    reports: dict[str, Report | None],
+    repo: str,
+    head_sha: str,
+    earlier: Earlier | None = None,
+    changes: dict[str, FileChange] | None = None,
+    names: dict[str, str] = REVIEWERS,
 ) -> str:
     """The whole comment. `reports` has None for a reviewer that gave no usable answer.
-    `names` are the reviewers' names as the comment shows them."""
+    `earlier` is what the comment held before, and `changes` what changed since. `names`
+    are the reviewers' names as the comment shows them."""
     parts = [TITLE]
-    answered = [report for name in REVIEWERS if (report := reports.get(name))]
-    items = merge(reports)
-    if answered:
-        parts.append(one_line(answered[0].summary))
-        if items:
-            bullets = "\n".join(_bullet(item, repo, head_sha, names) for item in items)
-            parts.append(f"**To check ({len(items)})**\n{bullets}")
+    answered_now = [name for name in REVIEWERS if reports.get(name)]
+    answered = [n for n in REVIEWERS if n in answered_now or (earlier and n in earlier.answered)]
+    items, dropped = trim(
+        carry(merge(reports), earlier, head_sha, changes),
+        earlier.dropped if earlier else {name: 0 for name in [*REVIEWERS, "both"]},
+    )
+    # Earlier text was checked when it was first posted; check it again all the same.
+    refuse_secret_like(Report("", [i.finding for i in items]))
+    current = [i for i in items if i.now]
+    still = [i for i in items if not i.now and not i.fixed]
+    fixed = [i for i in items if not i.now and i.fixed]
+    latest = next((r for name in REVIEWERS if (r := reports.get(name))), None)
+    if latest:
+        parts.append(one_line(latest.summary))
+        if current:
+            bullets = "\n".join(_bullet(item, repo, names) for item in current)
+            parts.append(f"**To check ({len(current)})**\n{bullets}")
+        elif still:
+            parts.append("No new problems found. The earlier findings below stay until fixed.")
         else:
             parts.append("No problems found.")
+    if still:
+        bullets = "\n".join(_bullet(i, repo, names, f", found in {i.seen[:7]}") for i in still)
+        parts.append(
+            f"**Not repeated by the latest review ({len(still)})**\n"
+            "Found on an earlier push. Nothing shows that their lines changed since, "
+            f"so they may still be there.\n{bullets}"
+        )
+    if fixed:
+        bullets = "\n".join(_bullet(i, repo, names, f", fixed in {i.fixed[:7]}") for i in fixed)
+        parts.append(
+            f"**Fixed ({len(fixed)})**\n"
+            f"The lines these point to changed after they were found.\n{bullets}"
+        )
+    left_out = sum(dropped.values())
+    if left_out:
+        parts.append(f"{left_out} older findings are left out to keep this comment short.")
     silent = [names[name] for name in REVIEWERS if not reports.get(name)]
     if silent:
         parts.append(" and ".join(silent) + " gave no usable answer this time.")
     parts.append("<sub>👍 useful · 👎 wrong</sub>")
-    parts.append(marker(reports, items))
+    parts.append(state_line(Earlier(head_sha, answered, items, dropped)))
+    parts.append(marker(answered, items, dropped))
     return "\n\n".join(parts)
 
 
@@ -268,16 +588,23 @@ class Api(Protocol):
 
     def update_issue_comment(self, repo: str, comment_id: int, body: str) -> None: ...
 
+    def compare(self, repo: str, base: str, head: str) -> dict | None: ...
+
 
 class GhApi:
-    """The Api on top of the gh command line tool."""
+    """The Api on top of the gh command line tool. `read_token`, when given, is used to
+    compare commits: the review app's token may only write to pull requests."""
 
-    def _run(self, *args: str) -> str:
+    def __init__(self, read_token: str | None = None):
+        self.read_token = read_token
+
+    def _run(self, *args: str, token: str | None = None) -> str:
         done = subprocess.run(  # noqa: S603
             ["gh", "api", *args],  # noqa: S607
             check=True,
             capture_output=True,
             text=True,
+            env={**os.environ, "GH_TOKEN": token} if token else None,
         )
         return done.stdout
 
@@ -306,20 +633,49 @@ class GhApi:
             f"repos/{repo}/issues/comments/{comment_id}", "--method", "PATCH", "-f", f"body={body}"
         )
 
+    def compare(self, repo: str, base: str, head: str) -> dict | None:
+        """GitHub's compare of two commits, or None when it fails (say, after a force push)."""
+        try:
+            data = json.loads(
+                self._run(f"repos/{repo}/compare/{base}...{head}", token=self.read_token)
+            )
+        except (subprocess.CalledProcessError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
 
 # --- Putting it together ---
 
 
-def post(api: Api, repo: str, pr: int, body: str) -> None:
+def post(api: Api, repo: str, pr: int, body: str, comments: list[dict] | None = None) -> None:
     """Update the one review comment, or create it.
     Only our own comment counts: anyone else's that ends in the marker must not be edited."""
     if SECRET_LIKE.search(body):
         raise SecretLikeError
-    for comment in api.list_issue_comments(repo, pr):
-        if our_marker(comment):
-            api.update_issue_comment(repo, comment["id"], body)
-            return
-    api.create_issue_comment(repo, pr, body)
+    ours = find_ours(api.list_issue_comments(repo, pr) if comments is None else comments)
+    if ours:
+        api.update_issue_comment(repo, ours["id"], body)
+    else:
+        api.create_issue_comment(repo, pr, body)
+
+
+def earlier_review(
+    api: Api, repo: str, head_sha: str, ours: dict | None
+) -> tuple[Earlier | None, dict[str, FileChange] | None]:
+    """What our comment held, and what changed since the commit it reviewed."""
+    if not ours:
+        return None, None
+    earlier = read_state(ours.get("body") or "")
+    if earlier is None:
+        print("::notice::The review comment holds no earlier findings this script can read.")
+        return None, None
+    if earlier.head == head_sha or not COMMIT.match(head_sha):
+        return earlier, None
+    changes = file_changes(api.compare(repo, earlier.head, head_sha))
+    if changes is None:
+        since = earlier.head[:7]
+        print(f"::notice::Cannot tell what changed since {since}; no finding is marked fixed.")
+    return earlier, changes
 
 
 def main(argv: list[str]) -> int:
@@ -348,11 +704,14 @@ def main(argv: list[str]) -> int:
             if report:
                 refuse_secret_like(report)
         names = {**REVIEWERS, "claude": model_label(args.claude_model)}
-        body = review_body(reports, args.repo, args.head_sha, names)
         if args.dry_run:
-            print(body)
-        else:
-            post(GhApi(), args.repo, args.pr, body)
+            print(review_body(reports, args.repo, args.head_sha, names=names))
+            return 0
+        api = GhApi(read_token=os.environ.get("GH_READ_TOKEN") or None)
+        comments = api.list_issue_comments(args.repo, args.pr)
+        earlier, changes = earlier_review(api, args.repo, args.head_sha, find_ours(comments))
+        body = review_body(reports, args.repo, args.head_sha, earlier, changes, names)
+        post(api, args.repo, args.pr, body, comments)
     except SecretLikeError:
         # Not the missing-report case: fail loud so the job turns red.
         print("Refused: a reviewer's output looked like a secret", file=sys.stderr)

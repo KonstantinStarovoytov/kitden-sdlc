@@ -19,7 +19,10 @@ the secrets are set up. There are no live numbers yet; [numbers.md](https://gith
 
 A pull request gets one short review comment for both reviewers, never a comment per
 finding. A job without a model writes it and edits it in place on later pushes, so only the
-first one sends a notification. A finding both reviewers made is listed once.
+first one sends a notification. A finding both reviewers made is listed once. A finding from
+an earlier push that the latest review does not repeat stays in the comment: under "Fixed"
+when the lines it points to changed since, or else under "Not repeated by the latest
+review". The counts keep it either way.
 
 The two reviewers work by different methods, so they do not repeat each other's blind spots.
 Claude's skill follows Anthropic's
