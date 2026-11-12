@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://github.com/KonstantinStarovoytov/kitden"><img src="docs/images/kitden-logo.svg" width="72" alt="Kitden"></a>
+</p>
+
 # kitden-sdlc
 
 AI reviewers, a client watcher and a release flow for
