@@ -1,0 +1,1 @@
+{"plugins": [{"name": "kitden", "source": {"source": "git-subdir", "url": "KonstantinStarovoytov/kitden", "path": "plugins/kitden", "ref": "release"}}]}

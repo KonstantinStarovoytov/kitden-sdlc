@@ -5,7 +5,8 @@ Every workflow that runs an AI agent must follow these eight rules.
 1. No job holds untrusted text, a secret and write permission together. The model reads; a
    step without a model posts, or the action's own comment tool is allowed by its exact name.
    The posting job holds the review app's key but runs no model: the reviewers' text is only
-   data there.
+   data there. A job in the `release` environment never runs a model and never runs on
+   `pull_request_target` or `issue_comment`.
 2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
    the actor is a bot, and when the switch is off. A scheduled agent runs on `schedule` and
    `workflow_dispatch` only, and every job of it carries the switch.

@@ -1,22 +1,31 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
 import post_findings
 from post_findings import (
+    Earlier,
     Finding,
     GhApi,
+    Item,
     Report,
     SecretLikeError,
+    earlier_review,
+    file_changes,
+    find_ours,
     load_report,
     main,
     marker,
     merge,
+    model_label,
     one_line,
+    parse_patch,
     post,
     quiet_mentions,
     read_marker,
+    read_state,
     refuse_secret_like,
     review_body,
 )
@@ -38,6 +47,7 @@ class FakeApi:
     def __init__(self):
         self.comments: list[dict] = []
         self.calls: list[tuple] = []
+        self.compared: dict | None = {"status": "ahead", "files": []}
 
     def list_issue_comments(self, repo, pr):
         return list(self.comments)
@@ -52,6 +62,10 @@ class FakeApi:
             if comment["id"] == comment_id:
                 comment["body"] = body
 
+    def compare(self, repo, base, head):
+        self.calls.append(("compare", base, head))
+        return self.compared
+
 
 def finding(path="a.py", line=1, kind="bug", text="Something is wrong."):
     return Finding(path=path, line=line, kind=kind, text=text)
@@ -63,6 +77,11 @@ def report(findings=(), summary="All fine."):
 
 def body_of(claude=None, luna=None, repo="o/r"):
     return review_body({"claude": claude, "luna": luna}, repo, SHA)
+
+
+def visible(body):
+    """The comment without the hidden line that holds the earlier findings."""
+    return "\n".join(line for line in body.splitlines() if "kitden-sdlc:state" not in line)
 
 
 def write(tmp_path, data, name="findings.json"):
@@ -236,7 +255,7 @@ def test_model_text_cannot_add_markdown_or_html(text):
     plain = one_line(text)
     assert not set("<>[]()`*|!") & set(plain)
     body = body_of(report([finding(text=text)], summary=text))
-    assert body.count(plain) == 2 and text not in body
+    assert body.count(plain) == 2 and text not in visible(body)
     assert read_marker(body) == {"claude": 1, "luna": None, "both": 0}
 
 
@@ -255,7 +274,7 @@ def test_mentions_are_quieted_in_summary_and_text():
     )
     body = body_of(rep)
     assert f"@{WJ}someone" in body and f"@{WJ}pytest.fixture" in body
-    assert "@someone" not in body and "@pytest" not in body
+    assert "@someone" not in body and "@pytest" not in body  # nor in the hidden line
 
 
 def test_quiet_mentions_leaves_the_rest():
@@ -288,19 +307,19 @@ def test_marker_round_trip():
     claude = report([finding("a.py", 1), finding("b.py", 1)])
     luna = report([finding("a.py", 2), finding("c.py", 1)])
     items = merge({"claude": claude, "luna": luna})
-    text = marker({"claude": claude, "luna": luna}, items)
+    text = marker(["claude", "luna"], items)
     assert text == "<!-- kitden-sdlc:review claude=1 luna=1 both=1 -->"
     assert read_marker(f"Text.\n\n{text}\n") == {"claude": 1, "luna": 1, "both": 1}
 
 
 def test_marker_has_x_for_a_silent_reviewer():
-    text = marker({"claude": report(), "luna": None}, [])
+    text = marker(["claude"], [])
     assert text == "<!-- kitden-sdlc:review claude=0 luna=x both=0 -->"
     assert read_marker(text) == {"claude": 0, "luna": None, "both": 0}
 
 
 def test_marker_not_at_the_end_is_not_read():
-    text = marker({"claude": report(), "luna": report()}, [])
+    text = marker(["claude", "luna"], [])
     assert read_marker(f"{text}\n\nand then more text") is None
     assert read_marker("No marker here.") is None
 
@@ -371,7 +390,7 @@ def argv_for(claude, luna, *extra):
 
 
 def test_main_with_both_files_missing_posts_and_prints_nothing(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(post_findings, "GhApi", lambda: pytest.fail("no GitHub"))
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: pytest.fail("no GitHub"))
     argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7")
     assert main(argv) == 0
     assert capsys.readouterr().out.count("::warning::") == 2
@@ -388,7 +407,7 @@ def test_main_with_one_file_missing_still_prints_a_body(tmp_path, capsys):
 
 def test_main_posts_with_the_api(tmp_path, monkeypatch):
     api = FakeApi()
-    monkeypatch.setattr(post_findings, "GhApi", lambda: api)
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
     assert main(argv_for(FIXTURE, FIXTURE, "--pr", "7", "--repo", "o/r")) == 0
     assert [call[0] for call in api.calls] == ["create"]
     assert "**To check (2)**" in api.comments[0]["body"]
@@ -400,7 +419,7 @@ def test_main_needs_pr_without_dry_run():
 
 
 def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(post_findings, "GhApi", lambda: pytest.fail("no GitHub"))
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: pytest.fail("no GitHub"))
     bad = write(tmp_path, {"summary": "ok ghp_" + "a" * 36, "findings": []})
     assert main(argv_for(bad, FIXTURE, "--pr", "7")) == 1
     captured = capsys.readouterr()
@@ -531,3 +550,392 @@ def test_skill_schema_equals_the_schema_file():
         in_skill.pop(key, None)
         in_file.pop(key, None)
     assert in_skill == in_file
+
+
+def test_claude_is_named_by_its_model_family():
+    assert model_label("claude-sonnet-5-5") == "Sonn"
+    assert model_label("claude-opus-5-5") == "Opus"
+    assert model_label("") == "Claude"
+    assert model_label("some-other-model") == "Claude"
+
+
+def test_the_comment_uses_the_names_it_is_given():
+    names = {"claude": "Sonn", "luna": "Luna"}
+    body = review_body(
+        {"claude": report([finding("a.py", 1, text="Mine.")]), "luna": None},
+        "o/r",
+        SHA,
+        names=names,
+    )
+    assert "Mine. *(Sonn)*" in body
+    assert "Luna gave no usable answer this time." in body
+    silent = review_body({"claude": None, "luna": report()}, "o/r", SHA, names=names)
+    assert "Sonn gave no usable answer this time." in silent
+
+
+def test_main_names_claude_by_the_model_it_is_given(tmp_path, capsys):
+    claude = write(
+        tmp_path,
+        {
+            "summary": "S.",
+            "findings": [{"path": "a.py", "line": 1, "kind": "bug", "text": "Mine."}],
+        },
+        "claude.json",
+    )
+    luna = write(tmp_path, {"summary": "S.", "findings": []}, "luna.json")
+    main(
+        [
+            "--claude",
+            str(claude),
+            "--luna",
+            str(luna),
+            "--claude-model",
+            "claude-sonnet-5-5",
+            "--dry-run",
+        ]
+    )
+    assert "Mine. *(Sonn)*" in capsys.readouterr().out
+
+
+# --- Earlier findings stay ---
+
+NEXT = "1556615aaaaaaaaa"
+LAST = "9999999bbbbbbbbb"
+
+
+def run(api, claude=None, luna=None, head=SHA):
+    """One review run as main does it, against the fake GitHub."""
+    comments = api.list_issue_comments("o/r", 7)
+    earlier, changes = earlier_review(api, "o/r", head, find_ours(comments))
+    body = review_body({"claude": claude, "luna": luna}, "o/r", head, earlier, changes)
+    post(api, "o/r", 7, body, comments)
+    return body
+
+
+def diff(path, patch=None, status="modified", **extra):
+    entry = {"filename": path, "status": status, **extra}
+    if patch is not None:
+        entry["patch"] = patch
+    return entry
+
+
+def compared(*files, status="ahead"):
+    return {"status": status, "files": list(files)}
+
+
+ROADMAP = finding("AGENTS.md", 12, "rule", "AGENTS.md says to update ROADMAP.md; it has no entry.")
+
+
+def test_a_finding_the_next_review_does_not_repeat_stays():
+    # Kitden pull request 70: the second push only fixed a type error elsewhere.
+    api = FakeApi()
+    run(api, report([ROADMAP]), report())
+    api.compared = compared(diff("src/x.py", "@@ -3,1 +3,1 @@\n-a: int = ''\n+a: int = 0"))
+    body = run(api, report(), report(), head=NEXT)
+    assert ("compare", SHA, NEXT) in api.calls
+    assert "No new problems found." in body and "No problems found." not in body
+    assert "**Not repeated by the latest review (1)**" in body
+    assert f"(https://github.com/o/r/blob/{NEXT}/AGENTS.md#L12)" in body
+    assert "ROADMAP.md&#59;" not in body and "*(Claude, found in abcdef1)*" in body
+    assert read_marker(body) == {"claude": 1, "luna": 0, "both": 0}
+    assert len(api.comments) == 1
+
+
+def test_a_finding_whose_lines_changed_is_fixed():
+    api = FakeApi()
+    run(api, report([finding("a.py", 11, text="Off by one.")]), report())
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    body = run(api, report(), report(), head=NEXT)
+    assert "**Fixed (1)**" in body and "Not repeated" not in body
+    assert "Off by one. *(Claude, fixed in 1556615)*" in body
+    # The link shows the line where it was found.
+    assert f"(https://github.com/o/r/blob/{SHA}/a.py#L11)" in body
+    assert "No problems found." in body
+    assert read_marker(body) == {"claude": 1, "luna": 0, "both": 0}
+
+
+def test_a_change_a_few_lines_away_does_not_fix_it():
+    api = FakeApi()
+    run(api, report([finding("a.py", 20)]), report())
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    body = run(api, report(), report(), head=NEXT)
+    assert "Fixed" not in body and "**Not repeated by the latest review (1)**" in body
+
+
+def test_an_earlier_finding_follows_lines_added_above_it():
+    api = FakeApi()
+    run(api, report([finding("a.py", 20)]), report())
+    api.compared = compared(diff("a.py", "@@ -1,0 +2,3 @@\n+x\n+y\n+z"))
+    body = run(api, report(), report(), head=NEXT)
+    assert f"(https://github.com/o/r/blob/{NEXT}/a.py#L23)" in body
+
+
+def test_a_finding_made_again_is_one_item_by_everyone_who_made_it():
+    api = FakeApi()
+    run(api, report([finding("a.py", 20, text="Claude's words.")]), report())
+    api.compared = compared(diff("a.py", "@@ -1,0 +2,3 @@\n+x\n+y\n+z"))
+    body = run(api, report(), report([finding("a.py", 24, text="Luna's words.")]), head=NEXT)
+    assert "**To check (1)**" in body and "Not repeated" not in body
+    assert "Luna's words. *(both)*" in body
+    assert read_marker(body) == {"claude": 0, "luna": 0, "both": 1}
+
+
+def test_without_a_compare_nothing_is_fixed_and_the_old_link_stays(capsys):
+    api = FakeApi()
+    run(api, report([finding("a.py", 11)]), report())
+    api.compared = None  # say, the old head is gone after a force push
+    body = run(api, report(), report(), head=NEXT)
+    assert "Fixed" not in body and "**Not repeated by the latest review (1)**" in body
+    assert f"(https://github.com/o/r/blob/{SHA}/a.py#L11)" in body
+    assert "Cannot tell what changed since abcdef1" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        compared(status="diverged"),
+        compared(*[diff(f"f{n}.py", "@@ -1 +1 @@\n-a\n+b") for n in range(300)]),
+        {"status": "ahead", "files": [{"status": "modified"}]},
+        [],
+    ],
+)
+def test_an_answer_that_tells_too_little_marks_nothing_fixed(answer):
+    api = FakeApi()
+    run(api, report([finding("f1.py", 1)]), report())
+    api.compared = answer
+    assert "Fixed" not in run(api, report(), report(), head=NEXT)
+
+
+def test_a_file_without_a_diff_marks_nothing_fixed():
+    api = FakeApi()
+    run(api, report([finding("big.py", 1)]), report())
+    api.compared = compared(diff("big.py", changes=9000))
+    body = run(api, report(), report(), head=NEXT)
+    assert "Fixed" not in body and f"/blob/{SHA}/big.py#L1)" in body
+
+
+def test_a_removed_file_fixes_its_findings():
+    api = FakeApi()
+    run(api, report([finding("old.py", 3)]), report())
+    api.compared = compared(diff("old.py", "@@ -1,5 +0,0 @@\n-a", status="removed"))
+    assert "**Fixed (1)**" in run(api, report(), report(), head=NEXT)
+
+
+def test_a_renamed_file_takes_its_findings_along():
+    api = FakeApi()
+    run(api, report([finding("old.py", 3)]), report())
+    api.compared = compared(diff("new.py", status="renamed", previous_filename="old.py", changes=0))
+    body = run(api, report(), report(), head=NEXT)
+    assert f"(https://github.com/o/r/blob/{NEXT}/new.py#L3)" in body and "Fixed" not in body
+
+
+def test_a_rerun_on_the_same_commit_compares_nothing():
+    api = FakeApi()
+    run(api, report([finding("a.py", 11)]), report())
+    body = run(api, report(), report())
+    assert not [c for c in api.calls if c[0] == "compare"]
+    assert "**Not repeated by the latest review (1)**" in body
+    assert f"/blob/{SHA}/a.py#L11)" in body
+
+
+def test_fixed_stays_fixed_and_counted_on_later_runs():
+    api = FakeApi()
+    run(api, report([finding("a.py", 11)]), report())
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    run(api, report(), report(), head=NEXT)
+    api.compared = compared()
+    body = run(api, report([finding("b.py", 1)]), report(), head=LAST)
+    assert "**Fixed (1)**" in body and "fixed in 1556615" in body
+    assert "**To check (1)**" in body
+    assert read_marker(body) == {"claude": 2, "luna": 0, "both": 0}
+
+
+def test_a_fixed_finding_reported_again_is_open_again():
+    api = FakeApi()
+    run(api, report([finding("a.py", 11)]), report())
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    run(api, report(), report(), head=NEXT)
+    api.compared = compared()
+    body = run(api, report([finding("a.py", 12)]), report(), head=LAST)
+    assert "**To check (1)**" in body and "Fixed" not in body
+
+
+def test_a_reviewer_silent_now_keeps_its_earlier_findings_and_counts():
+    api = FakeApi()
+    run(api, report(), report([finding("a.py", 1)]))
+    body = run(api, report(), None, head=NEXT)
+    assert "Luna gave no usable answer this time." in body
+    assert "**Not repeated by the latest review (1)**" in body
+    assert read_marker(body) == {"claude": 0, "luna": 1, "both": 0}
+
+
+def test_a_long_history_is_cut_but_still_counted():
+    fixed = [Item(finding(f"f{n}.py", 1), ["claude"], SHA, SHA, SHA) for n in range(30)]
+    earlier = Earlier(SHA, ["claude"], fixed, {"claude": 0, "luna": 0, "both": 0})
+    claude = report([finding("x.py", 1), finding("y.py", 1)])
+    body = review_body({"claude": claude, "luna": None}, "o/r", NEXT, earlier, {})
+    assert "**To check (2)**" in body and "**Fixed (28)**" in body
+    assert "2 older findings are left out" in body
+    assert "f0.py" not in visible(body) and "f29.py" in body
+    assert read_marker(body) == {"claude": 32, "luna": None, "both": 0}
+    state = read_state(body)
+    assert len(state.items) == 30 and state.dropped["claude"] == 2
+
+
+# --- The hidden line ---
+
+
+def test_the_hidden_line_reads_back():
+    rep = report([finding("a-b.py", 4, "rule", "Text --> @bob #12 https://e.x/a <b>&")])
+    body = body_of(rep, report())
+    (line,) = [x for x in body.splitlines() if x.startswith("<!-- kitden-sdlc:state ")]
+    inner = line.removeprefix("<!-- kitden-sdlc:state ").removesuffix(" -->")
+    assert not set("<>&-@#/") & set(inner)
+    state = read_state(body)
+    assert state.head == SHA and state.answered == ["claude", "luna"]
+    (item,) = state.items
+    assert item.finding == rep.findings[0] and item.by == ["claude"]
+    assert item.seen == item.at == SHA and item.fixed == ""
+    assert body.endswith("both=0 -->")
+
+
+def _state_data():
+    body = body_of(report([finding()]), report())
+    return json.loads(body.split("kitden-sdlc:state ", 1)[1].split(" -->", 1)[0])
+
+
+def _body_with(data):
+    return f"<!-- kitden-sdlc:state {json.dumps(data)} -->"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d.update(head="not-a-sha"),
+        lambda d: d.update(answered=["gpt"]),
+        lambda d: d.update(extra=1),
+        lambda d: d.update(items={}),
+        lambda d: d.update(items=d["items"] * 31),
+        lambda d: d.update(dropped={"claude": -1, "luna": 0, "both": 0}),
+        lambda d: d.update(dropped={"claude": True, "luna": 0, "both": 0}),
+        lambda d: d["items"][0].update(by=[]),
+        lambda d: d["items"][0].update(by=["claude", "claude"]),
+        lambda d: d["items"][0].update(by=["someone"]),
+        lambda d: d["items"][0].update(seen="main"),
+        lambda d: d["items"][0].update(fixed="HEAD"),
+        lambda d: d["items"][0].update(line=0),
+        lambda d: d["items"][0].update(kind="style"),
+        lambda d: d["items"][0].pop("at"),
+    ],
+)
+def test_a_hidden_line_that_does_not_fit_is_not_read(change):
+    data = _state_data()
+    assert read_state(_body_with(data)) is not None
+    change(data)
+    assert read_state(_body_with(data)) is None
+
+
+def test_broken_or_missing_hidden_line_is_not_read():
+    assert read_state("<!-- kitden-sdlc:state {not json} -->") is None
+    assert read_state("No state here.") is None
+
+
+def test_a_comment_from_before_the_hidden_line_starts_fresh(capsys):
+    api = FakeApi()
+    old = "**Agent review**\n\nx\n\n<!-- kitden-sdlc:review claude=1 luna=0 both=0 -->"
+    api.comments.append({"id": 9, "body": old, "user": dict(BOT_USER)})
+    body = run(api, report(), report(), head=NEXT)
+    assert "No problems found." in body and api.calls[-1][0] == "update"
+    assert "no earlier findings" in capsys.readouterr().out
+
+
+def test_a_persons_comment_with_a_hidden_line_is_not_read():
+    api = FakeApi()
+    fake = body_of(report([finding("a.py", 1, text="Planted.")]), report())
+    api.comments.append({"id": 9, "body": fake, "user": {"login": "someone"}})
+    body = run(api, report(), report(), head=NEXT)
+    assert "Planted." not in body
+
+
+def test_a_secret_in_the_hidden_line_is_refused():
+    data = _state_data()
+    data["items"][0]["text"] = "ghp_" + "a" * 36
+    earlier = read_state(_body_with(data))
+    with pytest.raises(SecretLikeError):
+        review_body({"claude": report(), "luna": None}, "o/r", NEXT, earlier, {})
+
+
+# --- Reading a diff ---
+
+
+def test_parse_patch_follows_lines_and_marks_what_changed():
+    patch = (
+        "@@ -2,4 +2,5 @@\n"
+        " two\n"
+        "-three\n"
+        "+THREE\n"
+        "+three and a half\n"
+        " four\n"
+        " five\n"
+        "\\ No newline at end of file\n"
+        "@@ -20,2 +21,0 @@\n"
+        "-twenty\n"
+        "-twenty-one\n"
+    )
+    change = parse_patch("a.py", patch)
+    assert change.touched == {3, 4, 20, 21}  # two is only context
+    assert [change.new_line(n) for n in (1, 2, 4, 5, 10)] == [1, 2, 5, 6, 11]
+    assert change.new_line(30) == 29
+    assert change.touches(5) and not change.touches(10)
+
+
+def test_file_changes_names_files_by_their_old_name():
+    changes = file_changes(
+        compared(
+            diff("new.py", "@@ -1 +1 @@\n-a\n+b", status="renamed", previous_filename="old.py")
+        )
+    )
+    assert set(changes) == {"old.py"} and changes["old.py"].path == "new.py"
+    assert file_changes(compared(status="identical")) == {}
+
+
+def test_gh_api_compare_uses_the_read_token(monkeypatch):
+    run_ = FakeRun('{"status": "ahead", "files": []}')
+    calls = []
+    monkeypatch.setattr(
+        post_findings.subprocess,
+        "run",
+        lambda command, **kw: calls.append(kw.get("env")) or run_(command, **kw),
+    )
+    assert GhApi(read_token="read").compare("o/r", "a1b2c3d", "d4e5f6a") == {
+        "status": "ahead",
+        "files": [],
+    }
+    assert run_.commands[0][2] == "repos/o/r/compare/a1b2c3d...d4e5f6a"
+    assert calls[0]["GH_TOKEN"] == "read"
+    GhApi().create_issue_comment("o/r", 7, "hi")
+    assert calls[1] is None  # posting keeps the job's GH_TOKEN
+
+
+def test_gh_api_compare_gives_none_when_gh_fails(monkeypatch):
+    def fail(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(post_findings.subprocess, "run", fail)
+    assert GhApi().compare("o/r", "a1b2c3d", "d4e5f6a") is None
+
+
+def test_main_keeps_an_earlier_finding(tmp_path, monkeypatch):
+    api = FakeApi()
+    run(api, report([ROADMAP]), report())
+    api.compared = compared()
+    made = []
+    monkeypatch.setattr(post_findings, "GhApi", lambda **kw: made.append(kw) or api)
+    monkeypatch.setenv("GH_READ_TOKEN", "read")
+    empty = write(tmp_path, {"summary": "Fine.", "findings": []})
+    argv = argv_for(empty, empty, "--pr", "7", "--repo", "o/r", "--head-sha", NEXT)
+    assert main(argv) == 0
+    assert made == [{"read_token": "read"}]
+    body = api.comments[0]["body"]
+    assert "**Not repeated by the latest review (1)**" in body
+    assert read_marker(body) == {"claude": 1, "luna": 0, "both": 0}

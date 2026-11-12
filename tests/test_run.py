@@ -19,6 +19,9 @@ def test_claude_runs_with_the_workflows_tools():
     command = run.claude_command("claude-sonnet-5-5")
     assert command[:3] == ["claude", "-p", "/kitden-sdlc:review-kitden"]
     assert Path(command[command.index("--plugin-dir") + 1]).is_dir()
+    # Same effort as review.yml.
+    assert command[command.index("--effort") + 1] == "high"
+    assert "--effort high" in (WORKFLOWS / "review.yml").read_text()
 
 
 def test_luna_uses_the_workflows_codex_and_schema():
