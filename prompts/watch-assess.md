@@ -23,13 +23,14 @@ Then find in the files the code that relies on the row, and ask: after this chan
 computer with the new client version, does that code still do the right thing?
 
 - `breaks`: a Kitden action fails, or writes something the client no longer accepts.
-- `wrong-data`: Kitden still runs but shows something untrue, or leaves out something it
-  claims to show. This includes a place, key, value or case the client now has and the code
-  does not read, and a number in the code that is no longer the client's number. How many
-  users meet the case does not matter: if Kitden shows something untrue to whoever meets it,
-  it is `wrong-data`.
-- `minor`: Kitden stays right, but the row or a comment is now out of date; or the effect is
-  too small for a user to notice.
+- `wrong-data`: Kitden still runs but shows one thing while the client has another: an item,
+  a state, a number or a reader that is not the client's, or a list shown as complete that
+  misses items the client loads. This includes a place, key, value or case the client now has
+  and the code does not read, when Kitden then shows something else. How many users meet the
+  case does not matter.
+- `minor`: Kitden stays right, but the row or a comment is now out of date; or Kitden cannot
+  read something and says so (unknown, worked out) instead of showing a wrong value; or the
+  effect is too small for a user to notice.
 - `none`: the change does not touch what the code relies on. A fix or a speed-up inside the
   client, with the same files, keys, commands and numbers as before, is `none`.
 

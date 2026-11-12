@@ -12,5 +12,6 @@ already reads the new place, key or value, or a change that the finding misread.
 
 Then give `holds`. It is false when the files show Kitden stays right, or when the finding
 rests on something the change does not say. It is true otherwise. A soft failure does not
-clear a finding: when Kitden shows a default, a guess or nothing where the client now has a
-real value, the finding holds.
+clear a finding: when Kitden shows a default or a guess as if it were the client's value, or
+leaves out items without saying so, the finding holds. When Kitden says it does not know
+(unknown, worked out), it stays right, and the finding does not hold.
