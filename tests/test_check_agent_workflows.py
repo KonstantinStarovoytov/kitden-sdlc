@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import yaml
 
 from check_agent_workflows import check_workflow, is_agent_workflow, main
@@ -322,3 +324,51 @@ def test_model_secret_in_with_makes_a_script_agent():
         "          key: ${{ secrets.ANTHROPIC_API_KEY }}\n",
     )
     assert any("rule 1" in v for v in run(text))
+
+
+RELEASE_JOB = """
+on:
+  push:
+    tags: ["v*"]
+permissions: {}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions: {}
+    steps:
+      - run: echo publish
+"""
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_release_environment_only_without_model_and_on_main_or_tag():
+    assert run(RELEASE_JOB) == []
+
+    model = RELEASE_JOB.replace(
+        "      - run: echo publish\n", "      - uses: anthropics/claude-code-action@SHA\n"
+    )
+    assert "wf.yml: rule 1: job publish holds the release environment and runs a model" in run(
+        model
+    )
+
+    script = RELEASE_JOB.replace(
+        "      - run: echo publish\n",
+        "      - run: echo publish\n        env:\n"
+        "          KEY: ${{ secrets.OPENAI_API_KEY }}\n",
+    )
+    assert any("holds the release environment and runs a model" in v for v in run(script))
+
+    mapping = model.replace("environment: release", "environment:\n      name: release")
+    assert any("holds the release environment and runs a model" in v for v in run(mapping))
+
+    for event in ("pull_request_target", "issue_comment"):
+        text = RELEASE_JOB.replace('  push:\n    tags: ["v*"]', f"  {event}:")
+        assert f"wf.yml: rule 1: job publish holds the release environment on {event}" in run(
+            text
+        )
+
+    for name in (".github/workflows/publish.yml", "examples/release.yml"):
+        doc = yaml.safe_load((ROOT / name).read_text())
+        assert check_workflow(doc, name) == []

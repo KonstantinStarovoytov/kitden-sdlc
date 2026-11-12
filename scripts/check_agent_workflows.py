@@ -88,10 +88,35 @@ def _marketplaces(job: dict):
             yield from map(str, value)
 
 
-def check_workflow(doc: dict, path: str) -> list[str]:
-    if not isinstance(doc, dict) or not is_agent_workflow(doc):
-        return []
+def _in_release_environment(job: dict) -> bool:
+    environment = job.get("environment")
+    if isinstance(environment, dict):
+        environment = environment.get("name")
+    return environment == "release"
+
+
+def _release_violations(doc: dict) -> list[tuple[int, str]]:
+    """Rule 1, for every workflow: the job that holds the release key never runs a model."""
     found: list[tuple[int, str]] = []
+    holders = [name for name, job in _jobs(doc).items() if _in_release_environment(job)]
+    for name in holders:
+        job = doc["jobs"][name]
+        if _has_model_step(job) or _script_agent_steps(job):
+            found.append((1, f"job {name} holds the release environment and runs a model"))
+    for event in ("pull_request_target", "issue_comment"):
+        if event in _events(doc):
+            for name in holders:
+                found.append((1, f"job {name} holds the release environment on {event}"))
+    return found
+
+
+def check_workflow(doc: dict, path: str) -> list[str]:
+    if not isinstance(doc, dict):
+        return []
+    release = _release_violations(doc)
+    if not is_agent_workflow(doc):
+        return [f"{path}: rule {rule}: {message}" for rule, message in release]
+    found: list[tuple[int, str]] = release
     jobs = _jobs(doc)
     script_jobs = {name: job for name, job in jobs.items() if _script_agent_steps(job)}
 
