@@ -25,9 +25,9 @@ computer with the new client version, does that code still do the right thing?
 - `breaks`: a Kitden action fails, or writes something the client no longer accepts.
 - `wrong-data`: Kitden still runs but shows one thing while the client has another: an item,
   a state, a number or a reader that is not the client's, or a list shown as complete that
-  misses items the client loads, or a hint to do what the client does not allow. This includes a place, key, value or case the client now has
-  and the code does not read, when Kitden then shows something else. How many users meet the
-  case does not matter.
+  misses items the client loads, or a hint to do what the client does not allow. This
+  includes a place, key, value or case the client now has and the code does not read, when
+  Kitden then shows something else. How many users meet the case does not matter.
 - `minor`: Kitden stays right, but the row or a comment is now out of date; or Kitden cannot
   read something and says so (unknown, worked out) instead of showing a wrong value; or the
   effect is too small for a user to notice.
