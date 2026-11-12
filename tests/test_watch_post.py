@@ -119,6 +119,12 @@ def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
     assert lines[0]["issue"] == gh.urls[0] and lines[1]["issue"] == ""
 
 
+def test_archive_lines_keep_the_kitden_commit_of_the_run(tmp_path):
+    run({**inp(2), "kitden": "c" * 40}, one(judged=2), FakeGitHub(), tmp_path, WED)
+    lines = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
+    assert [x["kitden"] for x in lines] == ["c" * 40, "c" * 40]
+
+
 def test_failed_pieces_count_their_tries_in_the_memory(tmp_path):
     gh = FakeGitHub()
     run(inp(2), {"judged": [], "findings": [], "failed": [f"{PID}0", f"{PID}1"]}, gh,

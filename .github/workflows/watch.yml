@@ -20,12 +20,12 @@ on:
         type: boolean
         default: false
       # The three below are read by the eval only. The daily run uses WATCH_MODEL of this
-      # file and the model's own effort.
+      # file at effort medium: the setting that passed the eval (evals/watch/results).
       model:
         description: "Eval only: the model"
         type: choice
-        options: [gpt-6-luna, gpt-6.1-terra, claude-sonnet-5-5, claude-opus-5-5]
-        default: gpt-6-luna
+        options: [claude-sonnet-5-5, gpt-6-luna, gpt-6.1-terra, claude-opus-5-5]
+        default: claude-sonnet-5-5
       effort:
         description: "Eval only: how hard the model thinks (default: the model's own)"
         type: choice
@@ -45,7 +45,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  WATCH_MODEL: gpt-6-luna
+  WATCH_MODEL: claude-sonnet-5-5
 
 jobs:
   fetch:
@@ -123,7 +123,8 @@ jobs:
       # The model's only step: text in, a findings file out. No tools, no write permission.
       - name: Judge
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WATCH_EFFORT: medium
           MAX_MODEL_CALLS: "60"
         run: >-
           uv run --locked --only-group watch python scripts/watch_judge.py

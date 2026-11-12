@@ -160,13 +160,14 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
     archive = [{"date": str(today), **{k: f[k] for k in
                ("piece", "client", "version", "url", "row", "title", "effect", "severity",
                 "sure", "why")},
-               "issue": opened.get(f["title"], "")} for f in found]
+               "issue": opened.get(f["title"], ""), "kitden": inp.get("kitden", "")}
+               for f in found]
     for p in inp["pieces"]:
         if p["id"] in judged and not any(f["piece"] == p["id"] for f in found):
             archive.append({"date": str(today), "piece": p["id"], "client": p["client"],
                             "version": p["version"], "url": p["url"], "row": "", "title": "",
                             "effect": "none", "severity": "", "sure": False, "why": "",
-                            "issue": ""})
+                            "issue": "", "kitden": inp.get("kitden", "")})
     _append(memory / "archive.jsonl", archive)
 
 

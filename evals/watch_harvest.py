@@ -38,7 +38,7 @@ def _task(issue: dict, line: dict, piece: dict, kind: str) -> dict:
         expect = {"row": line["row"] or "gap", "effect": OLD.get(line["effect"], line["effect"]),
                   "severity": line.get("severity") or "minor"}
     return {"id": f"issue-{issue['number']}", "kind": kind, "source": piece["source"],
-            "piece": piece, "expect": expect}
+            "piece": piece, "expect": expect, "kitden": line["kitden"]}
 
 
 def harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict],
@@ -62,6 +62,8 @@ def harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict],
             skipped.append(_skip(issue, "the task exists"))
         elif line is None:
             skipped.append(_skip(issue, "no archive line"))
+        elif not line.get("kitden"):
+            skipped.append(_skip(issue, "the archive line has no Kitden commit"))
         elif line["piece"] not in pieces:
             skipped.append(_skip(issue, "the piece could not be fetched again"))
         elif marks == {"confirmed"} and OLD.get(effect := line.get("effect"), effect) not in \

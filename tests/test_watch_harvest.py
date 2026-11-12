@@ -9,7 +9,8 @@ PIECE = {"id": PID, "client": "claude-code", "kind": "release", "version": "2.1.
          "key": "2.1.320", "hash": "h"}
 LINE = {"date": "2026-11-11", "piece": PID, "client": "claude-code", "version": "2.1.320",
         "url": "https://example.com", "row": "the `skillOverrides` key", "title": "t",
-        "effect": "breaks", "severity": "major", "sure": True, "why": "w", "issue": ADDRESS}
+        "effect": "breaks", "severity": "major", "sure": True, "why": "w", "issue": ADDRESS,
+        "kitden": "a" * 40}
 
 
 def issue(number=7, *labels, address=ADDRESS):
@@ -22,7 +23,14 @@ def test_a_confirmed_issue_gives_a_touched_task_with_the_archive_row_and_effect(
     assert tasks == [{"id": "issue-7", "kind": "touched", "source": "claude-code-changelog",
                       "piece": PIECE,
                       "expect": {"row": "the `skillOverrides` key", "effect": "breaks",
-                                 "severity": "major"}}]
+                                 "severity": "major"},
+                      "kitden": "a" * 40}]
+
+
+def test_a_line_without_a_kitden_commit_is_skipped():
+    old = {k: v for k, v in LINE.items() if k != "kitden"}
+    tasks, skipped = harvest([issue(7, "confirmed")], [old], {PID: PIECE})
+    assert tasks == [] and skipped == [{"issue": 7, "why": "the archive line has no Kitden commit"}]
 
 
 def test_a_gap_line_gives_a_gap_task():
