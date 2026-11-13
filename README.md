@@ -15,7 +15,7 @@ untrusted text, a secret and write access at once.
 | Review ([review.yml](.github/workflows/review.yml)) | Claude and Luna read each pull request; the Lantern app posts one "Agent review" comment | live on Kitden |
 | Workflow check ([check.yml](.github/workflows/check.yml)) | zizmor, actionlint and the rule checker on every workflow change | live on Kitden |
 | Client watcher ([watch.yml](.github/workflows/watch.yml)) | Claude Sonnet 5.5 reads the release notes of Claude Code, Codex and Cursor; a script opens issues in Kitden | live: every day; the eval runs by hand |
-| Weekly numbers ([numbers.yml](.github/workflows/numbers.yml)) | counts the reviews, no model | live: every Monday |
+| The desk ([desk.yml](.github/workflows/desk.yml)) | every day, no model: works out Kitden's health and what waits for the owner, and shows it in the pinned issue "Kitden desk" | every day; the issue needs `AGENTS_ENABLED` |
 | Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; scripts check them and Claude gets one pass to fix what they find; a job without a model opens the release pull request, as a draft when something is left | ready in Kitden; the first release with it is still to come |
 | Publish ([publish.yml](.github/workflows/publish.yml)) | no model; in the `release` environment it moves the `release` branch and opens the Homebrew pull request, and it publishes to the MCP Registry | ready in Kitden; the first release with it is still to come |
 | Release watch ([release-watch.yml](.github/workflows/release-watch.yml)) | daily, no model: an issue when a release is due or a store is behind | set up in Kitden; runs every day |
@@ -40,7 +40,7 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 | A pull request changes a workflow | zizmor, actionlint, the rule checker | fix a red check | a red check |
 | Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | put `confirmed` on each issue that is right (it stays open until fixed), or close it with `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday; or one issue "The client watcher is paused": close it to lift the pause |
 | Every day, 06:23 UTC | the release watch, no model | run Release prep (the issue links to it), or re-run what it names | "Time for a release?", "Release vX.Y.Z is not everywhere" |
-| Every Monday, 06:00 UTC | the weekly numbers, no model | nothing | nothing |
+| Every day, 06:41 UTC | the desk, no model: Kitden's health and what waits for you, in the pinned issue "Kitden desk" | do what its "Waiting for you" lines say ([what you do](docs/owner.md)) | one comment on the desk issue, on Monday |
 
 Bots never write `@name`. Every issue a bot opens has the label `automated` and one label that
 says where it comes from: `client-change`, `release` or `desk`.
@@ -119,6 +119,8 @@ setup: [docs/setup.md](docs/setup.md) for review and the watcher,
 ## More
 
 - [docs/agents.md](docs/agents.md): every agent and workflow, the watcher's labels, the release flow
+- [docs/owner.md](docs/owner.md): everything you do, one table; the switches
+- [desk.json](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json) on the `numbers` branch: the desk's data
 - [docs/setup.md](docs/setup.md) and [docs/release-setup.md](docs/release-setup.md): the one-time setup
 - [LOG.md](LOG.md): what went wrong while building, and what changed
 - Designs: [reviewers](docs/design.md), [client watcher](docs/watcher-design.md),

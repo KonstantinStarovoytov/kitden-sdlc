@@ -1,0 +1,122 @@
+name: desk
+
+# Every day, no model: work out whether Kitden is healthy and what waits for the owner.
+# `measure` counts the reviews, reads the facts and commits numbers.md, numbers.json and
+# desk.json to the `numbers` branch, because `main` takes pull requests only. `post` shows
+# desk.json as the issue "Kitden desk". Two jobs, so that the job that writes to this
+# repository never holds the review app's key (RULES.md, rule 1). With AGENTS_ENABLED off
+# the numbers still update, and the issue stays as it was, with its date. This workflow
+# never runs a pull request's code.
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One run at a time; a second one waits, so the branch is never written twice at once.
+concurrency:
+  group: desk
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # commit the three files to the numbers branch
+      actions: read # count this repository's workflow runs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The branch that keeps the files, next to the scripts from main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: numbers
+          path: out
+          persist-credentials: false
+      # The watcher's memory, for its log. The branch may have no log yet, or not exist: the
+      # desk then shows the Clients light as grey, so this step may not stop the job.
+      - name: Check out the watcher's memory
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: watch
+          path: memory
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      # Both read public repositories and this one's runs, so the job's own token is enough.
+      - name: Count
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --no-project --python 3.13 python scripts/count_reviews.py --out out
+      # Exits 0 when some reads failed: desk.json then shows what needs them as grey.
+      - name: Gather the desk's facts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          uv run --no-project --python 3.13 python scripts/desk_gather.py
+          --repo KonstantinStarovoytov/kitden --roster config/agents.json
+          --watch-log memory/log.jsonl --out out
+      # Checkout keeps no credentials, so the push gets the token here. desk.json holds the
+      # time it was made, so it changes every day.
+      - name: Commit the numbers and the desk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        working-directory: out
+        run: |
+          if [ -z "$(git status --porcelain -- numbers.md numbers.json desk.json)" ]; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add numbers.md numbers.json desk.json
+          git commit -m "Update the desk"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:numbers
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desk
+          path: out/desk.json
+          if-no-files-found: error
+          retention-days: 1
+
+  post:
+    needs: measure
+    if: vars.AGENTS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      # This repository at this workflow's own commit; it is public, so it needs no permission.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: desk
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+      # Without the app nothing can be posted, so a failure here stops the job.
+      - name: Sign in as the review app
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AGENTS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENTS_APP_PRIVATE_KEY }}
+          owner: KonstantinStarovoytov
+          repositories: kitden
+          permission-issues: write
+      # No model here: the script shows facts it wrote itself.
+      - name: Post
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: >-
+          uv run --no-project --python 3.13 python scripts/desk_post.py
+          --desk desk.json --repo KonstantinStarovoytov/kitden

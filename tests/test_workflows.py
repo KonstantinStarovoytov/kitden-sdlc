@@ -86,3 +86,46 @@ def test_every_workflow_and_caller_passes_the_checker():
     assert files
     for file in files:
         assert check_workflow(yaml.safe_load(file.read_text()), file.name) == [], file.name
+
+
+def test_the_desk_measures_without_the_switch_and_posts_only_with_it():
+    doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
+    measure, post = doc["jobs"]["measure"], doc["jobs"]["post"]
+    assert "if" not in measure
+    assert measure["permissions"] == {"contents": "write", "actions": "read"}
+    assert "vars.AGENTS_ENABLED == 'true'" in post["if"] and post["permissions"] == {}
+    assert not any("PRIVATE_KEY" in str(step) for step in measure["steps"])
+    assert check_workflow(doc, "desk.yml") == []
+
+
+def test_the_desk_posts_after_the_numbers_as_the_review_app_on_kitden_only():
+    doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
+    measure, post = doc["jobs"]["measure"], doc["jobs"]["post"]
+    assert (measure["timeout-minutes"], post["timeout-minutes"]) == (10, 5)
+    assert post["needs"] == "measure"
+    sign_in = [s for s in post["steps"] if "create-github-app-token" in str(s.get("uses"))]
+    assert len(sign_in) == 1
+    assert sign_in[0]["with"]["repositories"] == "kitden"
+    assert sign_in[0]["with"]["permission-issues"] == "write"
+    permissions = [k for k in sign_in[0]["with"] if k.startswith("permission-")]
+    assert permissions == ["permission-issues"]
+    # The job holds no contents permission, so its checkout is the workflow's own commit.
+    checkouts = [s for s in post["steps"] if "checkout" in str(s.get("uses"))]
+    assert checkouts and all("ref" not in (s.get("with") or {}) for s in checkouts)
+
+
+def test_the_desk_does_not_stop_when_the_watchers_log_is_missing():
+    doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
+    memory = [
+        s for s in doc["jobs"]["measure"]["steps"]
+        if "checkout" in str(s.get("uses")) and (s.get("with") or {}).get("ref") == "watch"
+    ]
+    assert len(memory) == 1 and memory[0]["continue-on-error"] is True
+
+
+def test_the_watcher_knows_only_the_bots_own_issues_as_known_titles():
+    doc = yaml.safe_load((ROOT / ".github/workflows/watch.yml").read_text())
+    steps = doc["jobs"]["fetch"]["steps"]
+    step = next(s for s in steps if s.get("name") == "List the open watcher issues")
+    assert 'select(.user.login == "kitden-lantern[bot]")' in step["run"]
+    assert "select(.pull_request | not)" in step["run"]

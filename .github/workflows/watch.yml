@@ -77,8 +77,10 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
-      # Kitden is public, so the job's own token can read its issues. `shell: bash` adds
-      # pipefail: a failed gh call must fail the step, not leave an empty list.
+      # Kitden is public, so the job's own token can read its issues. Only the bot's own
+      # issues are known titles: a person's issue with the label is not the watcher's.
+      # `shell: bash` adds pipefail: a failed gh call must fail the step, not leave an empty
+      # list.
       - name: List the open watcher issues
         shell: bash
         env:
@@ -86,7 +88,8 @@ jobs:
         run: |
           gh api --paginate \
             "repos/KonstantinStarovoytov/kitden/issues?labels=client-change&state=open&per_page=100" \
-            --jq '.[] | select(.pull_request | not) | .title' \
+            --jq '.[] | select(.pull_request | not)
+              | select(.user.login == "kitden-lantern[bot]") | .title' \
             | jq -R -s 'split("\n") | map(select(length > 0))' > titles.json
       - name: Fetch
         id: fetch
