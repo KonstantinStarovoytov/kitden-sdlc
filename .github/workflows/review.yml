@@ -119,8 +119,11 @@ jobs:
           -o -path ./.claude -o -path ./CLAUDE.md \) -prune
           -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name .claude \)
           -print -prune -exec rm -rf {} +
+      # A failed reviewer does not fail the job: the review comment says it gave no answer.
       - name: Review
+        id: review
         if: steps.prepare.outputs.skip != 'true'
+        continue-on-error: true
         uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
@@ -133,6 +136,9 @@ jobs:
             --plugin-dir .kitden-sdlc/plugins/kitden-sdlc
             --allowedTools "Read(./**),Edit(./.review/**)"
             --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-sdlc/**),Read(~/.*),Read(~/.*/**),Read(//proc/**)"
+      - name: Say that Claude failed
+        if: steps.review.outcome == 'failure'
+        run: echo "::warning::The Claude reviewer failed; the review comment says it gave no answer."
       - name: Keep the findings
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -205,9 +211,11 @@ jobs:
       # the final message to the findings file. Web search is off. The earlier step deletes the pull
       # request's agent files, and project_doc_max_bytes=0 asks Codex to read no
       # project instructions as well.
+      # A failed reviewer does not fail the job: the review comment says it gave no answer.
       - name: Review
         id: luna
         if: steps.prepare.outputs.skip != 'true'
+        continue-on-error: true
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         with:
           openai-api-key: ${{ secrets.openai_api_key }}
@@ -218,6 +226,9 @@ jobs:
           output-file: .review/findings.json
           permission-profile: ":read-only"
           codex-args: '["-c", "project_doc_max_bytes=0", "-c", "web_search=\"disabled\""]'
+      - name: Say that Luna failed
+        if: steps.luna.outcome == 'failure'
+        run: echo "::warning::The Luna reviewer failed; the review comment says it gave no answer."
       # Luna's answer, or the too-large notice the script wrote. A job output would not
       # do: GitHub drops an output that looks like it holds a secret.
       - name: Keep the findings
