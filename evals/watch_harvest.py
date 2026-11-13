@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
+from bot_issues import verdict  # noqa: E402
 from watch_fetch import PIECE_CHARS, _read  # noqa: E402
 from watch_pages import get, load_sources, sections  # noqa: E402
 
@@ -87,7 +88,7 @@ def _issues(repo: str) -> list[dict]:
 
 def _judged(issues: list[dict]) -> list[dict]:
     """The issues with exactly one verdict label; only these need their piece fetched."""
-    return [i for i in issues if len({"confirmed", "false-alarm"} & set(i["labels"])) == 1]
+    return [i for i in issues if verdict(i)]
 
 
 def _fetch_pieces(archive: list[dict], sources_file) -> dict[str, dict]:

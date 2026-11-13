@@ -112,8 +112,16 @@ class GhIssues:
 
 
 def names(issue: dict) -> set[str]:
-    """The names of an issue's labels."""
-    return {label["name"] for label in issue.get("labels", [])}
+    """The names of an issue's labels; GitHub's schema allows a label as a bare name too."""
+    return {label if isinstance(label, str) else label["name"]
+            for label in issue.get("labels", [])}
+
+
+def verdict(issue: dict) -> str | None:
+    """The owner's verdict on an issue: `confirmed` or `false-alarm` when it carries exactly
+    one of them, else None."""
+    marks = names(issue) & set(VERDICTS)
+    return marks.pop() if len(marks) == 1 else None
 
 
 def ensure_labels(gh: GhIssues) -> None:
@@ -149,7 +157,7 @@ def paused_title(agent: str) -> str:
     return f"{agent} is paused"
 
 
-def _pause_body(agent: str, wrong: list[dict]) -> str:
+def _pause_body(agent: str, wrong: list[dict], means: str) -> str:
     # Links only: the issues' titles were written by a model.
     links = "\n".join(f"- {item.get('html_url') or '#' + str(item['number'])}" for item in wrong)
     return (
@@ -159,19 +167,19 @@ def _pause_body(agent: str, wrong: list[dict]) -> str:
         f"{agent} got `false-alarm` on {len(wrong)} of its last {PAUSE_AFTER} issues with a "
         f"verdict, more than half:\n\n{links}\n\n"
         "## What it means\n\n"
-        f"{agent} opens no issue while this one is open, not even its summary. What it finds "
-        "is kept for its first summary after this issue is closed.\n\n"
+        f"{agent} opens no issue while this one is open. {means}\n\n"
         "## What to do\n\n"
         "Fix the prompt or the tasks, then close this issue. The count starts again from the "
         "issues opened after you close it.\n"
     )
 
 
-def pause(gh: GhIssues, agent: str, origin: str) -> bool:
+def pause(gh: GhIssues, agent: str, origin: str, means: str) -> bool:
     """True when `agent` must open nothing now: the bot's "<agent> is paused" issue is open, or
     is opened here because more than half of the last PAUSE_AFTER verdicts on the bot's issues
     labelled `origin` are `false-alarm`. Only issues opened after the newest closed pause issue
-    was closed count; summaries and issues with both verdicts do not."""
+    was closed count; summaries and issues with both verdicts do not. `means` is the caller's
+    sentence on what the pause means for its work, put in the issue."""
     title = paused_title(agent)
     pauses = [item for item in gh.by_bot("all") if item["title"] == title]
     if any(item["state"] == "open" for item in pauses):
@@ -180,13 +188,12 @@ def pause(gh: GhIssues, agent: str, origin: str) -> bool:
     since = max((item.get("closed_at") or "" for item in pauses), default="")
     judged = [
         item for item in gh.by_bot("all", origin)
-        if "summary" not in names(item) and len(names(item) & set(VERDICTS)) == 1
-        and item["created_at"] > since
+        if "summary" not in names(item) and verdict(item) and item["created_at"] > since
     ]
     judged.sort(key=lambda item: (item["created_at"], item["number"]), reverse=True)
     last = judged[:PAUSE_AFTER]
-    wrong = [item for item in last if "false-alarm" in names(item)]
+    wrong = [item for item in last if verdict(item) == "false-alarm"]
     if len(last) < PAUSE_AFTER or 2 * len(wrong) <= len(last):
         return False
-    gh.create(title, _pause_body(agent, wrong), ["automated", "desk"])
+    gh.create(title, _pause_body(agent, wrong, means), ["automated", "desk"])
     return True

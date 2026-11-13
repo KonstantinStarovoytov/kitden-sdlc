@@ -15,6 +15,7 @@ from bot_issues import (
     pause,
     paused_title,
     upsert,
+    verdict,
 )
 from tests.fakes import FakeIssues, issue
 
@@ -77,6 +78,16 @@ def test_labels_are_unique_and_described():
 
 def test_names_are_the_label_names():
     assert names(issue(1, labels=("automated", "release"))) == {"automated", "release"}
+    # GitHub's schema allows a label as a bare name too.
+    assert names({"labels": ["automated", {"name": "release"}]}) == {"automated", "release"}
+
+
+def test_the_verdict_is_the_one_verdict_label_or_none():
+    assert verdict(issue(1, labels=("automated", "confirmed"))) == "confirmed"
+    assert verdict(issue(1, labels=("automated", "false-alarm"))) == "false-alarm"
+    assert verdict(issue(1, labels=("automated", "confirmed", "false-alarm"))) is None
+    assert verdict(issue(1, labels=("automated", "summary"))) is None
+    assert verdict({"labels": ["client-change", "false-alarm"]}) == "false-alarm"
 
 
 class FakeRun:
@@ -137,20 +148,24 @@ def test_fake_comments_are_the_bots():
     assert gh.comments(5) == []
 
 
+FOUND = "Codex: the hooks key was renamed"  # a title a model wrote
+
+
 def verdicts(n: int, wrong: int) -> list[dict]:
     """`n` bot issues of the watcher with a verdict, the first `wrong` of them `false-alarm`,
     each opened a day after the one before, from 1 November."""
     out = []
     for k in range(n):
-        verdict = "false-alarm" if k < wrong else "confirmed"
+        mark = "false-alarm" if k < wrong else "confirmed"
         day = (date(2026, 11, 1) + timedelta(days=k)).isoformat()
-        out.append(issue(k + 1, labels=("automated", "client-change", verdict),
-                         state="closed" if verdict == "false-alarm" else "open",
+        out.append(issue(k + 1, FOUND, labels=("automated", "client-change", mark),
+                         state="closed" if mark == "false-alarm" else "open",
                          created=f"{day}T00:00:00Z"))
     return out
 
 
 AGENT, TITLE = "The client watcher", "The client watcher is paused"
+MEANS = "What it finds waits for its next report."
 
 
 def test_the_pause_names_are_fixed():
@@ -160,34 +175,42 @@ def test_the_pause_names_are_fixed():
 
 def test_six_false_alarms_in_the_last_ten_pause_the_agent():
     gh = FakeIssues(verdicts(10, wrong=6))
-    assert pause(gh, AGENT, "client-change") is True
+    assert pause(gh, AGENT, "client-change", MEANS) is True
     title, body, labels = gh.created[0]
     assert title == TITLE and labels == ["automated", "desk"]
     assert "6 of its last 10" in body and "close this issue" in body
-    assert pause(gh, AGENT, "client-change") is True and len(gh.created) == 1
+    assert pause(gh, AGENT, "client-change", MEANS) is True and len(gh.created) == 1
 
 
 def test_the_pause_issue_links_each_false_alarm_and_says_no_model_wrote_it():
     gh = FakeIssues(verdicts(10, wrong=6))
-    pause(gh, AGENT, "client-change")
+    pause(gh, AGENT, "client-change", MEANS)
     _, body, _ = gh.created[0]
     assert "no AI model" in body.splitlines()[0]
     for heading in ("What happened", "What it means", "What to do"):
         assert f"\n## {heading}\n" in body
     links = [line for line in body.splitlines() if line.startswith("- https://")]
     assert links == [f"- https://github.com/o/kitden/issues/{n}" for n in range(6, 0, -1)]
-    assert " t\n" not in body  # the issues' own titles are not copied
+    assert FOUND not in body and "hooks" not in body  # the issues' own titles are not copied
+
+
+def test_the_pause_says_what_it_means_in_the_callers_words():
+    gh = FakeIssues(verdicts(10, wrong=6))
+    pause(gh, AGENT, "client-change", MEANS)
+    _, body, _ = gh.created[0]
+    means = body.split("## What it means\n\n")[1].split("\n\n")[0]
+    assert means == f"{AGENT} opens no issue while this one is open. {MEANS}"
 
 
 def test_no_pause_at_five_of_ten_or_with_nine_verdicts():
-    assert pause(FakeIssues(verdicts(10, wrong=5)), AGENT, "client-change") is False
-    assert pause(FakeIssues(verdicts(9, wrong=9)), AGENT, "client-change") is False
+    assert pause(FakeIssues(verdicts(10, wrong=5)), AGENT, "client-change", MEANS) is False
+    assert pause(FakeIssues(verdicts(9, wrong=9)), AGENT, "client-change", MEANS) is False
 
 
 def test_only_the_newest_ten_count():
     # Twelve verdicts: the two oldest false alarms fall out, leaving 5 of the last 10.
-    assert pause(FakeIssues(verdicts(12, wrong=7)), AGENT, "client-change") is False
-    assert pause(FakeIssues(verdicts(12, wrong=8)), AGENT, "client-change") is True
+    assert pause(FakeIssues(verdicts(12, wrong=7)), AGENT, "client-change", MEANS) is False
+    assert pause(FakeIssues(verdicts(12, wrong=8)), AGENT, "client-change", MEANS) is True
 
 
 def test_summaries_two_verdicts_and_other_authors_do_not_count():
@@ -196,16 +219,19 @@ def test_summaries_two_verdicts_and_other_authors_do_not_count():
         issue(91, labels=("automated", "client-change", "confirmed", "false-alarm")),
         issue(92, labels=("automated", "client-change", "false-alarm"), login="someone"),
     ]
-    assert pause(FakeIssues(verdicts(9, wrong=5) + noise), AGENT, "client-change") is False
+    assert pause(FakeIssues(verdicts(9, wrong=5) + noise), AGENT, "client-change", MEANS) is False
 
 
 def test_another_origin_does_not_count():
     other = [{**item, "labels": [{"name": "automated"}, {"name": "qa-finding"},
                                  *item["labels"][2:]]} for item in verdicts(10, wrong=10)]
     gh = FakeIssues(other)
-    assert pause(gh, AGENT, "client-change") is False
-    assert pause(gh, "The tester", "qa-finding") is True
-    assert gh.created[0][0] == "The tester is paused"
+    assert pause(gh, AGENT, "client-change", MEANS) is False
+    assert pause(gh, "The tester", "qa-finding", "Its findings wait for its next run.") is True
+    title, body, _ = gh.created[0]
+    assert title == "The tester is paused"
+    assert "The tester opens no issue while this one is open. Its findings wait" in body
+    assert "summary" not in body and "watcher" not in body
 
 
 def test_the_count_starts_again_after_the_owner_closes_the_pause():
@@ -213,7 +239,7 @@ def test_the_count_starts_again_after_the_owner_closes_the_pause():
                    closed="2026-12-01T00:00:00Z")
     old = verdicts(10, wrong=10)  # all opened in November
     gh = FakeIssues([lifted, *old])
-    assert pause(gh, AGENT, "client-change") is False and gh.created == []
+    assert pause(gh, AGENT, "client-change", MEANS) is False and gh.created == []
 
 
 def test_the_newest_closed_pause_is_the_one_that_counts():
@@ -222,11 +248,12 @@ def test_the_newest_closed_pause_is_the_one_that_counts():
     newer = issue(51, TITLE, labels=("automated", "desk"), state="closed",
                   closed="2026-11-03T12:00:00Z")
     # Only the 7 issues opened from 4 November count: fewer than 10, so no pause.
-    assert pause(FakeIssues([older, newer, *verdicts(10, wrong=10)]), AGENT,
-                 "client-change") is False
-    assert pause(FakeIssues([older, *verdicts(10, wrong=10)]), AGENT, "client-change") is True
+    lifted = FakeIssues([older, newer, *verdicts(10, wrong=10)])
+    assert pause(lifted, AGENT, "client-change", MEANS) is False
+    assert pause(FakeIssues([older, *verdicts(10, wrong=10)]), AGENT, "client-change",
+                 MEANS) is True
 
 
 def test_a_persons_issue_with_the_pause_title_pauses_nothing():
     theirs = issue(60, TITLE, labels=("automated", "desk"), login="someone")
-    assert pause(FakeIssues([theirs]), AGENT, "client-change") is False
+    assert pause(FakeIssues([theirs]), AGENT, "client-change", MEANS) is False

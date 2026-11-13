@@ -1,6 +1,7 @@
 import json
 import subprocess
 
+import bot_issues
 import watch_harvest
 from watch_harvest import harvest
 from watch_pages import Section
@@ -131,3 +132,4 @@ def test_only_issues_with_one_verdict_need_their_piece_fetched():
     confirmed, false_alarm = issue(3, "confirmed"), issue(4, "false-alarm")
     assert watch_harvest._judged([both, open_and_undecided, confirmed, false_alarm]) == [
         confirmed, false_alarm]
+    assert watch_harvest.verdict is bot_issues.verdict  # one predicate for the pause and here

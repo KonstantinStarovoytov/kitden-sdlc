@@ -24,6 +24,8 @@ from watch_route import (
 
 SUMMARY_MAX = 60000
 AGENT = "The client watcher"  # its pause issue is "The client watcher is paused"
+PAUSED_MEANS = ("That includes its weekly summary: what it finds is kept for its first summary "
+                "after this issue is closed.")
 
 
 # Shown with every finding: docs/watch-effects.md says the same in more words.
@@ -163,7 +165,7 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
     found += word_hits(found, judged, inp)
     plan = route(found, inp["state"], judged, inp, today, failed)
     ensure_labels(gh)
-    if pause(gh, AGENT, "client-change"):
+    if pause(gh, AGENT, "client-change", PAUSED_MEANS):
         plan = _hold(plan)
 
     repo = gh.repo

@@ -5,7 +5,15 @@ import pytest
 
 from bot_issues import LABELS
 from tests.fakes import FakeIssues, issue
-from watch_post import AGENT, SUMMARY_MAX, first_line, render_summary, render_urgent, run
+from watch_post import (
+    AGENT,
+    PAUSED_MEANS,
+    SUMMARY_MAX,
+    first_line,
+    render_summary,
+    render_urgent,
+    run,
+)
 
 WED, MON = date(2026, 11, 11), date(2026, 11, 9)
 URL = "https://example.com/changelog"
@@ -255,6 +263,9 @@ def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):
     run(inp(1), one(), gh, tmp_path, WED)
     assert [(title, labels) for title, _, labels in gh.created] == [
         ("The client watcher is paused", ["automated", "desk"])]
+    means = gh.created[0][1].split("## What it means\n\n")[1].split("\n\n")[0]
+    assert means == f"The client watcher opens no issue while this one is open. {PAUSED_MEANS}"
+    assert "summary" in PAUSED_MEANS
     assert "desk" in {name for name, *_ in gh.created_labels}
     state = json.loads((tmp_path / "state.json").read_text())
     assert [k["title"] for k in state["kept"]] == ["skillOverrides renamed"]
