@@ -130,7 +130,7 @@ def target_for(name: str, version: str) -> tuple[Path, str] | None:
     """Where out/`name` goes in Kitden and in which commit; None for the workflow's own files.
     Raises ValueError for any other name."""
     if name not in OUT_FILES:
-        raise ValueError(f"out/{name} is not allowed")
+        raise ValueError("a file in out/ has a name that is not allowed")
     target = OUT_FILES[name]
     if target is None:
         return None
@@ -141,19 +141,31 @@ def target_for(name: str, version: str) -> tuple[Path, str] | None:
 
 
 def _files(folder: Path) -> list[str]:
-    """Every file under `folder`, as relative POSIX names. Refuses links and odd files."""
+    """Every file under `folder`, as relative POSIX names. Refuses links and odd files,
+    counting them: the agent chooses the names, and a refusal must not show them."""
     if folder.is_symlink():
         raise ValueError(f"{folder} is a link")
     names: list[str] = []
+    odd = 0
     for top, dirs, files in os.walk(folder, followlinks=False):
         for name in [*dirs, *files]:
             path = Path(top, name)
-            if path.is_symlink():
-                raise ValueError(f"{path.relative_to(folder)} is a link")
-            if name in files and not path.is_file():
-                raise ValueError(f"{path.relative_to(folder)} is not a plain file")
+            if path.is_symlink() or (name in files and not path.is_file()):
+                odd += 1
         names += [Path(top, name).relative_to(folder).as_posix() for name in files]
+    if odd:
+        raise ValueError(
+            f"{folder.name}/ holds links or other files that are not plain ({odd}): refused"
+        )
     return sorted(names)
+
+
+def refuse_unknown_names(names: list[str]) -> None:
+    """Raises ValueError when a name in `names` is not in OUT_FILES. The message counts the
+    names and shows none of them: the agent chose them, and the job log is public."""
+    unknown = [name for name in names if name not in OUT_FILES]
+    if unknown:
+        raise ValueError(f"out/ holds files whose names are not allowed ({len(unknown)}): refused")
 
 
 def _no_link(root: Path, target: Path) -> None:
@@ -177,7 +189,8 @@ def apply(
         raise ValueError(f"version {version!r} is not X.Y.Z")
     in_kitden = given(root, context)
     names = _files(out) if out.exists() else []
-    targets = {name: target_for(name, version) for name in names}  # refuses unknown names
+    refuse_unknown_names(names)
+    targets = {name: target_for(name, version) for name in names}
     planned: list[tuple[Path, str, bytes]] = []
     for name in sorted(targets, key=list(OUT_FILES).index):
         target = targets[name]
@@ -640,7 +653,9 @@ def main(argv: list[str]) -> int:
             args.out.write_text(body)
             print("draft" if is_draft(problems, pictures or {}) else "ready")
     except ValueError as error:
-        print(error)
+        # stderr: the workflow keeps stdout (draft or ready, the scenes) in a variable, and the
+        # reason must reach the log. No message holds the agent's text or a name it chose.
+        print(error, file=sys.stderr)
         return 1
     return 0
 

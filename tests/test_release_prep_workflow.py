@@ -270,3 +270,15 @@ def test_the_body_knows_kitden_and_is_written_before_the_release_app_signs_in():
     names = [s.get("name") for s in doc["jobs"]["open-pr"]["steps"]]
     apply_index = _script_steps("apply")[-1][1]
     assert apply_index < index < names.index("Sign in as the release app")
+
+
+def test_a_refused_body_fails_the_step_and_its_reason_reaches_the_log():
+    # Only stdout (draft or ready) is captured; release_apply.py writes a refusal to stderr,
+    # which the log shows, and exits 1, which ends the step.
+    ((_, _, body),) = _script_steps("body")
+    run = body["run"]
+    captured = run[run.index('state="$(') : run.index('")"', run.index('state="$(')) + 3]
+    assert "release_apply.py body" in captured
+    assert "2>" not in captured and "&>" not in captured
+    assert 'if [ "$state" != draft ] && [ "$state" != ready ]; then' in run
+    assert "exit 1" in run.split('state="$(')[1]

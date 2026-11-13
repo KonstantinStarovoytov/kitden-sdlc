@@ -496,12 +496,14 @@ jobs:
           else
             echo "problems=false" >> "$GITHUB_OUTPUT"
           fi
+      # problems.md quotes the agent's files and the test output on them: a day, as release-out.
       - name: Keep the verdict
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-verdict-first
           path: ${{ runner.temp }}/verdict/
           if-no-files-found: error
+          retention-days: 1
 
   # The agent again, once, only when check found problems. problems.md holds test output and
   # may quote pull request text, so it is data here, as in agent. Same tools, same token,
@@ -791,12 +793,14 @@ jobs:
             --check-output "$RUNNER_TEMP/check.txt" --check-status "$c" \
             --out "$RUNNER_TEMP/verdict"
           cp "$RUNNER_TEMP/lists/pictures.json" "$RUNNER_TEMP/verdict/pictures.json"
+      # problems.md quotes the agent's files and the test output on them: a day, as release-out.
       - name: Keep the verdict
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-verdict
           path: ${{ runner.temp }}/verdict/
           if-no-files-found: error
+          retention-days: 1
 
   # No model here: the agent's files are only data. The release app's key is used by one step,
   # to get a short-lived token that can write Kitden's contents and pull requests. It takes

@@ -557,7 +557,7 @@ def test_cli_apply_refusal_exits_1(tmp_path, capsys):
     out = make_out(tmp_path, {".github/workflows/x.yml": "x"})
     code = main(["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path)])
     assert code == 1
-    assert "not allowed" in capsys.readouterr().out
+    assert "not allowed" in capsys.readouterr().err
 
 
 def test_cli_scenes(tmp_path, capsys):
@@ -978,7 +978,7 @@ def test_cli_body_knows_what_root_holds(tmp_path, capsys):
         str(tmp_path / "body.md"),
     ]
     assert main(argv) == 1
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "long random strings" in out and not shows_key(out)
     assert not (tmp_path / "body.md").exists()
     root = repo(tmp_path / "kitden", {"a.py": f"KEY = '{KEY_TAIL}'\n"})
@@ -1019,7 +1019,7 @@ def test_cli_apply_and_body_read_the_context(tmp_path, capsys):
     ]
     missing = ["--context", str(tmp_path / "none.json")]
     assert main([*apply_argv, *missing]) == 1 and main([*body_argv, *missing]) == 1
-    assert not shows_key(capsys.readouterr().out)
+    assert not shows_key("".join(capsys.readouterr()))
     assert main([*apply_argv, "--context", str(context)]) == 0
     assert main([*body_argv, "--context", str(context)]) == 0
     assert KEY_TAIL in (tmp_path / "body.md").read_text()
@@ -1038,7 +1038,7 @@ def test_cli_apply_knows_the_problems_the_fix_pass_was_given(tmp_path, capsys):
     argv += ["--context", str(context)]
     assert main(argv) == 1
     assert main([*argv, "--given", str(tmp_path / "none.md")]) == 1
-    assert not shows_key(capsys.readouterr().out)
+    assert not shows_key("".join(capsys.readouterr()))
     assert not (root / "docs/releases/v0.9.0.md").exists()
     assert main([*argv, "--given", str(problems)]) == 0
     assert KEY_TAIL in (root / "docs/releases/v0.9.0.md").read_text()
@@ -1076,8 +1076,52 @@ def test_cli_body_knows_the_first_problems_after_a_fix_pass(tmp_path, capsys):
         "--out", str(tmp_path / "body.md"),
     ]  # fmt: skip
     assert main(argv) == 1
-    assert "long random strings" in capsys.readouterr().out
+    assert "long random strings" in capsys.readouterr().err
     assert not (tmp_path / "body.md").exists()
     assert main([*argv, "--given", str(tmp_path / "first.md")]) == 0
     assert capsys.readouterr().out == "ready\n"
     assert KEY_TAIL in (tmp_path / "body.md").read_text()
+
+
+def test_a_name_that_is_not_allowed_is_counted_and_never_shown(tmp_path, capsys):
+    # The agent chooses the names in out/, and the job log is public.
+    root = make_root(tmp_path)
+    files = {"README.md": "new readme\n", f"{KEY_TAIL}.md": "x", f"policy/{KEY_TAIL}": "y"}
+    out = make_out(tmp_path, files)
+    with pytest.raises(ValueError, match=r"names are not allowed \(2\)") as refused:
+        apply(root, out)
+    assert not shows_key(str(refused.value))
+    argv = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path / "l")]
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert "not allowed (2)" in captured.err
+    assert not shows_key(captured.out + captured.err)
+    assert (root / "README.md").read_text() == "old readme\n"
+
+
+def test_a_link_in_out_is_counted_and_never_named(tmp_path):
+    root = make_root(tmp_path)
+    out = make_out(tmp_path, {"README.md": "new readme\n"})
+    (out / f"{KEY_TAIL}.md").symlink_to(out / "README.md")
+    with pytest.raises(ValueError, match=r"not plain \(1\)") as refused:
+        apply(root, out)
+    assert not shows_key(str(refused.value))
+
+
+def test_a_refused_body_says_why_on_stderr_and_nothing_on_stdout(tmp_path, capsys):
+    # The workflow captures stdout as the draft or ready state; the reason must reach the log.
+    (tmp_path / "findings.md").write_text(f"## README\n\nSet {KEY_TAIL}.\n")
+    (tmp_path / "changed.txt").write_text("")
+    argv = [
+        "body",
+        "--findings", str(tmp_path / "findings.md"),
+        "--development", str(tmp_path / "none.md"),
+        "--changed", str(tmp_path / "changed.txt"),
+        "--out", str(tmp_path / "body.md"),
+    ]  # fmt: skip
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "long random strings" in captured.err and "not posted" in captured.err
+    assert not shows_key(captured.err)
+    assert not (tmp_path / "body.md").exists()

@@ -14,7 +14,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from release_apply import _files, target_for
+from release_apply import _files, refuse_unknown_names, target_for
 
 SETTLED = ("version.txt", "scenes.txt")
 
@@ -30,7 +30,8 @@ def settle(before: Path, after: Path, version: str) -> list[str]:
     ValueError, changing nothing, for a link or a name target_for does not know."""
     old = _files(before)
     new = _files(after)
-    targets = {name: target_for(name, version) for name in new}  # refuses unknown names
+    refuse_unknown_names(new)
+    targets = {name: target_for(name, version) for name in new}
     for name in SETTLED:
         if name in old:
             (after / name).parent.mkdir(parents=True, exist_ok=True)
@@ -63,7 +64,7 @@ def main(argv: list[str]) -> int:
     try:
         paths = settle(args.before, args.after, args.version)
     except ValueError as error:
-        print(error)
+        print(error, file=sys.stderr)  # no message shows a name the agent chose
         return 1
     args.changed.write_text("".join(f"{path}\n" for path in paths))
     return 0

@@ -81,3 +81,10 @@ Problems found while building the reviewers, and what changed because of each.
   day, and the fixed files and every part of the body pass both secret checks, against what
   each pass was given.
   Kept by: `tests/test_release_prep_workflow.py::test_after_a_fix_pass_the_first_problems_are_given_text_too`.
+- **A refusal could show the agent's text in the public log, or nothing at all.** A file in
+  out/ with a name that is not allowed was refused by its name, which the agent chose. A
+  refused pull request body went to the captured output, so the step failed with no reason.
+  The lists of problems, which quote the agent's files, were kept as long as the repository's
+  default. Now a refusal counts what it refused and goes to the log on stderr, and the two
+  verdicts are kept for a day.
+  Kept by: `tests/test_release_apply.py::test_a_name_that_is_not_allowed_is_counted_and_never_shown`.

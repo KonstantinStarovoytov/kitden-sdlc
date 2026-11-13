@@ -20,12 +20,24 @@ def test_a_failed_reviewer_leaves_no_red_mark():
         assert any(str(s.get("if", "")).strip() == warning for s in job["steps"])
 
 
+# Every release prep artifact that can hold text a model wrote: the agent's files, first and
+# fixed, the list of fixed files, and the two verdicts, whose problems quote the agent's files
+# and the test output on them. The context and the pictures hold none.
+MODEL_TEXT_ARTIFACTS = {
+    "release-out",
+    "release-out-fixed",
+    "release-fix",
+    "release-verdict-first",
+    "release-verdict",
+}
+
+
 def test_model_output_is_kept_for_one_day():
     # Anyone signed in to GitHub can download a public repository's artifacts, and these
     # are uploaded before any check of the model's text.
     wanted = {
         "review.yml": {"findings-claude", "findings-luna"},
-        "release-prep.yml": {"release-out", "release-out-fixed", "release-fix"},
+        "release-prep.yml": MODEL_TEXT_ARTIFACTS,
     }
     for file, names in wanted.items():
         doc = yaml.safe_load((ROOT / ".github/workflows" / file).read_text())
@@ -49,11 +61,13 @@ def _uploads(doc: dict) -> dict[str, dict]:
 
 
 def test_release_prep_keeps_only_the_models_text_for_one_day():
-    # The verdicts, the context and the pictures are written by scripts: they keep the
-    # repository's default.
+    # The context (people's pull request text) and the pictures keep the repository's default.
     doc = yaml.safe_load((ROOT / ".github/workflows/release-prep.yml").read_text())
-    kept = {name for name, upload in _uploads(doc).items() if "retention-days" in upload}
-    assert kept == {"release-out", "release-out-fixed", "release-fix"}
+    uploads = _uploads(doc)
+    assert set(uploads) == MODEL_TEXT_ARTIFACTS | {"release-context", "release-images"}
+    kept = {name for name, upload in uploads.items() if "retention-days" in upload}
+    assert kept == MODEL_TEXT_ARTIFACTS
+    assert all(uploads[name]["retention-days"] == 1 for name in kept)
 
 
 def test_every_model_job_in_release_prep_starts_with_the_same_hosts_step():
