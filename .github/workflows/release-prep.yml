@@ -20,7 +20,8 @@ on:
       max_turns:
         type: number
         default: 40
-      # Empty: the agent picks the next minor or patch.
+      # auto (or empty): the agent picks the next minor or patch. minor or patch: that one.
+      # An exact X.Y.Z still works when it is one of the two.
       version:
         type: string
         default: ""
@@ -135,8 +136,8 @@ jobs:
         with:
           version: "0.10.10"
           enable-cache: false
-      # The script refuses a version that is not empty, the next minor or the next patch, so
-      # the output below is one of those.
+      # The script turns the choice into a version (empty for auto) and refuses anything that
+      # is not auto, the next minor or the next patch; the output is the version it wrote.
       - name: Collect the context
         id: context
         env:
@@ -148,7 +149,7 @@ jobs:
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_context.py \
             collect kitden --version "$VERSION" --out "$RUNNER_TEMP/context/context.json"
           cp .kitden-sdlc/docs/platform-rules.md "$RUNNER_TEMP/context/platform-rules.md"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$(jq -r .version "$RUNNER_TEMP/context/context.json")" >> "$GITHUB_OUTPUT"
       - name: Keep the context
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

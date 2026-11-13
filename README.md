@@ -67,10 +67,11 @@ Bots never write `@name`. Every issue a bot opens has the label `automated`.
 </picture>
 
 You never open an issue for a release. In Kitden on GitHub: **Actions → Release prep → Run
-workflow**, keep "Use workflow from" on `main`, leave the version empty, press the green
-**Run workflow**. Then review and merge the pull request **Kitden X.Y.Z**. The bot's issue
-"Time for a release?" links to the same page. Do not open issues with the bots' titles
-yourself: the bot finds its issues by the exact title and would rewrite or close yours.
+workflow**, keep "Use workflow from" on `main`, keep the version on **Auto** (or pick
+**Features (0.X.0)** or **Fixes (0.0.X)**), press the green **Run workflow**. Then review and
+merge the pull request **Kitden X.Y.Z**. The bot's issue "Time for a release?" links to the
+same page. Do not open issues with the bots' titles yourself: the bot finds its issues by the
+exact title and would rewrite or close yours.
 
 Two switches stop it all: `AGENTS_ENABLED` (everything) and `WATCH_LIVE` (the watcher's daily
 run).
