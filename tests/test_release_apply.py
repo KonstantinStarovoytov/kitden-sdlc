@@ -1,12 +1,16 @@
+import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from release_apply import (
+    all_scenes,
     apply,
     apply_images,
     hand_checks,
+    is_stale,
     main,
     pr_body,
     scenes,
@@ -169,38 +173,150 @@ def test_scenes_keeps_known_names(tmp_path):
     assert scenes(text, root / "docs/images/readme") == ["pick", "library"]
 
 
-def test_apply_images_copies_only_scene_files(tmp_path):
-    root = make_root(tmp_path)
+def make_images(tmp_path: Path, files: dict[str, bytes | str]) -> Path:
     images = tmp_path / "images"
     images.mkdir()
-    (images / "pick-light.webp").write_bytes(b"new")
-    (images / "pick-dark.webp").write_bytes(b"new")
-    written = apply_images(root, images, ["pick"])
-    assert written == [
-        Path("docs/images/readme/pick-dark.webp"),
-        Path("docs/images/readme/pick-light.webp"),
+    for name, data in files.items():
+        (images / name).write_bytes(data if isinstance(data, bytes) else data.encode())
+    return images
+
+
+def test_all_scenes_lists_what_has_pictures(tmp_path):
+    root = make_root(tmp_path)
+    assert all_scenes(root / "docs/images/readme") == ["library", "pick"]
+    assert all_scenes(tmp_path / "none") == []
+
+
+def test_a_still_goes_in_only_when_its_bytes_differ(tmp_path):
+    root = make_root(tmp_path)
+    images = make_images(
+        tmp_path, {"library-light.png": b"new", "library-dark.png": b"old", "results.json": "{}"}
+    )
+    paths, states = apply_images(root, images, {"library": "", "pick": ""})
+    assert paths == [
+        Path("docs/images/readme/library-light.png"),
+        Path("docs/images/readme/library-dark.png"),
     ]
+    assert states["library"] == "changed"
+    assert (root / "docs/images/readme/library-light.png").read_bytes() == b"new"
+    assert (root / "docs/images/readme/library-dark.png").read_bytes() == b"old"
+
+
+def test_a_still_with_the_same_bytes_is_the_same(tmp_path):
+    root = make_root(tmp_path)
+    images = make_images(tmp_path, {"library-light.png": b"old", "library-dark.png": b"old"})
+    paths, states = apply_images(root, images, {"library": "", "pick": ""})
+    assert paths == [] and states["library"] == "the same"
+
+
+def test_an_animation_goes_in_only_when_stale(tmp_path):
+    root = make_root(tmp_path)
+    images = make_images(tmp_path, {"pick-light.webp": b"new", "pick-dark.webp": b"new"})
+    results = {"library": "", "pick": ""}
+    paths, states = apply_images(root, images, results, stale=lambda picture: False)
+    assert paths == [] and states["pick"] == "not needed"
+    assert (root / "docs/images/readme/pick-light.webp").read_bytes() == b"old"
+
+    seen = []
+
+    def stale(picture):
+        seen.append(picture)
+        return True
+
+    paths, states = apply_images(root, images, results, stale=stale)
+    assert states["pick"] == "changed"
+    assert paths == [
+        Path("docs/images/readme/pick-light.webp"),
+        Path("docs/images/readme/pick-dark.webp"),
+    ]
+    assert seen == [root / "docs/images/readme/pick-light.webp"]
     assert (root / "docs/images/readme/pick-dark.webp").read_bytes() == b"new"
 
 
-def test_apply_images_refuses_other_files(tmp_path):
+def test_a_scene_the_job_could_not_make_is_failed(tmp_path):
     root = make_root(tmp_path)
-    images = tmp_path / "images"
-    images.mkdir()
-    (images / "pick-light.webp").write_bytes(b"new")
-    (images / "evil.svg").write_bytes(b"<svg/>")
+    images = make_images(
+        tmp_path,
+        {
+            "library-light.png": b"new",
+            "library-dark.png": b"new",
+            "pick-light.webp": b"new",
+            "pick-dark.webp": b"new",
+        },
+    )
+    paths, states = apply_images(
+        root, images, {"library": "", "pick": "TimeoutError"}, stale=lambda picture: True
+    )
+    assert states == {"library": "changed", "pick": "failed"}
+    assert (root / "docs/images/readme/pick-light.webp").read_bytes() == b"old"
+    assert all("pick" not in str(path) for path in paths)
+    # A scene missing from the results failed too.
+    _, states = apply_images(root, images, {"library": ""}, stale=lambda picture: True)
+    assert states["pick"] == "failed"
+
+
+def test_no_result_file_fails_every_scene(tmp_path):
+    root = make_root(tmp_path)
+    paths, states = apply_images(root, tmp_path / "none", None)
+    assert paths == [] and set(states.values()) == {"failed"}
+    assert set(states) == {"library", "pick"}
+    images = make_images(tmp_path, {"library-light.png": b"new"})
+    paths, states = apply_images(root, images, None)
+    assert paths == [] and set(states.values()) == {"failed"}
+    assert (root / "docs/images/readme/library-light.png").read_bytes() == b"old"
+
+
+def test_an_unknown_file_among_the_pictures_is_refused(tmp_path):
+    root = make_root(tmp_path)
+    images = make_images(
+        tmp_path, {"pick-light.webp": b"new", "evil.svg": b"<svg/>", "results.json": "{}"}
+    )
     with pytest.raises(ValueError, match="evil.svg"):
-        apply_images(root, images, ["pick"])
+        apply_images(root, images, {"library": "", "pick": ""}, stale=lambda picture: True)
     assert (root / "docs/images/readme/pick-light.webp").read_bytes() == b"old"
 
 
-def test_apply_images_refuses_an_unlisted_scene(tmp_path):
+def test_a_picture_of_an_unknown_scene_is_refused(tmp_path):
     root = make_root(tmp_path)
-    images = tmp_path / "images"
-    images.mkdir()
-    (images / "library-light.png").write_bytes(b"new")
-    with pytest.raises(ValueError, match="library-light.png"):
-        apply_images(root, images, ["pick"])
+    images = make_images(tmp_path, {"brand-new-light.png": b"new"})
+    with pytest.raises(ValueError, match="brand-new-light.png"):
+        apply_images(root, images, {"library": ""})
+
+
+def git(root: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=T", "-c", "user.email=t@example.com", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+
+
+def commit(root: Path, name: str, text: str) -> None:
+    (root / name).parent.mkdir(parents=True, exist_ok=True)
+    (root / name).write_text(text)
+    git(root, "add", name)
+    git(root, "commit", "-m", f"add {name}")
+
+
+def test_is_stale_looks_at_commits_after_the_picture(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    git(root, "init", "-q")
+    picture = root / "docs/images/readme/pick-light.webp"
+    commit(root, "README.md", "text")
+    assert is_stale(root, picture)  # never committed
+
+    commit(root, "docs/images/readme/pick-light.webp", "v1")
+    assert not is_stale(root, picture)
+    commit(root, "docs/x.md", "text")
+    assert not is_stale(root, picture)
+    commit(root, "src/kitden/web/x.js", "code")
+    assert is_stale(root, picture)
+    commit(root, "docs/images/readme/pick-light.webp", "v2")
+    assert not is_stale(root, picture)
+    commit(root, "scripts/record_scenes.py", "code")
+    assert is_stale(root, picture)
 
 
 DEVELOPMENT = """# Development
@@ -333,12 +449,17 @@ def test_pr_body_cuts_long_findings():
     assert len(body) < 65_000
 
 
-def test_cli_apply_writes_lists(tmp_path):
+def test_cli_apply_writes_lists_and_pictures(tmp_path):
     root = make_root(tmp_path)
     out = make_out(tmp_path, FULL_OUT)
-    images = tmp_path / "images"
-    images.mkdir()
-    (images / "pick-light.webp").write_bytes(b"new")
+    images = make_images(
+        tmp_path,
+        {
+            "library-light.png": b"new",
+            "library-dark.png": b"old",
+            "results.json": json.dumps({"library": "", "pick": "TimeoutError"}),
+        },
+    )
     lists = tmp_path / "lists"
     code = main(
         [
@@ -349,8 +470,8 @@ def test_cli_apply_writes_lists(tmp_path):
             "0.9.0",
             "--images",
             str(images),
-            "--scenes",
-            "pick",
+            "--results",
+            str(images / "results.json"),
             "--lists",
             str(lists),
         ]
@@ -359,9 +480,50 @@ def test_cli_apply_writes_lists(tmp_path):
     assert (lists / "content.txt").read_text().split() == [
         "docs/releases/v0.9.0.md",
         "README.md",
-        "docs/images/readme/pick-light.webp",
+        "docs/images/readme/library-light.png",
+        "docs/images/readme/library-dark.png",
     ]
     assert (lists / "policy.txt").read_text().split() == ["PRIVACY.md", "listing.toml"]
+    assert json.loads((lists / "pictures.json").read_text()) == {
+        "library": "changed",
+        "pick": "failed",
+    }
+
+
+def test_cli_apply_without_results_fails_every_scene(tmp_path):
+    root = make_root(tmp_path)
+    out = make_out(tmp_path, {})
+    images = make_images(tmp_path, {"library-light.png": b"new"})
+    lists = tmp_path / "lists"
+    args = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(lists)]
+    assert main([*args, "--images", str(images), "--results", str(images / "results.json")]) == 0
+    assert json.loads((lists / "pictures.json").read_text()) == {
+        "library": "failed",
+        "pick": "failed",
+    }
+    assert (root / "docs/images/readme/library-light.png").read_bytes() == b"old"
+
+
+def test_cli_apply_without_images_writes_empty_pictures(tmp_path):
+    root = make_root(tmp_path)
+    out = make_out(tmp_path, {})
+    lists = tmp_path / "lists"
+    code = main(["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(lists)])
+    assert code == 0
+    assert json.loads((lists / "pictures.json").read_text()) == {}
+
+
+def test_a_recorded_scene_without_its_pictures_is_failed(tmp_path):
+    root = make_root(tmp_path)
+    images = make_images(tmp_path, {"library-light.png": b"new"})  # no dark one
+    paths, states = apply_images(root, images, {"library": "", "pick": ""})
+    assert paths == [] and states == {"library": "failed", "pick": "failed"}
+
+
+def test_cli_all_scenes(tmp_path, capsys):
+    root = make_root(tmp_path)
+    assert main(["all-scenes", str(root / "docs/images/readme")]) == 0
+    assert capsys.readouterr().out.strip() == "library pick"
 
 
 def test_cli_apply_refusal_exits_1(tmp_path, capsys):

@@ -3,20 +3,28 @@
 No model runs here; the files it reads were written by one, so they are only data. Commands:
 
   release_apply.py scenes SCENES_TXT IMAGES_DIR
-      Prints the scenes to record, keeping only names that already have pictures.
-  release_apply.py apply ROOT OUT --version X.Y.Z --lists DIR [--images DIR --scenes "a b"]
+      Prints the scenes the agent expects to change, keeping only names that have pictures.
+  release_apply.py all-scenes IMAGES_DIR
+      Prints every scene that has a picture, on one line.
+  release_apply.py apply ROOT OUT --version X.Y.Z --lists DIR [--images DIR --results FILE]
       Copies the agent's files from OUT into the Kitden checkout ROOT, and the recorded
-      pictures from --images. Writes DIR/content.txt and DIR/policy.txt: the files of the
-      first commit and of the second. Refuses, writing nothing, any file it does not know.
+      pictures from --images: a still when its bytes differ, an animation when it is stale.
+      Writes DIR/content.txt and DIR/policy.txt: the files of the first commit and of the
+      second. Writes DIR/pictures.json: what became of each scene. Refuses, writing nothing,
+      any file it does not know.
   release_apply.py body --findings F --development D --changed C --out BODY
       The pull request's body: the agent's findings, the real-client checks from Kitden's
       docs/development.md that the changed files touch, and how to merge.
 """
 
 import argparse
+import contextlib
+import json
 import os
 import re
+import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from post_findings import SECRET_LIKE, WORD_JOINER, quiet_mentions
@@ -53,6 +61,16 @@ IMAGE_MAX = 20_000_000
 SCENE = re.compile(r"[a-z][a-z0-9]*(-[a-z0-9]+)*\Z", re.ASCII)
 THEMES = ("light", "dark")
 IMAGE_TYPES = ("png", "webp")
+RESULTS = "results.json"
+# An animation is re-recorded only when it is older than a change to the code that draws it.
+STALE_PATHS = (
+    "src/kitden/web/",
+    "src/kitden/demo/",
+    "src/kitden/views/",
+    "scripts/record_readme.py",
+    "scripts/record_scenes.py",
+    "scripts/readme_demo.py",
+)
 FINDINGS_MAX = 40_000
 # "Fixes #12", "closes: owner/repo#3", "Resolved https://github.com/o/r/issues/4": GitHub would
 # close that issue when the PR merges. A word joiner after the keyword breaks the pattern.
@@ -179,34 +197,100 @@ def scenes(text: str, images: Path) -> list[str]:
     return found
 
 
-def apply_images(root: Path, images: Path, scene_list: list[str]) -> list[Path]:
-    """Copy the recorded pictures of `scene_list` into Kitden's docs/images/readme. Raises
-    ValueError, writing nothing, for any other file."""
+def all_scenes(images: Path) -> list[str]:
+    """Every scene in `images` that has a light picture, sorted."""
+    found: set[str] = set()
+    if images.is_dir():
+        for kind in IMAGE_TYPES:
+            for path in images.glob(f"*-light.{kind}"):
+                name = path.name.removesuffix(f"-light.{kind}")
+                if SCENE.match(name):
+                    found.add(name)
+    return sorted(found)
+
+
+def _git(root: Path, *args: str) -> str:
+    done = subprocess.run(  # noqa: S603
+        ["git", "-C", str(root), *args],  # noqa: S607
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return done.stdout.strip()
+
+
+def is_stale(root: Path, picture: Path) -> bool:
+    """True when `picture` was last committed before the last change to the code that draws
+    it (STALE_PATHS), or was never committed."""
+    with contextlib.suppress(ValueError):
+        picture = picture.relative_to(root)
+    last = _git(root, "log", "-1", "--format=%H", "--", str(picture))
+    if not last:
+        return True
+    return bool(_git(root, "log", "--format=%H", f"{last}..HEAD", "--", *STALE_PATHS))
+
+
+def apply_images(
+    root: Path,
+    images: Path,
+    results: dict[str, str] | None,
+    stale: Callable[[Path], bool] | None = None,
+) -> tuple[list[Path], dict[str, str]]:
+    """Copy the recorded pictures from `images` into Kitden's docs/images/readme. `results`
+    is the record job's results.json (scene -> "" or the end of its error); None: it is
+    missing. A still goes in when its bytes differ, an animation when `stale` says so
+    (default: is_stale). Returns the copied paths and, for every scene Kitden has, one of
+    "changed", "the same", "not needed", "failed". Raises ValueError, writing nothing, for
+    any file that is not results.json or a picture of a known scene."""
+    scene_list = all_scenes(root / IMAGES)
+    states = {scene: "failed" for scene in scene_list}
     if not images.exists():
-        return []
+        return [], states
+    if stale is None:
+
+        def stale(picture: Path) -> bool:
+            return is_stale(root, picture)
+
     allowed = {
         f"{scene}-{theme}.{kind}"
         for scene in scene_list
-        if SCENE.match(scene)
         for theme in THEMES
         for kind in IMAGE_TYPES
     }
+    names = _files(images)
+    for name in names:
+        if name != RESULTS and name not in allowed:
+            raise ValueError(f"{name} is not a picture of a known scene")
     planned: list[tuple[Path, bytes]] = []
-    for name in _files(images):
-        if name not in allowed:
-            raise ValueError(f"{name} is not a picture of a listed scene")
-        data = (images / name).read_bytes()
-        if len(data) > IMAGE_MAX:
-            raise ValueError(f"{name} is too large ({len(data)} bytes)")
-        target = IMAGES / name
-        _no_link(root, target)
-        if (root / target).is_file() and (root / target).read_bytes() == data:
+    for scene in scene_list:
+        if results is None or results.get(scene) != "":
             continue
-        planned.append((target, data))
-    for target, data in planned:
+        kind = "png" if (root / IMAGES / f"{scene}-light.png").is_file() else "webp"
+        files = [f"{scene}-{theme}.{kind}" for theme in THEMES]
+        if not all(file in names for file in files):
+            continue  # the job said it recorded this scene, but the pictures are not there
+        data = {file: (images / file).read_bytes() for file in files}
+        for file, content in data.items():
+            if len(content) > IMAGE_MAX:
+                raise ValueError(f"{file} is too large ({len(content)} bytes)")
+            _no_link(root, IMAGES / file)
+        if kind == "png":
+            differs = [
+                file
+                for file, content in data.items()
+                if not (root / IMAGES / file).is_file()
+                or (root / IMAGES / file).read_bytes() != content
+            ]
+            states[scene] = "changed" if differs else "the same"
+        else:
+            differs = list(data) if stale(root / IMAGES / files[0]) else []
+            states[scene] = "changed" if differs else "not needed"
+        if differs:
+            planned += [(IMAGES / file, data[file]) for file in files]
+    for target, content in planned:
         (root / target).parent.mkdir(parents=True, exist_ok=True)
-        (root / target).write_bytes(data)
-    return [target for target, _ in planned]
+        (root / target).write_bytes(content)
+    return [target for target, _ in planned], states
 
 
 def _section(doc: str) -> str:
@@ -289,18 +373,31 @@ def _read(path: Path) -> str:
         return ""
 
 
+def _results(path: Path | None) -> dict[str, str] | None:
+    """The record job's results.json; None when it is missing or not a JSON object."""
+    if path is None:
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     scenes_cmd = commands.add_parser("scenes")
     scenes_cmd.add_argument("scenes_txt", type=Path)
     scenes_cmd.add_argument("images", type=Path)
+    all_cmd = commands.add_parser("all-scenes")
+    all_cmd.add_argument("images", type=Path)
     apply_cmd = commands.add_parser("apply")
     apply_cmd.add_argument("root", type=Path)
     apply_cmd.add_argument("out", type=Path)
     apply_cmd.add_argument("--version", required=True)
     apply_cmd.add_argument("--images", type=Path)
-    apply_cmd.add_argument("--scenes", default="")
+    apply_cmd.add_argument("--results", type=Path)
     apply_cmd.add_argument("--lists", type=Path, required=True)
     body_cmd = commands.add_parser("body")
     body_cmd.add_argument("--findings", type=Path, required=True)
@@ -314,13 +411,19 @@ def main(argv: list[str]) -> int:
     try:
         if args.command == "scenes":
             print(" ".join(scenes(_read(args.scenes_txt), args.images)))
+        elif args.command == "all-scenes":
+            print(" ".join(all_scenes(args.images)))
         elif args.command == "apply":
             content, policy = apply(args.root, args.out, args.version)
+            pictures: dict[str, str] = {}
             if args.images:
-                content += apply_images(args.root, args.images, args.scenes.split())
+                results = _results(args.results)
+                paths, pictures = apply_images(args.root, args.images, results)
+                content += paths
             args.lists.mkdir(parents=True, exist_ok=True)
             for name, paths in (("content.txt", content), ("policy.txt", policy)):
                 (args.lists / name).write_text("".join(f"{path}\n" for path in paths))
+            (args.lists / "pictures.json").write_text(json.dumps(pictures, indent=2) + "\n")
             print(f"First commit: {len(content)} files. Policy commit: {len(policy)} files.")
         else:
             checks = hand_checks(_read(args.development), _read(args.changed).split())
