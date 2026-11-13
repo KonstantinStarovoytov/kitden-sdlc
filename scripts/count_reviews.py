@@ -6,6 +6,7 @@ Only the maintainer's 👍 and 👎 count, so nobody else can move the numbers.
 
 import argparse
 import json
+import statistics
 import sys
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
@@ -13,7 +14,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 
-from post_findings import GhApi, our_marker
+from post_findings import GhApi, our_marker, read_state
 
 REPO = "KonstantinStarovoytov/kitden"
 MAINTAINER = "KonstantinStarovoytov"
@@ -29,6 +30,16 @@ class Review:
     counts: dict[str, int | None]
     up: int
     down: int
+    fixed: int = 0  # findings of the comment that were fixed
+    updated: str = ""  # when the comment last changed
+    created: str = ""  # when the pull request was opened
+    merged: str | None = None  # when it was merged; None while it is not
+
+    @property
+    def clean(self) -> bool:
+        """The reviewers found nothing: every count is 0 or missing, and one of them answered."""
+        answered = self.counts["claude"] is not None or self.counts["luna"] is not None
+        return answered and not any(self.counts.values())
 
 
 @dataclass
@@ -88,7 +99,8 @@ def collect(
     now: datetime | None = None,
 ) -> list[Review]:
     """Read the review comments on pull requests updated in the last `since_days`.
-    Only our own comment that ends with the marker counts. A person's paste does not."""
+    Only our own comment that ends with the marker counts. A person's paste does not,
+    and neither does a comment in which neither reviewer gave an answer."""
     cutoff = (now or datetime.now(UTC)) - timedelta(days=since_days)
     found: list[Review] = []
     for pull in api.list_pulls(repo):
@@ -97,9 +109,22 @@ def collect(
         number = pull["number"]
         for item in api.list_issue_comments(repo, number):
             counts = our_marker(item)
-            if counts:
+            if counts and (counts["claude"] is not None or counts["luna"] is not None):
                 up, down = _votes(api.list_issue_comment_reactions(repo, item["id"]), maintainer)
-                found.append(Review(number, counts, up, down))
+                earlier = read_state(item.get("body") or "")
+                fixed = sum(bool(i.fixed) for i in earlier.items) if earlier else 0
+                found.append(
+                    Review(
+                        number,
+                        counts,
+                        up,
+                        down,
+                        fixed=fixed,
+                        updated=item.get("updated_at") or "",
+                        created=pull["created_at"],
+                        merged=pull.get("merged_at"),
+                    )
+                )
     return found
 
 
@@ -119,6 +144,22 @@ def aggregate(reviews: list[Review]) -> dict[str, Stats]:
     return dict(sorted(stats.items()))
 
 
+def summary(reviews: list[Review]) -> dict:
+    """Reviews that found nothing, findings fixed, and the median days from open to merge
+    of the reviewed pull requests that merged (each counted once)."""
+    merged = {r.pr: r for r in reviews if r.merged}
+    days = [
+        (datetime.fromisoformat(r.merged) - datetime.fromisoformat(r.created)).total_seconds()
+        / 86400
+        for r in merged.values()
+    ]
+    return {
+        "clean": sum(r.clean for r in reviews),
+        "fixed": sum(r.fixed for r in reviews),
+        "days_to_merge": round(statistics.median(days), 1) if days else None,
+    }
+
+
 # --- Writing ---
 
 
@@ -127,7 +168,7 @@ def _share(up: int, down: int) -> str:
     return f"{round(100 * up / votes)}%" if votes else "-"
 
 
-def render(stats: dict[str, Stats], reviews: dict[str, int], on: date) -> str:
+def render(stats: dict[str, Stats], reviews: dict[str, int], overview: dict, on: date) -> str:
     lines = [
         "# Reviewer numbers",
         "",
@@ -138,8 +179,12 @@ def render(stats: dict[str, Stats], reviews: dict[str, int], on: date) -> str:
     ]
     if reviews["prs"]:
         up, down = reviews["up"], reviews["down"]
+        days = overview["days_to_merge"]
         lines += [
             f"Reviews: {reviews['prs']}. 👍 {up}, 👎 {down}, useful share {_share(up, down)}.",
+            f"No findings: {overview['clean']}. "
+            f"Findings fixed before the merge: {overview['fixed']}. "
+            f"Median days from open to merge: {'-' if days is None else days}.",
             "",
             "| Reviewer | Pull requests | Findings | Also found by the other |",
             "| --- | --- | --- | --- |",
@@ -160,7 +205,7 @@ def _same_counts(saved: Path, data: dict) -> bool:
         return False
     if not isinstance(before, dict):
         return False
-    return all(before.get(key) == data[key] for key in ("reviews", "reviewers", "days"))
+    return all(before.get(key) == data[key] for key in ("reviews", "reviewers", "days", "summary"))
 
 
 def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -> int:
@@ -178,17 +223,19 @@ def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -
         "up": sum(r.up for r in found),
         "down": sum(r.down for r in found),
     }
+    numbers = summary(found)
     data = {
         "updated": now.date().isoformat(),
         "days": SINCE_DAYS,
         "reviews": reviews,
         "reviewers": {name: asdict(s) for name, s in stats.items()},
+        "summary": numbers,
     }
     saved = args.out / "numbers.json"
     if _same_counts(saved, data) and (args.out / "numbers.md").exists():
         return 0  # only the date would differ: leave both files so the job commits nothing
     saved.write_text(json.dumps(data, indent=2) + "\n")
-    (args.out / "numbers.md").write_text(render(stats, reviews, now.date()))
+    (args.out / "numbers.md").write_text(render(stats, reviews, numbers, now.date()))
     return 0
 
 
