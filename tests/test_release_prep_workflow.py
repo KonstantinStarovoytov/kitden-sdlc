@@ -200,3 +200,73 @@ def test_the_branch_check_asks_for_the_exact_reference():
     # so a run stopped on a branch that was not there. /git/ref/heads/<name> does not redirect.
     assert "/branches/$branch" not in TEXT
     assert TEXT.count("git/ref/heads/$branch") == 3
+
+
+def _flat(run: str) -> str:
+    return " ".join(run.replace("\\\n", " ").split())
+
+
+def _script_steps(command: str) -> list[tuple[str, int, dict]]:
+    """(job, index, step) for every step that runs `release_apply.py <command>`."""
+    return [
+        (name, index, step)
+        for name, job in doc["jobs"].items()
+        for index, step in enumerate(job["steps"])
+        if re.search(rf"release_apply\.py {command}\b", _flat(step.get("run", "")))
+    ]
+
+
+def _download_index(job: str, artifact: str) -> int:
+    steps = doc["jobs"][job]["steps"]
+    return next(
+        i
+        for i, s in enumerate(steps)
+        if s.get("uses", "").startswith("actions/download-artifact@")
+        and s["with"]["name"] == artifact
+    )
+
+
+CONTEXT = '--context "$RUNNER_TEMP/context/context.json"'
+GIVEN = (
+    'if [ "$FIX_RESULT" = success ]; then '
+    'given=(--given "$RUNNER_TEMP/verdict-first/problems.md"); fi'
+)
+
+
+def test_every_apply_and_the_body_know_the_context_the_agent_was_given():
+    steps = _script_steps("apply") + _script_steps("body")
+    assert [(job, "body" in _flat(s["run"])) for job, _, s in steps] == [
+        ("check", False),
+        ("final-check", False),
+        ("open-pr", False),
+        ("open-pr", True),
+    ]
+    for job, index, step in steps:
+        assert CONTEXT in _flat(step["run"]), job
+        download = doc["jobs"][job]["steps"][_download_index(job, "release-context")]
+        assert download["with"]["path"] == "${{ runner.temp }}/context"
+        assert _download_index(job, "release-context") < index
+
+
+def test_after_a_fix_pass_the_first_problems_are_given_text_too():
+    steps = [s for s in _script_steps("apply") + _script_steps("body") if s[0] != "check"]
+    assert len(steps) == 3
+    for job, index, step in steps:
+        download = doc["jobs"][job]["steps"][_download_index(job, "release-verdict-first")]
+        assert download["if"] == "needs.fix.result == 'success'"
+        assert download["with"]["path"] == "${{ runner.temp }}/verdict-first"
+        assert _download_index(job, "release-verdict-first") < index
+        assert step["env"]["FIX_RESULT"] == "${{ needs.fix.result }}"
+        assert GIVEN in step["run"]
+        assert '"${given[@]}"' in step["run"]
+    # The first pass never saw problems.md: check gives no more than the context.
+    ((job, _, check),) = _script_steps("apply")[:1]
+    assert job == "check" and "--given" not in check["run"]
+
+
+def test_the_body_knows_kitden_and_is_written_before_the_release_app_signs_in():
+    ((_, index, body),) = _script_steps("body")
+    assert "--root kitden" in _flat(body["run"])
+    names = [s.get("name") for s in doc["jobs"]["open-pr"]["steps"]]
+    apply_index = _script_steps("apply")[-1][1]
+    assert apply_index < index < names.index("Sign in as the release app")

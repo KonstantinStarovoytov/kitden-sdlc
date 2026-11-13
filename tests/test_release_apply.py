@@ -1023,3 +1023,61 @@ def test_cli_apply_and_body_read_the_context(tmp_path, capsys):
     assert main([*apply_argv, "--context", str(context)]) == 0
     assert main([*body_argv, "--context", str(context)]) == 0
     assert KEY_TAIL in (tmp_path / "body.md").read_text()
+
+
+def test_cli_apply_knows_the_problems_the_fix_pass_was_given(tmp_path, capsys):
+    # The fix pass read the first problems.md, which scripts wrote: a string it copied from
+    # there is given text, as context.json is. A --given file that is missing knows nothing.
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    context = tmp_path / "context.json"
+    context.write_text('{"prs": []}')
+    problems = tmp_path / "problems.md"
+    problems.write_text(f"- README.md: Kitden's test said {KEY_TAIL}\n")
+    argv = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path / "l")]
+    argv += ["--context", str(context)]
+    assert main(argv) == 1
+    assert main([*argv, "--given", str(tmp_path / "none.md")]) == 1
+    assert not shows_key(capsys.readouterr().out)
+    assert not (root / "docs/releases/v0.9.0.md").exists()
+    assert main([*argv, "--given", str(problems)]) == 0
+    assert KEY_TAIL in (root / "docs/releases/v0.9.0.md").read_text()
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        {"problems": [f"README.md: Kitden's test said {KEY_TAIL}"]},
+        {"pictures": {"pick": "failed"}, "errors": {"pick": f"timeout at {KEY_TAIL}"}},
+        {"fixed": [f"docs/{KEY_TAIL}.md"], "fix_result": "success"},
+    ],
+    ids=["fix-before-merge", "picture-error", "fixed-list"],
+)
+def test_the_body_checks_every_text_it_shows_for_random_strings(parts):
+    with pytest.raises(ValueError, match="random") as refused:
+        pr_body("", [], **parts)
+    assert not shows_key(str(refused.value))
+    assert KEY_TAIL in pr_body("", [], known=in_text(KEY_TAIL), **parts)
+
+
+def test_cli_body_knows_the_first_problems_after_a_fix_pass(tmp_path, capsys):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    (tmp_path / "findings.md").write_text(f"## Fixes\n\nThe test said {KEY_TAIL}; fixed.\n")
+    (tmp_path / "context.json").write_text('{"prs": []}')
+    (tmp_path / "first.md").write_text(f"- README.md: Kitden's test said {KEY_TAIL}\n")
+    (tmp_path / "changed.txt").write_text("")
+    argv = [
+        "body",
+        "--findings", str(tmp_path / "findings.md"),
+        "--development", str(tmp_path / "none.md"),
+        "--changed", str(tmp_path / "changed.txt"),
+        "--root", str(root),
+        "--context", str(tmp_path / "context.json"),
+        "--out", str(tmp_path / "body.md"),
+    ]  # fmt: skip
+    assert main(argv) == 1
+    assert "long random strings" in capsys.readouterr().out
+    assert not (tmp_path / "body.md").exists()
+    assert main([*argv, "--given", str(tmp_path / "first.md")]) == 0
+    assert capsys.readouterr().out == "ready\n"
+    assert KEY_TAIL in (tmp_path / "body.md").read_text()

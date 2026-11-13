@@ -74,3 +74,10 @@ Problems found while building the reviewers, and what changed because of each.
   under the job's, so a hang fails only the step. A refusal to post secret-like text still
   turns the job red, and so does a failure of the workflow's own steps.
   Kept by: `tests/test_workflows.py::test_a_failed_reviewer_leaves_no_red_mark`.
+- **Release prep gained a second model step without the new rules.** The fix pass came from
+  main while the safety work was under way. It had no Harden-Runner step, its output was kept
+  as long as the repository's default, and the secret check did not know the first list of
+  problems the pass was given. Now it starts like the first pass, its output is kept for a
+  day, and the fixed files and every part of the body pass both secret checks, against what
+  each pass was given.
+  Kept by: `tests/test_release_prep_workflow.py::test_after_a_fix_pass_the_first_problems_are_given_text_too`.

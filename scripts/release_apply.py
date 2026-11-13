@@ -7,7 +7,7 @@ No model runs here; the files it reads were written by one, so they are only dat
   release_apply.py all-scenes IMAGES_DIR
       Prints every scene that has a picture, on one line.
   release_apply.py apply ROOT OUT --version X.Y.Z --lists DIR [--images DIR --results FILE]
-                         [--context CONTEXT_JSON]
+                         [--context CONTEXT_JSON --given FILE ...]
       Copies the agent's files from OUT into the Kitden checkout ROOT, and the recorded
       pictures from --images: a still when its bytes differ, an animation when it is stale.
       Writes DIR/content.txt and DIR/policy.txt: the files of the first commit and of the
@@ -15,7 +15,7 @@ No model runs here; the files it reads were written by one, so they are only dat
       any file it does not know.
   release_apply.py body --findings F --development D --changed C --out BODY [--problems F
       --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R --root ROOT
-      --context CONTEXT_JSON]
+      --context CONTEXT_JSON --given FILE ...]
       The pull request's body: what is still wrong, what scripts checked, the agent's findings,
       the real-client checks from Kitden's docs/development.md that the changed files touch,
       and how to merge. R is the fix job's result (success, failure, cancelled, skipped or
@@ -23,7 +23,8 @@ No model runs here; the files it reads were written by one, so they are only dat
       as a problem. Prints draft or ready. ROOT is the Kitden checkout.
 
 A long random string in the agent's files or in the body's text must be in what the agent
-read: ROOT's HEAD, or the context.json it was given.
+read: ROOT's HEAD, the context.json it was given, or a --given file (the fix pass: the first
+problems.md, which scripts wrote). A missing file knows nothing.
 """
 
 import argparse
@@ -170,7 +171,7 @@ def apply(
     relative to `root`, leaving out files that did not change. Raises ValueError, writing
     nothing, for any file outside OUT_FILES, a link, a file that is too large, or text that
     looks like a secret: a token, or a long random string that neither Kitden's HEAD nor
-    `context` (the text of the agent's context.json) holds."""
+    `context` (the text the agent was given besides Kitden) holds."""
     version = version or current_version(root)
     if not VERSION.match(version):
         raise ValueError(f"version {version!r} is not X.Y.Z")
@@ -462,11 +463,11 @@ def pr_body(
     fix_result: str = "",
     known: Callable[[str], bool] | None = None,
 ) -> str:
-    """The release pull request's body. Raises ValueError when the findings, a problem or an
-    error look like they hold a secret: a token, or a long random string that `known` does
-    not know (by default none is known)."""
+    """The release pull request's body. Raises ValueError when the findings, a problem, an
+    error or a fixed path look like they hold a secret: a token, or a long random string that
+    `known` does not know (by default none is known)."""
     errors = errors or {}
-    texts = (findings, *problems, *errors.values())
+    texts = (findings, *problems, *errors.values(), *(fixed or ()))
     for text in texts:
         if SECRET_LIKE.search(text):
             raise ValueError("the findings, a problem or an error look like they hold a secret")
@@ -545,6 +546,9 @@ def _fixed(path: Path | None) -> list[str] | None:
     return [line.strip() for line in path.read_text().splitlines() if line.strip()]
 
 
+GIVEN_HELP = "another file scripts wrote that the agent read (the fix pass: the first problems.md)"
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -561,6 +565,7 @@ def main(argv: list[str]) -> int:
     apply_cmd.add_argument("--results", type=Path)
     apply_cmd.add_argument("--lists", type=Path, required=True)
     apply_cmd.add_argument("--context", type=Path, help="the context.json the agent read")
+    apply_cmd.add_argument("--given", type=Path, action="append", default=[], help=GIVEN_HELP)
     body_cmd = commands.add_parser("body")
     body_cmd.add_argument("--findings", type=Path, required=True)
     body_cmd.add_argument("--development", type=Path, required=True)
@@ -576,9 +581,12 @@ def main(argv: list[str]) -> int:
     body_cmd.add_argument("--out", type=Path, required=True)
     body_cmd.add_argument("--root", type=Path, help="the Kitden checkout the agent read")
     body_cmd.add_argument("--context", type=Path, help="the context.json the agent read")
+    body_cmd.add_argument("--given", type=Path, action="append", default=[], help=GIVEN_HELP)
     args = parser.parse_args(argv)
 
-    context = _read(args.context) if getattr(args, "context", None) else ""
+    # Runs never cross a line, so the texts can be read as one.
+    given_files = [getattr(args, "context", None), *getattr(args, "given", [])]
+    context = "\n".join(_read(path) for path in given_files if path)
     try:
         if args.command == "scenes":
             print(" ".join(scenes(_read(args.scenes_txt), args.images)))

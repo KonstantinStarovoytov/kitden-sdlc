@@ -107,7 +107,10 @@ workflows live here, and Kitden calls them. The design is
   and `open-pr` opens the pull request `Kitden X.Y.Z` as the release app, with the policy edits
   in a commit of their own. The pull request is a draft when a problem or a failed picture is
   left; its body lists them first. Both agent jobs start with Harden-Runner, and the files each
-  pass writes are kept as a run artifact for a day.
+  pass writes are kept as a run artifact for a day. Before anything is committed or posted, a
+  script refuses the agent's files and the body's text when they look like a secret or hold a
+  long random string that is not in Kitden, `context.json` or, after a fix pass, the first list
+  of problems. The refusal names no part of the string.
 - Merging that pull request tags the version: Kitden's `release.yml` does it as the release
   app. The tag builds the package, publishes it to PyPI and makes the GitHub release, then
   calls publish.
