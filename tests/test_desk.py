@@ -495,6 +495,8 @@ def test_every_reference_under_caused_by_counts_once():
         (81, 70), (81, 71), (82, 70), (83, 70), (85, 70), (86, 70)]
     other = "https://github.com/someone/else/pull/70"
     assert misses([caused(88, other)], reviews, NOW) == []
+    assert [m["pull"] for m in misses([caused(89, "PR#70")], reviews, NOW)] == [70]
+    assert misses([caused(90, "owner/repo#70 and &#70;")], reviews, NOW) == []
 
 
 def test_an_open_issue_is_open_whatever_its_closed_at_says():
@@ -527,3 +529,26 @@ def test_now_and_timestamps_are_read_in_utc():
     assert waiting(no_offset, [], [], NOW)[0]["days"] == 2.0
     assert waiting(no_offset, [], [], NOW.replace(tzinfo=None))[0]["days"] == 2.0
     assert build(FACTS, ROSTER, NOW.astimezone(west))["updated"] == "2026-11-16T07:00:00Z"
+
+
+def queue_of(facts):
+    desk = build(facts, ROSTER, NOW)
+    return desk["lights"][-1]["state"], desk["waiting"]
+
+
+def test_the_queue_is_worked_out_from_every_item_the_read_facts_give():
+    old_pull = pull(79, "agent/x", login="kitden-beacon[bot]", created=ago(20))
+    old_release = bot(3, labels=("automated", "release"), created=ago(20))
+    assert queue_of(Facts(pulls=[old_pull])) == ("red", None)
+    assert queue_of(Facts(issues=[old_release], reviews=[])) == ("red", None)
+    assert queue_of(Facts(issues=[], pulls=[], reviews=[])) == ("green", [])
+    assert queue_of(Facts(issues=[], reviews=[])) == ("grey", None)
+    assert queue_of(Facts(pulls=[pull(79, "agent/x", login="kitden-beacon[bot]")])) == (
+        "grey", None)
+
+
+def test_the_roster_gives_who_uses_each_key_as_a_list_of_names():
+    for key in ROSTER["keys"]:
+        assert isinstance(key["used_by"], list) and key["used_by"], key["name"]
+        assert all(isinstance(name, str) and "," not in name for name in key["used_by"])
+    assert build(Facts(), ROSTER, NOW)["budget"]["keys"] == ROSTER["keys"]

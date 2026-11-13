@@ -45,28 +45,28 @@
     {
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
       "stored": "Kitden",
-      "used_by": "claude reviewer, release prep",
+      "used_by": ["claude reviewer", "release prep"],
       "money_cap": "the Max plan",
       "dashboard": "https://claude.ai/settings/usage"
     },
     {
       "name": "OPENAI_API_KEY",
       "stored": "Kitden",
-      "used_by": "luna reviewer",
+      "used_by": ["luna reviewer"],
       "money_cap": "$5 a month",
       "dashboard": "https://platform.openai.com/usage"
     },
     {
       "name": "OPENAI_API_KEY",
       "stored": "kitden-sdlc",
-      "used_by": "the watch eval on an OpenAI model",
+      "used_by": ["the watch eval on an OpenAI model"],
       "money_cap": "not set",
       "dashboard": "https://platform.openai.com/usage"
     },
     {
       "name": "ANTHROPIC_API_KEY",
       "stored": "kitden-sdlc",
-      "used_by": "client watcher, the watch eval",
+      "used_by": ["client watcher", "the watch eval"],
       "money_cap": "not set",
       "dashboard": "https://console.anthropic.com/settings/usage"
     }

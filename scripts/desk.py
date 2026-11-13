@@ -28,8 +28,9 @@ DO = {
     "spot-check": "Look at the change, then 👍 or 👎 on its Agent review comment.",
 }
 CAUSED_BY = re.compile(r"^###[ \t]*Caused by[ \t\r]*$(.*?)(?=^###|\Z)", re.I | re.M | re.S)
-REFERENCE = re.compile(  # "#N", or the address of a pull request in REPO; a bare N is not one
-    rf"(?<![\w&])#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
+# "#N" or "PR#N", or the address of a pull request in REPO. Not a bare N, "owner/repo#N", "&#N;".
+REFERENCE = re.compile(
+    rf"(?:(?<![\w&])|(?<=\bPR))#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
 
 
 @dataclass
@@ -169,7 +170,8 @@ def _not_passed(required: list[str] | None, passed: list[str]) -> dict | None:
 
 
 def light_works(checks: list[dict] | None, required: list[str] | None = None) -> dict:
-    """Main's newest commit. `required` None checks nothing more: the Agents light greys."""
+    """Main's newest commit. With `required`, each check main requires must also have passed;
+    with None, only the check runs that are there are judged."""
     if not checks:
         return _light("works", "grey", "Not measured yet: no check run of main was read.")
     done = [c for c in checks if c.get("status") == "completed"]
@@ -301,8 +303,8 @@ def light_agents(issues: list[dict] | None, required: list[str] | None, now: dat
 
 
 def light_queue(waiting: list[dict] | None, complete: bool = True) -> dict:
-    """`complete` is False when the list could not hold everything: the reviews were not read,
-    so it has no spot check."""
+    """`complete` is False when a fact the list is made from was not read, so `waiting` may
+    hold only part of what waits."""
     if waiting is None:
         return _light("queue", "grey", "Not measured yet: what waits for you was not read.")
     days = max((item["days"] for item in waiting), default=0)
@@ -310,7 +312,7 @@ def light_queue(waiting: list[dict] | None, complete: bool = True) -> dict:
     if days > 3.5:
         state = "red" if days > 7 else "amber"
         found = _light("queue", state, f"Something has waited {days} days for you.")
-    missing = "" if complete else "the reviews were not read, so there is no spot check."
+    missing = "" if complete else "not all of what could wait for you was read."
     return _settle("queue", [found], missing)
 
 
@@ -363,18 +365,25 @@ def _spot_check(reviews: list[Review], now: datetime) -> list[dict]:
 def waiting(issues: list[dict] | None, pulls: list[dict] | None,
             reviews: list[Review] | None, now: datetime) -> list[dict] | None:
     """What the owner must do, in the order of DO, oldest first inside each kind; without
-    `reviews`, everything but the spot check."""
-    now = _utc(now)
+    `reviews`, everything but the spot check. None without `issues` or `pulls`: a part of
+    the list would read as the whole of it."""
     if issues is None or pulls is None:
         return None
+    return _waits(issues, pulls, reviews, _utc(now))
+
+
+def _waits(issues: list[dict] | None, pulls: list[dict] | None,
+           reviews: list[Review] | None, now: datetime) -> list[dict]:
+    """Every waiting item the facts that were read give; the Queue light reads this."""
     verdictless = [
-        item for item in _findings(issues, open_only=True) if not names(item) & set(VERDICTS)
+        item for item in _findings(issues or [], open_only=True)
+        if not names(item) & set(VERDICTS)
     ]
     return [
-        *_issue_waits("pull", _agent_pulls(pulls), now),
+        *_issue_waits("pull", _agent_pulls(pulls or []), now),
         *_issue_waits("verdict", verdictless, now),
-        *_issue_waits("release", _bots(issues, "release"), now),
-        *_issue_waits("paused", _pauses(issues), now),
+        *_issue_waits("release", _bots(issues or [], "release"), now),
+        *_issue_waits("paused", _pauses(issues or []), now),
         *([] if reviews is None else _spot_check(reviews, now)),
     ]
 
@@ -506,7 +515,8 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
         light_clients(facts.issues, facts.watch_log, now),
         light_bugs(facts.issues, now),
         light_agents(facts.issues, facts.required, now),
-        light_queue(wait, complete=facts.reviews is not None),
+        light_queue(_waits(facts.issues, facts.pulls, facts.reviews, now),
+                    complete=None not in (facts.issues, facts.pulls, facts.reviews)),
     ]
     review = (summary(facts.reviews) if facts.reviews is not None
               else {"clean": None, "fixed": None, "days_to_merge": None})
