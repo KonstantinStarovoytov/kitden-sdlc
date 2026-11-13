@@ -3,13 +3,10 @@
 import argparse
 import json
 import os
-import subprocess  # noqa: S404
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Protocol
 
-import yaml
-
+from bot_issues import GhIssues, ensure_labels
 from watch_list import parse_list, row_labels
 from watch_route import (
     TEXT_MAX,
@@ -25,44 +22,6 @@ from watch_route import (
 )
 
 SUMMARY_MAX = 60000
-LABELS_FILE = Path(__file__).resolve().parent.parent / "config" / "watch-labels.yml"
-
-
-class GitHub(Protocol):
-    def label_names(self) -> set[str]: ...
-
-    def create_label(self, name: str, color: str, description: str) -> None: ...
-
-    def create_issue(self, title: str, body: str, labels: list[str]) -> str: ...
-
-
-class GhApi:
-    """The GitHub on top of the gh command line tool."""
-
-    def __init__(self, repo: str):
-        self.repo = repo
-
-    def _run(self, *args: str) -> str:
-        done = subprocess.run(  # noqa: S603
-            ["gh", "api", *args],  # noqa: S607
-            check=True, capture_output=True, text=True,
-        )
-        return done.stdout
-
-    def label_names(self) -> set[str]:
-        text = self._run(f"repos/{self.repo}/labels?per_page=100", "--paginate", "--jq", ".[].name")
-        return set(text.split("\n")) - {""}
-
-    def create_label(self, name: str, color: str, description: str) -> None:
-        self._run(f"repos/{self.repo}/labels", "--method", "POST", "-f", f"name={name}",
-                  "-f", f"color={color}", "-f", f"description={description}")
-
-    def create_issue(self, title: str, body: str, labels: list[str]) -> str:
-        args = [f"repos/{self.repo}/issues", "--method", "POST", "-f", f"title={title}",
-                "-f", f"body={body}", "--jq", ".html_url"]
-        for name in labels:
-            args += ["-f", f"labels[]={name}"]
-        return self._run(*args).strip()
 
 
 # Shown with every finding: docs/watch-effects.md says the same in more words.
@@ -180,7 +139,7 @@ def _append(path: Path, lines: list[dict]) -> None:
         f.writelines(json.dumps(x) + "\n" for x in lines)
 
 
-def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date) -> None:
+def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: date) -> None:
     try:
         found = [] if findings is None else check(findings, inp)
         judged, failed = ([], []) if findings is None else (findings["judged"], findings["failed"])
@@ -190,17 +149,14 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
     found += word_hits(found, judged, inp)
     plan = route(found, inp["state"], judged, inp, today, failed)
 
-    repo = getattr(gh, "repo", "")
+    repo = gh.repo
     posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
     if plan.summary:
         title, body, rest = render_summary(plan.summary, today, inp, repo)
         posts.append((title, body, ["automated", "client-change", "summary"]))
         plan.state["kept"] = rest + plan.state["kept"]
-    have = gh.label_names()
-    for entry in yaml.safe_load(LABELS_FILE.read_text()):
-        if entry["name"] not in have:
-            gh.create_label(entry["name"], entry["color"], entry["description"])
-    addresses = [gh.create_issue(*post) for post in posts]
+    ensure_labels(gh)
+    addresses = [gh.create(*post) for post in posts]
     opened = {f["title"]: address for f, address in zip(plan.urgent, addresses, strict=False)}
 
     memory.mkdir(parents=True, exist_ok=True)
@@ -233,7 +189,7 @@ def main() -> None:
     a = parser.parse_args()
     inp = json.loads(a.input.read_text(encoding="utf-8"))
     findings = json.loads(a.findings.read_text(encoding="utf-8")) if a.findings else None
-    run(inp, findings, GhApi(a.repo), a.memory, a.today)
+    run(inp, findings, GhIssues(a.repo), a.memory, a.today)
 
 
 if __name__ == "__main__":

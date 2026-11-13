@@ -42,7 +42,8 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 | Every day, 06:23 UTC | the release watch, no model | run Release prep (the issue links to it), or re-run what it names | "Time for a release?", "Release vX.Y.Z is not everywhere" |
 | Every Monday, 06:00 UTC | the weekly numbers, no model | nothing | nothing |
 
-Bots never write `@name`. Every issue a bot opens has the label `automated`.
+Bots never write `@name`. Every issue a bot opens has the label `automated` and one label that
+says which bot: `client-change` or `release`.
 
 ### Review
 
@@ -72,8 +73,7 @@ You never open an issue for a release. In Kitden on GitHub: **Actions → Releas
 workflow**, keep "Use workflow from" on `main`, keep the version on **Auto** (or pick
 **Features (0.X.0)** or **Fixes (0.0.X)**), press the green **Run workflow**. Then review and
 merge the pull request **Kitden X.Y.Z**. The bot's issue "Time for a release?" links to the
-same page. Do not open issues with the bots' titles yourself: the bot finds its issues by the
-exact title and would rewrite or close yours.
+same page.
 
 Three switches stop it all: `AGENTS_ENABLED` (everything), `REVIEW_LIVE` (the two reviewers)
 and `WATCH_LIVE` (the watcher's daily run). `AGENTS_ENABLED` is two variables, one in Kitden
@@ -106,7 +106,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    reaches.
 10. A model step never prints its full output or debug logs.
 11. No agent is in anyone's way: no required check, no approving or requesting changes, no red
-    mark when a reviewer fails.
+    mark when a reviewer fails. No agent closes, locks or labels what a person opened; a bot
+    knows its own issues by their author.
 
 ## Copy this
 

@@ -2,9 +2,10 @@ import json
 from datetime import date
 
 import pytest
-import yaml
 
-from watch_post import LABELS_FILE, SUMMARY_MAX, first_line, render_summary, render_urgent, run
+from bot_issues import LABELS
+from tests.fakes import FakeIssues
+from watch_post import SUMMARY_MAX, first_line, render_summary, render_urgent, run
 
 WED, MON = date(2026, 11, 11), date(2026, 11, 9)
 URL = "https://example.com/changelog"
@@ -15,22 +16,6 @@ LIST = (
     "|---|---|---|---|---|---|\n"
     "| the `skillOverrides` key | setting | `src/kitden/skills.py` | 2.1 | all | https://x |\n"
 )
-
-
-class FakeGitHub:
-    def __init__(self, labels=()):
-        self.have, self.created_labels, self.issues, self.urls = set(labels), [], [], []
-
-    def label_names(self):
-        return set(self.have)
-
-    def create_label(self, name, color, description):
-        self.created_labels.append((name, color, description))
-
-    def create_issue(self, title, body, labels):
-        self.issues.append((title, body, labels))
-        self.urls.append(f"https://github.com/o/kitden/issues/{len(self.issues)}")
-        return self.urls[-1]
 
 
 def piece(n=0):
@@ -61,9 +46,9 @@ def one(judged=1, **kw):
 
 
 def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
-    gh = FakeGitHub(labels={"client-change"})
+    gh = FakeIssues(labels={"client-change"})
     run(inp(1), one(), gh, tmp_path, WED)
-    title, body, labels = gh.issues[0]
+    title, body, labels = gh.created[0]
     assert title == "Claude Code: skillOverrides renamed"
     assert body.splitlines()[0] == first_line()
     assert labels == ["automated", "client-change", "claude-code", "breaks", "major"]
@@ -73,17 +58,17 @@ def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
 
 
 def test_bad_findings_post_nothing_and_keep_the_memory(tmp_path):
-    gh = FakeGitHub()
+    gh = FakeIssues()
     with pytest.raises(SystemExit):
         run(inp(1), {"nonsense": 1}, gh, tmp_path, WED)
-    assert gh.issues == [] and not (tmp_path / "state.json").exists()
+    assert gh.created == [] and not (tmp_path / "state.json").exists()
     assert not (tmp_path / "log.jsonl").exists() and not (tmp_path / "archive.jsonl").exists()
 
 
 def test_quiet_day_opens_nothing_but_saves_state(tmp_path):
-    gh = FakeGitHub()
+    gh = FakeIssues()
     run(inp(0), None, gh, tmp_path, WED)
-    assert gh.issues == [] and (tmp_path / "state.json").exists()
+    assert gh.created == [] and (tmp_path / "state.json").exists()
     assert len((tmp_path / "log.jsonl").read_text().splitlines()) == 1
 
 
@@ -92,10 +77,10 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
              "changed": "c", "row": "", "files": [], "user_gets": "u", "systems": "",
              "why": "w"} for n in range(2)]
     state = {**STATE, "kept": kept}
-    gh = FakeGitHub()
+    gh = FakeIssues()
     run(inp(0, state=state), None, gh, tmp_path, MON)
-    assert len(gh.issues) == 1 and gh.issues[0][2] == ["automated", "client-change", "summary"]
-    title, body, _ = gh.issues[0]
+    assert len(gh.created) == 1 and gh.created[0][2] == ["automated", "client-change", "summary"]
+    title, body, _ = gh.created[0]
     assert title == "Client changes, week of 2026-11-09"
     assert body.count("\n## ") == 2 and "minor" in body
 
@@ -112,33 +97,33 @@ def test_summary_item_without_piece_url_or_version():
 
 
 def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
-    gh = FakeGitHub()
+    gh = FakeIssues()
     run(inp(2), one(judged=2), gh, tmp_path, WED)
     lines = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
     assert [x["effect"] for x in lines] == ["breaks", "none"]
-    assert lines[0]["issue"] == gh.urls[0] and lines[1]["issue"] == ""
+    assert lines[0]["issue"] == gh.issues[0]["html_url"] and lines[1]["issue"] == ""
 
 
 def test_archive_lines_keep_the_kitden_commit_of_the_run(tmp_path):
-    run({**inp(2), "kitden": "c" * 40}, one(judged=2), FakeGitHub(), tmp_path, WED)
+    run({**inp(2), "kitden": "c" * 40}, one(judged=2), FakeIssues(), tmp_path, WED)
     lines = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
     assert [x["kitden"] for x in lines] == ["c" * 40, "c" * 40]
 
 
 def test_failed_pieces_count_their_tries_in_the_memory(tmp_path):
-    gh = FakeGitHub()
+    gh = FakeIssues()
     run(inp(2), {"judged": [], "findings": [], "failed": [f"{PID}0", f"{PID}1"]}, gh,
         tmp_path, WED)
     state = json.loads((tmp_path / "state.json").read_text())
-    assert state["tries"] == {f"{PID}0": 1, f"{PID}1": 1} and gh.issues == []
+    assert state["tries"] == {f"{PID}0": 1, f"{PID}1": 1} and gh.created == []
     log = json.loads((tmp_path / "log.jsonl").read_text())
     assert log["failed"] == 2
 
 
 def test_every_missing_label_is_created_on_each_run(tmp_path):
-    gh = FakeGitHub(labels={"client-change"})
+    gh = FakeIssues(labels={"client-change"})
     run(inp(0), None, gh, tmp_path, WED)
-    names = [e["name"] for e in yaml.safe_load(LABELS_FILE.read_text())]
+    names = [name for name, *_ in LABELS]
     assert [name for name, *_ in gh.created_labels] == [n for n in names if n != "client-change"]
 
 
@@ -184,9 +169,9 @@ def test_long_summary_is_cut_with_a_count_of_the_rest():
 
 
 def test_items_cut_from_the_summary_are_kept_for_the_next_one(tmp_path):
-    gh = FakeGitHub()
+    gh = FakeIssues()
     run(inp(0, state={**STATE, "kept": long_items(100)}), None, gh, tmp_path, MON)
-    shown = gh.issues[0][1].count("\n## ")
+    shown = gh.created[0][1].count("\n## ")
     state = json.loads((tmp_path / "state.json").read_text())
     assert [k["title"] for k in state["kept"]] == [f"t{i}" for i in range(shown, 100)]
 

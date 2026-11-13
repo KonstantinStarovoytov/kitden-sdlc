@@ -38,7 +38,8 @@ Every workflow that runs an AI agent must follow these eleven rules.
     are public. The checker refuses `show_full_output`, `display_report`, debug flags and
     debug variables.
 11. No agent is in anyone's way. No agent job is a required check. No agent approves or
-    requests changes. A failed reviewer leaves no red mark on a pull request: if one fails
-    the comment names it, if both fail the comment says so. A refusal to post secret-like
-    text does turn the job red, and so does a failure of the workflow's own steps (checkout,
-    the prepare script, the cap, GitHub's API).
+    requests changes. No agent closes, locks or labels what a person opened; a bot knows its
+    own issues by their author. A failed reviewer leaves no red mark on a pull request: if
+    one fails the comment names it, if both fail the comment says so. A refusal to post
+    secret-like text does turn the job red, and so does a failure of the workflow's own steps
+    (checkout, the prepare script, the cap, GitHub's API).

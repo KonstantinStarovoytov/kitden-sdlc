@@ -7,19 +7,20 @@
 - "Release vX.Y.Z is not everywhere" is open while a store is behind, and closes when all is well.
 
 Reads are public GitHub and store URLs. Issues are written with the `gh` CLI, whose token
-(GH_TOKEN) is the one the workflow gives: issues write on Kitden, nothing else.
+(GH_TOKEN) is the one the workflow gives: issues write on Kitden, nothing else. The issues are
+known by their author and title (bot_issues.py): an issue a person opened is never touched.
 """
 
 import json
 import re
-import subprocess
 import sys
 import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
 
+import bot_issues
+from bot_issues import GhIssues, ensure_labels
 from release_stores import (
     COMMIT,
     HOMEBREW,
@@ -46,7 +47,7 @@ PREP = f"https://github.com/{REPO_SLUG}/actions/workflows/release-prep.yml"
 PREP_NAME = "Release prep"  # the `name:` of examples/release-prep.yml
 PREP_BRANCH = "prepare-v"  # release prep's own PRs, which bump the version: not a reason
 PER_PAGE = 100
-LABEL = "automated"  # every issue opened by automation carries it (the owner's rule)
+ISSUE_LABELS = ["automated", "release"]  # every bot issue: `automated`, then which bot
 AI_POLICY = f"https://github.com/{REPO_SLUG}/blob/main/AI_POLICY.md"
 HEADER = (
     "Opened by release-watch, a daily check in kitden-sdlc with no AI model. "
@@ -147,56 +148,6 @@ def drift_body(tag: str, rows: list[Row], late: list[Row]) -> str:
     )
 
 
-class Gh(Protocol):
-    def find_open(self, title: str) -> int | None: ...
-    def create(self, title: str, body: str) -> None: ...
-    def edit(self, number: int, body: str) -> None: ...
-    def close(self, number: int) -> None: ...
-
-
-class GhCli:
-    """Issues in Kitden through the `gh` CLI. The title is matched exactly, never searched."""
-
-    def _gh(self, *args: str) -> str:
-        done = subprocess.run(  # noqa: S603
-            ["gh", *args, "--repo", REPO_SLUG],  # noqa: S607
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return done.stdout
-
-    def find_open(self, title: str) -> int | None:
-        listing = self._gh(
-            "issue", "list", "--state", "open", "--limit", "200", "--json", "number,title"
-        )
-        for issue in json.loads(listing):
-            if issue["title"] == title:
-                return issue["number"]
-        return None
-
-    def create(self, title: str, body: str) -> None:
-        self._gh("issue", "create", "--title", title, "--body", body, "--label", LABEL)
-
-    def edit(self, number: int, body: str) -> None:
-        self._gh("issue", "edit", str(number), "--body", body, "--add-label", LABEL)
-
-    def close(self, number: int) -> None:
-        self._gh("issue", "close", str(number))
-
-
-def upsert(title: str, body: str, gh: Gh) -> None:
-    """Edit the open issue with this title, open one if none, close it when `body` is empty."""
-    number = gh.find_open(title)
-    if not body:
-        if number is not None:
-            gh.close(number)
-    elif number is None:
-        gh.create(title, body)
-    else:
-        gh.edit(number, body)
-
-
 @dataclass
 class Data:
     tag: str
@@ -258,15 +209,17 @@ def gather(fetch: Fetch, now: datetime) -> Data | None:
     return Data(tag, (now - made).total_seconds() / 86400, changed, labels)
 
 
-def run(fetch: Fetch, gh: Gh, now: datetime) -> None:
+def run(fetch: Fetch, gh: GhIssues, now: datetime) -> None:
     data = gather(fetch, now)
     if data is None:
         return
+    ensure_labels(gh)
     prs = propose(data.changed, data.labels, data.age_days)
-    upsert(PROPOSAL_TITLE, proposal_body(prs) if prs else "", gh)
+    bot_issues.upsert(gh, PROPOSAL_TITLE, proposal_body(prs) if prs else "", ISSUE_LABELS)
     rows = read_all(data.tag, fetch)
     late = behind(rows, data.age_days * 24)
-    upsert(drift_title(data.tag), drift_body(data.tag, rows, late) if late else "", gh)
+    body = drift_body(data.tag, rows, late) if late else ""
+    bot_issues.upsert(gh, drift_title(data.tag), body, ISSUE_LABELS)
 
 
 def main(
@@ -275,7 +228,7 @@ def main(
     if argv:
         print("usage: release_watch.py", file=sys.stderr)
         return 2
-    run(fetch, GhCli(), (clock or (lambda: datetime.now(UTC)))())
+    run(fetch, GhIssues(REPO_SLUG), (clock or (lambda: datetime.now(UTC)))())
     return 0
 
 

@@ -76,6 +76,8 @@ alarm.
 |---|---|
 | `automated` | Opened by an automated check; a maintainer confirms it before work starts |
 | `client-change` | Opened by the watcher: a client changed |
+| `release` | Opened by the release watch |
+| `desk` | The owner's desk |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
 | `wrong-data` | Kitden shows one thing while the client has another |
@@ -128,9 +130,10 @@ workflows live here, and Kitden calls them. The design is
   `install.*` wait and the last tag is 7 days old (sooner when one is labelled `bug`). It
   opens "Release vX.Y.Z is not everywhere" while a store is behind or different; Homebrew
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
-  no longer holds. Both carry the label `automated` and open with one line saying who opened
-  them, that no model wrote them and that a maintainer confirms them, then three parts: what
-  happened, what it means, what to do.
+  no longer holds. It knows its issues by author and title, so it never touches one a person
+  opened. Both carry the labels `automated` and `release` and open with one line saying who
+  opened them, that no model wrote them and that a maintainer confirms them, then three parts:
+  what happened, what it means, what to do.
 
 Identities: three GitHub Apps, each with its own name and icon, so nobody mistakes one
 for another. Lantern (a lantern on deep teal) comments and opens issues. Kitden Beacon (a

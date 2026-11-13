@@ -166,7 +166,7 @@ Issues are in plain English, like the rest of the repository (call). The first l
 issue is automated and which model wrote it (rule 8).
 
 Labels, each with a description on GitHub and one table in the README of `kitden-sdlc`; the
-post job creates a missing label from `config/watch-labels.yml` (call):
+post job creates a missing label from `LABELS` in `scripts/bot_issues.py` (call):
 
 | Label | Meaning |
 |---|---|
