@@ -608,12 +608,14 @@ jobs:
           name: release-out-fixed
           path: out/
           if-no-files-found: error
+          retention-days: 1
       - name: Keep the list of changed files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-fix
           path: ${{ runner.temp }}/fixed.txt
           if-no-files-found: error
+          retention-days: 1
 
   # Kitden's own script, at the commit this run is for. It tries every scene, one by one;
   # a scene that fails does not stop the next, and results.json says what became of each.

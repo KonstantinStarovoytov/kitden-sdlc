@@ -25,7 +25,7 @@ def test_model_output_is_kept_for_one_day():
     # are uploaded before any check of the model's text.
     wanted = {
         "review.yml": {"findings-claude", "findings-luna"},
-        "release-prep.yml": {"release-out"},
+        "release-prep.yml": {"release-out", "release-out-fixed", "release-fix"},
     }
     for file, names in wanted.items():
         doc = yaml.safe_load((ROOT / ".github/workflows" / file).read_text())
@@ -37,6 +37,23 @@ def test_model_output_is_kept_for_one_day():
         }
         for name in names:
             assert uploads[name].get("retention-days") == 1, name
+
+
+def _uploads(doc: dict) -> dict[str, dict]:
+    return {
+        step["with"]["name"]: step["with"]
+        for job in doc["jobs"].values()
+        for step in job.get("steps") or []
+        if "actions/upload-artifact" in str(step.get("uses", ""))
+    }
+
+
+def test_release_prep_keeps_only_the_models_text_for_one_day():
+    # The verdicts, the context and the pictures are written by scripts: they keep the
+    # repository's default.
+    doc = yaml.safe_load((ROOT / ".github/workflows/release-prep.yml").read_text())
+    kept = {name for name, upload in _uploads(doc).items() if "retention-days" in upload}
+    assert kept == {"release-out", "release-out-fixed", "release-fix"}
 
 
 def test_every_model_job_in_release_prep_starts_with_the_same_hosts_step():
