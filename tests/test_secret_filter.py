@@ -1,4 +1,4 @@
-from secret_filter import in_git, in_text, random_runs, short, unknown_runs
+from secret_filter import has_commit, in_git, in_text, random_runs, unknown_runs
 from tests.fakes import KEY_TAIL, repo
 
 
@@ -31,8 +31,12 @@ def test_in_git_follows_no_link_and_survives_a_bad_commit(tmp_path):
     assert not in_git(tmp_path / "missing", "HEAD")(KEY_TAIL)
 
 
-def test_short_never_shows_the_whole_run():
-    assert short(KEY_TAIL) == "oat01-Zk…"
+def test_has_commit_knows_only_a_commit_the_folder_holds(tmp_path):
+    folder = repo(tmp_path / "r", {"a.py": "x\n"})
+    assert has_commit(folder, "HEAD")
+    assert not has_commit(folder, "1" * 40)
+    assert not has_commit(folder, "--all") and not has_commit(folder, "")
+    assert not has_commit(tmp_path / "missing", "HEAD")
 
 
 def test_in_git_reads_no_repository_above_the_folder(tmp_path):

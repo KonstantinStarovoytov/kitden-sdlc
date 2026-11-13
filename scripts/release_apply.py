@@ -38,7 +38,7 @@ from pathlib import Path
 
 from post_findings import SECRET_LIKE, WORD_JOINER, quiet_mentions
 from release_bump import current_version
-from secret_filter import in_git, in_text, short, unknown_runs
+from secret_filter import in_git, in_text, unknown_runs
 
 VERSION = re.compile(r"\d+\.\d+\.\d+\Z", re.ASCII)
 # What the agent may write in out/, and where each file goes. "content" files go in the first
@@ -195,8 +195,8 @@ def apply(
         unknown = unknown_runs([text], in_kitden)
         if unknown:
             raise ValueError(
-                f"out/{name} holds a long random string that is not in Kitden "
-                f"({short(unknown[0])}): not committed"
+                f"out/{name} holds long random strings that are not in what the agent was "
+                f"given ({len(unknown)}): not committed"
             )
         _no_link(root, path)
         if (root / path).is_file() and (root / path).read_bytes() == data:
@@ -473,8 +473,8 @@ def pr_body(
     unknown = unknown_runs(texts, known or in_text())
     if unknown:
         raise ValueError(
-            f"the findings, a problem or an error hold a long random string that is not in "
-            f"Kitden ({short(unknown[0])}): not posted"
+            f"the findings, a problem or an error hold long random strings that are not in "
+            f"what the agent was given ({len(unknown)}): not posted"
         )
     findings = findings.strip()
     if len(findings) > FINDINGS_MAX:

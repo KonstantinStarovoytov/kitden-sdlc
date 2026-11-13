@@ -8,6 +8,11 @@ from pathlib import Path
 KEY_TAIL = "oat01-Zk3vQ9xLr7TnB2mWc8YpD4sHf6JgA1uE5N0aVbXe"
 
 
+def shows_key(text: str, size: int = 8) -> bool:
+    """Whether `text` holds any piece of KEY_TAIL `size` characters long."""
+    return any(KEY_TAIL[i : i + size] in text for i in range(len(KEY_TAIL) - size + 1))
+
+
 def _git(folder: Path, *args: str) -> None:
     # The developer's own git settings (signing, hooks) must not reach the test repository.
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}

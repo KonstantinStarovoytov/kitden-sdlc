@@ -29,7 +29,7 @@ from post_findings import (
     refuse_secret_like,
     review_body,
 )
-from tests.fakes import KEY_TAIL, repo
+from tests.fakes import KEY_TAIL, repo, shows_key
 
 FIXTURE = Path(__file__).parent / "fixtures" / "findings_ok.json"
 ROOT = Path(__file__).parent.parent
@@ -469,7 +469,35 @@ def test_main_refuses_a_random_run_the_pull_request_lacks(tmp_path, capsys, monk
     code, api = run_main(tmp_path, monkeypatch, {"a.py": "x = 1\n"})
     err = capsys.readouterr().err
     assert code == 1 and not [c for c in api.calls if c[0] in ("create", "update")]
-    assert "oat01-Zk…" in err and KEY_TAIL not in err
+    assert "not in what the reviewers were given: 1 in Claude's text" in err
+    assert not shows_key(err)
+
+
+def test_main_refuses_every_random_run_when_the_tree_lacks_the_head(tmp_path, capsys, monkeypatch):
+    # The fetch of the pull request's commit failed: the tree holds another commit.
+    api = FakeApi()
+    api.pull_text = lambda repo, pr: f"Rotate {KEY_TAIL} please"
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    tree = repo(tmp_path / "tree", {"a.py": f"X = '{KEY_TAIL}'\n"})
+    argv = argv_for(quoting(tmp_path), FIXTURE, "--pr", "7", "--head-sha", "1" * 40,
+                    "--tree", str(tree))
+    assert main(argv) == 1
+    assert not [c for c in api.calls if c[0] in ("create", "update")]
+    err = capsys.readouterr().err
+    assert "the pull request's files could not be read, so every long random string" in err
+    assert not shows_key(err)
+
+
+def test_main_knows_nothing_when_the_pull_request_text_cannot_be_read(
+    tmp_path, capsys, monkeypatch
+):
+    api = FakeApi()
+    api.pull_text = lambda repo, pr: None
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7")) == 1
+    captured = capsys.readouterr()
+    assert "Cannot read the pull request's title and body" in captured.out
+    assert "Refused:" in captured.err and "Traceback" not in captured.err
 
 
 def test_main_posts_a_random_run_the_pull_request_holds(tmp_path, monkeypatch):
@@ -1040,6 +1068,16 @@ def test_gh_api_pull_text_is_the_title_and_the_body(monkeypatch):
     assert envs[0]["GH_TOKEN"] == "read"
     run_.result.stdout = '{"title": "Fix it", "body": null}'
     assert GhApi().pull_text("o/r", 7) == "Fix it\n"
+
+
+def test_gh_api_pull_text_gives_none_when_gh_fails(monkeypatch):
+    def fail(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(post_findings.subprocess, "run", fail)
+    assert GhApi().pull_text("o/r", 7) is None
+    monkeypatch.setattr(post_findings.subprocess, "run", FakeRun("not json"))
+    assert GhApi().pull_text("o/r", 7) is None
 
 
 def test_gh_api_compare_gives_none_when_gh_fails(monkeypatch):

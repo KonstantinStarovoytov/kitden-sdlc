@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
 
-from secret_filter import in_git, in_text, random_runs, short, unknown_runs
+from secret_filter import has_commit, in_git, in_text, random_runs, unknown_runs
 
 SUMMARY_MAX = 300
 TEXT_MAX = 300
@@ -183,28 +183,46 @@ def refuse_unknown_runs(
     api: "Api",
     repo: str,
     pr: int,
-    reports: list[Report],
+    reports: dict[str, Report | None],
     tree: Path | None,
     head_sha: str,
     base_sha: str | None = None,
+    names: dict[str, str] | None = None,
 ) -> None:
     """Raise SecretLikeError when the reports hold a long random string (a key cut short)
     that the reviewers were not given: it is not in the pull request's title and body, nor
     in the files or file names of its head commit or of its base commit, which `tree`
-    holds. Without `tree`, only the title and body count. The pull request is read only
-    when there is such a string."""
-    texts = [text for report in reports for text in report_texts(report)]
-    if not any(random_runs(text) for text in texts):
+    holds. Without `tree`, only the title and body count; with a `tree` that lacks the head
+    commit, nothing does. The pull request is read only when there is such a string. The
+    message counts the strings and never shows one: each may be a key."""
+    texts = {name: report_texts(report) for name, report in reports.items() if report}
+    if not any(random_runs(text) for each in texts.values() for text in each):
         return
-    sources = [in_text(api.pull_text(repo, pr))]
-    if tree:
-        sources += [in_git(tree, sha) for sha in (head_sha, base_sha) if sha]
-    unknown = unknown_runs(texts, lambda run: any(known(run) for known in sources))
-    if unknown:
-        raise SecretLikeError(
-            "a reviewer's output holds a long random string that is not in the pull request: "
-            + ", ".join(short(run) for run in unknown)
-        )
+    # The fetch of the pull request's commits failed: then nothing counts as known.
+    unread = tree is not None and not has_commit(tree, head_sha)
+    sources = []
+    if not unread:
+        pull = api.pull_text(repo, pr)
+        if pull is None:
+            print("::warning::Cannot read the pull request's title and body; nothing in them "
+                  "counts as known.")
+        else:
+            sources.append(in_text(pull))
+        if tree:
+            sources += [in_git(tree, sha) for sha in (head_sha, base_sha) if sha]
+    counts = {
+        name: len(unknown_runs(each, lambda run: any(known(run) for known in sources)))
+        for name, each in texts.items()
+    }
+    names = names or REVIEWERS
+    held = [f"{n} in {names[name]}'s text" for name, n in counts.items() if n]
+    if held:
+        why = "long random strings that are not in what the reviewers were given: "
+        why += ", ".join(held)
+        if unread:
+            why += "; the pull request's files could not be read, so every long random string"
+            why += " is refused"
+        raise SecretLikeError(why)
 
 
 # --- Keeping people out of it ---
@@ -635,7 +653,7 @@ class Api(Protocol):
 
     def compare(self, repo: str, base: str, head: str) -> dict | None: ...
 
-    def pull_text(self, repo: str, pr: int) -> str: ...
+    def pull_text(self, repo: str, pr: int) -> str | None: ...
 
 
 class GhApi:
@@ -690,9 +708,14 @@ class GhApi:
             return None
         return data if isinstance(data, dict) else None
 
-    def pull_text(self, repo: str, pr: int) -> str:
-        """The pull request's title, a new line, and its body."""
-        data = json.loads(self._run(f"repos/{repo}/pulls/{pr}", token=self.read_token))
+    def pull_text(self, repo: str, pr: int) -> str | None:
+        """The pull request's title, a new line, and its body, or None when gh fails."""
+        try:
+            data = json.loads(self._run(f"repos/{repo}/pulls/{pr}", token=self.read_token))
+        except (subprocess.CalledProcessError, ValueError):
+            return None
+        if not isinstance(data, dict):
+            return None
         return f"{data.get('title') or ''}\n{data.get('body') or ''}"
 
 
@@ -762,9 +785,8 @@ def main(argv: list[str]) -> int:
             print(review_body(reports, args.repo, args.head_sha, names=names))
             return 0
         api = GhApi(read_token=os.environ.get("GH_READ_TOKEN") or None)
-        answers = [report for report in reports.values() if report]
         refuse_unknown_runs(
-            api, args.repo, args.pr, answers, args.tree, args.head_sha, args.base_sha
+            api, args.repo, args.pr, reports, args.tree, args.head_sha, args.base_sha, names
         )
         comments = api.list_issue_comments(args.repo, args.pr)
         earlier, changes = earlier_review(api, args.repo, args.head_sha, find_ours(comments))
