@@ -5,7 +5,7 @@ import pytest
 
 import desk_post
 from bot_issues import BOT
-from desk_post import LIMIT, TITLE, main, monday_note, post, render
+from desk_post import LIMIT, TITLE, main, post, render, week_note
 from post_findings import one_line
 from tests.fakes import FakeIssues, issue
 
@@ -211,22 +211,22 @@ def test_a_page_too_long_for_an_issue_is_cut_not_failed():
     assert body.count("[Issue #81]") == 50  # the shorter list stays whole
 
 
-# --- The Monday note ---
+# --- The week's note ---
 
 
-def test_the_monday_note_names_the_week_the_light_and_what_waits():
-    note = monday_note(DESK, MONDAY)
+def test_the_weeks_note_names_the_week_the_light_and_what_waits():
+    note = week_note(DESK, MONDAY)
     assert note.splitlines()[0] == "Week of 2026-11-16"
     assert "🟡" in note and "1 thing waits for you" in note
     spot = {**DESK, "waiting": [*DESK["waiting"], wait("#70, reviewed with no findings", SPOT,
                                                        "spot-check")]}
-    note = monday_note(spot, MONDAY + timedelta(days=2))
+    note = week_note(spot, MONDAY + timedelta(days=2))
     assert note.startswith("Week of 2026-11-16\n") and "2 things wait for you" in note
     assert f"]({SPOT})" in note
-    assert "not measured" in monday_note({**DESK, "waiting": None}, MONDAY)
+    assert "not measured" in week_note({**DESK, "waiting": None}, MONDAY)
 
 
-def test_post_rewrites_the_one_issue_and_comments_once_on_monday():
+def test_post_rewrites_the_one_issue_and_comments_once_a_week():
     gh = FakeIssues()
     post(gh, DESK, MONDAY)
     assert gh.created[0][0] == "Kitden desk" and gh.created[0][2] == ["automated", "desk"]
@@ -234,6 +234,18 @@ def test_post_rewrites_the_one_issue_and_comments_once_on_monday():
     post(gh, DESK, MONDAY)
     assert len(gh.created) == 1 and len(gh.edited) == 1 and len(gh.commented) == 1
     post(gh, DESK, MONDAY + timedelta(days=1))
+    assert len(gh.commented) == 1
+    post(gh, DESK, MONDAY + timedelta(days=7))
+    assert len(gh.commented) == 2
+
+
+def test_the_weeks_first_run_comments_whatever_the_day():
+    # Monday's run failed or the switch was off: Wednesday's run is the week's first.
+    gh = FakeIssues()
+    post(gh, DESK, MONDAY + timedelta(days=2))
+    assert len(gh.commented) == 1
+    assert gh.commented[0][1].startswith("Week of 2026-11-16\n")
+    post(gh, DESK, MONDAY + timedelta(days=3))
     assert len(gh.commented) == 1
 
 
@@ -247,7 +259,6 @@ def test_post_makes_the_labels_first():
     gh = FakeIssues()
     post(gh, DESK, MONDAY + timedelta(days=1))
     assert {"automated", "desk"} <= {name for name, *_ in gh.created_labels}
-    assert gh.commented == []
 
 
 def test_a_persons_comment_with_the_weeks_line_does_not_stop_the_note():
@@ -266,11 +277,11 @@ def test_last_weeks_note_does_not_stop_this_weeks():
     assert len(gh.commented) == 1
 
 
-def test_monday_is_monday_in_utc():
+def test_the_week_is_the_week_in_utc():
     gh = FakeIssues()
     sunday_in_utc = datetime(2026, 11, 16, 1, tzinfo=timezone(timedelta(hours=3)))
     post(gh, DESK, sunday_in_utc)
-    assert gh.commented == []
+    assert gh.commented[0][1].startswith("Week of 2026-11-09\n")
 
 
 # --- The command ---
@@ -292,7 +303,7 @@ def test_dry_run_prints_the_page_and_the_note_and_calls_nothing(tmp_path, capsys
     out = capsys.readouterr().out
     assert out.startswith(render(DESK)) and "Week of 2026-11-16" in out
     assert main(["--desk", str(path), "--dry-run"], now=MONDAY + timedelta(days=1)) == 0
-    assert "Week of" not in capsys.readouterr().out
+    assert "Week of 2026-11-16" in capsys.readouterr().out
 
 
 def test_the_command_posts_to_the_repository_given(tmp_path, monkeypatch):

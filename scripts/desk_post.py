@@ -3,9 +3,9 @@
     desk_post.py --desk desk.json --repo OWNER/kitden [--dry-run]
 
 The bot (bot_issues.BOT) rewrites its own open issue with this title, or opens one; an issue a
-person opened is never touched. On a Monday (UTC) it also leaves one short comment, so the owner
-gets one notice a week. `--dry-run` prints the page, and the Monday note on a Monday, and calls
-nothing.
+person opened is never touched. The week's first run (weeks start on Monday, UTC) also leaves
+one short comment, so the owner gets one notice a week. `--dry-run` prints the page and the
+week's note, and calls nothing.
 
 None in desk.json means "not measured": the page says so in words. Every title and `why` was
 written by a person or a model, so each goes through `one_line`; only a github.com address
@@ -355,7 +355,7 @@ def render(desk: dict) -> str:
         shown[longest] -= max(1, shown[longest] // 20)
 
 
-# --- The Monday note ---
+# --- The week's note ---
 
 
 def _monday(now: datetime) -> datetime:
@@ -363,11 +363,7 @@ def _monday(now: datetime) -> datetime:
     return day - timedelta(days=day.weekday())
 
 
-def _is_monday(now: datetime) -> bool:
-    return _utc(now).weekday() == 0
-
-
-def monday_note(desk: dict, now: datetime) -> str:
+def week_note(desk: dict, now: datetime) -> str:
     """The weekly comment: "Week of <that Monday>", the overall light, how many things wait,
     and the spot check's link when there is one."""
     state = desk.get("overall")
@@ -391,12 +387,13 @@ def _first_line(comment: dict) -> str:
 
 
 def post(gh: GhIssues, desk: dict, now: datetime) -> None:
-    """Rewrite the desk issue; on a Monday (UTC), comment the week's note once."""
+    """Rewrite the desk issue; comment the week's note once a week: its first line, "Week of
+    <that Monday>", tells whether this week's is there already."""
     ensure_labels(gh)
     number = upsert(gh, TITLE, render(desk), LABELS)
-    if number is None or not _is_monday(now):
+    if number is None:
         return
-    note = monday_note(desk, now)
+    note = week_note(desk, now)
     week = note.split("\n", 1)[0]
     if any((c.get("user") or {}).get("login") == BOT and _first_line(c) == week
            for c in gh.comments(number)):
@@ -416,9 +413,8 @@ def main(argv: list[str], now: datetime | None = None) -> int:
     now = now or datetime.now(UTC)
     if args.dry_run:
         print(render(desk), end="")
-        if _is_monday(now):
-            print("\n----- The Monday note -----\n")
-            print(monday_note(desk, now), end="")
+        print("\n----- The week's note, posted with the week's first run -----\n")
+        print(week_note(desk, now), end="")
         return 0
     post(GhIssues(args.repo), desk, now)
     return 0

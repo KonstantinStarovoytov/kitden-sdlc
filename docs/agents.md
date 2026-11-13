@@ -23,7 +23,8 @@ what waits for the owner ([desk.py](../scripts/desk.py)). It saves them as `desk
 `numbers` branch, next to the public page
 [numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md). A
 second job, only with `AGENTS_ENABLED` on, shows `desk.json` as the pinned issue "Kitden desk" and
-adds one comment on Monday. What the owner does about each line is in [owner.md](owner.md).
+adds one comment with the week's first run. Started by hand from another branch, the desk
+neither commits nor posts. What the owner does about each line is in [owner.md](owner.md).
 
 A light is the worst thing the read facts prove: bad news that was read always wins, and grey
 means something was not read and nothing bad was found. A red or amber light also says what it

@@ -114,6 +114,16 @@ def test_the_desk_posts_after_the_numbers_as_the_review_app_on_kitden_only():
     assert checkouts and all("ref" not in (s.get("with") or {}) for s in checkouts)
 
 
+def test_the_desk_posts_and_pushes_only_from_main():
+    # Started by hand from another branch, it would post as Lantern and push to `numbers`
+    # with that branch's scripts.
+    doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
+    main = "github.ref == 'refs/heads/main'"
+    assert main in doc["jobs"]["post"]["if"]
+    commit = next(s for s in doc["jobs"]["measure"]["steps"] if "git push" in str(s.get("run")))
+    assert commit["if"] == main
+
+
 def test_the_desk_reads_the_reviews_once_and_writes_every_file_in_one_step():
     doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
     steps = doc["jobs"]["measure"]["steps"]
