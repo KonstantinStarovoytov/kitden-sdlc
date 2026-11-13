@@ -23,9 +23,11 @@ on:
       model:
         type: string
         required: true
+      # The first run with the new prompt ended well on turn 41 of 40 (2026-11-13): the agent
+      # now also reads Kitden's tests and may write the guide and the plugin README.
       max_turns:
         type: number
-        default: 40
+        default: 60
       # auto (or empty): the agent picks the next minor or patch. minor or patch: that one.
       # An exact X.Y.Z still works when it is one of the two.
       version:
