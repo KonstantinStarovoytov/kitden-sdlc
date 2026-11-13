@@ -229,14 +229,17 @@ def _git(root: Path, *args: str) -> str:
 
 
 def is_stale(root: Path, picture: Path) -> bool:
-    """True when `picture` was last committed before the last change to the code that draws
-    it (STALE_PATHS), or was never committed."""
+    """True when the code that draws `picture` (STALE_PATHS) changed on this branch after the
+    picture last arrived on it, or when the picture was never committed. Only the branch's own
+    line counts (--first-parent): the merge that brings a picture is the moment it arrived, so
+    that merge, and work merged before it, do not make the picture stale."""
     with contextlib.suppress(ValueError):
         picture = picture.relative_to(root)
-    last = _git(root, "log", "-1", "--format=%H", "--", str(picture))
+    last = _git(root, "log", "--first-parent", "-1", "--format=%H", "--", str(picture))
     if not last:
         return True
-    return bool(_git(root, "log", "--format=%H", f"{last}..HEAD", "--", *STALE_PATHS))
+    later = _git(root, "log", "--first-parent", "--format=%H", f"{last}..HEAD", "--", *STALE_PATHS)
+    return bool(later)
 
 
 def apply_images(

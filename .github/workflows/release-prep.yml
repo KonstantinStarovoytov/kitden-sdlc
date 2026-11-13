@@ -284,7 +284,9 @@ jobs:
                style. The texts in listing.toml must stay within the limits in
                platform-rules.md. When the release changes what `kitden show` reads or
                runs, write the whole plugin README to out/plugin/README.md, edited so that
-               its "What it reads" part says no less than PRIVACY.md. Then add a `## Policy` part to out/findings.md: each edit,
+               its "What it reads" part says no less than PRIVACY.md. When PRIVACY.md does not
+               name something Kitden now reads, sends or keeps, add it yourself: never leave
+               it to the owner as a note. Then add a `## Policy` part to out/findings.md: each edit,
                the pull request that needs it, and why. Write "No policy changes." when there
                is none.
             4. Platforms. Check this release's changes, out/README.md and listing.toml (or
