@@ -39,6 +39,12 @@ jobs:
     uses: {REVIEW}@SHA
 """
 
+HOSTS_STEP = (
+    "      - uses: step-security/harden-runner@SHA\n"
+    "        with:\n"
+    "          egress-policy: audit\n"
+)
+
 CLEAN_MODEL = """
 on:
   pull_request:
@@ -53,7 +59,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: anthropics/claude-code-action@SHA
+""" + HOSTS_STEP + """      - uses: anthropics/claude-code-action@SHA
         with:
           claude_args: --max-turns 5
 """
@@ -123,24 +129,23 @@ def test_other_repo_at_main_is_rule_4():
 
 def test_local_action_is_allowed():
     text = CLEAN_MODEL.replace(
-        "    steps:\n",
-        "    steps:\n      - uses: ./.github/actions/post\n",
+        HOSTS_STEP, HOSTS_STEP + "      - uses: ./.github/actions/post\n"
     )
     assert run(text) == []
 
 
 def test_marketplace_without_ref_is_rule_4():
     text = CLEAN_MODEL.replace(
-        "        with:\n",
-        "        with:\n          plugin_marketplaces: https://example.com/m.git\n",
+        "          claude_args: --max-turns 5\n",
+        "          claude_args: --max-turns 5\n          plugin_marketplaces: https://example.com/m.git\n",
     )
     assert any("rule 4" in v for v in run(text))
 
 
 def test_marketplace_with_tag_passes():
     text = CLEAN_MODEL.replace(
-        "        with:\n",
-        "        with:\n          plugin_marketplaces: https://example.com/m.git#v1.2.0\n",
+        "          claude_args: --max-turns 5\n",
+        "          claude_args: --max-turns 5\n          plugin_marketplaces: https://example.com/m.git#v1.2.0\n",
     )
     assert run(text) == []
 
@@ -250,7 +255,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Judge
+""" + HOSTS_STEP + """      - name: Judge
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MAX_MODEL_CALLS: "60"
@@ -283,8 +288,8 @@ def test_script_agent_is_an_agent_workflow():
 
 def test_script_agent_with_write_is_rule_1():
     text = CLEAN_SCHEDULED.replace(
-        "      contents: read\n    steps:\n      - name: Judge",
-        "      contents: write\n    steps:\n      - name: Judge",
+        "      contents: read\n    steps:\n" + HOSTS_STEP + "      - name: Judge",
+        "      contents: write\n    steps:\n" + HOSTS_STEP + "      - name: Judge",
     )
     assert any("rule 1" in v for v in run(text))
 
@@ -309,8 +314,8 @@ def test_script_agent_without_max_model_calls_is_rule_5():
 def test_script_agent_without_timeout_is_rule_5():
     text = CLEAN_SCHEDULED.replace(
         "    timeout-minutes: 15\n    permissions:\n      contents: read\n    steps:\n"
-        "      - name: Judge",
-        "    permissions:\n      contents: read\n    steps:\n      - name: Judge",
+        + HOSTS_STEP,
+        "    permissions:\n      contents: read\n    steps:\n" + HOSTS_STEP,
     )
     assert any("rule 5" in v for v in run(text))
 
@@ -451,3 +456,21 @@ def test_debug_env_is_rule_10_at_every_level():
     )
     for text in (top, job, step):
         assert any("rule 10" in v for v in run(text))
+
+
+def test_model_job_without_the_hosts_step_is_rule_9():
+    text = CLEAN_MODEL.replace(HOSTS_STEP, "")
+    assert any("rule 9" in v and "review" in v for v in run(text))
+
+
+def test_hosts_step_must_come_first_and_name_a_policy():
+    moved = CLEAN_MODEL.replace(HOSTS_STEP, "      - run: echo first\n" + HOSTS_STEP)
+    assert any("rule 9" in v for v in run(moved))
+    unnamed = CLEAN_MODEL.replace("        with:\n          egress-policy: audit\n", "", 1)
+    assert any("rule 9" in v for v in run(unnamed))
+
+
+def test_script_agent_job_needs_the_hosts_step_and_other_jobs_do_not():
+    text = CLEAN_SCHEDULED.replace(HOSTS_STEP, "")
+    found = [v for v in run(text) if "rule 9" in v]
+    assert len(found) == 1 and "judge" in found[0]

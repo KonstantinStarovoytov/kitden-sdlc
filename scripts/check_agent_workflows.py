@@ -19,6 +19,9 @@ OWN_MAIN = re.compile(r"^KonstantinStarovoytov/kitden-sdlc/\.github/workflows/[\
 MODEL_SECRET = re.compile(
     r"secrets\.(openai_api_key|claude_code_oauth_token|anthropic_api_key)", re.I
 )
+# Rule 9: a model job starts with a step that records where the job connects.
+HOSTS_ACTION = "step-security/harden-runner"
+EGRESS_POLICIES = ("audit", "block")
 SCHEDULED_EVENTS = {"schedule", "workflow_dispatch"}
 # Rule 10: a model step never prints its full output or debug logs.
 DEBUG_INPUTS = ("show_full_output", "display_report")
@@ -161,6 +164,19 @@ def _debug_violations(doc: dict) -> list[tuple[int, str]]:
     return found
 
 
+def _hosts_violation(job: dict) -> str | None:
+    """Rule 9: the first step is the hosts step, and it writes its policy out."""
+    steps = job.get("steps") or []
+    first = steps[0] if steps and isinstance(steps[0], dict) else {}
+    if not str(first.get("uses", "")).startswith(HOSTS_ACTION):
+        return f"the first step must be {HOSTS_ACTION}"
+    inputs = first.get("with")
+    policy = inputs.get("egress-policy") if isinstance(inputs, dict) else None
+    if str(policy) not in EGRESS_POLICIES:
+        return f"{HOSTS_ACTION} must set egress-policy to {' or '.join(EGRESS_POLICIES)}"
+    return None
+
+
 def check_workflow(doc: dict, path: str) -> list[str]:
     if not isinstance(doc, dict):
         return []
@@ -232,6 +248,13 @@ def check_workflow(doc: dict, path: str) -> list[str]:
         found.append((5, "concurrency with cancel-in-progress: true is missing"))
     if script_jobs and not isinstance(doc.get("concurrency"), dict | str):
         found.append((5, "a scheduled agent needs a top-level concurrency, one run at a time"))
+
+    # Rule 9: every job that runs a model records where it connects.
+    for name, job in jobs.items():
+        if _has_model_step(job) or name in script_jobs:
+            problem = _hosts_violation(job)
+            if problem:
+                found.append((9, f"job {name}: {problem}"))
 
     # Rule 10: no full output or debug logs.
     found += _debug_violations(doc)

@@ -207,6 +207,12 @@ jobs:
     permissions:
       contents: read # check out Kitden
     steps:
+      # Records every host this job connects to (rule 9). After a week of records the list
+      # becomes a limit.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       # Without these two the checkout below would fall back to Kitden's code.
       - name: Make sure this workflow knows its own commit
         env:
@@ -506,6 +512,11 @@ jobs:
     permissions:
       contents: read # check out Kitden
     steps:
+      # Records every host this job connects to (rule 9), as in agent.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - name: Make sure this workflow knows its own commit
         env:
           WORKFLOW_REPO: ${{ job.workflow_repository }}

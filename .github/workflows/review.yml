@@ -71,6 +71,12 @@ jobs:
       contents: read # check out the code
       pull-requests: read # read the diff and the description
     steps:
+      # Records every host this job connects to (rule 9). After a week of records the list
+      # becomes a limit.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       # Without these two the checkout below would fall back to the pull request's code.
       - name: Make sure this workflow knows its own commit
         env:
@@ -146,6 +152,12 @@ jobs:
       contents: read # check out the code
       pull-requests: read # read the diff and the description
     steps:
+      # Records every host this job connects to (rule 9). After a week of records the list
+      # becomes a limit.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       # Without these two the checkout below would fall back to the pull request's code.
       - name: Make sure this workflow knows its own commit
         env:
