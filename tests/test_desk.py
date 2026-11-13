@@ -286,10 +286,13 @@ def run_on(date, pieces=5, judged=5):
 
 
 def test_the_watch_log_goes_grey_past_2_days():
-    midnight = datetime(2026, 11, 16, tzinfo=UTC)
+    # A run logged on 11-14 may have run at 23:59 that day: until 11-17 00:00 it may lie
+    # within the last 2 days, so "no run in the last 2 days" would not be true.
+    midnight = datetime(2026, 11, 17, tzinfo=UTC)
     assert light_clients([], [run_on("2026-11-14")], midnight)["state"] == "green"
-    assert light_clients([], [run_on("2026-11-14")], midnight + timedelta(minutes=1))[
-        "state"] == "grey"
+    late = light_clients([], [run_on("2026-11-14")], midnight + timedelta(minutes=1))
+    assert late["state"] == "grey" and "no run in the last 2 days" in late["why"]
+    assert light_clients([], [run_on("2026-11-14")], NOW)["state"] == "green"
     newest = [run_on("2026-11-16"), run_on("2026-11-01")]
     assert light_clients([], newest, NOW)["state"] == "green"
     assert light_clients([], [], NOW)["state"] == "grey"
@@ -768,3 +771,43 @@ def test_build_lights_agents_from_the_weeks_failed_runs():
     assert agents["state"] == "amber" and "Claude reviewer failed 4 of its 6 runs" in agents["why"]
     desk = build(FACTS, ROSTER, NOW)
     assert desk["lights"][3]["state"] == "green" and desk["week"][0]["failed"] == 1
+
+
+# --- What was not read is said beside bad news ---
+
+
+def test_bad_news_says_what_was_also_not_measured():
+    red = light_works([check("lint", "failure"), *BUILDS], None)
+    assert red["why"] == ("On main, lint failed. Also not measured: main's rules were not "
+                          "read.")
+    stale = [{"date": "2026-11-10", "pieces": 5, "judged": 5}]
+    late = light_clients([bot(5, labels=MAJOR, created=ago(8))], stale, NOW)
+    assert late["state"] == "red"
+    assert late["why"].endswith(" Also not measured: the watcher logged no run in the last 2 "
+                                "days.")
+    paused = bot(7, "The client watcher is paused", labels=("automated", "desk"))
+    amber = light_agents([paused], None, NOW)
+    assert amber["why"] == ("Issue #7 says an agent is paused. Also not measured: main's rules "
+                            "were not read.")
+    queue = light_queue([{"days": 8.0}], complete=False)
+    assert queue["why"].endswith("Also not measured: not all of what could wait for you was "
+                                 "read.")
+
+
+def test_bad_news_with_everything_read_says_nothing_more():
+    red = light_works([check("build (ubuntu-latest)", "failure")], REQUIRED)
+    assert "Also" not in red["why"]
+    assert "Also" not in light_clients([bot(5, labels=MAJOR, created=ago(8))], FRESH, NOW)["why"]
+    assert "Also" not in light_queue([{"days": 8.0}])["why"]
+    assert "Also" not in light_works([], ["build"])["why"]
+
+
+def test_a_light_that_names_an_issue_carries_its_address():
+    late = bot(5, labels=MAJOR, created=ago(8))
+    assert light_clients([late], FRESH, NOW)["url"] == late["html_url"]
+    assert light_bugs([{**late, "created_at": ago(15)}], NOW)["url"] == late["html_url"]
+    paused = bot(7, "The client watcher is paused", labels=("automated", "desk"))
+    assert light_agents([paused], [], NOW)["url"] == paused["html_url"]
+    assert "url" not in light_works(BUILDS, REQUIRED) and "url" not in light_queue([])
+    stale = light_clients([late], None, NOW)
+    assert stale["url"] == late["html_url"] and "Also not measured" in stale["why"]

@@ -26,8 +26,9 @@ second job, only with `AGENTS_ENABLED` on, shows `desk.json` as the pinned issue
 adds one comment on Monday. What the owner does about each line is in [owner.md](owner.md).
 
 A light is the worst thing the read facts prove: bad news that was read always wins, and grey
-means something was not read and nothing bad was found. The overall light is the worst of the
-five, red first, then amber, grey and green.
+means something was not read and nothing bad was found. A red or amber light also says what it
+could not read, and links the issue it names. The overall light is the worst of the five, red
+first, then amber, grey and green.
 
 Works judges the newest run of each check on `main`'s newest commit, among the checks that
 the push to `main` started. A check `main` requires counts whatever started it, and so does a

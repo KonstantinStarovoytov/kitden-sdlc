@@ -6,6 +6,7 @@ import pytest
 import desk_post
 from bot_issues import BOT
 from desk_post import LIMIT, TITLE, main, monday_note, post, render
+from post_findings import one_line
 from tests.fakes import FakeIssues, issue
 
 URL = "https://github.com/KonstantinStarovoytov/kitden/issues/12"
@@ -345,3 +346,13 @@ def test_all_grey_does_not_say_all_is_well():
     lights = [{"id": "works", "name": "Works", "state": "grey", "why": ""}]
     body = render({**DESK, "overall": "grey", "lights": lights})
     assert "is well" not in body and "none is amber or red" in body
+
+
+def test_a_lights_address_is_linked_when_it_is_on_github():
+    light = {"id": "clients", "name": "Clients", "state": "red", "url": URL,
+             "why": "Issue #12 (a confirmed major client change) has been open 8.0 days."}
+    body = render({**DESK, "lights": [light]})
+    assert f"- 🔴 Clients: [{one_line(light['why'])}]({URL})" in body
+    for url in ("http://evil.example/x", "https://github.com/x) [y](http://evil"):
+        body = render({**DESK, "lights": [{**light, "url": url}], "waiting": [], "misses": []})
+        assert "evil" not in body and "- 🔴 Clients: Issue &#35;12" in body

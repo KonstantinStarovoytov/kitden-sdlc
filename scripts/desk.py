@@ -130,8 +130,10 @@ def _oldest(issues: list[dict]) -> dict | None:
 # --- The lights ---
 
 
-def _light(light_id: str, state: str, why: str = "") -> dict:
-    return {"id": light_id, "name": light_id.capitalize(), "state": state, "why": why}
+def _light(light_id: str, state: str, why: str = "", url: str = "") -> dict:
+    """A light; `url` is the address of the issue or pull request its `why` names."""
+    light = {"id": light_id, "name": light_id.capitalize(), "state": state, "why": why}
+    return {**light, "url": url} if url else light
 
 
 def _worst(*lights: dict | None) -> dict | None:
@@ -140,14 +142,19 @@ def _worst(*lights: dict | None) -> dict | None:
     return min(given, key=lambda light: ORDER.index(light["state"]), default=None)
 
 
-def _settle(light_id: str, found: list[dict | None], missing: str = "") -> dict:
-    """The worst light the read facts prove; else grey when `missing` names a fact that was not
-    read and could have shown something bad; else green."""
+def _settle(light_id: str, found: list[dict | None], missing: str = "",
+            unproven: str = "") -> dict:
+    """The worst light the read facts prove, its `why` ending with what `missing` names; else
+    grey when `missing` names a fact that was not read and could have shown something bad,
+    or `unproven` says why nothing read shows good news; else green."""
     worst = _worst(*found)
     if worst:
+        if missing:
+            return {**worst, "why": f"{worst['why']} Also not measured: {missing}"}
         return worst
-    if missing:
-        return _light(light_id, "grey", f"Not measured yet: {missing}")
+    reason = " ".join(filter(None, [unproven, missing]))
+    if reason:
+        return _light(light_id, "grey", f"Not measured yet: {reason}")
     return _light(light_id, "green")
 
 
@@ -158,7 +165,8 @@ def _limits(light_id: str, item: dict | None, now: datetime, amber: float, red: 
         return None
     state = "red" if _age(item["created_at"], now) > red else "amber"
     days = _days(item["created_at"], now)
-    return _light(light_id, state, f"Issue #{item['number']} {what} has been open {days} days.")
+    return _light(light_id, state, f"Issue #{item['number']} {what} has been open {days} days.",
+                  item.get("html_url") or "")
 
 
 def _checks_named(checks: list[dict], test) -> list[str]:
@@ -229,8 +237,8 @@ def light_works(checks: list[dict] | None, required: list[str] | None = None,
         if required:
             found = _light("works", "amber", f"{', '.join(required)} {_verb(required)} not run "
                                              "on main's newest commit.")
-        return _settle("works", [found],
-                       " ".join(["no check has run on main's newest commit.", *missing]))
+        return _settle("works", [found], " ".join(missing),
+                       "no check has run on main's newest commit.")
     judged = _judged(checks, required)
     done = [c for c in judged if c.get("status") == "completed"]
     failed = _checks_named(done, lambda c: c.get("conclusion") in RED_ENDINGS)
@@ -245,9 +253,8 @@ def light_works(checks: list[dict] | None, required: list[str] | None = None,
         if odd else None,
         _not_passed(required, passed),
     ]
-    if not passed:
-        missing.insert(0, "no check on main's newest commit passed.")
-    return _settle("works", found, " ".join(missing))
+    unproven = "" if passed else "no check on main's newest commit passed."
+    return _settle("works", found, " ".join(missing), unproven)
 
 
 def _log_day(line: dict) -> datetime | None:
@@ -268,13 +275,14 @@ def _measured(line: dict) -> bool:
 
 
 def _watch_log_age(watch_log: list[dict] | None, now: datetime) -> float | None:
-    """Days since the start of the day of the watcher's newest run that measured something;
-    None without one. A line dated after `now` is not believed."""
+    """Days since the end of the day of the watcher's newest run that measured something: the
+    run may have been as late as that, so an age above WATCH_LOG_DAYS proves no run in the
+    last WATCH_LOG_DAYS days. None without one. A line dated after `now` is not believed."""
     lines = [line for line in watch_log or [] if isinstance(line, dict) and _measured(line)]
     days = [day for day in map(_log_day, lines) if day and day <= now]
     if not days:
         return None
-    return (now - max(days)).total_seconds() / 86400
+    return (now - max(days) - timedelta(days=1)).total_seconds() / 86400
 
 
 def light_clients(issues: list[dict] | None, watch_log: list[dict] | None, now: datetime) -> dict:
@@ -344,7 +352,8 @@ def _paused_agent(issues: list[dict]) -> dict | None:
     paused = _oldest(_pauses(issues))
     if paused is None:
         return None
-    return _light("agents", "amber", f"Issue #{paused['number']} says an agent is paused.")
+    return _light("agents", "amber", f"Issue #{paused['number']} says an agent is paused.",
+                  paused.get("html_url") or "")
 
 
 def _and(items: list[str]) -> str:

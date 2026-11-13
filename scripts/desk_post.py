@@ -161,7 +161,7 @@ def _light(light: dict) -> str:
         return f"- ⚪ {name}: {NOT_MEASURED_YET}" + (f": {why}" if why else ".")
     if state == "green" or not why:
         return f"- {MARKS[state]} {name}"
-    return f"- {MARKS[state]} {name}: {why}"
+    return f"- {MARKS[state]} {name}: {_link(why, light.get('url'))}"
 
 
 def _use(use: dict) -> str:
