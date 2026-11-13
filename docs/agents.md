@@ -65,10 +65,10 @@ The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WAT
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
-Every issue starts with one line: an automated check opened it, which model wrote it, and that
-a maintainer checks it before anyone works on it (with a link to Kitden's AI policy). Then the
-same sections each time: what changed, what it means for Kitden (type and severity in plain
-words), why, where in Kitden, scale, how sure, and what a maintainer does with it: put
+Every finding issue starts with one line: an automated check opened it, which model wrote it,
+and that a maintainer checks it before anyone works on it (with a link to Kitden's AI policy).
+Then the same sections each time: what changed, what it means for Kitden (type and severity in
+plain words), why, where in Kitden, scale, how sure, and what a maintainer does with it: put
 `confirmed` on it if it is right (it stays open until the problem is fixed), or close it with
 `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
 contributor works on a false alarm.
@@ -97,8 +97,9 @@ issue, and it may report the same finding again.
 When more than half of its last 10 issues with a verdict are `false-alarm`, the watcher opens
 one issue, "The client watcher is paused", with the labels `automated` and `desk`, and opens
 nothing else while that issue is open. What it finds in that time waits for its first summary
-after the pause. The owner lifts the pause by closing that issue, and the count starts again
-from the issues opened after that.
+after the pause. The owner lifts the pause by closing that issue as it is, not renamed and
+with `automated` still on it: the watcher finds it by its author, that label and its title.
+The count starts again from the issues opened after that.
 
 ## The release flow
 

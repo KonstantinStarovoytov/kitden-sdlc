@@ -151,6 +151,10 @@ about also goes to the top of the summary, marked as such (call).
 **The weekly summary** is one issue in the first run of the week, normally Monday, with
 everything else kept since the last one, the gravest first. No items means no issue.
 
+**The pause issue**, "The client watcher is paused", is opened by a script, not a model, when
+more than half of the watcher's last 10 issues with a verdict are `false-alarm`; while it is
+open the watcher opens nothing, and the owner closes it to lift the pause (docs/agents.md).
+
 Each item, in an urgent issue or as a short block in the summary:
 
 - **What changed**: the client, from which version, a link to the source.
@@ -165,8 +169,8 @@ Each item, in an urgent issue or as a short block in the summary:
 Issues are in plain English, like the rest of the repository (call). The first line says the
 issue is automated and which model wrote it (rule 8).
 
-Labels, each with a description on GitHub and one table in the README of `kitden-sdlc`; the
-post job creates a missing label from `LABELS` in `scripts/bot_issues.py` (call):
+Labels, each with a description on GitHub and one table in `docs/agents.md`; the post job
+creates a missing label from `LABELS` in `scripts/bot_issues.py` (call):
 
 | Label | Meaning |
 |---|---|

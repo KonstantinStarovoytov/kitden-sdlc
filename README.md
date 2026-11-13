@@ -38,12 +38,12 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 |---|---|---|---|
 | A pull request to `main` | Claude and Luna review it; Lantern posts one "Agent review" comment | read it; merging is yours | a comment |
 | A pull request changes a workflow | zizmor, actionlint, the rule checker | fix a red check | a red check |
-| Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | put `confirmed` on each issue that is right (it stays open until fixed), or close it with `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday |
+| Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | put `confirmed` on each issue that is right (it stays open until fixed), or close it with `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday; or one issue "The client watcher is paused": close it to lift the pause |
 | Every day, 06:23 UTC | the release watch, no model | run Release prep (the issue links to it), or re-run what it names | "Time for a release?", "Release vX.Y.Z is not everywhere" |
 | Every Monday, 06:00 UTC | the weekly numbers, no model | nothing | nothing |
 
 Bots never write `@name`. Every issue a bot opens has the label `automated` and one label that
-says which bot: `client-change` or `release`.
+says where it comes from: `client-change`, `release` or `desk`.
 
 ### Review
 
