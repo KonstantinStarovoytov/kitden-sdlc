@@ -57,13 +57,13 @@ def review(pr, counts, fixed=0, up=0, down=0, merged=None, updated=ONE_DAY_AGO):
 
 OK = {"name": "build", "status": "completed", "conclusion": "success"}
 MAJOR = ("automated", "client-change", "major", "confirmed")
-FRESH = [{"date": "2026-11-16"}]
+FRESH = [{"date": "2026-11-16", "pieces": 5, "judged": 5}]  # ruling 3: a run that judged
 FACTS = Facts(
     issues=[bot(1, labels=MAJOR, created=ago(2)), person(2, labels=("bug",), created=ago(3))],
     pulls=[pull(79, branch="prepare-v0.9.0", login="kitden-beacon[bot]")],
     reviews=[review(70, counts(0, 0), merged="2026-11-12T10:00:00Z")],
     checks=[OK],
-    required=["build (ubuntu-latest)"],
+    required=["build"],
     runs={"claude": 12, "luna": 12, "watcher": 7, "release-prep": 1},
     watch_log=FRESH,
     stars=12,
@@ -237,17 +237,33 @@ def test_clients_turn_amber_past_3_5_days_and_red_past_7():
         "green", "amber", "amber", "red"]
 
 
+def run_on(date, pieces=5, judged=5):
+    return {"date": date, "pieces": pieces, "judged": judged, "failed": pieces - judged}
+
+
 def test_the_watch_log_goes_grey_past_2_days():
     midnight = datetime(2026, 11, 16, tzinfo=UTC)
-    assert light_clients([], [{"date": "2026-11-14"}], midnight)["state"] == "green"
-    assert light_clients([], [{"date": "2026-11-14"}], midnight + timedelta(minutes=1))[
+    assert light_clients([], [run_on("2026-11-14")], midnight)["state"] == "green"
+    assert light_clients([], [run_on("2026-11-14")], midnight + timedelta(minutes=1))[
         "state"] == "grey"
-    newest = [{"date": "2026-11-16"}, {"date": "2026-11-01"}]
+    newest = [run_on("2026-11-16"), run_on("2026-11-01")]
     assert light_clients([], newest, NOW)["state"] == "green"
     assert light_clients([], [], NOW)["state"] == "grey"
-    assert light_clients([], [{"pieces": 3}], NOW)["state"] == "grey"
-    assert light_clients([], [{"date": "2026-11-13"}, {"date": "2099-01-01"}], NOW)[
+    assert light_clients([], [{"pieces": 3, "judged": 3}], NOW)["state"] == "grey"
+    assert light_clients([], [run_on("2026-11-13"), run_on("2099-01-01")], NOW)[
         "state"] == "grey"
+
+
+def test_a_watcher_run_that_judged_nothing_is_not_a_measurement():
+    assert light_clients([], [run_on("2026-11-16", judged=0)], NOW)["state"] == "grey"
+    assert light_clients([], [run_on("2026-11-16", pieces=0, judged=0)], NOW)["state"] == "green"
+    assert light_clients([], [run_on("2026-11-16", judged=1)], NOW)["state"] == "green"
+    assert light_clients([], [{"date": "2026-11-16"}], NOW)["state"] == "grey"
+    assert light_clients([], [{"date": "2026-11-16", "pieces": "0"}], NOW)["state"] == "grey"
+    fell = [run_on("2026-11-16", judged=0), run_on("2026-11-15")]
+    assert light_clients([], fell, NOW)["state"] == "green"
+    fell = [run_on("2026-11-16", judged=0), run_on("2026-11-12")]
+    assert light_clients([], fell, NOW)["state"] == "grey"
 
 
 def test_bugs_turn_amber_past_7_days_and_red_past_14():
@@ -298,6 +314,29 @@ def test_agents_count_only_this_iso_weeks_findings_by_the_bot():
 def test_a_closed_pause_does_not_light_agents():
     paused = bot(7, "The client watcher is paused", labels=("automated", "desk"), state="closed")
     assert light_agents([paused], [], NOW)["state"] == "green"
+
+
+def test_a_required_check_must_have_passed_on_mains_newest_commit():
+    assert light_works([OK], ["build"])["state"] == "green"
+    missing = light_works([OK], ["build", "lint"])
+    assert missing["state"] == "amber"
+    assert missing["why"] == "lint has not passed on main's newest commit."
+    skipped = {**OK, "name": "lint", "conclusion": "skipped"}
+    assert light_works([OK, skipped], ["lint"])["state"] == "amber"
+    failed = {**OK, "name": "test", "conclusion": "failure"}
+    assert light_works([OK, failed], ["lint"])["state"] == "red"
+    assert light_works([OK], None)["state"] == light_works([OK], [])["state"] == "green"
+    facts = Facts(checks=[OK], required=["lint"])
+    assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "amber"
+
+
+def test_works_without_a_passed_check_is_grey():
+    skipped, neutral = {**OK, "conclusion": "skipped"}, {**OK, "conclusion": "neutral"}
+    assert light_works([skipped])["state"] == "grey"
+    assert light_works([skipped, neutral])["state"] == "grey"
+    assert light_works([skipped, {**OK, "status": "queued", "conclusion": None}])[
+        "state"] == "amber"
+    assert light_works([skipped, {**OK, "conclusion": "failure"}])["state"] == "red"
 
 
 def test_a_check_with_an_unknown_ending_is_not_green():

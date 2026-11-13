@@ -149,19 +149,39 @@ def _limits(light_id: str, item: dict | None, now: datetime, amber: float, red: 
     return _light(light_id, state, f"Issue #{item['number']} {what} has been open {days} days.")
 
 
-def light_works(checks: list[dict] | None) -> dict:
+def _checks_named(checks: list[dict], test) -> list[str]:
+    return sorted({c["name"] for c in checks if test(c)})
+
+
+def _not_passed(required: list[str] | None, passed: list[str]) -> dict | None:
+    """Amber when a check main requires is missing on the commit or did not succeed."""
+    left = sorted(set(required or ()) - set(passed))
+    if not left:
+        return None
+    verb = "has" if len(left) == 1 else "have"
+    return _light("works", "amber",
+                  f"{', '.join(left)} {verb} not passed on main's newest commit.")
+
+
+def light_works(checks: list[dict] | None, required: list[str] | None = None) -> dict:
+    """Main's newest commit. `required` None checks nothing more: the Agents light greys."""
     if not checks:
         return _light("works", "grey", "Not measured yet: no check run of main was read.")
-    failed = sorted({c["name"] for c in checks if c.get("conclusion") in RED_ENDINGS})
-    if failed:
-        return _light("works", "red", f"On main, {', '.join(failed)} failed.")
-    running = sorted({c["name"] for c in checks if c.get("status") != "completed"})
-    if running:
-        return _light("works", "amber", f"On main, {', '.join(running)} has not finished.")
-    odd = sorted({c["name"] for c in checks if c.get("conclusion") not in GOOD_ENDINGS})
-    if odd:
-        return _light("works", "amber", f"On main, {', '.join(odd)} ended neither well nor badly.")
-    return _light("works", "green")
+    done = [c for c in checks if c.get("status") == "completed"]
+    failed = _checks_named(done, lambda c: c.get("conclusion") in RED_ENDINGS)
+    running = _checks_named(checks, lambda c: c.get("status") != "completed")
+    odd = _checks_named(done, lambda c: c.get("conclusion") not in GOOD_ENDINGS + RED_ENDINGS)
+    passed = _checks_named(done, lambda c: c.get("conclusion") == "success")
+    found = [
+        _light("works", "red", f"On main, {', '.join(failed)} failed.") if failed else None,
+        _light("works", "amber", f"On main, {', '.join(running)} has not finished.")
+        if running else None,
+        _light("works", "amber", f"On main, {', '.join(odd)} ended neither well nor badly.")
+        if odd else None,
+        _not_passed(required, passed),
+    ]
+    missing = "" if passed else "no check on main's newest commit passed."
+    return _settle("works", found, missing)
 
 
 def _log_day(line: dict) -> datetime | None:
@@ -172,10 +192,20 @@ def _log_day(line: dict) -> datetime | None:
         return None
 
 
+def _measured(line: dict) -> bool:
+    """A run that read something: nothing new to read (`pieces` 0), or `judged` above 0.
+    A run whose every model call failed still writes a line; it measured nothing."""
+    def number(key):
+        value = line.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+    return number("pieces") == 0 or (number("judged") or 0) > 0
+
+
 def _watch_log_age(watch_log: list[dict] | None, now: datetime) -> float | None:
-    """Days since the start of the day of the watcher's newest log line; None without one.
-    A line dated after `now` is not believed."""
-    days = [day for day in map(_log_day, watch_log or []) if day and day <= now]
+    """Days since the start of the day of the watcher's newest run that measured something;
+    None without one. A line dated after `now` is not believed."""
+    lines = [line for line in watch_log or [] if isinstance(line, dict) and _measured(line)]
+    days = [day for day in map(_log_day, lines) if day and day <= now]
     if not days:
         return None
     return (now - max(days)).total_seconds() / 86400
@@ -449,7 +479,7 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
     """desk.json, version 1."""
     wait = waiting(facts.issues, facts.pulls, facts.reviews, now)
     lights = [
-        light_works(facts.checks),
+        light_works(facts.checks, facts.required),
         light_clients(facts.issues, facts.watch_log, now),
         light_bugs(facts.issues, now),
         light_agents(facts.issues, facts.required, now),
