@@ -41,6 +41,17 @@ def runs_address(repo, workflow):
 REVIEW = (
     "Text.\n\n<!-- kitden-sdlc:review claude=0 luna=0 both=0 -->"
 )
+SHA = "12a94bced323dc0f70d6e4b39f7d46c04282deaa"
+CHECKS = f"repos/{REPO}/commits/main/check-runs?per_page=100"
+HEAD_RUNS = f"repos/{REPO}/actions/runs?head_sha={SHA}&per_page=100"
+
+
+def check_run(name, run_id, conclusion="success", started="2026-11-13T21:46:00Z"):
+    """A check run as GitHub gives it, with the fields the desk reads."""
+    url = f"https://github.com/{REPO}/actions/runs/{run_id}/job/132189677309"
+    return {"id": run_id * 10, "name": name, "status": "completed", "conclusion": conclusion,
+            "started_at": started, "head_sha": SHA, "details_url": url, "html_url": url,
+            "app": {"slug": "github-actions"}}
 # What GitHub answers, by address. The pulls lists are kept apart: see FakeApi.list_pulls.
 ANSWERS = {
     f"repos/{REPO}/issues?state=all&per_page=100": [
@@ -52,11 +63,16 @@ ANSWERS = {
         pull(5, ago(200), created=ago(210)),  # open and left alone for months
         pull(6, ago(2), title="open now"),
     ],
-    f"repos/{REPO}/commits/main/check-runs?per_page=100": {
-        "total_count": 1,
-        "check_runs": [{"name": "build (ubuntu-latest)", "status": "completed",
-                        "conclusion": "success"}],
+    CHECKS: {
+        "total_count": 2,
+        "check_runs": [check_run("prepare / agent", 43513690445, "failure"),
+                       check_run("build (ubuntu-latest)", 43513577178)],
     },
+    HEAD_RUNS: {"total_count": 2, "workflow_runs": [
+        {"id": 43513690445, "name": "Release prep", "event": "workflow_dispatch",
+         "head_sha": SHA},
+        {"id": 43513577178, "name": "Checks and release", "event": "push", "head_sha": SHA},
+    ]},
     f"repos/{REPO}/branches/main": {
         "name": "main",
         "protection": {"required_status_checks": {"contexts": ["build (ubuntu-latest)"]}},
@@ -129,7 +145,7 @@ def test_gather_reads_every_fact(tmp_path):
     facts = read(log=log)
     assert [i["number"] for i in facts.issues] == [1, 3] and facts.issues[0]["title"] == "a bug"
     assert facts.required == ["build (ubuntu-latest)"] and facts.stars == 12
-    assert facts.checks[0]["name"] == "build (ubuntu-latest)"
+    assert [c["name"] for c in facts.checks] == ["prepare / agent", "build (ubuntu-latest)"]
     assert facts.runs == {"claude": 3, "luna": 3, "watcher": 7, "release-prep": 0}
     assert facts.watch_log[-1]["date"] == "2026-11-16" and len(facts.watch_log) == 2
     assert facts.downloads == 340
@@ -202,9 +218,29 @@ def test_required_is_the_union_of_both_in_a_stable_order():
 
 
 def test_required_is_empty_when_both_read_and_none_is_required():
-    bare = {"protection": {"enabled": False, "required_status_checks": None}}
+    # What GitHub gives for a branch without protection (kitden-sdlc's `numbers`, 2026-11-13).
+    bare = {"protected": False, "protection": {"enabled": False, "required_status_checks": {
+        "checks": [], "contexts": [], "enforcement_level": "off"}}}
     assert read(**{CLASSIC: {"name": "main"}, RULES: []}).required == []
-    assert read(**{CLASSIC: bare, RULES: [{"type": "deletion"}]}).required == []
+    facts = read(**{CLASSIC: bare, RULES: [{"type": "deletion"}]})
+    assert facts.required == [] and facts.required_partial is False
+    for missing in ({"protection": {}}, {"protection": {"required_status_checks": {}}}):
+        facts = read(**{CLASSIC: missing, RULES: []})
+        assert facts.required == [] and facts.required_partial is False
+
+
+@pytest.mark.parametrize("answer", [
+    {"protection": None}, {"protection": []}, {"protection": 0}, {"protection": ""},
+    {"protection": {"required_status_checks": None}},
+    {"protection": {"required_status_checks": []}},
+    {"protection": {"required_status_checks": {"contexts": None}}},
+    {"protection": {"required_status_checks": {"contexts": ""}}},
+    {"protection": {"required_status_checks": {"contexts": {}}}},
+])
+def test_branch_protection_of_a_wrong_shape_is_a_failed_read(answer, capsys):
+    facts = read(**{CLASSIC: answer, RULES: ruleset("x")})
+    assert facts.required == ["x"] and facts.required_partial is True
+    assert "required (branch protection)" in capsys.readouterr().out
 
 
 def test_required_uses_what_was_read_when_one_read_fails(capsys):
@@ -487,3 +523,45 @@ def test_main_reads_the_watch_log_it_is_given(tmp_path):
     assert main(argv, api=FakeApi(ANSWERS), now=NOW) == 0
     desk = json.loads((tmp_path / "desk.json").read_text())
     assert desk["lights"][1]["state"] == "green"
+
+
+# --- each check run gets the event of its workflow run ---
+
+
+def test_each_check_run_gets_the_event_of_its_workflow_run():
+    facts = read()
+    assert [(c["name"], c["event"]) for c in facts.checks] == [
+        ("prepare / agent", "workflow_dispatch"), ("build (ubuntu-latest)", "push")]
+
+
+def test_runs_of_the_commit_are_read_once():
+    api = FakeApi(ANSWERS)
+    gather(api, REPO, ROSTER, NOW, None, fetch=lambda url: DOWNLOADS)
+    assert api.asked.count(HEAD_RUNS) == 1
+
+
+def test_a_failed_run_started_by_hand_leaves_works_green(tmp_path):
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    assert main(argv, api=FakeApi(ANSWERS), now=NOW) == 0
+    works = json.loads((tmp_path / "desk.json").read_text())["lights"][0]
+    assert works["state"] == "green", works
+
+
+def test_when_the_runs_cannot_be_read_nothing_is_left_out(capsys):
+    facts = read(**failing(HEAD_RUNS))
+    assert [c["event"] for c in facts.checks] == [None, None]
+    assert "::warning::" in capsys.readouterr().out
+    facts = read(**{HEAD_RUNS: {"workflow_runs": [{"id": "x", "event": 1}]}})
+    assert [c["event"] for c in facts.checks] == [None, None]
+
+
+def test_a_check_not_from_actions_has_no_known_event():
+    other = {**check_run("ci/external", 1), "details_url": "https://ci.example/build/1"}
+    facts = read(**{CHECKS: {"check_runs": [other]}})
+    assert facts.checks[0]["event"] is None
+
+
+def test_no_check_run_reads_no_workflow_runs():
+    api = FakeApi({**ANSWERS, CHECKS: {"check_runs": []}})
+    facts = gather(api, REPO, ROSTER, NOW, None, fetch=lambda url: DOWNLOADS)
+    assert facts.checks == [] and HEAD_RUNS not in api.asked

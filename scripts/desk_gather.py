@@ -8,6 +8,7 @@ exits 0 whatever could not be read; it fails only when it cannot write desk.json
 
 import argparse
 import json
+import re
 import sys
 import urllib.request
 from collections.abc import Callable
@@ -26,6 +27,7 @@ BRANCH = "main"
 SCHEDULED_ONLY = ("watcher",)  # watch.yml also has an eval started by hand: it is not a watch
 COUNTED = ("success", "failure")  # a skipped, cancelled or unfinished run is not a run
 ROSTER = Path(__file__).resolve().parent.parent / "config" / "agents.json"
+RUN_ID = re.compile(r"/actions/runs/(\d+)/")  # in a check run's details_url
 
 
 # --- Talking to GitHub ---
@@ -129,11 +131,22 @@ def _names(items: list) -> list[str]:
     return items
 
 
+def _part(value: dict, key: str, empty):
+    """`value[key]`; `empty` when the key is missing. Any other shape than `empty`'s is a
+    failed read: a null or a string never means "none required"."""
+    if not isinstance(value, dict):
+        raise TypeError("an object was expected")
+    part = value.get(key, empty)
+    if not isinstance(part, type(empty)):
+        raise TypeError(f"{key} has another shape than expected")
+    return part
+
+
 def _protected(api, repo: str) -> list[str]:
     """The checks branch protection requires; [] when main has no protection or requires none."""
-    protection = api.get(f"repos/{repo}/branches/{BRANCH}").get("protection") or {}
-    checks = protection.get("required_status_checks") or {}
-    return _names(checks.get("contexts") or [])
+    protection = _part(api.get(f"repos/{repo}/branches/{BRANCH}"), "protection", {})
+    checks = _part(protection, "required_status_checks", {})
+    return _names(_part(checks, "contexts", []))
 
 
 def _ruled(api, repo: str) -> list[str]:
@@ -155,6 +168,35 @@ def _required(api, repo: str) -> tuple[list[str] | None, bool]:
     if all(names is None for names in read):
         return None, False
     return sorted({name for names in read for name in names or ()}), None in read
+
+
+def _checks(api, repo: str) -> list[dict]:
+    """The check runs of main's newest commit, each with the `event` of the workflow run it
+    belongs to: None when that is not known (the runs could not be read, or the check is not
+    from Actions)."""
+    checks = _dicts(api.pages(f"repos/{repo}/commits/{BRANCH}/check-runs?per_page=100",
+                              "check_runs"))
+    shas = {check.get("head_sha") for check in checks}
+    events: dict[int, str] | None = None
+    if len(shas) == 1 and isinstance(sha := shas.pop(), str):
+        events = _read("workflow runs of main's newest commit", lambda: _run_events(api, repo, sha))
+    return [{**check, "event": (events or {}).get(_run_id(check))} for check in checks]
+
+
+def _run_events(api, repo: str, sha: str) -> dict[int, str]:
+    """The event that started each workflow run of the commit `sha`, by run id."""
+    runs = _dicts(api.pages(f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100",
+                            "workflow_runs"))
+    if not all(isinstance(run.get("id"), int) and isinstance(run.get("event"), str)
+               for run in runs):
+        raise TypeError("a run without an id or an event")
+    return {run["id"]: run["event"] for run in runs}
+
+
+def _run_id(check: dict) -> int | None:
+    url = check.get("details_url")
+    found = RUN_ID.search(url) if isinstance(url, str) else None
+    return int(found.group(1)) if found else None
 
 
 def _stars(api, repo: str) -> int:
@@ -220,8 +262,7 @@ def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
         issues=_read("issues", lambda: _issues(api, repo)),
         pulls=_read("pulls", lambda: _pulls(api, repo, now)),
         reviews=_read("reviews", lambda: collect(api, repo, now=now)),
-        checks=_read("checks", lambda: _dicts(
-            api.pages(f"repos/{repo}/commits/{BRANCH}/check-runs?per_page=100", "check_runs"))),
+        checks=_read("checks", lambda: _checks(api, repo)),
         required=required,
         required_partial=partial,
         runs=_agent_runs(api, roster, now),

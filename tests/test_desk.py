@@ -73,10 +73,10 @@ FACTS = Facts(
 
 def test_works():
     assert light_works(None)["state"] == light_works([])["state"] == "grey"
-    assert light_works([OK])["state"] == "green"
-    running = {**OK, "status": "in_progress", "conclusion": None}
-    assert light_works([OK, running])["state"] == "amber"
-    red = light_works([OK, {**OK, "name": "lint", "conclusion": "failure"}])
+    assert light_works([OK], ["build"])["state"] == "green"
+    running = {**OK, "name": "lint", "status": "in_progress", "conclusion": None}
+    assert light_works([OK, running], ["build"])["state"] == "amber"
+    red = light_works([OK, {**OK, "name": "lint", "conclusion": "failure"}], ["lint"])
     assert red["state"] == "red" and "lint" in red["why"]
 
 
@@ -363,24 +363,27 @@ def test_a_required_check_must_have_passed_on_mains_newest_commit():
     skipped = {**OK, "name": "lint", "conclusion": "skipped"}
     assert light_works([OK, skipped], ["lint"])["state"] == "amber"
     failed = {**OK, "name": "test", "conclusion": "failure"}
-    assert light_works([OK, failed], ["lint"])["state"] == "red"
-    assert light_works([OK], None)["state"] == light_works([OK], [])["state"] == "green"
+    assert light_works([OK, failed], ["lint"])["state"] == "amber"  # main does not require test
+    assert light_works([OK, failed], ["test"])["state"] == "red"
+    assert light_works([OK], [])["state"] == "green"
     facts = Facts(checks=[OK], required=["lint"])
     assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "amber"
 
 
 def test_works_without_a_passed_check_is_grey():
-    skipped, neutral = {**OK, "conclusion": "skipped"}, {**OK, "conclusion": "neutral"}
-    assert light_works([skipped])["state"] == "grey"
-    assert light_works([skipped, neutral])["state"] == "grey"
-    assert light_works([skipped, {**OK, "status": "queued", "conclusion": None}])[
-        "state"] == "amber"
+    skipped = {**OK, "name": "skip", "conclusion": "skipped"}
+    neutral = {**OK, "name": "neutral", "conclusion": "neutral"}
+    assert light_works([skipped], [])["state"] == "grey"
+    assert light_works([skipped, neutral], [])["state"] == "grey"
+    queued = {**OK, "name": "q", "status": "queued", "conclusion": None}
+    assert light_works([skipped, queued], [])["state"] == "amber"
     assert light_works([skipped, {**OK, "conclusion": "failure"}])["state"] == "red"
 
 
 def test_a_check_with_an_unknown_ending_is_not_green():
-    assert light_works([{**OK, "conclusion": "stale"}])["state"] == "amber"
-    assert light_works([{**OK, "conclusion": "skipped"}, OK])["state"] == "green"
+    assert light_works([{**OK, "conclusion": "stale"}], [])["state"] == "amber"
+    assert light_works([{**OK, "name": "skip", "conclusion": "skipped"}, OK], [])[
+        "state"] == "green"
 
 
 def test_a_persons_issue_with_the_bots_labels_waits_for_nobody():
@@ -488,7 +491,7 @@ def test_numbers_that_were_not_read_are_none():
 def test_a_light_that_is_not_green_says_why_with_numbers():
     late = light_clients([bot(5, "Codex: key renamed", labels=MAJOR, created=ago(8))], FRESH, NOW)
     assert "#5" in late["why"] and "8.0" in late["why"] and "Codex" not in late["why"]
-    assert light_works([OK])["why"] == ""
+    assert light_works([OK], ["build"])["why"] == ""
     assert "not measured" in light_works(None)["why"].lower()
 
 
@@ -596,3 +599,102 @@ def test_the_roster_gives_who_uses_each_key_as_a_list_of_names():
         assert isinstance(key["used_by"], list) and key["used_by"], key["name"]
         assert all(isinstance(name, str) and "," not in name for name in key["used_by"])
     assert build(Facts(), ROSTER, NOW)["budget"]["keys"] == ROSTER["keys"]
+
+
+# --- Works judges main's own newest checks ---
+
+# Shapes as GitHub gave them for Kitden's main on 2026-11-13 (commit 12a94bc): the push to
+# main ran "Checks and release"; release prep was started by hand three times on that commit.
+PUSH_RUN = "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43513577178/job/1"
+PREP_RUN = "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43513690445/job/2"
+
+
+def check(name, conclusion="success", started="2026-11-13T21:46:00Z", event="push",
+          status="completed", url=PUSH_RUN):
+    return {"name": name, "status": status, "conclusion": conclusion, "started_at": started,
+            "details_url": url, "event": event}
+
+
+BUILDS = [check("build (ubuntu-latest)"), check("build (macos-latest)")]
+REQUIRED = ["build (macos-latest)", "build (ubuntu-latest)"]
+
+
+def test_a_healthy_main_is_green():
+    healthy = [*BUILDS, check("autotag", started="2026-11-13T21:54:05Z"),
+               check("publish", "skipped", started="2026-11-13T21:54:00Z")]
+    assert light_works(healthy, REQUIRED) == {"id": "works", "name": "Works", "state": "green",
+                                              "why": ""}
+
+
+def test_only_the_newest_run_of_each_check_is_judged():
+    # Release prep failed at 10:30 and passed whole at 10:32 on the same commit.
+    failed = check("prepare / agent", "failure", started="2026-11-13T10:30:00Z", event=None)
+    passed = check("prepare / agent", started="2026-11-13T10:32:00Z", event=None)
+    assert light_works([*BUILDS, failed, passed], REQUIRED)["state"] == "green"
+    assert light_works([*BUILDS, passed, failed], REQUIRED)["state"] == "green"  # any order
+    # The other way round, the newest run failed: that is bad news.
+    late = {**failed, "started_at": "2026-11-13T10:34:00Z"}
+    assert light_works([*BUILDS, passed, late], REQUIRED)["state"] == "amber"
+    assert light_works([*BUILDS, passed, late], None)["state"] == "red"
+
+
+def test_a_failed_run_started_by_hand_beside_green_builds_is_green():
+    prep = [check("prepare / agent", "failure", "2026-11-13T21:47:21Z", "workflow_dispatch",
+                  url=PREP_RUN),
+            check("prepare / prepare", "failure", "2026-11-13T21:53:43Z", "workflow_dispatch",
+                  url=PREP_RUN),
+            check("prepare / record", None, "2026-11-13T22:01:48Z", "workflow_dispatch",
+                  status="in_progress", url=PREP_RUN)]
+    assert light_works([*BUILDS, *prep], REQUIRED)["state"] == "green"
+    watch = check("watch", "failure", event="schedule")
+    assert light_works([*BUILDS, watch], REQUIRED)["state"] == "green"
+
+
+def test_a_check_of_unknown_event_is_judged_as_before():
+    unknown = check("prepare / agent", "failure", event=None, url="")
+    red = light_works([*BUILDS, unknown], None)
+    assert red["state"] == "red" and "prepare / agent" in red["why"]
+    assert light_works([*BUILDS, unknown], REQUIRED)["state"] == "amber"
+
+
+def test_a_required_check_counts_whatever_its_event():
+    by_hand = check("build (ubuntu-latest)", "failure", "2026-11-13T22:00:00Z",
+                    "workflow_dispatch")
+    red = light_works([*BUILDS, by_hand], REQUIRED)
+    assert red["state"] == "red" and "build (ubuntu-latest)" in red["why"]
+
+
+def test_a_failed_check_main_does_not_require_is_amber_and_named():
+    lint = check("lint", "failure")
+    amber = light_works([*BUILDS, lint], REQUIRED)
+    assert amber["state"] == "amber"
+    assert amber["why"] == "On main, lint failed; main does not require it."
+
+
+def test_a_failed_required_check_is_red():
+    failed = [check("build (ubuntu-latest)", "failure"), check("build (macos-latest)")]
+    red = light_works(failed, REQUIRED)
+    assert red["state"] == "red" and red["why"].startswith("On main, build (ubuntu-latest) failed")
+
+
+def test_every_failed_ending_is_red_when_required_and_when_rules_were_not_read():
+    for ending in ("failure", "timed_out", "cancelled", "action_required", "startup_failure"):
+        assert light_works([check("build (ubuntu-latest)", ending)], REQUIRED)["state"] == "red"
+        assert light_works([check("lint", ending), *BUILDS], None)["state"] == "red"
+
+
+def test_passing_checks_without_mains_rules_are_grey_not_green():
+    grey = light_works(BUILDS, None)
+    assert grey["state"] == "grey" and "main's rules were not read" in grey["why"]
+    assert light_works(BUILDS, [])["state"] == "green"
+
+
+def test_no_check_run_read_while_main_requires_some_is_amber():
+    amber = light_works([], ["build"])
+    assert amber["state"] == "amber"
+    assert amber["why"] == "build has not run on main's newest commit."
+    two = light_works([], REQUIRED)
+    assert two["why"] == ("build (macos-latest), build (ubuntu-latest) have not run on main's "
+                          "newest commit.")
+    assert light_works([], [])["state"] == light_works([], None)["state"] == "grey"
+    assert light_works(None, ["build"])["state"] == "grey"

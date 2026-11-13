@@ -42,7 +42,7 @@ class Facts:
     issues: list[dict] | None = None  # every Kitden issue, open and closed, no pull requests
     pulls: list[dict] | None = None  # every open pull request, and the closed ones of 90 days
     reviews: list[Review] | None = None
-    checks: list[dict] | None = None  # check runs of main's newest commit
+    checks: list[dict] | None = None  # check runs of main's newest commit, each with `event`
     required: list[str] | None = None  # the checks main requires
     required_partial: bool = False  # `required` holds only what one of two reads gave
     runs: dict[str, int | None] = field(default_factory=dict)  # agent id -> runs, last 7 days
@@ -162,39 +162,88 @@ def _checks_named(checks: list[dict], test) -> list[str]:
     return sorted({c["name"] for c in checks if test(c)})
 
 
+def _started(check: dict) -> tuple[datetime, int]:
+    """When a check run started, then its id; a run without a readable time sorts first."""
+    try:
+        when = _at(check["started_at"])
+    except (KeyError, TypeError, ValueError):
+        when = datetime.min.replace(tzinfo=UTC)
+    number = check.get("id")
+    return when, number if isinstance(number, int) else 0
+
+
+def _judged(checks: list[dict], required: list[str] | None) -> list[dict]:
+    """The check runs Works judges: of each name, the newest run, among the runs started by the
+    push to main or of unknown event. A check main requires counts whatever its event."""
+    needed = set(required or ())
+    ours = [c for c in checks if c.get("event") in (None, "push") or c["name"] in needed]
+    newest: dict[str, dict] = {}
+    for check in ours:
+        if check["name"] not in newest or _started(check) > _started(newest[check["name"]]):
+            newest[check["name"]] = check
+    return list(newest.values())
+
+
+def _verb(names: list[str]) -> str:
+    return "has" if len(names) == 1 else "have"
+
+
 def _not_passed(required: list[str] | None, passed: list[str]) -> dict | None:
     """Amber when a check main requires is missing on the commit or did not succeed."""
     left = sorted(set(required or ()) - set(passed))
     if not left:
         return None
-    verb = "has" if len(left) == 1 else "have"
     return _light("works", "amber",
-                  f"{', '.join(left)} {verb} not passed on main's newest commit.")
+                  f"{', '.join(left)} {_verb(left)} not passed on main's newest commit.")
+
+
+def _failed(failed: list[str], required: list[str] | None, partial: bool) -> dict | None:
+    """Red for a failed check main requires, or any failed check when main's rules were not
+    read whole; amber, with the names, when main surely requires none of them."""
+    if not failed:
+        return None
+    if required is None or partial or set(failed) & set(required):
+        return _light("works", "red", f"On main, {', '.join(failed)} failed.")
+    them = "it" if len(failed) == 1 else "any of them"
+    return _light("works", "amber",
+                  f"On main, {', '.join(failed)} failed; main does not require {them}.")
 
 
 def light_works(checks: list[dict] | None, required: list[str] | None = None,
                 partial: bool = False) -> dict:
-    """Main's newest commit. With `required`, each check main requires must also have passed;
-    with None, only the check runs that are there are judged. `partial`: `required` is only
-    part of main's rules, so nothing bad found there is not yet good news."""
-    if not checks:
+    """Main's newest commit: the newest run of each check its push started, and of each check
+    main requires (see _judged). Each check main requires must also have passed. `required`
+    None: main's rules were not read, so passing checks are not yet good news. `partial`:
+    `required` is only part of main's rules, so nothing bad found there is not yet good news
+    either. A check run's `event` is that of its workflow run; None when not known."""
+    if checks is None:
         return _light("works", "grey", "Not measured yet: no check run of main was read.")
-    done = [c for c in checks if c.get("status") == "completed"]
+    missing = ["main's rules were not read."] if required is None else []
+    if partial:
+        missing.append(PARTLY)
+    if not checks:
+        found = None
+        if required:
+            found = _light("works", "amber", f"{', '.join(required)} {_verb(required)} not run "
+                                             "on main's newest commit.")
+        return _settle("works", [found],
+                       " ".join(["no check has run on main's newest commit.", *missing]))
+    judged = _judged(checks, required)
+    done = [c for c in judged if c.get("status") == "completed"]
     failed = _checks_named(done, lambda c: c.get("conclusion") in RED_ENDINGS)
-    running = _checks_named(checks, lambda c: c.get("status") != "completed")
+    running = _checks_named(judged, lambda c: c.get("status") != "completed")
     odd = _checks_named(done, lambda c: c.get("conclusion") not in GOOD_ENDINGS + RED_ENDINGS)
     passed = _checks_named(done, lambda c: c.get("conclusion") == "success")
     found = [
-        _light("works", "red", f"On main, {', '.join(failed)} failed.") if failed else None,
+        _failed(failed, required, partial),
         _light("works", "amber", f"On main, {', '.join(running)} has not finished.")
         if running else None,
         _light("works", "amber", f"On main, {', '.join(odd)} ended neither well nor badly.")
         if odd else None,
         _not_passed(required, passed),
     ]
-    missing = ["no check on main's newest commit passed."] if not passed else []
-    if partial:
-        missing.append(PARTLY)
+    if not passed:
+        missing.insert(0, "no check on main's newest commit passed.")
     return _settle("works", found, " ".join(missing))
 
 

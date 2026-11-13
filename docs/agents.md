@@ -29,9 +29,13 @@ A light is the worst thing the read facts prove: bad news that was read always w
 means something was not read and nothing bad was found. The overall light is the worst of the
 five, red first, then amber, grey and green.
 
+Works judges the newest run of each check on `main`'s newest commit, among the checks that
+the push to `main` started. A check `main` requires counts whatever started it, and so does a
+check whose start is not known. Release prep started by hand and scheduled runs do not count.
+
 | Light | Red | Amber | Grey |
 |---|---|---|---|
-| Works | a check on `main`'s newest commit failed, timed out or was cancelled | a check has not finished or ended neither well nor badly; a check `main` requires is missing or did not pass | no check run of `main` was read, or none passed; `main`'s rules were read only in part |
+| Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part |
 | Clients | a `confirmed` `major` client change has been open over 7 days | the same, over 3.5 days | the issues were not read; the watcher logged no run that read something in the last 2 days |
 | Bugs | a `confirmed` `major` bot issue has been open over 14 days; open bugs grew on each of the last 3 Mondays | the same issue over 7 days; open bugs grew on the last 2 Mondays | the issues were not read |
 | Agents | `main` requires a review check; the watcher opened more than 2 issues this week | an issue says an agent is paused | `main`'s rules or the issues were not read; `main`'s rules were read only in part |
