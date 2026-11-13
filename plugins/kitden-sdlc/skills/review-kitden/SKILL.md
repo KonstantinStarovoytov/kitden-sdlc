@@ -41,6 +41,12 @@ now relies on; the finding still points at a line the diff adds or changes.
   quote the rule. For Kitden these matter most: a settings write without preview,
   backup, verify and Undo; a test that touches the real home folder; UI text that is
   not in simple English.
+- A change the user sees (a page, a button, a word on the screen) with no change to
+  `docs/guide.md` in the same pull request. Name what the user sees. Report it as `rule`,
+  with the lowest weight: put it last when you have more than five findings.
+- A change to what Kitden reads (a new file, folder or setting it opens) with no change to
+  `PRIVACY.md` and `plugins/kitden/README.md` ("What it reads"). Name what it now reads and
+  which of the two files is missing. Report it as `rule`, with the lowest weight too.
 
 ## What not to report
 
