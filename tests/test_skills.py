@@ -48,3 +48,15 @@ def test_notes_example_passes_check(tmp_path):
 
     assert check(root, f"v{version}") == []
     assert "<summary>Other changes</summary>" in example
+
+
+def test_the_readme_skill_names_no_line_count_and_points_at_the_tests():
+    text = (SKILLS / "readme-kitden" / "SKILL.md").read_text()
+    assert "about 125" not in text and "within a few lines" not in text
+    assert "Kitden's tests" in text and "out/guide.md" in text
+    assert "No scene shows this." in text and "expect" in text
+
+
+def test_the_reviewers_check_the_guide_and_the_plugin_readme():
+    text = (SKILLS / "review-kitden" / "SKILL.md").read_text()
+    assert "docs/guide.md" in text and "plugins/kitden/README.md" in text
