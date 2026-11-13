@@ -183,7 +183,8 @@ jobs:
         run: |
           if [ -n "$VERSION" ]; then
             branch="prepare-v$VERSION"
-            if gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --silent 2> /dev/null; then
+            # The exact reference: /branches/<name> also answers for a branch that was renamed.
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --silent 2> /dev/null; then
               echo "::error::Kitden has the branch $branch already. Delete it and run again."
               exit 1
             fi
@@ -384,7 +385,7 @@ jobs:
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
           branch="prepare-v$VERSION"
-          if gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --silent 2> /dev/null; then
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --silent 2> /dev/null; then
             echo "::error::Kitden has the branch $branch already. Delete it and run again."
             exit 1
           fi
@@ -897,7 +898,7 @@ jobs:
         run: |
           branch="prepare-v$VERSION"
           lists="$RUNNER_TEMP/lists"
-          if gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --silent 2> /dev/null; then
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --silent 2> /dev/null; then
             echo "::error::Kitden has the branch $branch already. Delete it and run again."
             exit 1
           fi

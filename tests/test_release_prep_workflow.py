@@ -193,3 +193,10 @@ def test_the_fix_job_settles_the_files_and_keeps_them_after_that():
     }
     assert settle < kept["release-out-fixed"]
     assert settle < kept["release-fix"]
+
+
+def test_the_branch_check_asks_for_the_exact_reference():
+    # GitHub answers /branches/<old name> for a renamed branch with the new one (2026-11-13),
+    # so a run stopped on a branch that was not there. /git/ref/heads/<name> does not redirect.
+    assert "/branches/$branch" not in TEXT
+    assert TEXT.count("git/ref/heads/$branch") == 3
