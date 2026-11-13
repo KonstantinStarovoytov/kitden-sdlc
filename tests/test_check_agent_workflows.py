@@ -421,3 +421,33 @@ def test_capitalised_release_environment_with_model_step_fails():
         "      - run: echo publish\n", "      - uses: anthropics/claude-code-action@SHA\n"
     )
     assert _flagged(text)
+
+
+def test_full_output_inputs_are_rule_10():
+    for name in ("show_full_output", "display_report"):
+        text = CLEAN_MODEL.replace(
+            "claude_args: --max-turns 5", f"claude_args: --max-turns 5\n          {name}: true"
+        )
+        assert any("rule 10" in v and name in v for v in run(text))
+        assert run(text.replace(f"{name}: true", f'{name}: "false"')) == []
+
+
+def test_debug_flag_in_the_arguments_is_rule_10():
+    for flag in ("--debug", "--verbose", "--mcp-debug"):
+        text = CLEAN_MODEL.replace("--max-turns 5", f"--max-turns 5 {flag}")
+        assert any("rule 10" in v for v in run(text))
+
+
+def test_debug_env_is_rule_10_at_every_level():
+    top = CLEAN_SCHEDULED.replace(
+        "permissions: {}", 'permissions: {}\nenv:\n  RUNNER_DEBUG: "1"', 1
+    )
+    job = CLEAN_SCHEDULED.replace(
+        "    needs: fetch\n", '    needs: fetch\n    env:\n      ACTIONS_STEP_DEBUG: "true"\n'
+    )
+    step = CLEAN_SCHEDULED.replace(
+        '          MAX_MODEL_CALLS: "60"',
+        '          MAX_MODEL_CALLS: "60"\n          ANTHROPIC_LOG: debug',
+    )
+    for text in (top, job, step):
+        assert any("rule 10" in v for v in run(text))

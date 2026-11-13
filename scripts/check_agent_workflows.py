@@ -20,6 +20,13 @@ MODEL_SECRET = re.compile(
     r"secrets\.(openai_api_key|claude_code_oauth_token|anthropic_api_key)", re.I
 )
 SCHEDULED_EVENTS = {"schedule", "workflow_dispatch"}
+# Rule 10: a model step never prints its full output or debug logs.
+DEBUG_INPUTS = ("show_full_output", "display_report")
+DEBUG_FLAGS = ("--debug", "--verbose", "--mcp-debug")
+DEBUG_ENV = (
+    "ACTIONS_STEP_DEBUG", "ACTIONS_RUNNER_DEBUG", "RUNNER_DEBUG", "DEBUG",
+    "ANTHROPIC_LOG", "OPENAI_LOG",
+)
 
 
 def _jobs(doc: dict) -> dict:
@@ -121,6 +128,39 @@ def _release_violations(doc: dict) -> list[tuple[int, str]]:
     return found
 
 
+def _debug_env_names(env, where: str) -> list[tuple[int, str]]:
+    if not isinstance(env, dict):
+        return []
+    wanted = {name.upper() for name in DEBUG_ENV}
+    return [
+        (10, f"{where}: env {key} turns on debug logs")
+        for key in env
+        if str(key).upper() in wanted
+    ]
+
+
+def _debug_violations(doc: dict) -> list[tuple[int, str]]:
+    """Rule 10: no full output, debug flag or debug env on an agent workflow."""
+    found = _debug_env_names(doc.get("env"), "top level")
+    for name, job in _jobs(doc).items():
+        if not _is_agent_job(job):
+            continue
+        found += _debug_env_names(job.get("env"), f"job {name}")
+        for step in job.get("steps") or []:
+            found += _debug_env_names(step.get("env"), f"job {name}")
+            if not _is_model_step(step):
+                continue
+            inputs = step.get("with") or {}
+            for key in DEBUG_INPUTS:
+                if str(inputs.get(key)).strip().lower() == "true":
+                    found.append((10, f"job {name}: {key} prints the full model output"))
+            for key in ("claude_args", "codex-args"):
+                for word in str(inputs.get(key, "")).split():
+                    if word.split("=")[0] in DEBUG_FLAGS:
+                        found.append((10, f"job {name}: {key} has {word}"))
+    return found
+
+
 def check_workflow(doc: dict, path: str) -> list[str]:
     if not isinstance(doc, dict):
         return []
@@ -192,6 +232,9 @@ def check_workflow(doc: dict, path: str) -> list[str]:
         found.append((5, "concurrency with cancel-in-progress: true is missing"))
     if script_jobs and not isinstance(doc.get("concurrency"), dict | str):
         found.append((5, "a scheduled agent needs a top-level concurrency, one run at a time"))
+
+    # Rule 10: no full output or debug logs.
+    found += _debug_violations(doc)
 
     return [f"{path}: rule {rule}: {message}" for rule, message in found]
 
