@@ -2,7 +2,8 @@
 
 Pure: nothing here calls GitHub, reads a file or reads the clock; the caller passes `now`.
 A fact that was not read is None, and what needs it is grey or None, never good news.
-Issue titles are never copied: a model wrote many of them. Lines name numbers instead.
+A light's `why` names numbers, never a title: a model wrote many of them. A waiting item
+carries its own title, on one line and cut short; the page that shows it escapes it.
 """
 
 import re
@@ -18,6 +19,7 @@ GOOD_ENDINGS = ("success", "neutral", "skipped")
 WATCH_LOG_DAYS = 2  # older than this, the watcher's issues say nothing about today
 PAUSED = paused_title("")  # " is paused": the end of the title of a pause issue
 REVIEWERS = ("claude", "luna")
+TITLE_LENGTH = 100
 DO = {
     "pull": "Review it and merge, or close it.",
     "verdict": "Put `confirmed` on it, or close it with `false-alarm`.",
@@ -252,10 +254,15 @@ def _wait(kind: str, title: str, url: str, days: float) -> dict:
     return {"kind": kind, "title": title, "url": url, "do": DO[kind], "days": days}
 
 
-def _issue_waits(kind: str, title: str, items: list[dict], now: datetime) -> list[dict]:
+def _title(item: dict) -> str:
+    """The item's own title, white space collapsed to single spaces, cut to TITLE_LENGTH."""
+    return " ".join((item.get("title") or "").split())[:TITLE_LENGTH]
+
+
+def _issue_waits(kind: str, items: list[dict], now: datetime) -> list[dict]:
     items = sorted(items, key=_opened)
-    return [_wait(kind, f"#{item['number']}, {title}", item["html_url"],
-                  _days(item["created_at"], now)) for item in items]
+    return [_wait(kind, _title(item), item["html_url"], _days(item["created_at"], now))
+            for item in items]
 
 
 def _agent_pulls(pulls: list[dict]) -> list[dict]:
@@ -291,10 +298,10 @@ def waiting(issues: list[dict] | None, pulls: list[dict] | None,
         item for item in _findings(issues, open_only=True) if not names(item) & set(VERDICTS)
     ]
     return [
-        *_issue_waits("pull", "an agent's pull request", _agent_pulls(pulls), now),
-        *_issue_waits("verdict", "a client change without a verdict", verdictless, now),
-        *_issue_waits("release", "a release is due", _bots(issues, "release"), now),
-        *_issue_waits("paused", "an agent is paused", _pauses(issues), now),
+        *_issue_waits("pull", _agent_pulls(pulls), now),
+        *_issue_waits("verdict", verdictless, now),
+        *_issue_waits("release", _bots(issues, "release"), now),
+        *_issue_waits("paused", _pauses(issues), now),
         *_spot_check(reviews, now),
     ]
 

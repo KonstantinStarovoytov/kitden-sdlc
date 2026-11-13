@@ -318,13 +318,21 @@ def test_a_closed_issue_waits_for_nobody():
     assert waiting(issues, [], [], NOW) == []
 
 
-def test_waiting_is_oldest_first_inside_each_kind_and_names_no_title():
-    issues = [bot(n, f"Secret title {n}", labels=("automated", "release"), created=ago(d))
+def test_waiting_is_oldest_first_inside_each_kind_with_each_items_title():
+    issues = [bot(n, f"Release {n}", labels=("automated", "release"), created=ago(d))
               for n, d in ((1, 1), (2, 5), (3, 3))]
-    found = waiting(issues, [], [], NOW)
-    assert [w["url"].rsplit("/", 1)[-1] for w in found] == ["2", "3", "1"]
-    assert all("Secret" not in w["title"] for w in found)
+    found = waiting(issues, [pull(79, "agent/x", login="kitden-beacon[bot]")], [], NOW)
+    assert [w["url"].rsplit("/", 1)[-1] for w in found] == ["79", "2", "3", "1"]
+    assert [w["title"] for w in found] == ["p", "Release 2", "Release 3", "Release 1"]
     assert set(found[0]) == {"kind", "title", "url", "do", "days"}
+
+
+def test_a_waiting_title_is_one_line_of_at_most_100_characters():
+    long = "Codex:  key\nrenamed " + "x" * 150
+    found = waiting([bot(1, long, labels=("automated", "release"))], [], [], NOW)
+    title = found[0]["title"]
+    assert "\n" not in title and "  " not in title and len(title) == 100
+    assert title.startswith("Codex: key renamed x")
 
 
 def test_waiting_without_reviews_is_not_measured():
