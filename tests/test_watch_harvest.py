@@ -123,3 +123,11 @@ def test_harvest_reads_open_and_closed_issues(monkeypatch):
     assert watch_harvest._issues("o/kitden") == [issue(7, "confirmed")]
     address = commands[0][3]
     assert "state=all" in address and "labels=client-change" in address
+
+
+def test_only_issues_with_one_verdict_need_their_piece_fetched():
+    both = issue(1, "confirmed", "false-alarm")
+    open_and_undecided = issue(2)
+    confirmed, false_alarm = issue(3, "confirmed"), issue(4, "false-alarm")
+    assert watch_harvest._judged([both, open_and_undecided, confirmed, false_alarm]) == [
+        confirmed, false_alarm]

@@ -88,11 +88,11 @@ contributor works on a false alarm.
 | `major`, `medium`, `minor` | What a user who trusts Kitden ends up doing: a wrong action, extra steps, or nothing else ([watch-effects.md](watch-effects.md)) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary |
-| `confirmed` | Set by the owner: the watcher was right; the issue stays open until fixed |
-| `false-alarm` | Set by the owner on closing: the watcher was wrong |
+| `confirmed` | Set by the owner: the bot was right; the issue stays open until fixed |
+| `false-alarm` | Set by the owner on closing: the bot was wrong |
 
-The bot knows its issues by its own authorship and the label `automated`. If that label is
-removed from a bot issue, the bot no longer sees it and may open a new one.
+The watcher knows its open issues by the label `client-change`. Remove that label, or close the
+issue, and it may report the same finding again.
 
 ## The release flow
 
@@ -135,8 +135,8 @@ workflows live here, and Kitden calls them. The design is
   `install.*` wait and the last tag is 7 days old (sooner when one is labelled `bug`). It
   opens "Release vX.Y.Z is not everywhere" while a store is behind or different; Homebrew
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
-  no longer holds. It knows its issues by author and title, so it never touches one a person
-  opened. Both carry the labels `automated` and `release` and open with one line saying who
+  no longer holds. It knows its issues by author, the label `automated` and title, so it never
+  touches one a person opened; remove `automated` from one and it may open a new issue. Both carry the labels `automated` and `release` and open with one line saying who
   opened them, that no model wrote them and that a maintainer confirms them, then three parts:
   what happened, what it means, what to do.
 

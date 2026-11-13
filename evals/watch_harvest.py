@@ -85,6 +85,11 @@ def _issues(repo: str) -> list[dict]:
     return [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
 
 
+def _judged(issues: list[dict]) -> list[dict]:
+    """The issues with exactly one verdict label; only these need their piece fetched."""
+    return [i for i in issues if len({"confirmed", "false-alarm"} & set(i["labels"])) == 1]
+
+
 def _fetch_pieces(archive: list[dict], sources_file) -> dict[str, dict]:
     sources = {s["id"]: s for s in load_sources(sources_file)}
     read, pieces = {}, {}
@@ -123,7 +128,7 @@ def main() -> None:
     issues = _issues(a.repo)
     archive = [json.loads(x) for x in Path(a.archive).read_text(encoding="utf-8").splitlines()
                if x.strip()]
-    addresses = {i["address"] for i in issues}
+    addresses = {i["address"] for i in _judged(issues)}
     pieces = _fetch_pieces([x for x in archive if x.get("issue") in addresses], a.sources)
     folder = Path(a.tasks)
     existing = {p.name for p in folder.glob("*") if p.is_dir()}

@@ -180,8 +180,8 @@ post job creates a missing label from `LABELS` in `scripts/bot_issues.py` (call)
 | `major`, `medium`, `minor` | How much it matters to a user (docs/watch-effects.md, owner) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary (call) |
-| `confirmed` | Set by the owner: the watcher was right; the issue stays open until fixed |
-| `false-alarm` | Set by the owner on closing: the watcher was wrong |
+| `confirmed` | Set by the owner: the bot was right; the issue stays open until fixed |
+| `false-alarm` | Set by the owner on closing: the bot was wrong |
 
 An urgent issue carries its own labels. The summary carries `client-change` and `summary`; its
 items show the same words in their text.
