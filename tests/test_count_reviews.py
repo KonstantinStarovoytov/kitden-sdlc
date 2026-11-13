@@ -218,6 +218,7 @@ def test_summary_counts_clean_reviews_fixed_findings_and_days_to_merge():
         review(1, counts(0, 0), days=1),
         review(2, counts(2, 0), fixed=2, days=3),
         review(3, counts(0, None)),
+        review(4, counts(1, 0), fixed=5),  # not merged: its fixed findings are left out
     ]
     assert summary(reviews) == {"clean": 2, "fixed": 2, "days_to_merge": 2.0}
     assert summary([]) == {"clean": 0, "fixed": 0, "days_to_merge": None}

@@ -111,6 +111,7 @@ def collect(
             counts = our_marker(item)
             if counts and (counts["claude"] is not None or counts["luna"] is not None):
                 up, down = _votes(api.list_issue_comment_reactions(repo, item["id"]), maintainer)
+                # A long pull request can undercount: the comment drops its oldest fixed past 30.
                 earlier = read_state(item.get("body") or "")
                 fixed = sum(bool(i.fixed) for i in earlier.items) if earlier else 0
                 found.append(
@@ -145,8 +146,9 @@ def aggregate(reviews: list[Review]) -> dict[str, Stats]:
 
 
 def summary(reviews: list[Review]) -> dict:
-    """Reviews that found nothing, findings fixed, and the median days from open to merge
-    of the reviewed pull requests that merged (each counted once)."""
+    """Reviews that found nothing, findings fixed before the merge (merged pull requests only),
+    and the median days from open to merge of the reviewed pull requests that merged
+    (each counted once)."""
     merged = {r.pr: r for r in reviews if r.merged}
     days = [
         (datetime.fromisoformat(r.merged) - datetime.fromisoformat(r.created)).total_seconds()
@@ -155,7 +157,7 @@ def summary(reviews: list[Review]) -> dict:
     ]
     return {
         "clean": sum(r.clean for r in reviews),
-        "fixed": sum(r.fixed for r in reviews),
+        "fixed": sum(r.fixed for r in reviews if r.merged),
         "days_to_merge": round(statistics.median(days), 1) if days else None,
     }
 
