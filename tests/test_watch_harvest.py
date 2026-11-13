@@ -1,3 +1,6 @@
+import json
+import subprocess
+
 import watch_harvest
 from watch_harvest import harvest
 from watch_pages import Section
@@ -107,3 +110,16 @@ def test_fetch_pieces_reads_each_source_once_and_reads_doc_pages(tmp_path, monke
     assert (doc["kind"], doc["version"], doc["url"], doc["source"], doc["key"]) == (
         "doc", "", DOC, DOC, "Hooks")
     assert doc["client"] == "claude-code" and DOC in doc["text"]
+
+
+def test_harvest_reads_open_and_closed_issues(monkeypatch):
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, json.dumps(issue(7, "confirmed")) + "\n", "")
+
+    monkeypatch.setattr(watch_harvest.subprocess, "run", run)
+    assert watch_harvest._issues("o/kitden") == [issue(7, "confirmed")]
+    address = commands[0][3]
+    assert "state=all" in address and "labels=client-change" in address

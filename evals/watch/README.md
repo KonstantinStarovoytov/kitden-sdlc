@@ -156,8 +156,9 @@ uv run python evals/watch_harvest.py --repo OWNER/kitden --archive archive.jsonl
   --tasks evals/watch/tasks
 ```
 
-A closed `client-change` issue labelled `confirmed` becomes a `touched` task (the row and effect
-of its archive line), one labelled `false-alarm` an `untouched` task. It is named `issue-<n>`.
+A `client-change` issue labelled `confirmed`, open or closed, becomes a `touched` task (the row and
+effect of its archive line), one labelled `false-alarm` an `untouched` task. It is named
+`issue-<n>`.
 Issues with both labels or neither, with no archive line, or whose piece cannot be fetched again
 are skipped and listed. Summary issues are not collected. `harvest` returns the new tasks and
 the skipped issues. A piece from a doc page is read again from its address.

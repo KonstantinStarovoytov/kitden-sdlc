@@ -24,10 +24,10 @@ Every workflow that runs an AI agent must follow these eleven rules.
    folder. Their text is refused if it looks like a secret, or holds a long random string that
    is not in what the model was given. Release prep's files and its pull request body go
    through the same two checks before anything is committed or posted, a draft too. Before
-   those checks run, the model's output is kept as a run artifact for a day, and anyone signed
-   in to GitHub can download a public repository's artifacts. Codex can run shell commands,
-   but only inside a read-only sandbox with no network, and the files it can read are not
-   limited to the checkout.
+   those checks run, the model's output is kept as a run artifact (a day for the reviewers and
+   the release agent, seven for the watcher), and anyone signed in to GitHub can download a
+   public repository's artifacts. Codex can run shell commands, but only inside a read-only
+   sandbox with no network, and the files it can read are not limited to the checkout.
 7. A secret reaches a job as a named input and is never printed. The Claude token and the
    OpenAI key are never in the same job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it.

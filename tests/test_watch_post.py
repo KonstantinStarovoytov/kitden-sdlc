@@ -153,6 +153,13 @@ def test_an_issue_has_the_sections_a_reader_needs_and_the_ai_policy():
     assert "https://github.com/o/kitden/blob/main/AI_POLICY.md" in body.splitlines()[0]
 
 
+def test_an_issue_says_confirmed_keeps_it_open():
+    _, body = render_urgent(finding(), inp(1))
+    assert ("Put `confirmed` on it if this is right; it stays open until the problem is fixed."
+            in body)
+    assert "Close it with `false-alarm` if it is not." in body
+
+
 def long_items(n):
     return [{"title": f"t{i}", "effect": "minor", "client": "codex", "sure": True,
              "why": "w" * 600, "changed": "c" * 600, "user_gets": "u" * 600, "row": "",

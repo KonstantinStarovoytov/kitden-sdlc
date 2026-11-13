@@ -32,8 +32,8 @@ LABELS: tuple[tuple[str, str, str], ...] = (
     ("kitden-gap", "fbca04", "The client added something Kitden does not show yet"),
     ("unsure", "cccccc", "The watcher is not sure Kitden is touched"),
     ("summary", "0075ca", "The weekly summary"),
-    ("confirmed", "2da44e", "Set by the owner on closing: the watcher was right"),
-    ("false-alarm", "6e7781", "Set by the owner on closing: the watcher was wrong"),
+    ("confirmed", "2da44e", "Set by the owner: the bot was right; open until fixed"),
+    ("false-alarm", "6e7781", "Set by the owner on closing: the bot was wrong"),
 )
 
 

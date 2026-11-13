@@ -1,13 +1,13 @@
-"""Turn closed watcher issues into new watch tasks.
+"""Turn judged watcher issues into new watch tasks.
 
 Usage: watch_harvest.py --repo OWNER/kitden --archive <archive.jsonl> --tasks evals/watch/tasks
                         [--sources config/watch-sources.yml]
 
 Run by hand about once a month, on a branch; the new tasks reach main as a pull request. It
-reads the closed `client-change` issues with `gh`, joins each to its line of the watcher's
-archive, fetches the piece again by its source (a config id or a doc address) and key, and
-writes <tasks>/issue-<n>/task.json.
-Only the issues the owner closed with `confirmed` or `false-alarm` become tasks. Summary
+reads the `client-change` issues, open and closed, with `gh`, joins each to its line of the
+watcher's archive, fetches the piece again by its source (a config id or a doc address) and key,
+and writes <tasks>/issue-<n>/task.json.
+An issue with a verdict, `confirmed` or `false-alarm`, becomes a task, open or closed. Summary
 issues are not harvested.
 """
 
@@ -45,7 +45,7 @@ def harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict],
             existing: frozenset | set = frozenset()) -> tuple[list[dict], list[dict]]:
     """Return (new tasks, skipped). A skipped item is {"issue": number, "why": reason}.
 
-    issues: {"number", "address", "labels": [names]} for each closed client-change issue.
+    issues: {"number", "address", "labels": [names]} for each client-change issue, open or closed.
     archive: the watcher's archive lines; an issue is joined to its line by `issue` == address.
     pieces: the piece of each archive line, by the line's `piece` id.
     existing: task ids that already exist; those are skipped, not made again.
@@ -75,10 +75,10 @@ def harvest(issues: list[dict], archive: list[dict], pieces: dict[str, dict],
     return tasks, skipped
 
 
-def _closed_issues(repo: str) -> list[dict]:
+def _issues(repo: str) -> list[dict]:
     done = subprocess.run(  # noqa: S603
         ["gh", "api", "--paginate",  # noqa: S607
-         f"repos/{repo}/issues?labels=client-change&state=closed&per_page=100",
+         f"repos/{repo}/issues?labels=client-change&state=all&per_page=100",
          "--jq", ".[] | select(.pull_request | not) | "
                  "{number, address: .html_url, labels: [.labels[].name]}"],
         check=True, capture_output=True, text=True)
@@ -120,7 +120,7 @@ def main() -> None:
     ap.add_argument("--tasks", required=True)
     ap.add_argument("--sources", default="config/watch-sources.yml")
     a = ap.parse_args()
-    issues = _closed_issues(a.repo)
+    issues = _issues(a.repo)
     archive = [json.loads(x) for x in Path(a.archive).read_text(encoding="utf-8").splitlines()
                if x.strip()]
     addresses = {i["address"] for i in issues}

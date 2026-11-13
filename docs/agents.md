@@ -68,9 +68,10 @@ Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and t
 Every issue starts with one line: an automated check opened it, which model wrote it, and that
 a maintainer checks it before anyone works on it (with a link to Kitden's AI policy). Then the
 same sections each time: what changed, what it means for Kitden (type and severity in plain
-words), why, where in Kitden, scale, how sure, and what a maintainer does with it. Add
-`good first issue` or `help wanted` only after `confirmed`, so no contributor works on a false
-alarm.
+words), why, where in Kitden, scale, how sure, and what a maintainer does with it: put
+`confirmed` on it if it is right (it stays open until the problem is fixed), or close it with
+`false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
+contributor works on a false alarm.
 
 | Label | Meaning |
 |---|---|
@@ -87,7 +88,11 @@ alarm.
 | `major`, `medium`, `minor` | What a user who trusts Kitden ends up doing: a wrong action, extra steps, or nothing else ([watch-effects.md](watch-effects.md)) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary |
-| `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
+| `confirmed` | Set by the owner: the watcher was right; the issue stays open until fixed |
+| `false-alarm` | Set by the owner on closing: the watcher was wrong |
+
+The bot knows its issues by its own authorship and the label `automated`. If that label is
+removed from a bot issue, the bot no longer sees it and may open a new one.
 
 ## The release flow
 

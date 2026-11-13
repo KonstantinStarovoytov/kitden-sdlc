@@ -58,6 +58,8 @@ def test_labels_are_unique_and_described():
     described = {name: text for name, _, text in LABELS}
     assert described["release"] == "Opened by the release watch"
     assert described["desk"] == "The owner's desk"
+    assert described["confirmed"] == "Set by the owner: the bot was right; open until fixed"
+    assert described["false-alarm"] == "Set by the owner on closing: the bot was wrong"
 
 
 def test_names_are_the_label_names():

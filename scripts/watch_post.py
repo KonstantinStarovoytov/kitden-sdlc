@@ -42,8 +42,9 @@ SEVERITY_TEXT = {
 MAINTAINERS_SUMMARY = ("To confirm an item or mark it a false alarm, open an issue for it; this "
                        "summary is only a list.")
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
-MAINTAINERS = ("Close it with `confirmed` if this is right, or `false-alarm` if it is not. Add "
-               "`good first issue` or `help wanted` only after it is confirmed.")
+MAINTAINERS = ("Put `confirmed` on it if this is right; it stays open until the problem is "
+               "fixed. Close it with `false-alarm` if it is not. Add `good first issue` or "
+               "`help wanted` only after it is confirmed.")
 
 
 def first_line(repo: str = "") -> str:

@@ -180,7 +180,8 @@ post job creates a missing label from `LABELS` in `scripts/bot_issues.py` (call)
 | `major`, `medium`, `minor` | How much it matters to a user (docs/watch-effects.md, owner) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary (call) |
-| `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
+| `confirmed` | Set by the owner: the watcher was right; the issue stays open until fixed |
+| `false-alarm` | Set by the owner on closing: the watcher was wrong |
 
 An urgent issue carries its own labels. The summary carries `client-change` and `summary`; its
 items show the same words in their text.
@@ -234,10 +235,10 @@ does not answer the same way twice. Below the bar the watcher stays off
 and the owner chooses between a stronger model and a narrower task; the model name is one
 line of config.
 
-The set grows from real cases (owner, 2026-11-11). The owner closes an urgent issue with
-`confirmed` or `false-alarm`; about once a month a script turns such issues into new tasks,
-and they come to `evals/` as a pull request. Summary items are not collected this way yet:
-one issue holds many of them (call).
+The set grows from real cases (owner, 2026-11-11). The owner puts `confirmed` on an urgent
+issue, or closes it with `false-alarm`; about once a month a script turns such issues, open or
+closed, into new tasks, and they come to `evals/` as a pull request. Summary items are not
+collected this way yet: one issue holds many of them (call).
 
 Traces and experiments go to Langfuse (cloud, free plan), only when its keys are set: each
 model call with its time and tokens, and each eval run with the scores of each task. Only the

@@ -38,7 +38,7 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 |---|---|---|---|
 | A pull request to `main` | Claude and Luna review it; Lantern posts one "Agent review" comment | read it; merging is yours | a comment |
 | A pull request changes a workflow | zizmor, actionlint, the rule checker | fix a red check | a red check |
-| Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | close each issue with `confirmed` or `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday |
+| Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | put `confirmed` on each issue that is right (it stays open until fixed), or close it with `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday |
 | Every day, 06:23 UTC | the release watch, no model | run Release prep (the issue links to it), or re-run what it names | "Time for a release?", "Release vX.Y.Z is not everywhere" |
 | Every Monday, 06:00 UTC | the weekly numbers, no model | nothing | nothing |
 
@@ -95,7 +95,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    time.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Text
    that looks like a secret, or holds a long random string the model was not given, is refused.
-   Before that check the model's output is a run artifact, kept for a day. Luna can run shell
+   Before that check the model's output is a run artifact: kept a day for the reviewers and the
+   release agent, seven for the watcher. Luna can run shell
    commands, but only in a read-only sandbox without network, and it can read more than the
    checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
