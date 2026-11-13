@@ -136,8 +136,9 @@ workflows live here, and Kitden calls them. The design is
   opens "Release vX.Y.Z is not everywhere" while a store is behind or different; Homebrew
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
   no longer holds. It knows its issues by author, the label `automated` and title, so it never
-  touches one a person opened; remove `automated` from one and it may open a new issue. Both carry the labels `automated` and `release` and open with one line saying who
-  opened them, that no model wrote them and that a maintainer confirms them, then three parts:
+  touches one a person opened; remove `automated` from one and it may open a new issue. Both
+  carry the labels `automated` and `release` and open with one line saying who opened them,
+  that no model wrote them and that a maintainer confirms them, then three parts:
   what happened, what it means, what to do.
 
 Identities: three GitHub Apps, each with its own name and icon, so nobody mistakes one
