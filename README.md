@@ -73,8 +73,8 @@ merge the pull request **Kitden X.Y.Z**. The bot's issue "Time for a release?" l
 same page. Do not open issues with the bots' titles yourself: the bot finds its issues by the
 exact title and would rewrite or close yours.
 
-Two switches stop it all: `AGENTS_ENABLED` (everything) and `WATCH_LIVE` (the watcher's daily
-run).
+Three switches stop it all: `AGENTS_ENABLED` (everything), `REVIEW_LIVE` (the two reviewers)
+and `WATCH_LIVE` (the watcher's daily run).
 
 ## The rules
 
@@ -89,13 +89,18 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    `main`, which is protected.
 5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has only
    the 15 minutes. An agent that is a script has `MAX_MODEL_CALLS` and runs one at a time.
-6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Luna
-   can run shell commands, but only in a read-only sandbox without network, and it can read
-   more than the checkout.
+6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Text
+   that looks like a secret, or holds a long random string the model was not given, is refused.
+   Luna can run shell commands, but only in a read-only sandbox without network, and it can
+   read more than the checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
    never share a job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it
    (today the "Agent review" title).
+9. A job that runs a model reaches only the hosts on its list; its first step is Harden-Runner.
+10. A model step never prints its full output or debug logs.
+11. No agent is in anyone's way: no required check, no approving or blocking, no closing what a
+    person opened, no red mark when an agent fails.
 
 ## Copy this
 
@@ -111,5 +116,5 @@ setup: [docs/setup.md](docs/setup.md) for review and the watcher,
 - [LOG.md](LOG.md): what went wrong while building, and what changed
 - Designs: [reviewers](docs/design.md), [client watcher](docs/watcher-design.md),
   [release flow](docs/superpowers/specs/2026-11-12-release-flow-design.md)
-- [MERGE_POLICY.md](MERGE_POLICY.md): the reviewers only comment, never approve or block
+- [MERGE_POLICY.md](MERGE_POLICY.md): what agents may and may not do to a pull request
 - Evals: [review tasks](evals/README.md), [watch tasks](evals/watch/README.md)

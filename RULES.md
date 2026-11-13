@@ -1,6 +1,6 @@
 # Rules for every agent workflow
 
-Every workflow that runs an AI agent must follow these eight rules.
+Every workflow that runs an AI agent must follow these eleven rules.
 
 1. No job holds untrusted text, a secret and write permission together. The model reads; a
    step without a model posts, or the action's own comment tool is allowed by its exact name.
@@ -20,9 +20,20 @@ Every workflow that runs an AI agent must follow these eight rules.
    `MAX_MODEL_CALLS`, and one run at a time.
 6. Tools are allowed by exact name. Reviewers get no Bash, no web tools and no MCP server. They
    read only the checkout (not `.git`, the home folder or `/proc`) and write only the findings
-   folder. Their text is refused if it looks like a secret. Codex can run shell commands, but only
-   inside a read-only sandbox with no network, and the files it can read are not limited to
-   the checkout.
+   folder. Their text is refused if it looks like a secret, or holds a long random string that
+   is not in what the model was given. Codex can run shell commands, but only inside a
+   read-only sandbox with no network, and the files it can read are not limited to the
+   checkout.
 7. A secret reaches a job as a named input and is never printed. The Claude token and the
    OpenAI key are never in the same job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it.
+9. A job that runs a model reaches only the hosts on its written list. Its first step is
+   Harden-Runner. In its first week it only records the hosts; then the list is a limit.
+10. A model step never prints its full output or debug logs: in a public repository those logs
+    are public. The checker refuses `show_full_output`, `display_report`, debug flags and
+    debug variables.
+11. No agent is in anyone's way. No agent job is a required check. No agent approves, requests
+    changes, or closes, locks or labels what a person opened; a bot knows its own issues by
+    their author. A failed agent leaves no red mark on a pull request: if one reviewer fails
+    the comment names it, if both fail nothing is posted. Only a refusal to post secret-like
+    text turns the job red.
