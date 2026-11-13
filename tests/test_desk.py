@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 from count_reviews import MAINTAINER, REPO, Review
@@ -463,3 +463,67 @@ def test_build_reads_the_review_summary_and_the_roster():
     empty = build(Facts(), ROSTER, NOW)
     assert empty["review"] == {"clean": None, "fixed": None, "days_to_merge": None}
     assert empty["misses"] is None and empty["budget"]["agents"][0]["runs"] is None
+
+
+def test_each_light_keeps_proven_bad_news_when_another_fact_is_missing():
+    issues = [bot(5, labels=MAJOR, created=ago(20)),
+              bot(7, "The client watcher is paused", labels=("automated", "desk"))]
+    old = pull(79, "agent/x", login="kitden-beacon[bot]", created=ago(20))
+    facts = Facts(issues=issues, pulls=[old], checks=[{**OK, "conclusion": "failure"}])
+    states = {light["id"]: light["state"] for light in build(facts, ROSTER, NOW)["lights"]}
+    # Not read: the required checks, the watch log and the reviews.
+    assert states == {"works": "red", "clients": "red", "bugs": "red", "agents": "amber",
+                      "queue": "red"}
+
+
+# --- Careful reading: causes, open state, bots, letter case, time ---
+
+
+def caused(number, text):
+    return person(number, labels=("bug",), created=ago(2),
+                  body=f"### Steps\n\nx\n\n### Caused by\n\n{text}\n\n### Notes\n\n#72\n")
+
+
+def test_every_reference_under_caused_by_counts_once():
+    reviews = [review(70, counts(0, 0)), review(71, counts(0, 0)), review(72, counts(0, 0))]
+    address = f"https://github.com/{REPO}/pull/70"
+    found = misses([caused(81, "#71, #70"), caused(82, "PR #70"), caused(83, "`#70`"),
+                    caused(84, "70"), caused(85, f"#70 and {address}"),
+                    caused(86, f"{address}/files#diff-1"), caused(87, "_No response_")],
+                   reviews, NOW)
+    assert [(m["issue"], m["pull"]) for m in found] == [
+        (81, 70), (81, 71), (82, 70), (83, 70), (85, 70), (86, 70)]
+    other = "https://github.com/someone/else/pull/70"
+    assert misses([caused(88, other)], reviews, NOW) == []
+
+
+def test_an_open_issue_is_open_whatever_its_closed_at_says():
+    grew = [person(n, labels=("bug",), created=ago(d)) for n, d in enumerate((25, 18, 11, 4))]
+    grew[0]["closed_at"] = "2026-11-12T00:00:00Z"  # reopened: still "open"
+    assert light_bugs(grew, NOW)["state"] == "red"
+
+
+def test_an_account_of_type_bot_is_a_bot():
+    copilot = {**pull(9, "agent/fix"), "user": {"login": "Copilot", "type": "Bot"}}
+    assert [w["kind"] for w in waiting([], [copilot], [], NOW)] == ["pull"]
+    assert use([], [copilot], None, None, NOW)["pulls_from_others"] == 0
+    bug = person(5, labels=("bug",), created="2026-11-05T00:00:00Z")
+    bug["user"]["type"] = "Bot"
+    assert found_by([], [bug], NOW)[0]["others"] == 0
+
+
+def test_a_required_review_check_is_red_in_any_letter_case():
+    assert light_agents([], ["Review / Claude"], NOW)["state"] == "red"
+
+
+def test_now_and_timestamps_are_read_in_utc():
+    west = timezone(timedelta(hours=-8))
+    late_on_the_first = datetime(2026, 12, 1, 3, tzinfo=UTC)
+    opened = [person(1, created="2026-12-01T01:00:00Z")]
+    assert use(opened, [], None, None, late_on_the_first.astimezone(west))[
+        "issues_from_others"] == 1
+    assert found_by([], opened, late_on_the_first.astimezone(west))[0]["month"] == "2026-12"
+    no_offset = [bot(3, labels=("automated", "release"), created="2026-11-14T07:00:00")]
+    assert waiting(no_offset, [], [], NOW)[0]["days"] == 2.0
+    assert waiting(no_offset, [], [], NOW.replace(tzinfo=None))[0]["days"] == 2.0
+    assert build(FACTS, ROSTER, NOW.astimezone(west))["updated"] == "2026-11-16T07:00:00Z"

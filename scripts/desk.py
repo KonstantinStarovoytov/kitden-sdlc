@@ -27,10 +27,9 @@ DO = {
     "paused": "Close it to start the agent again.",
     "spot-check": "Look at the change, then 👍 or 👎 on its Agent review comment.",
 }
-CAUSED_BY = re.compile(
-    rf"###\s*Caused by\s*\n\s*(?:#(\d+)|https://github\.com/{re.escape(REPO)}/pull/(\d+))\b",
-    re.IGNORECASE,
-)
+CAUSED_BY = re.compile(r"^###[ \t]*Caused by[ \t\r]*$(.*?)(?=^###|\Z)", re.I | re.M | re.S)
+REFERENCE = re.compile(  # "#N", or the address of a pull request in REPO; a bare N is not one
+    rf"(?<![\w&])#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
 
 
 @dataclass
@@ -51,8 +50,13 @@ class Facts:
 # --- Time and who wrote what ---
 
 
+def _utc(when: datetime) -> datetime:
+    """`when` in UTC; without an offset it is read as UTC."""
+    return when.replace(tzinfo=UTC) if when.tzinfo is None else when.astimezone(UTC)
+
+
 def _at(text: str) -> datetime:
-    return datetime.fromisoformat(text).astimezone(UTC)
+    return _utc(datetime.fromisoformat(text))
 
 
 def _age(text: str, now: datetime) -> float:
@@ -81,7 +85,8 @@ def _login(item: dict) -> str:
 
 
 def _by_a_bot(item: dict) -> bool:
-    return _login(item).endswith("[bot]")
+    """An app's account ("…[bot]"), or any account GitHub marks as a bot, such as Copilot."""
+    return _login(item).endswith("[bot]") or (item.get("user") or {}).get("type") == "Bot"
 
 
 def _by_a_person_not_the_owner(item: dict) -> bool:
@@ -212,6 +217,7 @@ def _watch_log_age(watch_log: list[dict] | None, now: datetime) -> float | None:
 
 
 def light_clients(issues: list[dict] | None, watch_log: list[dict] | None, now: datetime) -> dict:
+    now = _utc(now)
     if issues is None:
         return _light("clients", "grey", "Not measured yet: the issues were not read.")
     late = _oldest(_bots(issues, "client-change", "confirmed", "major"))
@@ -223,11 +229,13 @@ def light_clients(issues: list[dict] | None, watch_log: list[dict] | None, now: 
 
 
 def _open_bugs_on(issues: list[dict], monday: datetime) -> int:
-    """Open `bug` issues at that Monday 00:00: opened before it and not closed before it."""
+    """Open `bug` issues at that Monday 00:00: opened before it and not closed before it.
+    An issue open today counts as never closed, whatever its `closed_at` says."""
     return sum(
         1 for item in issues
         if "bug" in names(item) and _at(item["created_at"]) < monday
-        and not (item.get("closed_at") and _at(item["closed_at"]) < monday)
+        and not (item["state"] != "open" and item.get("closed_at")
+                 and _at(item["closed_at"]) < monday)
     )
 
 
@@ -246,6 +254,7 @@ def _bugs_grew(issues: list[dict], now: datetime) -> dict | None:
 
 
 def light_bugs(issues: list[dict] | None, now: datetime) -> dict:
+    now = _utc(now)
     if issues is None:
         return _light("bugs", "grey", "Not measured yet: the issues were not read.")
     late = _oldest(_bots(issues, "confirmed", "major"))
@@ -254,7 +263,7 @@ def light_bugs(issues: list[dict] | None, now: datetime) -> dict:
 
 
 def _required_agents(required: list[str]) -> dict | None:
-    reviews = sorted(name for name in required if name.startswith("review /"))
+    reviews = sorted(name for name in required if name.lower().startswith("review /"))
     if not reviews:
         return None
     return _light("agents", "red",
@@ -278,6 +287,7 @@ def _paused_agent(issues: list[dict]) -> dict | None:
 
 
 def light_agents(issues: list[dict] | None, required: list[str] | None, now: datetime) -> dict:
+    now = _utc(now)
     found, missing = [], []
     if required is None:
         missing.append("main's rules")
@@ -354,6 +364,7 @@ def waiting(issues: list[dict] | None, pulls: list[dict] | None,
             reviews: list[Review] | None, now: datetime) -> list[dict] | None:
     """What the owner must do, in the order of DO, oldest first inside each kind; without
     `reviews`, everything but the spot check."""
+    now = _utc(now)
     if issues is None or pulls is None:
         return None
     verdictless = [
@@ -374,6 +385,7 @@ def waiting(issues: list[dict] | None, pulls: list[dict] | None,
 def use(issues: list[dict] | None, pulls: list[dict] | None,
         stars: int | None, downloads: int | None, now: datetime) -> dict:
     """Issues and pull requests other people opened this month; stars and downloads as given."""
+    now = _utc(now)
     month = _month(now)
 
     def count(items):
@@ -419,6 +431,7 @@ def _release_week(pulls: list[dict] | None, now: datetime) -> dict:
 def week(roster: dict, reviews: list[Review] | None, issues: list[dict] | None,
          pulls: list[dict] | None, runs: dict[str, int | None], now: datetime) -> list[dict]:
     """One row per roster agent: its runs, what it did in 7 days, and the owner's answers."""
+    now = _utc(now)
     rows = []
     for agent in roster["agents"]:
         agent_id = agent["id"]
@@ -452,12 +465,22 @@ def _found_in(month: str, reviews: list[Review] | None, issues: list[dict] | Non
 def found_by(reviews: list[Review] | None, issues: list[dict] | None,
              now: datetime) -> list[dict]:
     """Who found what, this month and the two before, newest first."""
+    now = _utc(now)
     return [_found_in(_month(now, back), reviews, issues) for back in range(3)]
+
+
+def _causes(body: str) -> list[int]:
+    """Every pull request named under the form's `### Caused by`, up to the next heading."""
+    section = CAUSED_BY.search(body)
+    if not section:
+        return []
+    return sorted({int(a or b) for a, b in REFERENCE.findall(section.group(1))})
 
 
 def misses(issues: list[dict] | None, reviews: list[Review] | None,
            now: datetime) -> list[dict] | None:
     """Bugs opened in the last 30 days whose form says a reviewed pull request caused them."""
+    now = _utc(now)
     if issues is None or reviews is None:
         return None
     reviewed = {r.pr for r in reviews}
@@ -465,10 +488,9 @@ def misses(issues: list[dict] | None, reviews: list[Review] | None,
     for item in sorted(issues, key=lambda item: item["number"]):
         if "bug" not in names(item) or _age(item["created_at"], now) > 30:
             continue
-        cause = CAUSED_BY.search(item.get("body") or "")
-        pull = cause and int(cause.group(1) or cause.group(2))
-        if pull in reviewed:
-            found.append({"issue": item["number"], "pull": pull, "url": item["html_url"]})
+        for pull in _causes(item.get("body") or ""):
+            if pull in reviewed:
+                found.append({"issue": item["number"], "pull": pull, "url": item["html_url"]})
     return found
 
 
@@ -477,6 +499,7 @@ def misses(issues: list[dict] | None, reviews: list[Review] | None,
 
 def build(facts: Facts, roster: dict, now: datetime) -> dict:
     """desk.json, version 1."""
+    now = _utc(now)
     wait = waiting(facts.issues, facts.pulls, facts.reviews, now)
     lights = [
         light_works(facts.checks, facts.required),
@@ -489,7 +512,7 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
               else {"clean": None, "fixed": None, "days_to_merge": None})
     return {
         "version": 1,
-        "updated": now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "updated": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "repo": REPO,
         "overall": overall([light["state"] for light in lights]),
         "lights": lights,
