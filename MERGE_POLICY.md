@@ -6,5 +6,5 @@
 - Changes to workflows, policy, principles and eval tasks go only to a human.
 - New visible surface goes to the owner.
 - Agents write code only on the owner's label.
-- Agents never add what PRINCIPLES.md calls new.
+- Agents never add what Kitden's PRINCIPLES.md calls new.
 - Release prep is started by hand and is outside the cap of 3 and 2.

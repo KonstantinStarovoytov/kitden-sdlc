@@ -97,10 +97,11 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    never share a job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it
    (today the "Agent review" title).
-9. A job that runs a model reaches only the hosts on its list; its first step is Harden-Runner.
+9. A job that runs a model starts with Harden-Runner, which for now only records the hosts it
+   reaches.
 10. A model step never prints its full output or debug logs.
-11. No agent is in anyone's way: no required check, no approving or blocking, no closing what a
-    person opened, no red mark when an agent fails.
+11. No agent is in anyone's way: no required check, no approving or requesting changes, no red
+    mark when an agent fails.
 
 ## Copy this
 

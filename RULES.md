@@ -28,12 +28,12 @@ Every workflow that runs an AI agent must follow these eleven rules.
    OpenAI key are never in the same job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it.
 9. A job that runs a model reaches only the hosts on its written list. Its first step is
-   Harden-Runner. In its first week it only records the hosts; then the list is a limit.
+   Harden-Runner. This is not in force yet: for the first week the step only records the
+   hosts; the list is written after that, and then it is a limit.
 10. A model step never prints its full output or debug logs: in a public repository those logs
     are public. The checker refuses `show_full_output`, `display_report`, debug flags and
     debug variables.
-11. No agent is in anyone's way. No agent job is a required check. No agent approves, requests
-    changes, or closes, locks or labels what a person opened; a bot knows its own issues by
-    their author. A failed agent leaves no red mark on a pull request: if one reviewer fails
-    the comment names it, if both fail nothing is posted. Only a refusal to post secret-like
-    text turns the job red.
+11. No agent is in anyone's way. No agent job is a required check. No agent approves or
+    requests changes. A failed agent leaves no red mark on a pull request: if one reviewer
+    fails the comment names it, if both fail nothing is posted. Only a refusal to post
+    secret-like text turns the job red.
