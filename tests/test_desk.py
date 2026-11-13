@@ -225,6 +225,45 @@ def test_build_without_facts_is_grey_never_green():
     json.dumps(desk)  # it is plain data
 
 
+# --- A list of main's rules that was only partly read ---
+
+
+def test_a_partial_list_of_rules_still_shows_the_bad_news_it_holds():
+    red = light_agents([], ["review / claude"], NOW, partial=True)
+    assert red["state"] == "red" and "review / claude" in red["why"]
+    assert light_works([OK], ["lint"], partial=True)["state"] == "amber"
+    failed = {**OK, "name": "lint", "conclusion": "failure"}
+    assert light_works([OK, failed], ["build"], partial=True)["state"] == "red"
+
+
+def test_a_partial_list_with_nothing_bad_is_grey_and_says_so():
+    agents = light_agents([], ["build (ubuntu-latest)"], NOW, partial=True)
+    assert agents["state"] == "grey" and "partly" in agents["why"]
+    for required in (["build"], []):
+        works = light_works([OK], required, partial=True)
+        assert works["state"] == "grey" and "partly" in works["why"]
+    assert light_agents([], [], NOW, partial=True)["state"] == "grey"
+
+
+def test_a_list_read_whole_with_nothing_bad_stays_green():
+    assert light_agents([], ["build"], NOW, partial=False)["state"] == "green"
+    assert light_works([OK], ["build"], partial=False)["state"] == "green"
+    assert light_agents([], ["build"], NOW)["state"] == "green"
+
+
+def test_build_passes_the_partial_flag_to_works_and_agents():
+    facts = Facts(issues=[], checks=[OK], required=["build"], required_partial=True)
+    states = {light["id"]: light["state"] for light in build(facts, ROSTER, NOW)["lights"]}
+    assert states["works"] == states["agents"] == "grey"
+    facts = Facts(issues=[], checks=[OK], required=["review / claude"], required_partial=True)
+    states = {light["id"]: light["state"] for light in build(facts, ROSTER, NOW)["lights"]}
+    assert states["agents"] == "red"
+    whole = Facts(issues=[], checks=[OK], required=["build"])
+    states = {light["id"]: light["state"] for light in build(whole, ROSTER, NOW)["lights"]}
+    assert states["works"] == states["agents"] == "green"
+    assert {light["state"] for light in build(Facts(), ROSTER, NOW)["lights"]} == {"grey"}
+
+
 # --- Beyond the brief: the edges its rules imply ---
 
 MINUTE = 1 / 1440

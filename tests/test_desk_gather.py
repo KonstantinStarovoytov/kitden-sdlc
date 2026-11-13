@@ -1,3 +1,4 @@
+import http.client
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -101,8 +102,7 @@ class FakeApi:
         return answer
 
     def pages(self, address, key=None):
-        answer = self.get(address)
-        return answer[key] if key else answer
+        return desk_gather.page_items(self.get(address), key)  # the shape check is the real one
 
     def list_pulls(self, repo):
         self.asked.append(f"list_pulls {repo}")
@@ -179,13 +179,19 @@ def ruleset(*names):
 
 
 def test_required_from_branch_protection_alone():
-    assert read(**{CLASSIC: classic("b", "a"), **failing(RULES)}).required == ["a", "b"]
+    facts = read(**{CLASSIC: classic("b", "a"), **failing(RULES)})
+    assert facts.required == ["a", "b"] and facts.required_partial is True
 
 
 def test_required_from_a_ruleset_alone():
     assert read(**{CLASSIC: classic(), RULES: ruleset("b (ubuntu)", "a")}).required == [
         "a", "b (ubuntu)"]
     assert read(**{CLASSIC: {"name": "main"}, RULES: ruleset("x")}).required == ["x"]
+
+
+def test_required_read_whole_is_not_partial():
+    assert read().required_partial is False
+    assert read(**{CLASSIC: classic("a"), RULES: []}).required_partial is False
 
 
 def test_required_is_the_union_of_both_in_a_stable_order():
@@ -202,22 +208,27 @@ def test_required_is_empty_when_both_read_and_none_is_required():
 
 
 def test_required_uses_what_was_read_when_one_read_fails(capsys):
-    assert read(**{CLASSIC: classic("a"), **failing(RULES)}).required == ["a"]
+    facts = read(**{CLASSIC: classic("a"), **failing(RULES)})
+    assert facts.required == ["a"] and facts.required_partial is True
     assert "::warning::" in capsys.readouterr().out
-    assert read(**{**failing(CLASSIC), RULES: ruleset("b")}).required == ["b"]
+    facts = read(**{**failing(CLASSIC), RULES: ruleset("b")})
+    assert facts.required == ["b"] and facts.required_partial is True
     assert "::warning::" in capsys.readouterr().out
 
 
 def test_required_is_none_when_both_reads_fail(capsys):
-    assert read(**failing(CLASSIC), **failing(RULES)).required is None
+    facts = read(**failing(CLASSIC), **failing(RULES))
+    assert facts.required is None and facts.required_partial is False
     out = capsys.readouterr().out
     assert out.count("::warning::") >= 2 and "required" in out
 
 
 def test_a_ruleset_of_an_odd_shape_is_a_failed_read():
     odd = [{"type": "required_status_checks", "parameters": {"required_status_checks": [{}]}}]
-    assert read(**{CLASSIC: classic("a"), RULES: odd}).required == ["a"]
-    assert read(**{CLASSIC: classic("a"), RULES: {"message": "x"}}).required == ["a"]
+    facts = read(**{CLASSIC: classic("a"), RULES: odd})
+    assert facts.required == ["a"] and facts.required_partial is True
+    facts = read(**{CLASSIC: classic("a"), RULES: {"message": "x"}})
+    assert facts.required == ["a"] and facts.required_partial is True
 
 
 def test_one_failed_read_leaves_one_field_empty(capsys):
@@ -313,6 +324,79 @@ def test_pages_joins_the_pages_gh_prints_one_after_another(monkeypatch):
     assert api.pages("repos/o/r/runs", "check_runs") == [{"a": 1}, {"a": 2}]
     monkeypatch.setattr(api, "_run", lambda *args, token=None: '{"stargazers_count": 4}')
     assert api.get("repos/o/r") == {"stargazers_count": 4}
+
+
+@pytest.mark.parametrize("text, key", [
+    ("{}", None), ('{"a": 1}', None), ("[]", "check_runs"), ("", None), ("  \n", "check_runs"),
+    ('{"check_runs": {"a": 1}}', "check_runs"), ('{"other": []}', "check_runs"),
+])
+def test_pages_refuses_an_answer_of_the_wrong_shape_or_none(monkeypatch, text, key):
+    api = desk_gather.GhDeskApi()
+    monkeypatch.setattr(api, "_run", lambda *args, token=None: text)
+    with pytest.raises((TypeError, ValueError, KeyError)):
+        api.pages("repos/o/r/x", key)
+
+
+def test_the_fake_refuses_the_same_shapes():
+    for answer, key in [({}, None), ([], "check_runs"), ({"check_runs": {"a": 1}}, "check_runs")]:
+        with pytest.raises((TypeError, KeyError)):
+            FakeApi({"x": answer}).pages("x", key)
+
+
+def test_a_wrong_shape_is_none_for_every_read_that_pages():
+    facts = read(**{
+        f"repos/{REPO}/issues?state=all&per_page=100": {},
+        f"repos/{REPO}/pulls?state=open&per_page=100": {},
+        f"repos/{REPO}/commits/main/check-runs?per_page=100": [],
+        runs_address(REPO, "agents-review.yml"): [],
+    })
+    assert facts.issues is None and facts.pulls is None and facts.checks is None
+    assert facts.runs["claude"] is None and facts.runs["watcher"] == 7
+
+
+# --- a failed read of any kind leaves the others running ---
+
+
+class Broken(FakeApi):
+    """An api whose every call fails with `error`."""
+
+    def __init__(self, error):
+        super().__init__({})
+        self.error = error
+
+    def get(self, address):
+        raise self.error
+
+    def list_pulls(self, repo):
+        raise self.error
+        yield  # pragma: no cover
+
+
+@pytest.mark.parametrize("error", [
+    http.client.IncompleteRead(b"x"), http.client.BadStatusLine("x"),
+    http.client.LineTooLong("x"), RecursionError(), OverflowError(), ZeroDivisionError(),
+    UnicodeDecodeError("utf-8", b"", 0, 1, "x"),
+])
+def test_an_error_of_any_kind_is_a_failed_read_not_a_crash(error, tmp_path, capsys):
+    def fetch(url):
+        raise error
+
+    (tmp_path / "log.jsonl").write_text("{}\n")
+    facts = gather(Broken(error), REPO, ROSTER, NOW, tmp_path / "log.jsonl", fetch=fetch)
+    assert facts.downloads is None and facts.issues is None and facts.pulls is None
+    assert facts.reviews is None and facts.checks is None and facts.stars is None
+    assert facts.required is None and set(facts.runs.values()) == {None}
+    assert facts.watch_log == [{}]  # the one read that does not need the network still ran
+    assert capsys.readouterr().out.count("::warning::") >= 9
+
+
+def test_a_truncated_download_leaves_the_other_facts(capsys):
+    def truncated(url):
+        raise http.client.IncompleteRead(b"{")
+
+    facts = read(fetch=truncated)
+    assert facts.downloads is None and facts.stars == 12 and facts.issues is not None
+    assert "downloads" in capsys.readouterr().out
 
 
 # --- downloads ---

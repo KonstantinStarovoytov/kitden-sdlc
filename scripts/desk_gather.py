@@ -8,7 +8,6 @@ exits 0 whatever could not be read; it fails only when it cannot write desk.json
 
 import argparse
 import json
-import subprocess
 import sys
 import urllib.request
 from collections.abc import Callable
@@ -27,9 +26,6 @@ BRANCH = "main"
 SCHEDULED_ONLY = ("watcher",)  # watch.yml also has an eval started by hand: it is not a watch
 COUNTED = ("success", "failure")  # a skipped, cancelled or unfinished run is not a run
 ROSTER = Path(__file__).resolve().parent.parent / "config" / "agents.json"
-# What a failed or oddly shaped answer raises. Anything else is a bug and shows as one.
-READ_ERRORS = (subprocess.CalledProcessError, OSError, ValueError, KeyError, TypeError,
-               AttributeError, IndexError)
 
 
 # --- Talking to GitHub ---
@@ -44,14 +40,27 @@ class GhDeskApi(GhNumbersApi):
     def pages(self, address: str, key: str | None = None) -> list:
         """Every page of `address`: the items of each list, or of each object's `key`."""
         text = self._run(address, "--paginate")  # one JSON value per page, one after another
-        decoder, items, index = json.JSONDecoder(), [], 0
+        decoder, items, index, count = json.JSONDecoder(), [], 0, 0
         while index < len(text):
             if text[index].isspace():
                 index += 1
                 continue
             page, index = decoder.raw_decode(text, index)
-            items += page[key] if key else page
+            items += page_items(page, key)
+            count += 1
+        if not count:
+            raise ValueError("gh gave no answer")
         return items
+
+
+def page_items(page, key: str | None) -> list:
+    """The items of one page: the page itself when `key` is None, else its `key`. A page of
+    another shape is an error, not an empty list."""
+    if key is not None:
+        page = page.get(key) if isinstance(page, dict) else None
+    if not isinstance(page, list):
+        raise TypeError("an answer of another shape than expected")
+    return page
 
 
 def fetch_url(url: str) -> str:
@@ -67,10 +76,12 @@ def fetch_url(url: str) -> str:
 
 
 def _read(field: str, read: Callable[[], object]):
-    """What `read` gives; None, and one warning that names `field`, when it fails."""
+    """What `read` gives; None, and one warning that names `field`, when it fails. Any error
+    counts: a failed call, a cut-off answer from a third party or an oddly shaped one must
+    never stop the other reads."""
     try:
         return read()
-    except READ_ERRORS:
+    except Exception:
         print(f"::warning::desk: could not read {field}")
         return None
 
@@ -134,16 +145,16 @@ def _ruled(api, repo: str) -> list[str]:
     return _names(found)
 
 
-def _required(api, repo: str) -> list[str] | None:
-    """The checks main requires, by branch protection or by a ruleset, each read on its own.
-    None only when neither could be read."""
+def _required(api, repo: str) -> tuple[list[str] | None, bool]:
+    """The checks main requires, by branch protection or by a ruleset, each read on its own,
+    and whether the list is partial: one of the two reads failed. None when both failed."""
     read = [
         _read("required (branch protection)", lambda: _protected(api, repo)),
         _read("required (rulesets)", lambda: _ruled(api, repo)),
     ]
     if all(names is None for names in read):
-        return None
-    return sorted({name for names in read for name in names or ()})
+        return None, False
+    return sorted({name for names in read for name in names or ()}), None in read
 
 
 def _stars(api, repo: str) -> int:
@@ -203,6 +214,7 @@ def _watch_log(path: Path | None) -> list[dict] | None:
 def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
            fetch: Fetch = fetch_url) -> Facts:
     """Every fact the desk reads. A read that fails leaves its field None."""
+    required, partial = _required(api, repo)
     return Facts(
         repo=repo,
         issues=_read("issues", lambda: _issues(api, repo)),
@@ -210,7 +222,8 @@ def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
         reviews=_read("reviews", lambda: collect(api, repo, now=now)),
         checks=_read("checks", lambda: _dicts(
             api.pages(f"repos/{repo}/commits/{BRANCH}/check-runs?per_page=100", "check_runs"))),
-        required=_required(api, repo),
+        required=required,
+        required_partial=partial,
         runs=_agent_runs(api, roster, now),
         watch_log=None if watch_log is None else _read("watch_log", lambda: _watch_log(watch_log)),
         stars=_read("stars", lambda: _stars(api, repo)),

@@ -19,6 +19,7 @@ GOOD_ENDINGS = ("success", "neutral", "skipped")
 WATCH_LOG_DAYS = 2  # older than this, the watcher's issues say nothing about today
 PAUSED = paused_title("")  # " is paused": the end of the title of a pause issue
 REVIEWERS = ("claude", "luna")
+PARTLY = "main's rules were only partly read."
 TITLE_LENGTH = 100
 DO = {
     "pull": "Review it and merge, or close it.",
@@ -39,10 +40,11 @@ class Facts:
 
     repo: str = REPO  # the repository the facts were read from
     issues: list[dict] | None = None  # every Kitden issue, open and closed, no pull requests
-    pulls: list[dict] | None = None  # pull requests updated in the last 90 days
+    pulls: list[dict] | None = None  # every open pull request, and the closed ones of 90 days
     reviews: list[Review] | None = None
     checks: list[dict] | None = None  # check runs of main's newest commit
     required: list[str] | None = None  # the checks main requires
+    required_partial: bool = False  # `required` holds only what one of two reads gave
     runs: dict[str, int | None] = field(default_factory=dict)  # agent id -> runs, last 7 days
     watch_log: list[dict] | None = None  # the watcher's log.jsonl
     stars: int | None = None
@@ -170,9 +172,11 @@ def _not_passed(required: list[str] | None, passed: list[str]) -> dict | None:
                   f"{', '.join(left)} {verb} not passed on main's newest commit.")
 
 
-def light_works(checks: list[dict] | None, required: list[str] | None = None) -> dict:
+def light_works(checks: list[dict] | None, required: list[str] | None = None,
+                partial: bool = False) -> dict:
     """Main's newest commit. With `required`, each check main requires must also have passed;
-    with None, only the check runs that are there are judged."""
+    with None, only the check runs that are there are judged. `partial`: `required` is only
+    part of main's rules, so nothing bad found there is not yet good news."""
     if not checks:
         return _light("works", "grey", "Not measured yet: no check run of main was read.")
     done = [c for c in checks if c.get("status") == "completed"]
@@ -188,8 +192,10 @@ def light_works(checks: list[dict] | None, required: list[str] | None = None) ->
         if odd else None,
         _not_passed(required, passed),
     ]
-    missing = "" if passed else "no check on main's newest commit passed."
-    return _settle("works", found, missing)
+    missing = ["no check on main's newest commit passed."] if not passed else []
+    if partial:
+        missing.append(PARTLY)
+    return _settle("works", found, " ".join(missing))
 
 
 def _log_day(line: dict) -> datetime | None:
@@ -289,7 +295,9 @@ def _paused_agent(issues: list[dict]) -> dict | None:
     return _light("agents", "amber", f"Issue #{paused['number']} says an agent is paused.")
 
 
-def light_agents(issues: list[dict] | None, required: list[str] | None, now: datetime) -> dict:
+def light_agents(issues: list[dict] | None, required: list[str] | None, now: datetime,
+                 partial: bool = False) -> dict:
+    """`partial`: `required` is only part of main's rules (see light_works)."""
     now = _utc(now)
     found, missing = [], []
     if required is None:
@@ -300,7 +308,10 @@ def light_agents(issues: list[dict] | None, required: list[str] | None, now: dat
         missing.append("the issues")
     else:
         found += [_watcher_over_cap(issues, now), _paused_agent(issues)]
-    return _settle("agents", found, f"{' and '.join(missing)} were not read." if missing else "")
+    note = [f"{' and '.join(missing)} were not read."] if missing else []
+    if partial and required is not None:
+        note.append(PARTLY)
+    return _settle("agents", found, " ".join(note))
 
 
 def light_queue(waiting: list[dict] | None, complete: bool = True) -> dict:
@@ -512,10 +523,10 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
     now = _utc(now)
     wait = waiting(facts.issues, facts.pulls, facts.reviews, now)
     lights = [
-        light_works(facts.checks, facts.required),
+        light_works(facts.checks, facts.required, facts.required_partial),
         light_clients(facts.issues, facts.watch_log, now),
         light_bugs(facts.issues, now),
-        light_agents(facts.issues, facts.required, now),
+        light_agents(facts.issues, facts.required, now, facts.required_partial),
         light_queue(_waits(facts.issues, facts.pulls, facts.reviews, now),
                     complete=None not in (facts.issues, facts.pulls, facts.reviews)),
     ]
