@@ -30,14 +30,23 @@ POLICY = ("PRIVACY.md", "SECURITY.md", "AI_POLICY.md", "listing.toml")
 OUT_FILES: dict[str, tuple[str, str] | None] = {
     "notes.md": ("docs/releases/v{version}.md", "content"),
     "README.md": ("README.md", "content"),
+    "guide.md": ("docs/guide.md", "content"),
     **{f"policy/{name}": (name, "policy") for name in POLICY},
+    "plugin/README.md": ("plugins/kitden/README.md", "policy"),
     "findings.md": None,
     "version.txt": None,
     "scenes.txt": None,
 }
 # Every Kitden file this script may write. The bump job writes the version files and
 # ROADMAP.md itself, from a script.
-ALLOWED = ("docs/releases/", "README.md", "ROADMAP.md", *POLICY)
+ALLOWED = (
+    "docs/releases/",
+    "README.md",
+    "ROADMAP.md",
+    "docs/guide.md",
+    "plugins/kitden/README.md",
+    *POLICY,
+)
 TEXT_MAX = 500_000
 IMAGES = Path("docs/images/readme")
 IMAGE_MAX = 20_000_000
@@ -61,11 +70,25 @@ CHECKS_START = "Before a release that"
 # Which changed files under src/ make each check due: a plain match on the path, generous on
 # purpose. A check whose area is not here is always listed.
 AREAS = (
-    ("the Kitden gateway", ("gateway", "mcp_server", "proxy")),
+    (
+        "the Kitden gateway",
+        ("local_gateway/", "gateway_api", "gateways.py", "mcp_server", "proxy"),
+    ),
     ("puts back items", ("kitden/changes/", "kitden/clients/", "add-panel", "changes.js")),
     ("secrets", ("keychain", "keyring", "secret", "oauth", "sign_in", "redact")),
     ("Details or the preview tray", ("details", "dock", "tray", "preview", "changes", "review")),
-    ("the Gateway map", ("gateway-drag", "gateway_view", "gateway-map", "gateway.js")),
+    (
+        "the Gateway map",
+        (
+            "gateway-drag",
+            "gateway_view",
+            "gateway-map",
+            "gateway.js",
+            "/map-view.js",
+            "/map.js",
+            "/map-drag.js",
+        ),
+    ),
 )
 
 

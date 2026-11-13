@@ -431,3 +431,36 @@ def test_apply_refuses_secret_like_text(tmp_path):
     with pytest.raises(ValueError, match="secret"):
         apply(root, out)
     assert not (root / "docs/releases/v0.9.0.md").exists()
+
+
+def test_guide_and_plugin_readme_go_to_their_places(tmp_path):
+    root = make_root(tmp_path)
+    out = make_out(tmp_path, {"guide.md": "new guide\n", "plugin/README.md": "new plugin\n"})
+    content, policy = apply(root, out, "0.9.1")
+    assert content == [Path("docs/guide.md")]
+    assert policy == [Path("plugins/kitden/README.md")]
+    assert (root / "plugins/kitden/README.md").read_text() == "new plugin\n"
+
+
+GATEWAY_DEVELOPMENT = """# Development
+
+## Check before a release
+
+Before a release that touches the Kitden gateway. Check it once by hand.
+
+1. Move a server into the gateway.
+
+Before a release that touches the Gateway map. Also check the map once by hand:
+
+2. Drag a node.
+"""
+
+
+def test_the_gateway_page_is_not_the_gateway():
+    doc = GATEWAY_DEVELOPMENT
+    page = ["src/kitden/web/static/js/gateway.js", "src/kitden/web/static/js/map-view.js"]
+    picked = hand_checks(doc, page)
+    assert [p.split(".")[0] for p in picked] == ["Before a release that touches the Gateway map"]
+    assert hand_checks(doc, ["src/kitden/web/static/js/library-map.js"]) == []
+    server = hand_checks(doc, ["src/kitden/local_gateway/proxy.py"])
+    assert any("the Kitden gateway" in p for p in server)
