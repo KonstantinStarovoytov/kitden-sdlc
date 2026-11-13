@@ -293,8 +293,15 @@ def test_one_line_joins_and_quiets():
 def test_a_silent_reviewer_is_named():
     assert "Luna gave no usable answer this time." in body_of(report(), None)
     assert "Claude gave no usable answer this time." in body_of(None, report())
-    assert "Claude and Luna gave no usable answer this time." in body_of(None, None)
+    assert "gave no usable answer this time" not in body_of(None, None)
     assert "gave no usable answer" not in body_of(report(), report())
+
+
+def test_no_answer_at_all_says_so_and_is_not_a_review():
+    body = body_of(None, None)
+    assert "Neither reviewer gave a usable answer for abcdef1. This is not a review." in body
+    assert "No problems found." not in body
+    assert read_marker(body) == {"claude": None, "luna": None, "both": 0}
 
 
 def test_the_body_ends_with_the_marker():
@@ -394,11 +401,22 @@ def argv_for(claude, luna, *extra):
     return ["--claude", str(claude), "--luna", str(luna), *extra]
 
 
-def test_main_with_both_files_missing_posts_and_prints_nothing(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(post_findings, "GhApi", lambda **_: pytest.fail("no GitHub"))
-    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7")
+def test_main_with_both_files_missing_posts_that_neither_answered(tmp_path, capsys, monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7", "--head-sha", SHA)
     assert main(argv) == 0
     assert capsys.readouterr().out.count("::warning::") == 2
+    assert [call[0] for call in api.calls] == ["create"]
+    body = api.comments[0]["body"]
+    assert "Neither reviewer gave a usable answer for abcdef1. This is not a review." in body
+    assert read_marker(body) == {"claude": None, "luna": None, "both": 0}
+
+
+def test_dry_run_with_both_files_missing_prints_that_neither_answered(tmp_path, capsys):
+    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--dry-run", "--head-sha", SHA)
+    assert main(argv) == 0
+    assert "Neither reviewer gave a usable answer for abcdef1." in capsys.readouterr().out
 
 
 def test_main_with_one_file_missing_still_prints_a_body(tmp_path, capsys):
@@ -836,6 +854,29 @@ def test_a_reviewer_silent_now_keeps_its_earlier_findings_and_counts():
     assert "Luna gave no usable answer this time." in body
     assert "**Not repeated by the latest review (1)**" in body
     assert read_marker(body) == {"claude": 0, "luna": 1, "both": 0}
+
+
+def test_no_answer_keeps_the_earlier_findings_and_marks_none_fixed(tmp_path, monkeypatch):
+    api = FakeApi()
+    before = run(api, report([finding("a.py", 11, text="Off by one."), ROADMAP]), report())
+    # The next push changes the lines of a.py:11, but nobody reviews it.
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7", "--repo", "o/r",
+                    "--head-sha", NEXT)
+    assert main(argv) == 0
+    body = api.comments[0]["body"]
+    assert [call[0] for call in api.calls if call[0] != "compare"] == ["create", "update"]
+    assert "Neither reviewer gave a usable answer for 1556615." in body
+    assert "**Not repeated by the latest review (2)**" in body and "Fixed" not in body
+    assert read_marker(body) == read_marker(before) == {"claude": 2, "luna": 0, "both": 0}
+    # The hidden line is the earlier one: the next review compares from the last reviewed
+    # commit, so it can still mark a.py:11 fixed.
+    assert read_state(body) == read_state(before)
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    after = run(api, report(), report(), head=LAST)
+    assert ("compare", SHA, LAST) in api.calls
+    assert "Off by one. *(Claude, fixed in 9999999)*" in after
 
 
 def test_a_long_history_is_cut_but_still_counted():

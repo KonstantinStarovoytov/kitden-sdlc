@@ -88,7 +88,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 4. Every action is pinned to a full SHA. The caller may use this repository's workflows at
    `main`, which is protected.
 5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has only
-   the 15 minutes. An agent that is a script has `MAX_MODEL_CALLS` and runs one at a time.
+   a 12-minute step limit. An agent that is a script has `MAX_MODEL_CALLS` and runs one at a
+   time.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Text
    that looks like a secret, or holds a long random string the model was not given, is refused.
    Luna can run shell commands, but only in a read-only sandbox without network, and it can
@@ -101,7 +102,7 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    reaches.
 10. A model step never prints its full output or debug logs.
 11. No agent is in anyone's way: no required check, no approving or requesting changes, no red
-    mark when an agent fails.
+    mark when a reviewer fails.
 
 ## Copy this
 

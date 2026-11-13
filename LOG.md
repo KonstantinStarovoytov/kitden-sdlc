@@ -70,6 +70,7 @@ Problems found while building the reviewers, and what changed because of each.
 
 - **A failed reviewer left a red mark on the pull request.** One reviewer's error turned its
   job red even though the other review was fine. Now a failed reviewer no longer fails its job:
-  the comment says which one gave no answer, and when both fail nothing is posted. Only a
-  refusal to post secret-like text still turns the job red.
+  the comment says which one gave no answer, or that neither did. The model step's timeout is
+  under the job's, so a hang fails only the step. A refusal to post secret-like text still
+  turns the job red, and so does a failure of the workflow's own steps.
   Kept by: `tests/test_workflows.py::test_a_failed_reviewer_leaves_no_red_mark`.

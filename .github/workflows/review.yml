@@ -120,10 +120,12 @@ jobs:
           -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name .claude \)
           -print -prune -exec rm -rf {} +
       # A failed reviewer does not fail the job: the review comment says it gave no answer.
+      # The step's own timeout, under the job's, makes a hang a failed step, not a failed job.
       - name: Review
         id: review
         if: steps.prepare.outputs.skip != 'true'
         continue-on-error: true
+        timeout-minutes: 12
         uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
@@ -138,7 +140,7 @@ jobs:
             --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-sdlc/**),Read(~/.*),Read(~/.*/**),Read(//proc/**)"
       - name: Say that Claude failed
         if: steps.review.outcome == 'failure'
-        run: echo "::warning::The Claude reviewer failed; the review comment says it gave no answer."
+        run: echo "::warning::The Claude reviewer failed; the review comment says who gave no answer."
       - name: Keep the findings
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -212,10 +214,12 @@ jobs:
       # request's agent files, and project_doc_max_bytes=0 asks Codex to read no
       # project instructions as well.
       # A failed reviewer does not fail the job: the review comment says it gave no answer.
+      # The step's own timeout, under the job's, makes a hang a failed step, not a failed job.
       - name: Review
         id: luna
         if: steps.prepare.outputs.skip != 'true'
         continue-on-error: true
+        timeout-minutes: 12
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         with:
           openai-api-key: ${{ secrets.openai_api_key }}
@@ -228,7 +232,7 @@ jobs:
           codex-args: '["-c", "project_doc_max_bytes=0", "-c", "web_search=\"disabled\""]'
       - name: Say that Luna failed
         if: steps.luna.outcome == 'failure'
-        run: echo "::warning::The Luna reviewer failed; the review comment says it gave no answer."
+        run: echo "::warning::The Luna reviewer failed; the review comment says who gave no answer."
       # Luna's answer, or the too-large notice the script wrote. A job output would not
       # do: GitHub drops an output that looks like it holds a secret.
       - name: Keep the findings
@@ -244,6 +248,8 @@ jobs:
   # key is used by one step, to get a short-lived token that can only write to pull requests.
   post:
     needs: [cap, claude, luna]
+    # With continue-on-error, success here means the job ended, not that the reviewer
+    # answered; post_findings.py tells the two apart.
     if: >-
       !cancelled() && needs.cap.outputs.skip == 'false'
       && (needs.claude.result == 'success' || needs.luna.result == 'success')

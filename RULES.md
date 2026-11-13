@@ -15,8 +15,8 @@ Every workflow that runs an AI agent must follow these eleven rules.
    may use `kitden-sdlc`'s own workflows at `main`: that branch is protected, so nothing gets
    there without a pull request.
 5. Every agent job has `timeout-minutes`, a turn limit and `concurrency` with one run per pull
-   request, where a newer run cancels the older. Codex (Luna) has no turn limit, only the
-   15-minute timeout. An agent that is a script, not an action, gets its turn limit as
+   request, where a newer run cancels the older. Codex (Luna) has no turn limit, only its
+   step's 12-minute timeout. An agent that is a script, not an action, gets its turn limit as
    `MAX_MODEL_CALLS`, and one run at a time.
 6. Tools are allowed by exact name. Reviewers get no Bash, no web tools and no MCP server. They
    read only the checkout (not `.git`, the home folder or `/proc`) and write only the findings
@@ -34,6 +34,7 @@ Every workflow that runs an AI agent must follow these eleven rules.
     are public. The checker refuses `show_full_output`, `display_report`, debug flags and
     debug variables.
 11. No agent is in anyone's way. No agent job is a required check. No agent approves or
-    requests changes. A failed agent leaves no red mark on a pull request: if one reviewer
-    fails the comment names it, if both fail nothing is posted. Only a refusal to post
-    secret-like text turns the job red.
+    requests changes. A failed reviewer leaves no red mark on a pull request: if one fails
+    the comment names it, if both fail the comment says so. A refusal to post secret-like
+    text does turn the job red, and so does a failure of the workflow's own steps (checkout,
+    the prepare script, the cap, GitHub's API).

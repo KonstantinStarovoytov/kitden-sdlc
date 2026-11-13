@@ -27,10 +27,11 @@ first one sends a notification. A finding both reviewers made is listed once. A 
 an earlier push that the latest review does not repeat stays in the comment: under "Fixed"
 when the lines it points to changed since, or else under "Not repeated by the latest
 review". The counts keep it either way. If one reviewer fails, the comment says which gave no
-answer and nothing turns red; if both fail, nothing is posted. The posting job refuses a
-reviewer's text that holds a long random string found nowhere in the pull request's title,
-body or files. That refusal, like one of text that looks like a secret, is the one red mark
-left.
+answer; if both fail, it says neither did and that it is not a review. A failed reviewer
+leaves no red mark. The posting job refuses a reviewer's text that holds a long random string
+found nowhere in the pull request's title, body or files. That refusal, like one of text that
+looks like a secret, turns the job red, and so does a failure of the workflow's own steps
+(checkout, the prepare script, the cap, GitHub's API).
 
 The two reviewers work by different methods, so they do not repeat each other's blind spots.
 Claude's skill follows Anthropic's
@@ -39,9 +40,10 @@ report only what is surely wrong, and check each finding before keeping it. Luna
 follows the review rubric of [OpenAI's Codex](https://github.com/openai/codex). Both sources
 are under Apache-2.0; the text here is rewritten for Kitden.
 
-Limits for both reviewers: 15 minutes, 5 findings each, at most 10 reviews a day, fork pull
-requests and bots skipped, and the label `no-agent-review` skips one pull request. The
-reviewers only comment: they never approve and never block ([rule 11](../RULES.md)).
+Limits for both reviewers: 12 minutes for the model step and 15 for its job, 5 findings
+each, at most 10 reviews a day, fork pull requests and bots skipped, and the label
+`no-agent-review` skips one pull request. The reviewers only comment: they never approve and
+never block ([rule 11](../RULES.md)).
 
 On Kitden, `agents-review.yml` calls [review.yml](../.github/workflows/review.yml), and the
 Lantern app posts the "Agent review" comment. `agents-check.yml` calls

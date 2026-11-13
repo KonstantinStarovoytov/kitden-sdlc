@@ -565,12 +565,19 @@ def review_body(
 ) -> str:
     """The whole comment. `reports` has None for a reviewer that gave no usable answer.
     `earlier` is what the comment held before, and `changes` what changed since. `names`
-    are the reviewers' names as the comment shows them."""
+    are the reviewers' names as the comment shows them.
+
+    With no answer at all this commit was not reviewed: the earlier findings stay as they
+    were, none is marked fixed, and the hidden line keeps the last reviewed commit, so the
+    next review compares from there."""
     parts = [TITLE]
     answered_now = [name for name in REVIEWERS if reports.get(name)]
     answered = [n for n in REVIEWERS if n in answered_now or (earlier and n in earlier.answered)]
+    reviewed = head_sha
+    if not answered_now:
+        reviewed, changes = (earlier.head if earlier else head_sha), {}
     items, dropped = trim(
-        carry(merge(reports), earlier, head_sha, changes),
+        carry(merge(reports), earlier, reviewed, changes),
         earlier.dropped if earlier else {name: 0 for name in [*REVIEWERS, "both"]},
     )
     # Earlier text was checked when it was first posted; check it again all the same.
@@ -579,7 +586,10 @@ def review_body(
     still = [i for i in items if not i.now and not i.fixed]
     fixed = [i for i in items if not i.now and i.fixed]
     latest = next((r for name in REVIEWERS if (r := reports.get(name))), None)
-    if latest:
+    if not latest:
+        commit = one_line(head_sha[:7])
+        parts.append(f"Neither reviewer gave a usable answer for {commit}. This is not a review.")
+    else:
         parts.append(one_line(latest.summary))
         if current:
             bullets = "\n".join(_bullet(item, repo, names) for item in current)
@@ -605,10 +615,10 @@ def review_body(
     if left_out:
         parts.append(f"{left_out} older findings are left out to keep this comment short.")
     silent = [names[name] for name in REVIEWERS if not reports.get(name)]
-    if silent:
+    if latest and silent:
         parts.append(" and ".join(silent) + " gave no usable answer this time.")
     parts.append("<sub>👍 useful · 👎 wrong</sub>")
-    parts.append(state_line(Earlier(head_sha, answered, items, dropped)))
+    parts.append(state_line(Earlier(reviewed, answered, items, dropped)))
     parts.append(marker(answered, items, dropped))
     return "\n\n".join(parts)
 
@@ -737,14 +747,12 @@ def main(argv: list[str]) -> int:
     if not args.dry_run and args.pr is None:
         parser.error("--pr is required without --dry-run")
 
-    # A missing or broken file must not fail the job. With one answer the comment says
-    # who is missing; with none there is nothing to post.
+    # A missing or broken file must not fail the job. The comment says who is missing;
+    # with no answer at all it says this commit was not reviewed.
     reports = {"claude": load_report(args.claude), "luna": load_report(args.luna)}
     for name, report in reports.items():
         if report is None:
             print(f"::warning::The {name} reviewer gave no usable answer this time.")
-    if not any(reports.values()):
-        return 0
     try:
         for report in reports.values():
             if report:

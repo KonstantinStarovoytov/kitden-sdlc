@@ -10,10 +10,14 @@ ROOT = Path(__file__).resolve().parent.parent
 def test_a_failed_reviewer_leaves_no_red_mark():
     doc = yaml.safe_load((ROOT / ".github/workflows/review.yml").read_text())
     for name in ("claude", "luna"):
-        steps = [s for s in doc["jobs"][name]["steps"] if _is_model_step(s)]
+        job = doc["jobs"][name]
+        steps = [s for s in job["steps"] if _is_model_step(s)]
         assert len(steps) == 1 and steps[0].get("continue-on-error") is True
-        all_steps = doc["jobs"][name]["steps"]
-        assert any("outcome == 'failure'" in str(s.get("if", "")) for s in all_steps)
+        # GitHub fails a job that hits its own timeout; a step that hits its timeout only
+        # fails the step, which continue-on-error lets pass.
+        assert 0 < steps[0]["timeout-minutes"] < job["timeout-minutes"]
+        warning = f"steps.{steps[0]['id']}.outcome == 'failure'"
+        assert any(str(s.get("if", "")).strip() == warning for s in job["steps"])
 
 
 def test_every_model_job_in_release_prep_starts_with_the_same_hosts_step():
