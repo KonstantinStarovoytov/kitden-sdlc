@@ -320,6 +320,33 @@ def test_is_stale_looks_at_commits_after_the_picture(tmp_path):
     assert is_stale(root, picture)
 
 
+def test_a_picture_is_not_stale_from_its_own_merge_or_from_work_merged_before(tmp_path):
+    # Kitden 0.9.0: PR 82 recorded the animations; its own merge commit, and a commit of PR 81
+    # made beside it and merged before it, made them look stale, and they went in again.
+    root = tmp_path / "repo"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    picture = root / "docs/images/readme/pick-light.webp"
+    commit(root, "README.md", "text")
+    git(root, "switch", "-q", "-c", "other")
+    commit(root, "src/kitden/demo/sample.py", "a comment")
+    git(root, "switch", "-q", "main")
+    git(root, "switch", "-q", "-c", "pictures")
+    commit(root, "scripts/record_scenes.py", "fix the scene")
+    commit(root, "docs/images/readme/pick-light.webp", "v1")
+    git(root, "switch", "-q", "main")
+    git(root, "merge", "-q", "--no-ff", "-m", "Merge other", "other")
+    git(root, "merge", "-q", "--no-ff", "-m", "Merge pictures", "pictures")
+    assert not is_stale(root, picture)
+    commit(root, "docs/x.md", "text")
+    assert not is_stale(root, picture)
+    git(root, "switch", "-q", "-c", "later")
+    commit(root, "src/kitden/web/x.js", "code")
+    git(root, "switch", "-q", "main")
+    git(root, "merge", "-q", "--no-ff", "-m", "Merge later", "later")
+    assert is_stale(root, picture)
+
+
 DEVELOPMENT = """# Development
 
 ## Check before a release
