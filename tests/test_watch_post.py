@@ -53,9 +53,11 @@ def one(judged=1, **kw):
             "failed": []}
 
 
-def test_urgent_issue_has_first_line_labels_and_scale(tmp_path):
+def test_urgent_issue_has_first_line_labels_and_scale(tmp_path, capsys):
     gh = FakeIssues(labels={"client-change"})
     run(inp(1), one(), gh, tmp_path, WED)
+    assert json.loads((tmp_path / "log.jsonl").read_text())["paused"] is False
+    assert "paused" not in capsys.readouterr().out
     title, body, labels = gh.created[0]
     assert title == "Claude Code: skillOverrides renamed"
     assert body.splitlines()[0] == first_line()
@@ -225,16 +227,20 @@ def test_a_paused_watcher_opens_nothing_and_keeps_what_it_found(tmp_path):
     assert state["urgent"]["count"] == 0 and "summary_week" not in state
 
 
-def test_a_paused_day_writes_the_log_and_archive_with_nothing_posted(tmp_path):
+def test_a_paused_day_writes_the_log_and_archive_with_nothing_posted(tmp_path, capsys):
     run(inp(1), one(), FakeIssues([paused()]), tmp_path, WED)
     log = json.loads((tmp_path / "log.jsonl").read_text())
     assert log["findings"] == 1 and log["urgent"] == 0 and log["summary"] == 0
+    assert log["paused"] is True
+    assert capsys.readouterr().out.splitlines() == [
+        "The client watcher is paused: nothing posted, 1 finding kept for its first summary "
+        "after the pause."]
     archive = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
     assert [x["title"] for x in archive] == ["skillOverrides renamed"]
     assert archive[0]["issue"] == ""
 
 
-def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path):
+def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path, capsys):
     kept = [{"title": f"t{n}", "effect": "minor", "client": "codex", "sure": True,
              "changed": "c", "row": "", "files": [], "user_gets": "u", "systems": "",
              "why": "w"} for n in range(2)]
@@ -246,6 +252,7 @@ def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path):
     assert [k["title"] for k in state["kept"]][0] == "skillOverrides renamed"
     assert {k["title"] for k in state["kept"]} == {"skillOverrides renamed", "t0", "t1"}
     assert state["urgent"]["count"] == 0
+    assert "3 findings kept" in capsys.readouterr().out
 
     # The owner closes the pause: the next run posts everything in one summary.
     lifted = FakeIssues([paused("closed")])

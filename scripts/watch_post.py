@@ -165,8 +165,12 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
     found += word_hits(found, judged, inp)
     plan = route(found, inp["state"], judged, inp, today, failed)
     ensure_labels(gh)
-    if pause(gh, AGENT, "client-change", PAUSED_MEANS):
+    paused = pause(gh, AGENT, "client-change", PAUSED_MEANS)
+    if paused:
         plan = _hold(plan)
+        kept = len(plan.state["kept"])
+        print(f"{AGENT} is paused: nothing posted, {kept} finding{'' if kept == 1 else 's'} "
+              "kept for its first summary after the pause.")
 
     repo = gh.repo
     posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
@@ -181,7 +185,8 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
     (memory / "state.json").write_text(json.dumps(plan.state, indent=2) + "\n", encoding="utf-8")
     log = {"date": str(today), "pieces": len(inp["pieces"]), "judged": len(judged),
            "failed": len(failed),
-           "findings": len(found), "urgent": len(plan.urgent), "summary": len(plan.summary or [])}
+           "findings": len(found), "urgent": len(plan.urgent), "summary": len(plan.summary or []),
+           "paused": paused}
     _append(memory / "log.jsonl", [log])
     archive = [{"date": str(today), **{k: f[k] for k in
                ("piece", "client", "version", "url", "row", "title", "effect", "severity",

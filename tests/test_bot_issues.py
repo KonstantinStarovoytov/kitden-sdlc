@@ -2,6 +2,8 @@ import json
 import subprocess
 from datetime import date, timedelta
 
+import pytest
+
 import bot_issues
 from bot_issues import (
     BOT,
@@ -138,6 +140,37 @@ def test_gh_issues_edit_adds_labels_and_never_replaces_them(monkeypatch):
     assert close[:3] == ["repos/o/kitden/issues/4", "--method", "PATCH"] and "state=closed" in close
     assert comment[:3] == ["repos/o/kitden/issues/4/comments", "--method", "POST"]
     assert all(kw.get("check") is True for kw in run.kwargs)
+
+
+class FailingRun:
+    """subprocess.run for a `gh api` call that fails: exit 1, the response body on stdout and
+    gh's one-line message on stderr, as gh prints them."""
+
+    def __init__(self, body: dict | str, message: str):
+        self.out = body if isinstance(body, str) else json.dumps(body)
+        self.err = message
+
+    def __call__(self, command, **kwargs):
+        raise subprocess.CalledProcessError(1, command, self.out, self.err)
+
+
+def test_a_label_another_run_just_made_is_no_failure_and_any_other_failure_is(monkeypatch):
+    exists = {"message": "Validation Failed", "documentation_url": "https://docs.github.com",
+              "errors": [{"resource": "Label", "code": "already_exists", "field": "name"}],
+              "status": "422"}
+    bad_color = {**exists, "errors": [{"resource": "Label", "code": "invalid",
+                                       "field": "color"}]}
+    gh = GhIssues("o/kitden")
+    monkeypatch.setattr(bot_issues.subprocess, "run",
+                        FailingRun(exists, "gh: Validation Failed (HTTP 422)\n"))
+    gh.create_label("desk", "006b75", "The owner's desk")
+    for run in (FailingRun(bad_color, "gh: Validation Failed (HTTP 422)\n"),
+                FailingRun({"message": "Resource not accessible by integration"},
+                           "gh: Resource not accessible by integration (HTTP 403)\n"),
+                FailingRun("", "error connecting to api.github.com\n")):
+        monkeypatch.setattr(bot_issues.subprocess, "run", run)
+        with pytest.raises(subprocess.CalledProcessError):
+            gh.create_label("desk", "006b75", "The owner's desk")
 
 
 def test_fake_comments_are_the_bots():

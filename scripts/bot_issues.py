@@ -107,8 +107,31 @@ class GhIssues:
         return {label["name"] for label in self._list(f"repos/{self.repo}/labels?per_page=100")}
 
     def create_label(self, name: str, color: str, description: str) -> None:
-        self._run(f"repos/{self.repo}/labels", "--method", "POST", "-f", f"name={name}",
-                  "-f", f"color={color}", "-f", f"description={description}")
+        """Create a label. One that exists already, made by another run a moment ago, is no
+        failure; any other failure raises."""
+        try:
+            self._run(f"repos/{self.repo}/labels", "--method", "POST", "-f", f"name={name}",
+                      "-f", f"color={color}", "-f", f"description={description}")
+        except subprocess.CalledProcessError as error:
+            if not _label_exists(error):
+                raise
+
+
+def _label_exists(error: subprocess.CalledProcessError) -> bool:
+    """Whether `gh api` failed because GitHub says the label exists. On an HTTP error gh exits
+    1 and prints the response body on stdout; GitHub's 422 body lists the error code."""
+    for text in (error.stdout, error.stderr):
+        try:
+            body = json.loads(text or "")
+        except ValueError:
+            continue
+        errors = body.get("errors") if isinstance(body, dict) else None
+        if isinstance(errors, list) and any(
+            isinstance(item, dict) and item.get("resource") == "Label"
+            and item.get("code") == "already_exists" for item in errors
+        ):
+            return True
+    return False
 
 
 def names(issue: dict) -> set[str]:
