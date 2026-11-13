@@ -36,10 +36,14 @@ class Review:
     merged: str | None = None  # when it was merged; None while it is not
 
     @property
+    def answered(self) -> bool:
+        """At least one reviewer gave an answer."""
+        return self.counts["claude"] is not None or self.counts["luna"] is not None
+
+    @property
     def clean(self) -> bool:
         """The reviewers found nothing: every count is 0 or missing, and one of them answered."""
-        answered = self.counts["claude"] is not None or self.counts["luna"] is not None
-        return answered and not any(self.counts.values())
+        return self.answered and not any(self.counts.values())
 
 
 @dataclass
@@ -97,10 +101,12 @@ def collect(
     since_days: int = SINCE_DAYS,
     maintainer: str = MAINTAINER,
     now: datetime | None = None,
+    include_silent: bool = False,
 ) -> list[Review]:
     """Read the review comments on pull requests updated in the last `since_days`.
     Only our own comment that ends with the marker counts. A person's paste does not,
-    and neither does a comment in which neither reviewer gave an answer."""
+    and neither does a comment in which neither reviewer gave an answer, unless
+    `include_silent`: then it comes too, with no votes and nothing fixed read."""
     cutoff = (now or datetime.now(UTC)) - timedelta(days=since_days)
     found: list[Review] = []
     for pull in api.list_pulls(repo):
@@ -109,7 +115,10 @@ def collect(
         number = pull["number"]
         for item in api.list_issue_comments(repo, number):
             counts = our_marker(item)
-            if counts and (counts["claude"] is not None or counts["luna"] is not None):
+            if counts and include_silent and counts["claude"] is None and counts["luna"] is None:
+                found.append(Review(number, counts, 0, 0, updated=item.get("updated_at") or "",
+                                    created=pull["created_at"], merged=pull.get("merged_at")))
+            elif counts and (counts["claude"] is not None or counts["luna"] is not None):
                 up, down = _votes(api.list_issue_comment_reactions(repo, item["id"]), maintainer)
                 # A long pull request can undercount: the comment drops its oldest fixed past 30.
                 earlier = read_state(item.get("body") or "")

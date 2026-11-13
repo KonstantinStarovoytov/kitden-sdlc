@@ -58,6 +58,9 @@ class Safe(str):
     """Markdown this script wrote: a table cell shows it as it is."""
 
 
+DASH = Safe("—")  # a cell that does not apply to its row; not a measurement
+
+
 # --- Small pieces ---
 
 
@@ -117,15 +120,18 @@ def _cell(value) -> str:
 
 def _table(rows: list[dict], columns: list[tuple[str, object]]) -> list[str] | None:
     """A Markdown table. `columns` are (header, row -> value); the first names the row. A
-    column with no value measured in any row is left out and named under the table. None
-    when no row or no column is left: the caller says so in a sentence."""
+    column with no value measured in any row is left out, and named under the table unless
+    it applies to no row (DASH everywhere). None when no row or no column is left: the
+    caller says so in a sentence."""
     values = [[get(row) for _, get in columns] for row in rows]
-    keep = [0] + [i for i in range(1, len(columns)) if any(v[i] is not None for v in values)]
+    keep = [0] + [i for i in range(1, len(columns))
+                  if any(v[i] is not None and v[i] is not DASH for v in values)]
     if not rows or len(keep) == 1:
         return None
     lines = ["| " + " | ".join(columns[i][0] for i in keep) + " |", "|" + "---|" * len(keep)]
     lines += ["| " + " | ".join(_cell(v[i]) for i in keep) + " |" for v in values]
-    dropped = [header for i, (header, _) in enumerate(columns) if i not in keep]
+    dropped = [header for i, (header, _) in enumerate(columns)
+               if i not in keep and any(v[i] is None for v in values)]
     return lines + (["", f"Not measured yet: {', '.join(dropped)}."] if dropped else [])
 
 
@@ -260,14 +266,17 @@ def _this_week(desk: dict, shown: dict[str, int]) -> list[str]:
     week = _table(_rows(desk, "week"), [
         ("Agent", lambda r: r.get("name") or r.get("agent")),
         ("Runs", lambda r: r.get("runs")),
+        ("Failed", lambda r: r.get("failed")),
         ("Did", lambda r: r.get("did")),
+        ("No answer", lambda r: r.get("no_answer", DASH)),  # only a reviewer has the key
         ("You agreed", lambda r: r.get("agreed")),
         ("You disagreed", lambda r: r.get("disagreed")),
     ])
     if week:
         lines += [*week, "", "Did: reviews written, issues opened or release pull requests "
-                  "opened. Agreed and disagreed: your 👍 and 👎 on a review, or `confirmed` and "
-                  "`false-alarm` on the watcher's issues."]
+                  "opened. Failed: runs that failed. No answer: review comments in which that "
+                  "reviewer gave none. Agreed and disagreed: your 👍 and 👎 on a review, or "
+                  "`confirmed` and `false-alarm` on the watcher's issues."]
     else:
         lines += [f"The agents' week: {NOT_MEASURED_YET}."]
     lines += ["", _review(desk.get("review") or {}), ""]

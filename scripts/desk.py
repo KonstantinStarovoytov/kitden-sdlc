@@ -21,6 +21,7 @@ PAUSED = paused_title("")  # " is paused": the end of the title of a pause issue
 REVIEWERS = ("claude", "luna")
 PARTLY = "main's rules were only partly read."
 TITLE_LENGTH = 100
+MOSTLY_FAILING = 4  # with fewer runs or reviews in 7 days, an agent's failures say little
 DO = {
     "pull": "Review it and merge, or close it.",
     "verdict": "Put `confirmed` on it, or close it with `false-alarm`.",
@@ -41,11 +42,13 @@ class Facts:
     repo: str = REPO  # the repository the facts were read from
     issues: list[dict] | None = None  # every Kitden issue, open and closed, no pull requests
     pulls: list[dict] | None = None  # every open pull request, and the closed ones of 90 days
-    reviews: list[Review] | None = None
+    reviews: list[Review] | None = None  # review comments in which a reviewer answered
+    silent: list[Review] | None = None  # review comments in which neither reviewer answered
     checks: list[dict] | None = None  # check runs of main's newest commit, each with `event`
     required: list[str] | None = None  # the checks main requires
     required_partial: bool = False  # `required` holds only what one of two reads gave
-    runs: dict[str, int | None] = field(default_factory=dict)  # agent id -> runs, last 7 days
+    runs: dict[str, int | None] = field(default_factory=dict)  # agent id -> runs that ended
+    failed: dict[str, int | None] = field(default_factory=dict)  # agent id -> those that failed
     watch_log: list[dict] | None = None  # the watcher's log.jsonl
     stars: int | None = None
     downloads: int | None = None  # PyPI, last month
@@ -344,9 +347,34 @@ def _paused_agent(issues: list[dict]) -> dict | None:
     return _light("agents", "amber", f"Issue #{paused['number']} says an agent is paused.")
 
 
+def _and(items: list[str]) -> str:
+    """"a", "a and b", "a, b and c"."""
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def _mostly_failing(rows: list[dict]) -> dict | None:
+    """Amber, naming each agent that failed more than half of at least MOSTLY_FAILING runs in
+    7 days, and each reviewer that gave no answer in more than half of at least as many
+    review comments."""
+    named = []
+    for row in rows:
+        runs, failed = row.get("runs"), row.get("failed")
+        if None not in (runs, failed) and runs >= MOSTLY_FAILING and failed * 2 > runs:
+            named.append(f"{row['name']} failed {failed} of its {runs} runs")
+        silent, did = row.get("no_answer"), row.get("did")
+        if silent is not None and did is not None:
+            seen = silent + did
+            if seen >= MOSTLY_FAILING and silent * 2 > seen:
+                named.append(f"{row['name']} gave no answer in {silent} of {seen} reviews")
+    if not named:
+        return None
+    return _light("agents", "amber", f"In the last 7 days, {'; '.join(named)}.")
+
+
 def light_agents(issues: list[dict] | None, required: list[str] | None, now: datetime,
-                 partial: bool = False) -> dict:
-    """`partial`: `required` is only part of main's rules (see light_works)."""
+                 partial: bool = False, rows: list[dict] | None = None) -> dict:
+    """`partial`: `required` is only part of main's rules (see light_works). `rows`: the
+    week's rows (see week); without them, failed runs are not judged."""
     now = _utc(now)
     found, missing = [], []
     if required is None:
@@ -357,7 +385,14 @@ def light_agents(issues: list[dict] | None, required: list[str] | None, now: dat
         missing.append("the issues")
     else:
         found += [_watcher_over_cap(issues, now), _paused_agent(issues)]
-    note = [f"{' and '.join(missing)} were not read."] if missing else []
+    if rows is not None:
+        found.append(_mostly_failing(rows))
+        unread = [row["name"] for row in rows if row.get("failed") is None]
+        if unread:
+            missing.append(f"the runs of {_and(unread)}")
+        if any("no_answer" in row and row["no_answer"] is None for row in rows):
+            missing.append("the reviews")
+    note = [f"{_and(missing)} were not read."] if missing else []
     if partial and required is not None:
         note.append(PARTLY)
     return _settle("agents", found, " ".join(note))
@@ -468,15 +503,21 @@ def use(issues: list[dict] | None, pulls: list[dict] | None,
             "stars": stars, "downloads": downloads}
 
 
-def _reviewer_week(agent: str, reviews: list[Review] | None, now: datetime) -> dict:
+def _reviewer_week(agent: str, reviews: list[Review] | None, silent: list[Review] | None,
+                   now: datetime) -> dict:
+    """What the reviewer did in 7 days, and in how many review comments of those days it
+    gave no answer (None unless both kinds of comment were read)."""
     if reviews is None:
-        return {"did": None, "agreed": None, "disagreed": None}
-    answered = [
-        r for r in reviews
-        if r.counts.get(agent) is not None and r.updated and _age(r.updated, now) <= 7
-    ]
+        return {"did": None, "agreed": None, "disagreed": None, "no_answer": None}
+
+    def recent(r: Review) -> bool:
+        return bool(r.updated) and _age(r.updated, now) <= 7
+
+    answered = [r for r in reviews if r.counts.get(agent) is not None and recent(r)]
+    no_answer = None if silent is None else sum(
+        1 for r in [*reviews, *silent] if r.counts.get(agent) is None and recent(r))
     return {"did": len(answered), "agreed": sum(r.up for r in answered),
-            "disagreed": sum(r.down for r in answered)}
+            "disagreed": sum(r.down for r in answered), "no_answer": no_answer}
 
 
 def _watcher_week(issues: list[dict] | None, now: datetime) -> dict:
@@ -499,21 +540,26 @@ def _release_week(pulls: list[dict] | None, now: datetime) -> dict:
 
 
 def week(roster: dict, reviews: list[Review] | None, issues: list[dict] | None,
-         pulls: list[dict] | None, runs: dict[str, int | None], now: datetime) -> list[dict]:
-    """One row per roster agent: its runs, what it did in 7 days, and the owner's answers."""
+         pulls: list[dict] | None, runs: dict[str, int | None], now: datetime,
+         failed: dict[str, int | None] | None = None,
+         silent: list[Review] | None = None) -> list[dict]:
+    """One row per roster agent: its runs that ended and those that failed, what it did in 7
+    days, and the owner's answers; for a reviewer also `no_answer` (see _reviewer_week)."""
     now = _utc(now)
+    failed = failed or {}
     rows = []
     for agent in roster["agents"]:
         agent_id = agent["id"]
         if agent_id in REVIEWERS:
-            did = _reviewer_week(agent_id, reviews, now)
+            did = _reviewer_week(agent_id, reviews, silent, now)
         elif agent_id == "watcher":
             did = _watcher_week(issues, now)
         elif agent_id == "release-prep":
             did = _release_week(pulls, now)
         else:
             did = {"did": None, "agreed": None, "disagreed": None}
-        rows.append({"agent": agent_id, "name": agent["name"], "runs": runs.get(agent_id), **did})
+        rows.append({"agent": agent_id, "name": agent["name"], "runs": runs.get(agent_id),
+                     "failed": failed.get(agent_id), **did})
     return rows
 
 
@@ -571,11 +617,13 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
     """desk.json, version 1."""
     now = _utc(now)
     wait = waiting(facts.issues, facts.pulls, facts.reviews, now)
+    rows = week(roster, facts.reviews, facts.issues, facts.pulls, facts.runs, now,
+                failed=facts.failed, silent=facts.silent)
     lights = [
         light_works(facts.checks, facts.required, facts.required_partial),
         light_clients(facts.issues, facts.watch_log, now),
         light_bugs(facts.issues, now),
-        light_agents(facts.issues, facts.required, now, facts.required_partial),
+        light_agents(facts.issues, facts.required, now, facts.required_partial, rows),
         light_queue(_waits(facts.issues, facts.pulls, facts.reviews, now),
                     complete=None not in (facts.issues, facts.pulls, facts.reviews)),
     ]
@@ -589,7 +637,7 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
         "lights": lights,
         "use": use(facts.issues, facts.pulls, facts.stars, facts.downloads, now),
         "waiting": wait,
-        "week": week(roster, facts.reviews, facts.issues, facts.pulls, facts.runs, now),
+        "week": rows,
         "review": review,
         "found_by": found_by(facts.reviews, facts.issues, now),
         "misses": misses(facts.issues, facts.reviews, now),

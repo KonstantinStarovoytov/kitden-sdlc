@@ -65,6 +65,8 @@ FACTS = Facts(
     checks=[OK],
     required=["build"],
     runs={"claude": 12, "luna": 12, "watcher": 7, "release-prep": 1},
+    failed={"claude": 1, "luna": 1, "watcher": 0, "release-prep": 0},
+    silent=[],
     watch_log=FRESH,
     stars=12,
     downloads=340,
@@ -188,11 +190,13 @@ def test_week_has_a_row_per_agent_and_none_for_what_was_not_read():
               bot(2, labels=MAJOR, created=ago(20)),
               bot(3, labels=("automated", "client-change", "false-alarm"), created=ago(40))]
     pulls = [pull(79, branch="prepare-v0.9.0", login="kitden-beacon[bot]", created=ago(2))]
-    rows = week(ROSTER, reviews, issues, pulls, {"claude": 12, "watcher": 7}, NOW)
+    rows = week(ROSTER, reviews, issues, pulls, {"claude": 12, "watcher": 7}, NOW,
+                failed={"claude": 2, "watcher": 0}, silent=[])
     assert [row["agent"] for row in rows] == ["claude", "luna", "watcher", "release-prep"]
-    assert rows[0] == {"agent": "claude", "name": "Claude reviewer", "runs": 12, "did": 1,
-                       "agreed": 1, "disagreed": 0}
-    assert rows[1]["runs"] is None and rows[1]["did"] == 1
+    assert rows[0] == {"agent": "claude", "name": "Claude reviewer", "runs": 12, "failed": 2,
+                       "did": 1, "agreed": 1, "disagreed": 0, "no_answer": 0}
+    assert rows[1]["runs"] is None and rows[1]["failed"] is None and rows[1]["did"] == 1
+    assert "no_answer" not in rows[2] and rows[2]["failed"] == 0
     assert (rows[2]["did"], rows[2]["agreed"], rows[2]["disagreed"]) == (1, 1, 0)
     assert rows[3]["did"] == 1 and rows[3]["agreed"] is None
 
@@ -258,7 +262,8 @@ def test_build_passes_the_partial_flag_to_works_and_agents():
     facts = Facts(issues=[], checks=[OK], required=["review / claude"], required_partial=True)
     states = {light["id"]: light["state"] for light in build(facts, ROSTER, NOW)["lights"]}
     assert states["agents"] == "red"
-    whole = Facts(issues=[], checks=[OK], required=["build"])
+    whole = Facts(issues=[], checks=[OK], required=["build"], runs=FACTS.runs,
+                  failed=FACTS.failed, reviews=[], silent=[])
     states = {light["id"]: light["state"] for light in build(whole, ROSTER, NOW)["lights"]}
     assert states["works"] == states["agents"] == "green"
     assert {light["state"] for light in build(Facts(), ROSTER, NOW)["lights"]} == {"grey"}
@@ -698,3 +703,68 @@ def test_no_check_run_read_while_main_requires_some_is_amber():
                           "newest commit.")
     assert light_works([], [])["state"] == light_works([], None)["state"] == "grey"
     assert light_works(None, ["build"])["state"] == "grey"
+
+
+# --- Failed runs and silent reviewers ---
+
+
+def rows(**changes):
+    """The week's rows of a healthy week, with `changes` per agent id."""
+    base = {"claude": {"runs": 12, "failed": 1, "did": 9, "no_answer": 1},
+            "luna": {"runs": 12, "failed": 1, "did": 9, "no_answer": 1},
+            "watcher": {"runs": 7, "failed": 0}, "release-prep": {"runs": 1, "failed": 0}}
+    return [{"agent": a["id"], "name": a["name"], "did": None, **base[a["id"]],
+             **changes.get(a["id"].replace("-", "_"), {})} for a in ROSTER["agents"]]
+
+
+def test_a_healthy_week_of_runs_keeps_agents_green():
+    assert light_agents([], [], NOW, rows=rows())["state"] == "green"
+    # Half failed is not more than half; three failed runs are fewer than four runs.
+    assert light_agents([], [], NOW, rows=rows(watcher={"runs": 4, "failed": 2}))[
+        "state"] == "green"
+    assert light_agents([], [], NOW, rows=rows(release_prep={"runs": 3, "failed": 3}))[
+        "state"] == "green"
+    assert light_agents([], [], NOW, rows=rows(claude={"did": 1, "no_answer": 2}))[
+        "state"] == "green"
+
+
+def test_an_agent_failing_most_of_its_runs_turns_agents_amber():
+    amber = light_agents([], [], NOW, rows=rows(watcher={"runs": 5, "failed": 3}))
+    assert amber["state"] == "amber"
+    assert amber["why"] == "In the last 7 days, Client watcher failed 3 of its 5 runs."
+
+
+def test_a_reviewer_mostly_silent_turns_agents_amber():
+    amber = light_agents([], [], NOW, rows=rows(luna={"did": 1, "no_answer": 3}))
+    assert amber["state"] == "amber"
+    assert amber["why"] == "In the last 7 days, Luna reviewer gave no answer in 3 of 4 reviews."
+
+
+def test_runs_that_were_not_read_leave_agents_grey_not_green():
+    grey = light_agents([], [], NOW, rows=rows(claude={"failed": None}, luna={"failed": None}))
+    assert grey["state"] == "grey" and "Claude reviewer" in grey["why"]
+    grey = light_agents([], [], NOW, rows=rows(claude={"no_answer": None}))
+    assert grey["state"] == "grey" and "reviews" in grey["why"]
+
+
+def test_the_week_counts_failed_runs_and_silent_reviews():
+    answered = [review(70, counts(1, None), updated=ago(1)),
+                review(71, counts(0, 0), updated=ago(2)),
+                review(72, counts(None, 0), updated=ago(20))]  # older than 7 days
+    silent = [Review(73, counts(None, None), 0, 0, updated=ago(3), created=ago(4))]
+    found = week(ROSTER, answered, [], [], {"claude": 4}, NOW, failed={"claude": 3},
+                 silent=silent)
+    claude, luna = found[0], found[1]
+    assert (claude["runs"], claude["failed"], claude["did"], claude["no_answer"]) == (4, 3, 2, 1)
+    assert (luna["did"], luna["no_answer"]) == (1, 2)
+    assert week(ROSTER, answered, [], [], {}, NOW, silent=None)[0]["no_answer"] is None
+    assert week(ROSTER, None, [], [], {}, NOW, silent=[])[0]["no_answer"] is None
+
+
+def test_build_lights_agents_from_the_weeks_failed_runs():
+    facts = Facts(issues=[], required=[], runs={"claude": 6}, failed={"claude": 4}, reviews=[],
+                  silent=[])
+    agents = build(facts, ROSTER, NOW)["lights"][3]
+    assert agents["state"] == "amber" and "Claude reviewer failed 4 of its 6 runs" in agents["why"]
+    desk = build(FACTS, ROSTER, NOW)
+    assert desk["lights"][3]["state"] == "green" and desk["week"][0]["failed"] == 1

@@ -30,8 +30,8 @@ DESK = {
     "use": {"issues_from_others": 0, "pulls_from_others": 1, "stars": 12, "downloads": 340},
     "waiting": [{"kind": "verdict", "title": "Codex: the hooks key was renamed", "url": URL,
                  "do": "Put `confirmed` on it, or close it with `false-alarm`.", "days": 2.0}],
-    "week": [{"agent": "claude", "name": "Claude reviewer", "runs": 12, "did": 9, "agreed": 3,
-              "disagreed": 1}],
+    "week": [{"agent": "claude", "name": "Claude reviewer", "runs": 12, "failed": 1, "did": 9,
+              "agreed": 3, "disagreed": 1, "no_answer": 2}],
     "review": {"clean": 4, "fixed": 6, "days_to_merge": 1.5},
     "found_by": [{"month": "2026-11", "review": 6, "nightly": None, "tester": None,
                   "watcher": 0, "owner": 4, "others": 0}],
@@ -125,8 +125,8 @@ def test_nothing_waiting_says_nothing():
 def test_none_anywhere_is_never_printed():
     empty = {
         **DESK, "use": dict.fromkeys(DESK["use"]), "waiting": None,
-        "week": [{**DESK["week"][0], "runs": None, "did": None, "agreed": None,
-                  "disagreed": None}],
+        "week": [{**DESK["week"][0], "runs": None, "failed": None, "did": None, "agreed": None,
+                  "disagreed": None, "no_answer": None}],
         "review": {"clean": None, "fixed": None, "days_to_merge": None},
         "found_by": [dict.fromkeys(DESK["found_by"][0]) | {"month": "2026-11"}],
         "misses": None,
@@ -150,7 +150,8 @@ def test_the_links_are_the_four_searches_in_kitden():
 def test_this_week_says_what_its_numbers_cover():
     week = render(DESK).split("## This week")[1].split("## Budget")[0]
     assert "90 days" in week and "7" in week
-    assert "| Claude reviewer | 12 | 9 | 3 | 1 |" in week
+    assert "| Agent | Runs | Failed | Did | No answer | You agreed | You disagreed |" in week
+    assert "| Claude reviewer | 12 | 1 | 9 | 2 | 3 | 1 |" in week
     assert "4 reviews found nothing" in week and "6 findings were fixed" in week
     assert "1.5 days" in week
     assert "[Issue #81](https://github.com/KonstantinStarovoytov/kitden/issues/81)" in week
@@ -164,10 +165,21 @@ def test_a_column_nothing_measured_is_left_out_and_named():
 
 
 def test_a_cell_not_measured_says_so():
-    row = {"agent": "release-prep", "name": "Release prep", "runs": 2, "did": 1,
-           "agreed": None, "disagreed": None}
+    row = {"agent": "watcher", "name": "Client watcher", "runs": 2, "failed": None, "did": 1,
+           "agreed": None, "disagreed": 0}
     week = render({**DESK, "week": [*DESK["week"], row]}).split("## This week")[1]
-    assert "| Release prep | 2 | 1 | not measured | not measured |" in week
+    assert "| Client watcher | 2 | not measured | 1 | — | not measured | 0 |" in week
+
+
+def test_no_answer_is_a_dash_where_it_does_not_apply_and_left_out_when_unmeasured():
+    watcher = {"agent": "watcher", "name": "Client watcher", "runs": 7, "failed": 0, "did": 1,
+               "agreed": 1, "disagreed": 0}
+    week = render({**DESK, "week": [*DESK["week"], watcher]}).split("## This week")[1]
+    assert "| Client watcher | 7 | 0 | 1 | — | 1 | 0 |" in week
+    unread = [{**DESK["week"][0], "no_answer": None}, watcher]
+    week = render({**DESK, "week": unread}).split("## This week")[1].split("## Budget")[0]
+    assert "No answer" not in week.split("Not measured yet")[0]
+    assert "Not measured yet: No answer." in week
 
 
 def test_no_misses_is_said():

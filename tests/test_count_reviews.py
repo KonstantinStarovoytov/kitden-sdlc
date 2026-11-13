@@ -182,6 +182,17 @@ def test_a_comment_where_neither_reviewer_answered_is_not_a_review():
     assert Review(1, counts(None, None), 0, 0).clean is False
 
 
+def test_collect_can_keep_the_comments_where_neither_answered():
+    api = FakeApi()
+    api.pulls = [pull(1), pull(2)]
+    api.issue_comments[1] = [comment(1, claude="x", luna="x", both="0")]
+    api.issue_comments[2] = [comment(2, claude="x", luna="1")]
+    found = collect(api, "o/r", now=NOW, include_silent=True)
+    assert [(r.pr, r.answered) for r in found] == [(1, False), (2, True)]
+    silent = found[0]
+    assert (silent.up, silent.down, silent.updated) == (0, 0, "2026-11-02T00:00:00Z")
+
+
 # --- Counting ---
 
 

@@ -100,8 +100,11 @@ LISTED = [  # every state, newest update first, as count_reviews.list_pulls give
     pull(8, ago(95), state="closed", created=ago(100)),
     pull(5, ago(200), created=ago(210)),
 ]
+SILENT = "Text.\n\n<!-- kitden-sdlc:review claude=x luna=x both=0 -->"
 COMMENTS = {7: [{"id": 70, "user": {"login": "github-actions[bot]"}, "body": REVIEW,
-                 "updated_at": ago(10)}]}
+                 "updated_at": ago(10)}],
+            6: [{"id": 60, "user": {"login": "github-actions[bot]"}, "body": SILENT,
+                 "updated_at": ago(2)}]}
 
 
 class FakeApi:
@@ -149,9 +152,11 @@ def test_gather_reads_every_fact(tmp_path):
     assert facts.required == ["build (ubuntu-latest)"] and facts.stars == 12
     assert [c["name"] for c in facts.checks] == ["prepare / agent", "build (ubuntu-latest)"]
     assert facts.runs == {"claude": 3, "luna": 3, "watcher": 7, "release-prep": 0}
+    assert facts.failed == {"claude": 1, "luna": 1, "watcher": 1, "release-prep": 0}
     assert facts.watch_log[-1]["date"] == "2026-11-16" and len(facts.watch_log) == 2
     assert facts.downloads == 340
     assert [r.pr for r in facts.reviews] == [7]
+    assert [r.pr for r in facts.silent] == [6]  # neither reviewer answered there
 
 
 def test_pulls_hold_every_open_one_and_the_closed_ones_of_90_days():
@@ -179,6 +184,7 @@ def test_only_scheduled_runs_of_the_watcher_count():
 def test_a_workflow_that_cannot_be_read_gives_none_for_its_agents_only(capsys):
     facts = read(**failing(runs_address(REPO, "agents-review.yml")))
     assert facts.runs == {"claude": None, "luna": None, "watcher": 7, "release-prep": 0}
+    assert facts.failed == {"claude": None, "luna": None, "watcher": 1, "release-prep": 0}
     assert "::warning::" in capsys.readouterr().out
 
 
@@ -601,3 +607,23 @@ def test_numbers_are_left_as_they_were_when_the_reviews_cannot_be_read(tmp_path,
     assert (tmp_path / "numbers.json").read_text() == "{}\n"
     assert "::warning::desk: could not read reviews" in capsys.readouterr().out
     assert (tmp_path / "desk.json").exists()
+
+
+def test_the_numbers_leave_out_a_comment_where_neither_answered(tmp_path):
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    assert main(argv, api=FakeApi(ANSWERS), now=NOW) == 0
+    assert json.loads((tmp_path / "numbers.json").read_text())["reviews"]["prs"] == 1
+    week = json.loads((tmp_path / "desk.json").read_text())["week"]
+    assert (week[0]["failed"], week[0]["no_answer"]) == (1, 1)
+
+
+def test_silent_and_failed_are_none_when_not_read():
+    api = FakeApi(ANSWERS)
+
+    def broken(repo):
+        raise CalledProcessError(1, "gh")
+        yield  # pragma: no cover
+
+    api.list_pulls = broken
+    facts = gather(api, REPO, ROSTER, NOW, None, fetch=lambda url: DOWNLOADS)
+    assert facts.reviews is None and facts.silent is None

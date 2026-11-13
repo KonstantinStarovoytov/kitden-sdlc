@@ -38,7 +38,7 @@ check whose start is not known. Release prep started by hand and scheduled runs 
 | Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part |
 | Clients | a `confirmed` `major` client change has been open over 7 days | the same, over 3.5 days | the issues were not read; the watcher logged no run that read something in the last 2 days |
 | Bugs | a `confirmed` `major` bot issue has been open over 14 days; open bugs grew on each of the last 3 Mondays | the same issue over 7 days; open bugs grew on the last 2 Mondays | the issues were not read |
-| Agents | `main` requires a review check; the watcher opened more than 2 issues this week | an issue says an agent is paused | `main`'s rules or the issues were not read; `main`'s rules were read only in part |
+| Agents | `main` requires a review check; the watcher opened more than 2 issues this week | an issue says an agent is paused; in 7 days an agent failed more than half of 4 or more runs, or a reviewer gave no answer in more than half of 4 or more review comments | `main`'s rules, the issues, an agent's runs or the reviews were not read; `main`'s rules were read only in part |
 | Queue | something has waited for you over 7 days | something has waited over 3.5 days | what waits was not read, or not all of it |
 
 ## The reviewers

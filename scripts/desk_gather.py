@@ -210,12 +210,14 @@ def fetch_downloads(fetch: Fetch) -> int:
     return _count(json.loads(fetch(PYPISTATS))["data"]["last_month"])
 
 
-def _agent_runs(api, roster: dict, now: datetime) -> dict[str, int | None]:
-    """Runs that ended well or badly in the last RUN_DAYS, per agent. Agents that share a
-    workflow share its answer, which is read once."""
+def _agent_runs(api, roster: dict, now: datetime) -> tuple[dict[str, int | None],
+                                                            dict[str, int | None]]:
+    """Per agent, its runs that ended well or badly in the last RUN_DAYS, and those of them
+    that failed. Agents that share a workflow share its answer, which is read once."""
     since = (now - timedelta(days=RUN_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     read: dict[tuple[str, str], list[dict] | None] = {}
     counts: dict[str, int | None] = {}
+    failed: dict[str, int | None] = {}
     for agent in roster["agents"]:
         pair = (agent["repo"], agent["workflow"])
         if pair not in read:
@@ -227,15 +229,25 @@ def _agent_runs(api, roster: dict, now: datetime) -> dict[str, int | None]:
                 api.pages(a, "workflow_runs")))
         runs = read[pair]
         if runs is None:
-            counts[agent["id"]] = None
+            counts[agent["id"]] = failed[agent["id"]] = None
             continue
         scheduled = agent["id"] in SCHEDULED_ONLY
-        counts[agent["id"]] = sum(
-            1 for run in runs
+        ended = [
+            run for run in runs
             if run.get("conclusion") in COUNTED
             and (not scheduled or run.get("event") == "schedule")
-        )
-    return counts
+        ]
+        counts[agent["id"]] = len(ended)
+        failed[agent["id"]] = sum(1 for run in ended if run.get("conclusion") == "failure")
+    return counts, failed
+
+
+def _reviews(api, repo: str, now: datetime) -> tuple[list | None, list | None]:
+    """The review comments in which a reviewer answered, and those in which neither did."""
+    found = _read("reviews", lambda: collect(api, repo, now=now, include_silent=True))
+    if found is None:
+        return None, None
+    return [r for r in found if r.answered], [r for r in found if not r.answered]
 
 
 def _watch_log(path: Path | None) -> list[dict] | None:
@@ -260,15 +272,19 @@ def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
            fetch: Fetch = fetch_url) -> Facts:
     """Every fact the desk reads. A read that fails leaves its field None."""
     required, partial = _required(api, repo)
+    reviews, silent = _reviews(api, repo, now)
+    runs, failed = _agent_runs(api, roster, now)
     return Facts(
         repo=repo,
         issues=_read("issues", lambda: _issues(api, repo)),
         pulls=_read("pulls", lambda: _pulls(api, repo, now)),
-        reviews=_read("reviews", lambda: collect(api, repo, now=now)),
+        reviews=reviews,
+        silent=silent,
         checks=_read("checks", lambda: _checks(api, repo)),
         required=required,
         required_partial=partial,
-        runs=_agent_runs(api, roster, now),
+        runs=runs,
+        failed=failed,
         watch_log=None if watch_log is None else _read("watch_log", lambda: _watch_log(watch_log)),
         stars=_read("stars", lambda: _stars(api, repo)),
         downloads=_read("downloads", lambda: fetch_downloads(fetch)),
