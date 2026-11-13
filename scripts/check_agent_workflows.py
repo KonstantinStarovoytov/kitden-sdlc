@@ -28,6 +28,8 @@ SCHEDULED_EVENTS = {"schedule", "workflow_dispatch"}
 # Rule 10: a model step never prints its full output or debug logs.
 DEBUG_INPUTS = ("show_full_output", "display_report")
 DEBUG_FLAGS = ("--debug", "--verbose", "--mcp-debug")
+# A flag anywhere in the text: bare, quoted, in a JSON list, or before `=value`.
+FLAG = re.compile(r"--[\w-]+")
 DEBUG_ENV = (
     "ACTIONS_STEP_DEBUG", "ACTIONS_RUNNER_DEBUG", "RUNNER_DEBUG", "DEBUG",
     "ANTHROPIC_LOG", "OPENAI_LOG",
@@ -160,9 +162,11 @@ def _debug_violations(doc: dict) -> list[tuple[int, str]]:
                 if str(inputs.get(key)).strip().lower() == "true":
                     found.append((10, f"job {name}: {key} prints the full model output"))
             for key in ("claude_args", "codex-args"):
-                for word in str(inputs.get(key, "")).split():
-                    if word.split("=")[0] in DEBUG_FLAGS:
-                        found.append((10, f"job {name}: {key} has {word}"))
+                value = inputs.get(key, "")
+                text = " ".join(map(str, value)) if isinstance(value, list) else str(value)
+                for flag in FLAG.findall(text):
+                    if flag in DEBUG_FLAGS:
+                        found.append((10, f"job {name}: {key} has {flag}"))
     return found
 
 

@@ -449,6 +449,33 @@ def test_debug_flag_in_the_arguments_is_rule_10():
         assert any("rule 10" in v for v in run(text))
 
 
+def _with_args(args: str, codex: bool = False) -> str:
+    """CLEAN_MODEL with the model step's arguments written as `args` (YAML, after the key)."""
+    if codex:
+        step = CLEAN_MODEL.replace("anthropics/claude-code-action", "openai/codex-action")
+        return step.replace("claude_args: --max-turns 5", f"codex-args: {args}")
+    return CLEAN_MODEL.replace("claude_args: --max-turns 5", f"claude_args: {args}")
+
+
+def test_a_debug_flag_is_found_in_every_form():
+    forms = [
+        """'["-c", "x=1", "--debug"]'""",  # a JSON list in a string, as review.yml writes it
+        """'--max-turns 5 "--debug"'""",  # a quoted word
+        """\n            - --max-turns\n            - "5"\n            - --debug""",  # a YAML list
+        "--max-turns 5 --debug=1",  # with a value
+    ]
+    for args in forms:
+        found = [v for v in run(_with_args(args)) if "rule 10" in v]
+        assert found and "--debug" in found[0], args
+    codex = _with_args("""'["--verbose"]'""", codex=True)
+    assert any("rule 10" in v and "codex-args has --verbose" in v for v in run(codex))
+
+
+def test_a_flag_that_only_starts_like_a_debug_flag_passes():
+    assert run(_with_args("--max-turns 5 --debugger --verbosely")) == []
+    assert run(_with_args("""'["--max-turns", "5", "--debug-file-free"]'""")) == []
+
+
 def test_debug_env_is_rule_10_at_every_level():
     top = CLEAN_SCHEDULED.replace(
         "permissions: {}", 'permissions: {}\nenv:\n  RUNNER_DEBUG: "1"', 1
