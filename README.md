@@ -28,7 +28,7 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 
 | | Bot | What it does |
 |---|---|---|
-| <img src="docs/images/apps/lantern.svg" width="40" alt="Lantern"> | **Lantern**<br/>`kitden-lantern[bot]` | posts the "Agent review" comment; opens the watcher's and the release watch's issues |
+| <img src="docs/images/apps/lantern.svg" width="40" alt="Lantern"> | **Lantern**<br/>`kitden-lantern[bot]` | posts the "Agent review" comment; opens the watcher's and the release watch's issues; keeps the "Kitden desk" issue and opens the "… is paused" issue |
 | <img src="docs/images/apps/beacon.svg" width="40" alt="Kitden Beacon"> | **Kitden Beacon**<br/>`kitden-beacon` | opens the release pull request, tags the release, moves the `release` branch, opens the Homebrew pull request |
 | <img src="docs/images/apps/kettle.svg" width="40" alt="Kitden Kettle"> | **Kitden Kettle**<br/>`kitden-kettle` | keeps the Homebrew formula up to date in the tap, every day |
 
@@ -77,7 +77,8 @@ same page.
 
 Three switches stop it all: `AGENTS_ENABLED` (everything), `REVIEW_LIVE` (the two reviewers)
 and `WATCH_LIVE` (the watcher's daily run). `AGENTS_ENABLED` is two variables, one in Kitden
-(review and release) and one in kitden-sdlc (the watcher); to stop everything, turn off both.
+(review and release) and one in kitden-sdlc (the watcher and the desk's posting; the numbers
+are still counted); to stop everything, turn off both.
 
 ## The rules
 
