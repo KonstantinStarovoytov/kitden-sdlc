@@ -4,8 +4,8 @@ from datetime import date
 import pytest
 
 from bot_issues import LABELS
-from tests.fakes import FakeIssues
-from watch_post import SUMMARY_MAX, first_line, render_summary, render_urgent, run
+from tests.fakes import FakeIssues, issue
+from watch_post import AGENT, SUMMARY_MAX, first_line, render_summary, render_urgent, run
 
 WED, MON = date(2026, 11, 11), date(2026, 11, 9)
 URL = "https://example.com/changelog"
@@ -197,3 +197,64 @@ def test_version_is_quiet_and_cut():
 def test_row_with_a_mention_is_quiet_in_the_issue():
     _, body = render_urgent(finding(row="the `@scope/x` key"), inp())
     assert "@\u2060scope" in body
+
+
+def paused(state="open"):
+    return issue(50, "The client watcher is paused", labels=("automated", "desk"), state=state,
+                 closed="2026-11-10T00:00:00Z" if state == "closed" else None)
+
+
+def test_the_agent_name_is_the_watchers():
+    assert AGENT == "The client watcher"
+
+
+def test_a_paused_watcher_opens_nothing_and_keeps_what_it_found(tmp_path):
+    gh = FakeIssues([issue(50, "The client watcher is paused", labels=("automated", "desk"))])
+    run(inp(1), one(), gh, tmp_path, WED)
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert gh.created == []
+    assert [k["title"] for k in state["kept"]] == ["skillOverrides renamed"]
+    assert state["urgent"]["count"] == 0 and "summary_week" not in state
+
+
+def test_a_paused_day_writes_the_log_and_archive_with_nothing_posted(tmp_path):
+    run(inp(1), one(), FakeIssues([paused()]), tmp_path, WED)
+    log = json.loads((tmp_path / "log.jsonl").read_text())
+    assert log["findings"] == 1 and log["urgent"] == 0 and log["summary"] == 0
+    archive = [json.loads(x) for x in (tmp_path / "archive.jsonl").read_text().splitlines()]
+    assert [x["title"] for x in archive] == ["skillOverrides renamed"]
+    assert archive[0]["issue"] == ""
+
+
+def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path):
+    kept = [{"title": f"t{n}", "effect": "minor", "client": "codex", "sure": True,
+             "changed": "c", "row": "", "files": [], "user_gets": "u", "systems": "",
+             "why": "w"} for n in range(2)]
+    gh = FakeIssues([paused()])
+    run(inp(1, state={**STATE, "kept": kept, "summary_week": "2026-W45"}), one(), gh,
+        tmp_path, MON)
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert gh.created == [] and "summary_week" not in state
+    assert [k["title"] for k in state["kept"]][0] == "skillOverrides renamed"
+    assert {k["title"] for k in state["kept"]} == {"skillOverrides renamed", "t0", "t1"}
+    assert state["urgent"]["count"] == 0
+
+    # The owner closes the pause: the next run posts everything in one summary.
+    lifted = FakeIssues([paused("closed")])
+    run(inp(0, state=state), None, lifted, tmp_path, WED)
+    assert len(lifted.created) == 1
+    title, body, labels = lifted.created[0]
+    assert labels == ["automated", "client-change", "summary"]
+    assert all(f"## {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
+
+
+def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):
+    wrong = [issue(n, labels=("automated", "client-change", "false-alarm"), state="closed",
+                   created=f"2026-10-{n:02d}T00:00:00Z") for n in range(1, 11)]
+    gh = FakeIssues(wrong)
+    run(inp(1), one(), gh, tmp_path, WED)
+    assert [(title, labels) for title, _, labels in gh.created] == [
+        ("The client watcher is paused", ["automated", "desk"])]
+    assert "desk" in {name for name, *_ in gh.created_labels}
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert [k["title"] for k in state["kept"]] == ["skillOverrides renamed"]

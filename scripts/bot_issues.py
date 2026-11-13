@@ -3,6 +3,8 @@
 A bot never edits, labels or closes an issue a person opened, even one with the bot's title
 and labels: `by_bot` keeps only the issues whose author is BOT.
 
+`pause` stops an agent whose issues the owner mostly marks `false-alarm` (spec 1.5).
+
 Standard library only: release_watch.py runs with `uv run --no-project`.
 """
 
@@ -35,6 +37,9 @@ LABELS: tuple[tuple[str, str, str], ...] = (
     ("confirmed", "2da44e", "Set by the owner: the bot was right; open until fixed"),
     ("false-alarm", "6e7781", "Set by the owner on closing: the bot was wrong"),
 )
+
+VERDICTS = ("confirmed", "false-alarm")  # set by the owner on an agent's issue
+PAUSE_AFTER = 10  # the verdicts counted: with fewer there is no pause
 
 
 class GhIssues:
@@ -138,3 +143,50 @@ def upsert(gh: GhIssues, title: str, body: str, labels: list[str]) -> None:
         gh.create(title, body, labels)
     else:
         gh.edit(number, body, labels)
+
+
+def paused_title(agent: str) -> str:
+    return f"{agent} is paused"
+
+
+def _pause_body(agent: str, wrong: list[dict]) -> str:
+    # Links only: the issues' titles were written by a model.
+    links = "\n".join(f"- {item.get('html_url') or '#' + str(item['number'])}" for item in wrong)
+    return (
+        "Opened by a script in kitden-sdlc that counts the owner's verdicts; no AI model "
+        "wrote it.\n\n"
+        "## What happened\n\n"
+        f"{agent} got `false-alarm` on {len(wrong)} of its last {PAUSE_AFTER} issues with a "
+        f"verdict, more than half:\n\n{links}\n\n"
+        "## What it means\n\n"
+        f"{agent} opens no issue while this one is open, not even its summary. What it finds "
+        "is kept for its first summary after this issue is closed.\n\n"
+        "## What to do\n\n"
+        "Fix the prompt or the tasks, then close this issue. The count starts again from the "
+        "issues opened after you close it.\n"
+    )
+
+
+def pause(gh: GhIssues, agent: str, origin: str) -> bool:
+    """True when `agent` must open nothing now: the bot's "<agent> is paused" issue is open, or
+    is opened here because more than half of the last PAUSE_AFTER verdicts on the bot's issues
+    labelled `origin` are `false-alarm`. Only issues opened after the newest closed pause issue
+    was closed count; summaries and issues with both verdicts do not."""
+    title = paused_title(agent)
+    pauses = [item for item in gh.by_bot("all") if item["title"] == title]
+    if any(item["state"] == "open" for item in pauses):
+        return True
+    # GitHub gives both times as ISO strings in UTC, so they compare as strings.
+    since = max((item.get("closed_at") or "" for item in pauses), default="")
+    judged = [
+        item for item in gh.by_bot("all", origin)
+        if "summary" not in names(item) and len(names(item) & set(VERDICTS)) == 1
+        and item["created_at"] > since
+    ]
+    judged.sort(key=lambda item: (item["created_at"], item["number"]), reverse=True)
+    last = judged[:PAUSE_AFTER]
+    wrong = [item for item in last if "false-alarm" in names(item)]
+    if len(last) < PAUSE_AFTER or 2 * len(wrong) <= len(last):
+        return False
+    gh.create(title, _pause_body(agent, wrong), ["automated", "desk"])
+    return True

@@ -94,6 +94,12 @@ contributor works on a false alarm.
 The watcher knows its open issues by the label `client-change`. Remove that label, or close the
 issue, and it may report the same finding again.
 
+When more than half of its last 10 issues with a verdict are `false-alarm`, the watcher opens
+one issue, "The client watcher is paused", with the labels `automated` and `desk`, and opens
+nothing else while that issue is open. What it finds in that time waits for its first summary
+after the pause. The owner lifts the pause by closing that issue, and the count starts again
+from the issues opened after that.
+
 ## The release flow
 
 Ready: set up in Kitden; the first release with it is still to come. The owner reviews

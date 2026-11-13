@@ -6,12 +6,13 @@ import os
 from datetime import date, timedelta
 from pathlib import Path
 
-from bot_issues import GhIssues, ensure_labels
+from bot_issues import GhIssues, ensure_labels, pause
 from watch_list import parse_list, row_labels
 from watch_route import (
     TEXT_MAX,
     VERSION_MAX,
     BadFindings,
+    Plan,
     _kind,
     _quiet,
     check,
@@ -22,6 +23,7 @@ from watch_route import (
 )
 
 SUMMARY_MAX = 60000
+AGENT = "The client watcher"  # its pause issue is "The client watcher is paused"
 
 
 # Shown with every finding: docs/watch-effects.md says the same in more words.
@@ -140,6 +142,17 @@ def _append(path: Path, lines: list[dict]) -> None:
         f.writelines(json.dumps(x) + "\n" for x in lines)
 
 
+def _hold(plan: Plan) -> Plan:
+    """The plan of a paused day: nothing posted, every finding kept for the next summary, and
+    no urgent issue counted against the week's cap."""
+    state = plan.state
+    state["kept"] = plan.urgent + (plan.summary or []) + state["kept"]
+    state["urgent"]["count"] -= len(plan.urgent)
+    if plan.summary:
+        state.pop("summary_week", None)  # the summary is still due once the pause is lifted
+    return Plan([], None, state)
+
+
 def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: date) -> None:
     try:
         found = [] if findings is None else check(findings, inp)
@@ -149,6 +162,9 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
         raise SystemExit(1) from error
     found += word_hits(found, judged, inp)
     plan = route(found, inp["state"], judged, inp, today, failed)
+    ensure_labels(gh)
+    if pause(gh, AGENT, "client-change"):
+        plan = _hold(plan)
 
     repo = gh.repo
     posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
@@ -156,7 +172,6 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
         title, body, rest = render_summary(plan.summary, today, inp, repo)
         posts.append((title, body, ["automated", "client-change", "summary"]))
         plan.state["kept"] = rest + plan.state["kept"]
-    ensure_labels(gh)
     addresses = [gh.create(*post) for post in posts]
     opened = {f["title"]: address for f, address in zip(plan.urgent, addresses, strict=False)}
 
