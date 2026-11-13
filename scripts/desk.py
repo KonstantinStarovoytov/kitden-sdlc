@@ -37,6 +37,7 @@ REFERENCE = re.compile(
 class Facts:
     """What was read. None means the read failed or was never made."""
 
+    repo: str = REPO  # the repository the facts were read from
     issues: list[dict] | None = None  # every Kitden issue, open and closed, no pull requests
     pulls: list[dict] | None = None  # pull requests updated in the last 90 days
     reviews: list[Review] | None = None
@@ -523,7 +524,7 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
     return {
         "version": 1,
         "updated": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "repo": REPO,
+        "repo": facts.repo,
         "overall": overall([light["state"] for light in lights]),
         "lights": lights,
         "use": use(facts.issues, facts.pulls, facts.stars, facts.downloads, now),

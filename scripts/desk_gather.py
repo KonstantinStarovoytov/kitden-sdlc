@@ -112,14 +112,38 @@ def _pulls(api, repo: str, now: datetime) -> list[dict]:
     return list(found.values())
 
 
-def _required(api, repo: str) -> list[str]:
-    """The checks main requires; [] when it has no protection or requires none."""
+def _names(items: list) -> list[str]:
+    if not isinstance(items, list) or not all(isinstance(name, str) for name in items):
+        raise TypeError("a list of names was expected")
+    return items
+
+
+def _protected(api, repo: str) -> list[str]:
+    """The checks branch protection requires; [] when main has no protection or requires none."""
     protection = api.get(f"repos/{repo}/branches/{BRANCH}").get("protection") or {}
     checks = protection.get("required_status_checks") or {}
-    contexts = checks.get("contexts") or []
-    if not isinstance(contexts, list) or not all(isinstance(name, str) for name in contexts):
-        raise TypeError("a list of names was expected")
-    return contexts
+    return _names(checks.get("contexts") or [])
+
+
+def _ruled(api, repo: str) -> list[str]:
+    """The checks the rulesets on main require; [] when none does."""
+    found = []
+    for rule in _dicts(api.pages(f"repos/{repo}/rules/branches/{BRANCH}")):
+        if rule.get("type") == "required_status_checks":
+            found += [check["context"] for check in rule["parameters"]["required_status_checks"]]
+    return _names(found)
+
+
+def _required(api, repo: str) -> list[str] | None:
+    """The checks main requires, by branch protection or by a ruleset, each read on its own.
+    None only when neither could be read."""
+    read = [
+        _read("required (branch protection)", lambda: _protected(api, repo)),
+        _read("required (rulesets)", lambda: _ruled(api, repo)),
+    ]
+    if all(names is None for names in read):
+        return None
+    return sorted({name for names in read for name in names or ()})
 
 
 def _stars(api, repo: str) -> int:
@@ -180,12 +204,13 @@ def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
            fetch: Fetch = fetch_url) -> Facts:
     """Every fact the desk reads. A read that fails leaves its field None."""
     return Facts(
+        repo=repo,
         issues=_read("issues", lambda: _issues(api, repo)),
         pulls=_read("pulls", lambda: _pulls(api, repo, now)),
         reviews=_read("reviews", lambda: collect(api, repo, now=now)),
         checks=_read("checks", lambda: _dicts(
             api.pages(f"repos/{repo}/commits/{BRANCH}/check-runs?per_page=100", "check_runs"))),
-        required=_read("required", lambda: _required(api, repo)),
+        required=_required(api, repo),
         runs=_agent_runs(api, roster, now),
         watch_log=None if watch_log is None else _read("watch_log", lambda: _watch_log(watch_log)),
         stars=_read("stars", lambda: _stars(api, repo)),

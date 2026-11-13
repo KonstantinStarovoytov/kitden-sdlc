@@ -453,6 +453,11 @@ def test_a_light_that_is_not_green_says_why_with_numbers():
     assert "not measured" in light_works(None)["why"].lower()
 
 
+def test_build_writes_the_repository_the_facts_were_read_from():
+    assert build(Facts(), ROSTER, NOW)["repo"] == REPO
+    assert build(Facts(repo="someone/else"), ROSTER, NOW)["repo"] == "someone/else"
+
+
 def test_build_reads_the_review_summary_and_the_roster():
     desk = build(FACTS, ROSTER, NOW)
     assert desk["repo"] == REPO and desk["review"]["clean"] == 1

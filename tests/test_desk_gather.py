@@ -60,6 +60,11 @@ ANSWERS = {
         "name": "main",
         "protection": {"required_status_checks": {"contexts": ["build (ubuntu-latest)"]}},
     },
+    f"repos/{REPO}/rules/branches/main": [
+        {"type": "deletion"},
+        {"type": "required_status_checks", "parameters": {"required_status_checks": [
+            {"context": "build (ubuntu-latest)", "integration_id": 15368}]}},
+    ],
     f"repos/{REPO}": {"stargazers_count": 12},
     runs_address(REPO, "agents-review.yml"): {"workflow_runs": [
         run("success"), run("failure"), run("success"),
@@ -159,11 +164,60 @@ def test_a_workflow_that_cannot_be_read_gives_none_for_its_agents_only(capsys):
     assert "::warning::" in capsys.readouterr().out
 
 
-def test_required_is_empty_when_main_has_no_protection_and_none_when_unread():
-    assert read(**{f"repos/{REPO}/branches/main": {"name": "main"}}).required == []
+CLASSIC = f"repos/{REPO}/branches/main"
+RULES = f"repos/{REPO}/rules/branches/main"
+
+
+def classic(*names):
+    return {"name": "main", "protection": {"required_status_checks": {"contexts": list(names)}}}
+
+
+def ruleset(*names):
+    checks = [{"context": name, "integration_id": 1} for name in names]
+    return [{"type": "pull_request"},
+            {"type": "required_status_checks", "parameters": {"required_status_checks": checks}}]
+
+
+def test_required_from_branch_protection_alone():
+    assert read(**{CLASSIC: classic("b", "a"), **failing(RULES)}).required == ["a", "b"]
+
+
+def test_required_from_a_ruleset_alone():
+    assert read(**{CLASSIC: classic(), RULES: ruleset("b (ubuntu)", "a")}).required == [
+        "a", "b (ubuntu)"]
+    assert read(**{CLASSIC: {"name": "main"}, RULES: ruleset("x")}).required == ["x"]
+
+
+def test_required_is_the_union_of_both_in_a_stable_order():
+    both = read(**{CLASSIC: classic("b", "a"), RULES: ruleset("c", "a")}).required
+    assert both == ["a", "b", "c"]
+    other = read(**{CLASSIC: classic("a", "c"), RULES: ruleset("b", "a")}).required
+    assert other == both
+
+
+def test_required_is_empty_when_both_read_and_none_is_required():
     bare = {"protection": {"enabled": False, "required_status_checks": None}}
-    assert read(**{f"repos/{REPO}/branches/main": bare}).required == []
-    assert read(**failing(f"repos/{REPO}/branches/main")).required is None
+    assert read(**{CLASSIC: {"name": "main"}, RULES: []}).required == []
+    assert read(**{CLASSIC: bare, RULES: [{"type": "deletion"}]}).required == []
+
+
+def test_required_uses_what_was_read_when_one_read_fails(capsys):
+    assert read(**{CLASSIC: classic("a"), **failing(RULES)}).required == ["a"]
+    assert "::warning::" in capsys.readouterr().out
+    assert read(**{**failing(CLASSIC), RULES: ruleset("b")}).required == ["b"]
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_required_is_none_when_both_reads_fail(capsys):
+    assert read(**failing(CLASSIC), **failing(RULES)).required is None
+    out = capsys.readouterr().out
+    assert out.count("::warning::") >= 2 and "required" in out
+
+
+def test_a_ruleset_of_an_odd_shape_is_a_failed_read():
+    odd = [{"type": "required_status_checks", "parameters": {"required_status_checks": [{}]}}]
+    assert read(**{CLASSIC: classic("a"), RULES: odd}).required == ["a"]
+    assert read(**{CLASSIC: classic("a"), RULES: {"message": "x"}}).required == ["a"]
 
 
 def test_one_failed_read_leaves_one_field_empty(capsys):
@@ -192,7 +246,6 @@ def test_each_failed_read_names_its_field_and_nothing_else(capsys):
 
 @pytest.mark.parametrize("field, address", [
     ("issues", f"repos/{REPO}/issues?state=all&per_page=100"),
-    ("required", f"repos/{REPO}/branches/main"),
     ("stars", f"repos/{REPO}"),
 ])
 def test_a_failed_read_leaves_the_others_running(field, address):
@@ -220,7 +273,7 @@ def test_pulls_and_reviews_are_none_when_the_list_fails():
 
 
 def test_a_wrong_shape_is_a_failed_read_not_a_crash():
-    facts = read(**{f"repos/{REPO}": [], f"repos/{REPO}/branches/main": []})
+    facts = read(**{f"repos/{REPO}": [], CLASSIC: [], RULES: {}})
     assert facts.stars is None and facts.required is None
 
 
@@ -300,6 +353,20 @@ def test_downloads_that_do_not_read_as_a_number_are_none(text):
 
 
 # --- the command ---
+
+
+def test_gather_keeps_the_repository_it_read():
+    assert read().repo == REPO
+
+
+def test_main_writes_the_repository_it_was_given(tmp_path):
+    other = "someone/else"
+    answers = {k.replace(REPO, other): v for k, v in ANSWERS.items()}
+    argv = ["--repo", other, "--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    api = FakeApi(answers, listed=[])
+    assert main(argv, api=api, now=NOW) == 0
+    desk = json.loads((tmp_path / "desk.json").read_text())
+    assert desk["repo"] == other and desk["lights"][0]["state"] == "green"
 
 
 def test_main_writes_desk_json(tmp_path):
