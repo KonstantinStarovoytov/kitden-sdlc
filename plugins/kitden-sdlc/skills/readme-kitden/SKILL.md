@@ -1,6 +1,6 @@
 ---
 name: readme-kitden
-description: Propose Kitden's README for a release into out/README.md, and the README scenes to record again into out/scenes.txt, from context.json and Kitden's own files
+description: Propose Kitden's README for a release into out/README.md, the scenes you expect to look different into out/scenes.txt, and out/guide.md when a detail moves, from context.json and Kitden's own files
 allowed-tools: Read(./**), Edit(./out/**)
 ---
 
