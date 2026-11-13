@@ -7,19 +7,23 @@ No model runs here; the files it reads were written by one, so they are only dat
   release_apply.py all-scenes IMAGES_DIR
       Prints every scene that has a picture, on one line.
   release_apply.py apply ROOT OUT --version X.Y.Z --lists DIR [--images DIR --results FILE]
+                         [--context CONTEXT_JSON]
       Copies the agent's files from OUT into the Kitden checkout ROOT, and the recorded
       pictures from --images: a still when its bytes differ, an animation when it is stale.
       Writes DIR/content.txt and DIR/policy.txt: the files of the first commit and of the
       second. Writes DIR/pictures.json: what became of each scene. Refuses, writing nothing,
       any file it does not know.
   release_apply.py body --findings F --development D --changed C --out BODY [--problems F
-      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R --root ROOT]
+      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R --root ROOT
+      --context CONTEXT_JSON]
       The pull request's body: what is still wrong, what scripts checked, the agent's findings,
       the real-client checks from Kitden's docs/development.md that the changed files touch,
       and how to merge. R is the fix job's result (success, failure, cancelled, skipped or
       empty). A --problems, --pictures or --facts file that is given but cannot be read counts
-      as a problem. Prints draft or ready. ROOT is the Kitden checkout: a long random string
-      in the body's text must be in its HEAD.
+      as a problem. Prints draft or ready. ROOT is the Kitden checkout.
+
+A long random string in the agent's files or in the body's text must be in what the agent
+read: ROOT's HEAD, or the context.json it was given.
 """
 
 import argparse
@@ -159,15 +163,18 @@ def _no_link(root: Path, target: Path) -> None:
         path = path.parent
 
 
-def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path], list[Path]]:
+def apply(
+    root: Path, out: Path, version: str | None = None, context: str = ""
+) -> tuple[list[Path], list[Path]]:
     """Copy the agent's files from `out` into `root`. Returns (content files, policy files),
     relative to `root`, leaving out files that did not change. Raises ValueError, writing
     nothing, for any file outside OUT_FILES, a link, a file that is too large, or text that
-    looks like a secret: a token, or a long random string that Kitden's HEAD does not hold."""
+    looks like a secret: a token, or a long random string that neither Kitden's HEAD nor
+    `context` (the text of the agent's context.json) holds."""
     version = version or current_version(root)
     if not VERSION.match(version):
         raise ValueError(f"version {version!r} is not X.Y.Z")
-    in_kitden = in_git(root, "HEAD")
+    in_kitden = given(root, context)
     names = _files(out) if out.exists() else []
     targets = {name: target_for(name, version) for name in names}  # refuses unknown names
     planned: list[tuple[Path, str, bytes]] = []
@@ -202,6 +209,13 @@ def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path]
     content = [path for path, kind, _ in planned if kind == "content"]
     policy = [path for path, kind, _ in planned if kind == "policy"]
     return content, policy
+
+
+def given(root: Path | None, context: str) -> Callable[[str], bool]:
+    """Knows a run that Kitden's HEAD in `root` (when given) or the text `context` holds."""
+    in_context = in_text(context)
+    in_kitden = in_git(root, "HEAD") if root else in_text()
+    return lambda run: in_kitden(run) or in_context(run)
 
 
 def scenes(text: str, images: Path) -> list[str]:
@@ -546,6 +560,7 @@ def main(argv: list[str]) -> int:
     apply_cmd.add_argument("--images", type=Path)
     apply_cmd.add_argument("--results", type=Path)
     apply_cmd.add_argument("--lists", type=Path, required=True)
+    apply_cmd.add_argument("--context", type=Path, help="the context.json the agent read")
     body_cmd = commands.add_parser("body")
     body_cmd.add_argument("--findings", type=Path, required=True)
     body_cmd.add_argument("--development", type=Path, required=True)
@@ -560,15 +575,17 @@ def main(argv: list[str]) -> int:
     body_cmd.add_argument("--model", default="")
     body_cmd.add_argument("--out", type=Path, required=True)
     body_cmd.add_argument("--root", type=Path, help="the Kitden checkout the agent read")
+    body_cmd.add_argument("--context", type=Path, help="the context.json the agent read")
     args = parser.parse_args(argv)
 
+    context = _read(args.context) if getattr(args, "context", None) else ""
     try:
         if args.command == "scenes":
             print(" ".join(scenes(_read(args.scenes_txt), args.images)))
         elif args.command == "all-scenes":
             print(" ".join(all_scenes(args.images)))
         elif args.command == "apply":
-            content, policy = apply(args.root, args.out, args.version)
+            content, policy = apply(args.root, args.out, args.version, context)
             pictures: dict[str, str] = {}
             if args.images:
                 results = _results(args.results)
@@ -610,7 +627,7 @@ def main(argv: list[str]) -> int:
                 errors=_results(args.results),
                 fixed=_fixed(args.fixed),
                 fix_result=args.fix_result,
-                known=in_git(args.root, "HEAD") if args.root else None,
+                known=given(args.root, context),
             )
             args.out.write_text(body)
             print("draft" if is_draft(problems, pictures or {}) else "ready")

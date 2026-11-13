@@ -180,18 +180,26 @@ def refuse_secret_like(report: Report) -> None:
 
 
 def refuse_unknown_runs(
-    api: "Api", repo: str, pr: int, reports: list[Report], tree: Path | None, head_sha: str
+    api: "Api",
+    repo: str,
+    pr: int,
+    reports: list[Report],
+    tree: Path | None,
+    head_sha: str,
+    base_sha: str | None = None,
 ) -> None:
     """Raise SecretLikeError when the reports hold a long random string (a key cut short)
-    that is neither in the pull request's title and body nor in its commit's files or file
-    names, which `tree` holds. Without `tree`, only the title and body count. The pull
-    request is read only when there is such a string."""
+    that the reviewers were not given: it is not in the pull request's title and body, nor
+    in the files or file names of its head commit or of its base commit, which `tree`
+    holds. Without `tree`, only the title and body count. The pull request is read only
+    when there is such a string."""
     texts = [text for report in reports for text in report_texts(report)]
     if not any(random_runs(text) for text in texts):
         return
-    in_pr = in_text(api.pull_text(repo, pr))
-    in_tree = in_git(tree, head_sha) if tree else in_text()
-    unknown = unknown_runs(texts, lambda run: in_pr(run) or in_tree(run))
+    sources = [in_text(api.pull_text(repo, pr))]
+    if tree:
+        sources += [in_git(tree, sha) for sha in (head_sha, base_sha) if sha]
+    unknown = unknown_runs(texts, lambda run: any(known(run) for known in sources))
     if unknown:
         raise SecretLikeError(
             "a reviewer's output holds a long random string that is not in the pull request: "
@@ -723,6 +731,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--tree", type=Path, help="a git repository holding --head-sha, to look up quoted strings"
     )
+    parser.add_argument("--base-sha", help="the base commit in --tree, also known to the reviewers")
     parser.add_argument("--dry-run", action="store_true", help="print the comment, call nothing")
     args = parser.parse_args(argv)
     if not args.dry_run and args.pr is None:
@@ -746,7 +755,9 @@ def main(argv: list[str]) -> int:
             return 0
         api = GhApi(read_token=os.environ.get("GH_READ_TOKEN") or None)
         answers = [report for report in reports.values() if report]
-        refuse_unknown_runs(api, args.repo, args.pr, answers, args.tree, args.head_sha)
+        refuse_unknown_runs(
+            api, args.repo, args.pr, answers, args.tree, args.head_sha, args.base_sha
+        )
         comments = api.list_issue_comments(args.repo, args.pr)
         earlier, changes = earlier_review(api, args.repo, args.head_sha, find_ours(comments))
         body = review_body(reports, args.repo, args.head_sha, earlier, changes, names)

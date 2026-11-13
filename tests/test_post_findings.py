@@ -459,6 +459,20 @@ def test_main_posts_a_random_run_the_pull_request_holds(tmp_path, monkeypatch):
     assert code == 0 and api.calls[-1][0] == "create"
 
 
+def test_main_posts_a_random_run_only_the_base_commit_holds(tmp_path, monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    tree = repo(tmp_path / "tree", {"a.py": f"X = '{KEY_TAIL}'\n"})
+    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tree, capture_output=True,
+                          text=True, check=True).stdout.strip()
+    repo(tree, {"a.py": "X = 1\n"})  # a second commit: the head no longer holds it
+    argv = argv_for(quoting(tmp_path), FIXTURE, "--pr", "7", "--head-sha", "HEAD",
+                    "--tree", str(tree))
+    assert main(argv) == 1
+    assert main([*argv, "--base-sha", base]) == 0
+    assert api.calls[-1][0] == "create"
+
+
 def test_main_posts_a_random_run_the_pull_request_text_holds(tmp_path, monkeypatch):
     api = FakeApi()
     api.pull_text = lambda repo, pr: f"Rotate {KEY_TAIL} please"

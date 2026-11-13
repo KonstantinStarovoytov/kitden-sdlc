@@ -468,7 +468,8 @@ jobs:
             kitden "$VERSION"
           git -C kitden diff --name-only > "$lists/bump.txt"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
-            apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists"
+            apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
+            --context "$RUNNER_TEMP/context/context.json"
       # The test output and the check's message are data: only the script reads them.
       - name: Check the files
         id: verdict
@@ -754,7 +755,8 @@ jobs:
           git -C kitden diff --name-only > "$lists/bump.txt"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
             apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
-            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json"
+            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json" \
+            --context "$RUNNER_TEMP/context/context.json"
       - name: Check the files
         id: verdict
         env:
@@ -852,6 +854,12 @@ jobs:
         with:
           name: release-verdict
           path: ${{ runner.temp }}/verdict
+      # What the agent read besides Kitden: release_apply.py knows the strings it holds.
+      - name: Get the context
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-context
+          path: ${{ runner.temp }}/context
       # The bump is run again from the same script and commit, and its files are listed
       # before the agent's files are put in. apply refuses any file it does not know.
       - name: Put the files in
@@ -865,7 +873,8 @@ jobs:
           git -C kitden diff --name-only > "$lists/bump.txt"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
             apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
-            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json"
+            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json" \
+            --context "$RUNNER_TEMP/context/context.json"
       # The body step prints draft or ready; the PR is opened as a draft when it is draft.
       - name: Write the PR body
         id: body
@@ -884,7 +893,8 @@ jobs:
             --problems "$RUNNER_TEMP/verdict/problems.md" --facts "$RUNNER_TEMP/verdict/facts.json" \
             --pictures "$RUNNER_TEMP/lists/pictures.json" --fix-result "$FIX_RESULT" \
             --results "$RUNNER_TEMP/images/results.json" --expected "$EXPECTED" \
-            --root kitden --out "$RUNNER_TEMP/body.md" "${fixed[@]}")"
+            --root kitden --context "$RUNNER_TEMP/context/context.json" \
+            --out "$RUNNER_TEMP/body.md" "${fixed[@]}")"
           if [ "$state" != draft ] && [ "$state" != ready ]; then
             echo "::error::The body script printed something else than draft or ready"
             exit 1

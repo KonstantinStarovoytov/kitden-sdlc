@@ -983,3 +983,42 @@ def test_cli_body_knows_what_root_holds(tmp_path, capsys):
     root = repo(tmp_path / "kitden", {"a.py": f"KEY = '{KEY_TAIL}'\n"})
     assert main([*argv, "--root", str(root)]) == 0
     assert KEY_TAIL in (tmp_path / "body.md").read_text()
+
+
+def test_apply_knows_what_the_context_holds(tmp_path):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    with pytest.raises(ValueError, match="random"):
+        apply(root, out, version="0.9.0", context='{"prs": []}')
+    content, _ = apply(root, out, version="0.9.0", context=f'{{"body": "Rotate {KEY_TAIL}"}}')
+    assert content == [Path("docs/releases/v0.9.0.md")]
+
+
+def test_cli_apply_and_body_read_the_context(tmp_path, capsys):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    (out / "findings.md").write_text(f"## Notes\n\nSet {KEY_TAIL}.\n")
+    context = tmp_path / "context.json"
+    context.write_text(f'{{"body": "Rotate {KEY_TAIL}"}}')
+    (tmp_path / "development.md").write_text(DEVELOPMENT)
+    (tmp_path / "changed.txt").write_text("")
+    apply_argv = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path)]
+    body_argv = [
+        "body",
+        "--findings",
+        str(out / "findings.md"),
+        "--development",
+        str(tmp_path / "development.md"),
+        "--changed",
+        str(tmp_path / "changed.txt"),
+        "--root",
+        str(root),
+        "--out",
+        str(tmp_path / "body.md"),
+    ]
+    missing = ["--context", str(tmp_path / "none.json")]
+    assert main([*apply_argv, *missing]) == 1 and main([*body_argv, *missing]) == 1
+    assert KEY_TAIL not in capsys.readouterr().out
+    assert main([*apply_argv, "--context", str(context)]) == 0
+    assert main([*body_argv, "--context", str(context)]) == 0
+    assert KEY_TAIL in (tmp_path / "body.md").read_text()
