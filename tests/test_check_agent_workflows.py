@@ -14,6 +14,7 @@ REVIEW = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/review.yml"
 CHECK = "KonstantinStarovoytov/kitden-sdlc/.github/workflows/check.yml"
 SWITCH = (
     "vars.AGENTS_ENABLED == 'true'"
+    " && vars.REVIEW_LIVE == 'true'"
     " && github.event.pull_request.head.repo.full_name == github.repository"
     " && !endsWith(github.actor, '[bot]')"
 )
@@ -88,6 +89,11 @@ def test_caller_without_switch_is_rule_2():
 def test_caller_with_partial_switch_is_rule_2():
     text = CLEAN_CALLER.replace("if: SWITCH", "if: vars.AGENTS_ENABLED == 'true'")
     assert any("rule 2" in v for v in run(text))
+
+
+def test_review_caller_without_review_live_is_rule_2():
+    text = CLEAN_CALLER.replace("SWITCH", SWITCH.replace(" && vars.REVIEW_LIVE == 'true'", ""))
+    assert any("rule 2" in v and "REVIEW_LIVE" in v for v in run(text))
 
 
 def test_caller_with_extra_condition_passes():

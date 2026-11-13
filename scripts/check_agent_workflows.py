@@ -12,6 +12,8 @@ SWITCH_PARTS = (
     "github.event.pull_request.head.repo.full_name == github.repository",
     "!endsWith(github.actor, '[bot]')",
 )
+# The reviewers have a switch of their own, on top of the first one.
+REVIEW_SWITCH = "vars.REVIEW_LIVE == 'true'"
 PINNED = re.compile(r"^[^@\s]+@[0-9a-f]{40}")
 # kitden-sdlc's own workflows may be called at main: that branch is protected.
 OWN_MAIN = re.compile(r"^KonstantinStarovoytov/kitden-sdlc/\.github/workflows/[\w.-]+@main$")
@@ -203,6 +205,8 @@ def check_workflow(doc: dict, path: str) -> list[str]:
             missing = [part for part in SWITCH_PARTS if part not in condition]
             if missing:
                 found.append((2, f"job {name} has no switch condition for: {', '.join(missing)}"))
+            if _is_review_caller(job) and REVIEW_SWITCH not in condition:
+                found.append((2, f"job {name} has no switch {REVIEW_SWITCH}"))
     # A scheduled agent: schedule and by hand only, and every job carries the switch.
     if script_jobs:
         extra = _events(doc) - SCHEDULED_EVENTS
