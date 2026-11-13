@@ -5,8 +5,8 @@ No model runs here. Two commands, both run by .github/workflows/release-prep.yml
   release_context.py guard PRS_JSON --enabled true|false
       PRS_JSON is `gh pr list --state open --json headRefName,author,isCrossRepository`.
       Prints why release prep must stop, or nothing when it may go.
-  release_context.py collect ROOT --version X.Y.Z|"" --out context.json
-      Checks the version the owner gave (empty is allowed: the agent then picks it), and
+  release_context.py collect ROOT --version auto|minor|patch|X.Y.Z --out context.json
+      Turns the owner's choice into a version (auto or empty: the agent picks it later), and
       writes the git log since the last tag, the pull requests merged since it and the diff
       stat. The design is docs/superpowers/specs/2026-11-12-release-flow-design.md (B1, B2).
 """
@@ -58,14 +58,17 @@ def _is_bot(author: dict) -> bool:
     return bool(author.get("is_bot")) or login.endswith("[bot]") or login.startswith("app/")
 
 
-def check_version(version: str, current: str) -> str | None:
-    """Why `version` cannot be the next release after `current`, or None. Empty is allowed."""
-    if version == "":
-        return None
-    allowed = next_versions(current)
-    if not VERSION.match(version) or version not in allowed:
-        return f"version {version!r} must be empty, {allowed[0]} or {allowed[1]}"
-    return None
+def resolve_version(choice: str, current: str) -> str:
+    """The version for the owner's `choice` after `current`: "" for auto (the agent picks),
+    the next minor or patch for those words, or an X.Y.Z that is one of the two.
+    Raises ValueError for anything else."""
+    minor, patch = next_versions(current)
+    words = {"": "", "auto": "", "minor": minor, "patch": patch}
+    if choice in words:
+        return words[choice]
+    if VERSION.match(choice) and choice in (minor, patch):
+        return choice
+    raise ValueError(f"version {choice!r} must be auto, minor ({minor}) or patch ({patch})")
 
 
 def _git(root: Path, *args: str) -> str:
@@ -150,11 +153,12 @@ def main(argv: list[str]) -> int:
             print(reason)
         return 0
 
-    problem = check_version(args.version, current_version(args.root))
-    if problem:
+    try:
+        version = resolve_version(args.version, current_version(args.root))
+    except ValueError as problem:
         print(problem)
         return 1
-    context = collect(args.root, last_tag(args.root), _gh, version=args.version)
+    context = collect(args.root, last_tag(args.root), _gh, version=version)
     args.out.write_text(json.dumps(context, indent=2, ensure_ascii=False) + "\n")
     print(f"{len(context['prs'])} pull requests since {context['since_tag']}")
     return 0

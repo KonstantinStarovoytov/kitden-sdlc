@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from release_context import (
-    check_version,
     collect,
     guard,
     last_tag,
     main,
     pr_numbers,
+    resolve_version,
 )
 
 
@@ -122,14 +122,21 @@ def test_last_tag(tmp_path):
     assert last_tag(root) == "v0.8.0"
 
 
-@pytest.mark.parametrize("version", ["", "0.9.0", "0.8.1"])
-def test_check_version_allows_empty_or_next(version):
-    assert check_version(version, "0.8.0") is None
+@pytest.mark.parametrize(
+    ("choice", "version"),
+    [("auto", ""), ("", ""), ("minor", "0.9.0"), ("patch", "0.8.1"), ("0.9.0", "0.9.0"),
+     ("0.8.1", "0.8.1")],
+)
+def test_resolve_version_turns_a_choice_into_a_version(choice, version):
+    assert resolve_version(choice, "0.8.0") == version
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "0.10.0", "v0.9.0", "0.9.0\n", "0.9", "0.8.0"])
-def test_check_version_refuses_others(version):
-    assert check_version(version, "0.8.0")
+@pytest.mark.parametrize(
+    "choice", ["1.0.0", "0.10.0", "v0.9.0", "0.9.0\n", "0.9.0.", "0.9", "0.8.0", "Minor"]
+)
+def test_resolve_version_refuses_others(choice):
+    with pytest.raises(ValueError, match="auto, minor"):
+        resolve_version(choice, "0.8.0")
 
 
 def pr(head: str, login: str, bot: bool) -> dict:
