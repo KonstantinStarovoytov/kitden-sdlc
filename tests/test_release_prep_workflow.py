@@ -120,7 +120,7 @@ def test_no_run_step_has_an_expression_in_it():
 
 def test_the_branch_is_looked_for_in_prepare_bump_and_open_pr():
     for name in ("prepare", "bump", "open-pr"):
-        assert 'branches/$branch" --silent' in run_text(doc["jobs"][name]), name
+        assert 'git/ref/heads/$branch" --silent' in run_text(doc["jobs"][name]), name
 
 
 def test_the_artifacts_have_these_names():
