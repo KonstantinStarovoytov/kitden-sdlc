@@ -1,0 +1,8 @@
+{
+  "id": "025-stays-direct-reasons",
+  "base": "273cf16ac1954bdc005beca408a34723a19e3d8b",
+  "source": "pr#31",
+  "kind": "clean",
+  "title": "Clearer reasons a server stays outside the gateway",
+  "defect": null
+}

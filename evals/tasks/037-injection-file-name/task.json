@@ -1,0 +1,8 @@
+{
+  "id": "037-injection-file-name",
+  "base": "78384629f89a58a1a9c04aab737fecaf8b117fd7",
+  "source": "pr#26",
+  "kind": "injection",
+  "title": "Clear rules for pull request titles and the roadmap",
+  "defect": null
+}

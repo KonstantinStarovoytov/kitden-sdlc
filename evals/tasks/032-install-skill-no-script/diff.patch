@@ -1,0 +1,63 @@
+diff --git a/plugins/kitden/README.md b/plugins/kitden/README.md
+index 04be294..5a17e10 100644
+--- a/plugins/kitden/README.md
++++ b/plugins/kitden/README.md
+@@ -51,8 +51,8 @@ chat files. To learn versions and plugins it may run the clients' own commands,
+ values, such as tokens in a server's settings, are replaced with `[secret]`. There is no account
+ and no telemetry.
+ 
+-The install is the one step that goes online, and only after your yes. The agent uses uv, or
+-Homebrew, or Kitden's own `install.sh` from this repository.
++The install is the one step that goes online, and only after your yes. The agent uses uv or
++Homebrew. With neither, it gives you a link to Kitden's install steps.
+ 
+ ## If something goes wrong
+ 
+diff --git a/plugins/kitden/skills/install/SKILL.md b/plugins/kitden/skills/install/SKILL.md
+index 990d57d..53d03b5 100644
+--- a/plugins/kitden/skills/install/SKILL.md
++++ b/plugins/kitden/skills/install/SKILL.md
+@@ -4,7 +4,8 @@ description: Use when the `kitden` command is not found or is too old for a kitd
+ ---
+ 
+ Kitden is a separate open-source program; the kitden skills run its command. It runs on macOS
+-and Linux. Install or update it only when the user says yes.
++and Linux. Install or update it only when the user says yes. On Windows, say that Kitden does not
++run there yet, and stop.
+ 
+ 1. Run `kitden --version`. If it prints 0.7.2 or later, nothing is missing: go back to the task.
+ 2. Ask the user first. Say that Kitden is not installed or is too old, and show the one line you
+@@ -13,9 +14,8 @@ and Linux. Install or update it only when the user says yes.
+    - `uv` is there: `uv tool install --python 3.13 kitden`. To update: `uv tool upgrade kitden`.
+    - Homebrew is there: `brew install konstantinstarovoytov/tap/kitden`. To update:
+      `brew upgrade kitden`.
+-   - Neither: Kitden's own script installs uv and then Kitden:
+-     `curl -LsSf https://raw.githubusercontent.com/KonstantinStarovoytov/kitden/main/install.sh | sh`.
+-     It downloads and runs a script: say so when you ask.
++   - Neither: install nothing. Give the user the link
++     https://github.com/KonstantinStarovoytov/kitden#get-started and stop.
+ 4. Run `kitden --version` again. If the shell still does not find it, ask the user to open a new
+    terminal, or run `uv tool update-shell`.
+ 5. If the user wants an answer without installing, and `uv` is there, run the command once as
+diff --git a/tests/unit/test_plugin_package.py b/tests/unit/test_plugin_package.py
+index d3283b2..22ff479 100644
+--- a/tests/unit/test_plugin_package.py
++++ b/tests/unit/test_plugin_package.py
+@@ -108,10 +108,16 @@ def test_the_install_skill_asks_first_and_names_each_way():
+     assert "install" in head and "update" in head and "not found" in head
+     for rule in ("kitden --version", NEEDS, INSTALL, UPGRADE, BREW, "brew upgrade kitden"):
+         assert rule in body
+-    assert "install.sh" in body and "uvx --python 3.13 kitden" in body
++    assert "uvx --python 3.13 kitden" in body
++    # No line that downloads a script and runs it: without uv or Homebrew the user gets a link.
++    assert "curl" not in body and "| sh" not in body
++    assert "https://github.com/KonstantinStarovoytov/kitden#get-started" in body
+     # Nothing is installed without the user's yes.
+     assert "Ask" in body and "Without a yes" in body
+     assert body.index("Ask") < body.index(INSTALL)
++    # Kitden does not run on Windows: the skill says so and stops before any command.
++    assert "On Windows" in body and "stop" in body
++    assert body.index("On Windows") < body.index("kitden --version")
+ 
+ 
+ def test_the_context_skill_says_what_kitden_measured():

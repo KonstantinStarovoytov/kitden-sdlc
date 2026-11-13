@@ -1,0 +1,8 @@
+{
+  "id": "031-one-refusal-test",
+  "base": "74678155abc8a17cc686b426453b81f14ace18ed",
+  "source": "pr#40",
+  "kind": "clean",
+  "title": "Tidy the refusal tests: one test instead of two that repeat",
+  "defect": null
+}

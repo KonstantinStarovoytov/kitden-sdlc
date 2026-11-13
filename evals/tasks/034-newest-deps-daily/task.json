@@ -1,0 +1,8 @@
+{
+  "id": "034-newest-deps-daily",
+  "base": "d94d3befefe73687e0c6093685d3569b37f6e230",
+  "source": "pr#56",
+  "kind": "clean",
+  "title": "Test on the newest dependencies once a day",
+  "defect": null
+}

@@ -1,0 +1,250 @@
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index e4a9c74..accde14 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -39,6 +39,7 @@ jobs:
+           sudo apt-get update -q
+           sudo apt-get install -yq libsecret-tools gnome-keyring dbus
+       - run: uv run ruff check .
++      - run: uv run ruff format --check .
+       # The Python tests, with a floor on how much of the package they run.
+       - run: uv run pytest -q --cov=kitden --cov-fail-under=94 --cov-report=term:skip-covered
+       # One real round trip through secret-tool, with the bus where a desktop session has it
+diff --git a/AGENTS.md b/AGENTS.md
+index 6e05fd6..ef3c77e 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -8,7 +8,8 @@
+ - Changes are judged against [PRINCIPLES.md](PRINCIPLES.md).
+ - Follow [docs/design.md](docs/design.md) for how the page looks and moves.
+ - Tests use sandbox homes and never touch the real home folder. Run `uv run pytest -q`,
+-  `uv run ruff check .` and `node --test tests/frontend/*.test.mjs` before each commit.
++  `uv run ruff check .`, `uv run ruff format --check .` and
++  `node --test tests/frontend/*.test.mjs` before each commit.
+ - Keep work proportional to a self-hosted tool for one person or a small team: the simplest
+   mechanism that works, no speculative options.
+ - Check changing facts about other tools (client file formats, gateway APIs) against their
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index d8f60e5..174e0f7 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -53,6 +53,7 @@ Run these from the checkout before committing:
+ ```bash
+ uv run pytest -q
+ uv run ruff check .
++uv run ruff format --check .
+ node --test tests/frontend/*.test.mjs
+ ```
+ 
+diff --git a/pyproject.toml b/pyproject.toml
+index 0089522..d56d272 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -61,8 +61,10 @@ target-version = "py313"
+ src = ["src", "tests"]
+ 
+ [tool.ruff.lint]
+-select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+-ignore = ["S101"]
++select = ["E", "W", "F", "I", "B", "UP", "S", "SIM", "C4", "PIE", "PERF", "BLE", "RUF"]
++# S101: asserts are fine. PERF401: a plain loop often reads better than extend().
++# RUF001-RUF003: the page's words use ×, – and − on purpose.
++ignore = ["S101", "PERF401", "RUF001", "RUF002", "RUF003"]
+ 
+ [tool.ruff.lint.per-file-ignores]
+ "tests/**" = ["S"]
+diff --git a/scripts/readme_demo.py b/scripts/readme_demo.py
+index 08946a6..fab7100 100644
+--- a/scripts/readme_demo.py
++++ b/scripts/readme_demo.py
+@@ -116,7 +116,7 @@ def build_sample(root: Path) -> Path:
+     codex.write_text(
+         f'[mcp_servers.kitden]\ncommand = {json.dumps(demo_command(home))}\nargs = ["mcp"]\n'
+         '[marketplaces.superpowers-dev]\nsource_type = "local"\n'
+-        f'source = {json.dumps(str(market))}\n'
++        f"source = {json.dumps(str(market))}\n"
+     )
+     write_json(home / ".cursor/mcp.json", {"mcpServers": {"kitden": connection}})
+     folder = data_dir(home)
+diff --git a/src/kitden/changes/client_cli.py b/src/kitden/changes/client_cli.py
+index 8ee2f7d..1a45f61 100644
+--- a/src/kitden/changes/client_cli.py
++++ b/src/kitden/changes/client_cli.py
+@@ -4,7 +4,7 @@ import contextlib
+ import os
+ import shutil
+ import signal
+-import subprocess  # noqa: S404 - runs fixed client commands without a shell
++import subprocess  # runs fixed client commands without a shell
+ from dataclasses import dataclass
+ from pathlib import Path
+ 
+diff --git a/src/kitden/clients/codex.py b/src/kitden/clients/codex.py
+index b6a3689..3db6298 100644
+--- a/src/kitden/clients/codex.py
++++ b/src/kitden/clients/codex.py
+@@ -6,7 +6,7 @@ comments). Spike S4: the running app keeps outside edits.
+ 
+ import json
+ import os
+-import subprocess  # noqa: S404 - runs the codex command without a shell
++import subprocess  # runs the codex command without a shell
+ import threading
+ from collections.abc import Callable
+ from dataclasses import replace
+diff --git a/src/kitden/discovery.py b/src/kitden/discovery.py
+index 47567f0..4fbdf00 100644
+--- a/src/kitden/discovery.py
++++ b/src/kitden/discovery.py
+@@ -61,7 +61,7 @@ def download(url: str) -> bytes:
+     request = Request(  # noqa: S310 - checked HTTPS hosts, redirects checked too
+         checked_url(url), headers={"User-Agent": "Kitden", "Accept": "application/json"}
+     )
+-    with build_opener(CatalogRedirect()).open(request, timeout=15) as response:  # noqa: S310
++    with build_opener(CatalogRedirect()).open(request, timeout=15) as response:
+         content = response.read(MAX_BYTES + 1)
+     if len(content) > MAX_BYTES:
+         raise ValueError("This source is too large. Choose a smaller repository.")
+@@ -692,7 +692,7 @@ class Discovery:
+             **info,
+             "path": str(prepared),
+             "installed": {},
+-            "routes": {c: "ready" for c in found},
++            "routes": dict.fromkeys(found, "ready"),
+             "id": row["id"],
+             "commit": commit,
+         }
+diff --git a/src/kitden/gateway_api.py b/src/kitden/gateway_api.py
+index 9ad8e5f..a5b3436 100644
+--- a/src/kitden/gateway_api.py
++++ b/src/kitden/gateway_api.py
+@@ -135,7 +135,7 @@ class MetaMcpClient:
+         password = self.env.get(var)
+         if not password:
+             raise GatewayError(f"Set {var} in the environment before starting Kitden")
+-        status, body, cookie = self._request(
++        status, _body, cookie = self._request(
+             "POST",
+             "/api/auth/sign-in/email",
+             {"email": self.gateway.login_email, "password": password},
+diff --git a/src/kitden/local_gateway/proxy.py b/src/kitden/local_gateway/proxy.py
+index 5466853..0fa09ad 100644
+--- a/src/kitden/local_gateway/proxy.py
++++ b/src/kitden/local_gateway/proxy.py
+@@ -255,7 +255,7 @@ class Upstreams:
+         except TimeoutError:
+             state = "answer" if server in self._clients else "start"
+             sentence = f"{server} did not {state} in {wait:g} seconds."
+-        except Exception:
++        except Exception:  # noqa: BLE001 - whatever went wrong, the client gets one plain sentence
+             sentence = f"{server} did not list its tools."
+         _say(sentence)
+         raise UpstreamError(sentence)
+@@ -283,7 +283,7 @@ class Upstreams:
+                 await self._note_refused(server, False)
+                 return _answer(refused.message)  # the server's own answer
+             return _error(await self._failed(server, turned))
+-        except Exception:
++        except Exception:  # noqa: BLE001
+             # The text of an error may hold the server's address; say it plainly instead.
+             return _error(await self._failed(server, turned))
+         await self._note_refused(server, False)
+@@ -331,7 +331,7 @@ class Upstreams:
+                     client = await self._open().start(self._serve, server)
+                 except UpstreamError:
+                     raise
+-                except Exception:
++                except Exception:  # noqa: BLE001 - the error's text may hold the server's address
+                     verb = "reach" if self._remote(server) else "start"
+                     raise UpstreamError(f"Kitden could not {verb} {server}.") from None
+             return client
+@@ -454,7 +454,7 @@ async def _roots(ctx: ServerRequestContext) -> list[str]:
+         answer = await ctx.session.send_request(
+             ListRootsRequest(), ListRootsResult, request_read_timeout_seconds=ROOTS_TIMEOUT
+         )
+-    except Exception:
++    except Exception:  # noqa: BLE001 - a client that cannot say its roots has none
+         return []
+     return [str(root.uri) for root in answer.roots]
+ 
+@@ -511,7 +511,7 @@ class _Gateway:
+             return await self.own.call_tool(params.name, arguments)
+         except MCPError:
+             raise
+-        except Exception as exc:  # as MCPServer answers for its own tools
++        except Exception as exc:  # noqa: BLE001 - as MCPServer answers for its own tools
+             return _answer(str(exc))
+ 
+     async def _count(self, server: str, tool: str) -> None:
+@@ -572,7 +572,7 @@ class _Gateway:
+                 # mcp 2.3.0 ServerSession.send_tool_list_changed sends
+                 # notifications/tools/list_changed (checked 2026-10-21).
+                 await ctx.session.send_tool_list_changed()
+-        except Exception:
++        except Exception:  # noqa: BLE001
+             return  # the client keeps its list until a new session
+ 
+     def _rules_time(self) -> int | None:
+@@ -589,7 +589,7 @@ class _Gateway:
+     def _known(self) -> list[str]:
+         try:
+             return self.known()
+-        except Exception:
++        except Exception:  # noqa: BLE001 - the session still starts, with the global tools
+             _say(
+                 "Kitden could not read the known projects; "
+                 "this session gets the global set of tools."
+diff --git a/src/kitden/marketplace_link.py b/src/kitden/marketplace_link.py
+index 123ca60..58cbf14 100644
+--- a/src/kitden/marketplace_link.py
++++ b/src/kitden/marketplace_link.py
+@@ -65,7 +65,7 @@ def _fetch(url: str) -> dict | None:
+ def read_marketplace(link: str) -> dict:
+     """{"name", "source", "plugins", "formats"} for a marketplace link, or LinkError."""
+     link = link.strip()
+-    if link.startswith("/") or link.startswith("~"):
++    if link.startswith(("/", "~")):
+         folder = Path(link).expanduser().resolve()
+         if not folder.is_dir():
+             raise LinkError(f"There is no folder {folder}")
+diff --git a/src/kitden/views/changes_view.py b/src/kitden/views/changes_view.py
+index a03de5d..e68f1ff 100644
+--- a/src/kitden/views/changes_view.py
++++ b/src/kitden/views/changes_view.py
+@@ -267,7 +267,7 @@ def change_entries(log: list[dict], engine, inventory) -> list[dict]:
+         for change_id, own in lines.items()
+     ]
+     # Made in the same second: the one logged later comes first.
+-    entries = sorted(reversed(entries), key=lambda e: e["time"] or "", reverse=True)
++    entries = sorted(reversed(entries), key=lambda e: e["time"] or "", reverse=True)  # noqa: C414
+     _came_back(entries, engine.changes, inventory)
+     return entries
+ 
+diff --git a/src/kitden/views/inventory.py b/src/kitden/views/inventory.py
+index bc9c279..cdd9b15 100644
+--- a/src/kitden/views/inventory.py
++++ b/src/kitden/views/inventory.py
+@@ -114,7 +114,7 @@ def _read(adapter: ClientAdapter, apps: list[Path]) -> tuple[Client, Scan | None
+         return client, None
+     try:
+         return client, adapter.scan()
+-    except Exception:  # a changed file format must not hide the other clients
++    except Exception:  # noqa: BLE001 - a changed file format must not hide the other clients
+         return replace(client, status=ClientStatus.UNREADABLE), None
+ 
+ 
+diff --git a/src/kitden/views/words.py b/src/kitden/views/words.py
+index 80df721..a6238c1 100644
+--- a/src/kitden/views/words.py
++++ b/src/kitden/views/words.py
+@@ -1,9 +1,8 @@
+ """The words the pages say, in one place. `STATE_WORDS` is the twin of parts.js STATE_WORDS."""
+ 
+ 
+-
+ def join_words(words: list[str]) -> str:
+-    """"a", "a and b", "a, b and c"; "" for none."""
++    """ "a", "a and b", "a, b and c"; "" for none."""
+     return " and ".join([", ".join(words[:-1]), words[-1]] if len(words) > 1 else words)
+ 
+ 

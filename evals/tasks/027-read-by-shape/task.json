@@ -1,0 +1,8 @@
+{
+  "id": "027-read-by-shape",
+  "base": "9664b95db5d99055bf309077b8a9c6dd020837f5",
+  "source": "pr#54",
+  "kind": "clean",
+  "title": "Read other tools' files by shape, not by version",
+  "defect": null
+}

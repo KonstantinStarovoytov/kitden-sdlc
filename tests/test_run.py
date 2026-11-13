@@ -61,6 +61,27 @@ def test_review_folder_has_the_five_files_from_the_base(tmp_path):
     assert (review / "PRINCIPLES.md").read_text() == ""
 
 
+def test_pr_md_has_the_description_when_the_task_has_one(tmp_path):
+    kitden = tmp_path / "kitden"
+    kitden.mkdir()
+    git("init", "-q", cwd=kitden)
+    (kitden / "app.py").write_text("x = 1\n")
+    git("add", ".", cwd=kitden)
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base", cwd=kitden)
+    base = git("rev-parse", "HEAD", cwd=kitden).stdout.strip()
+    (kitden / "app.py").write_text("x = 2\n")
+    patch = tmp_path / "diff.patch"
+    patch.write_text(git("diff", cwd=kitden).stdout)
+    for name, task, expected in (
+        ("with", {"base": base, "title": "T", "body": "Text."}, "# T\n\nText."),
+        ("without", {"base": base, "title": "T"}, "# T\n\n"),
+    ):
+        folder = tmp_path / name
+        git("worktree", "add", "-q", "--detach", str(folder), base, cwd=kitden)
+        run.build_review(kitden, folder, task, patch)
+        assert (folder / ".review/pr.md").read_text() == expected
+
+
 def test_luna_does_not_see_the_changes_agent_files(tmp_path):
     for name in ("AGENTS.md", "sub/AGENTS.md", "sub/AGENTS.override.md", ".review/AGENTS.md"):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
