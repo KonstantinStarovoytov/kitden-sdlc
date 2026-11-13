@@ -43,9 +43,10 @@ follows the review rubric of [OpenAI's Codex](https://github.com/openai/codex). 
 are under Apache-2.0; the text here is rewritten for Kitden.
 
 Limits for both reviewers: 12 minutes for the model step and 15 for its job, 5 findings
-each, at most 10 reviews a day, fork pull requests and bots skipped, and the label
-`no-agent-review` skips one pull request. The reviewers only comment: they never approve and
-never block ([rule 11](../RULES.md)).
+each, at most 10 reviews a day by default (Kitden's caller sets `AGENTS_REVIEW_DAILY_CAP`, or
+20), fork pull requests and bots skipped, and the label `no-agent-review` skips one pull
+request. The reviewers only comment: they never approve and never block
+([rule 11](../RULES.md)).
 
 On Kitden, `agents-review.yml` calls [review.yml](../.github/workflows/review.yml), and the
 Lantern app posts the "Agent review" comment. `agents-check.yml` calls
@@ -155,6 +156,8 @@ The owner's one-time setup of the app, environments and rules is in
 | `OPENAI_API_KEY` | Kitden | `luna` reviewer | $5 a month |
 | `OPENAI_API_KEY` | kitden-sdlc | the watch eval on an OpenAI model | not set |
 | `ANTHROPIC_API_KEY` | kitden-sdlc | client watcher, the watch eval | not set |
+
+Until the owner makes the second OpenAI key, the kitden-sdlc one may be the same as Kitden's.
 
 ## What went wrong
 

@@ -8,8 +8,9 @@ Every workflow that runs an AI agent must follow these eleven rules.
    data there. A job in the `release` environment never runs a model and never runs on
    `pull_request_target` or `issue_comment`.
 2. `pull_request` only, never `pull_request_target`. A job skips when the head is a fork, when
-   the actor is a bot, and when the switch is off. A scheduled agent runs on `schedule` and
-   `workflow_dispatch` only, and every job of it carries the switch.
+   the actor is a bot, and when the switch is off; a review caller also carries `REVIEW_LIVE`.
+   A scheduled agent runs on `schedule` and `workflow_dispatch` only, and every job of it
+   carries the switch.
 3. `permissions: {}` at the top; each job lists the least it needs.
 4. Every action is pinned to a full SHA; a plugin marketplace is pinned to a tag. The caller
    may use `kitden-sdlc`'s own workflows at `main`: that branch is protected, so nothing gets

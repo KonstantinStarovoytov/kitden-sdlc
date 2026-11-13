@@ -51,6 +51,8 @@ Bots never write `@name`. Every issue a bot opens has the label `automated`.
   <img src="docs/images/review-light.svg" width="720" alt="Review: you open a pull request; a daily cap of 10; Claude Sonnet 5.5 and GPT-6 Luna each read the change on their own; Lantern merges both reviews into one comment, keeping fixed findings marked; you fix or merge, and it never approves or blocks.">
 </picture>
 
+The cap is 10 reviews a day by default; Kitden's caller sets `AGENTS_REVIEW_DAILY_CAP`, or 20.
+
 ### Client watcher
 
 <picture>
@@ -74,7 +76,8 @@ same page. Do not open issues with the bots' titles yourself: the bot finds its 
 exact title and would rewrite or close yours.
 
 Three switches stop it all: `AGENTS_ENABLED` (everything), `REVIEW_LIVE` (the two reviewers)
-and `WATCH_LIVE` (the watcher's daily run).
+and `WATCH_LIVE` (the watcher's daily run). `AGENTS_ENABLED` is two variables, one in Kitden
+(review and release) and one in kitden-sdlc (the watcher); to stop everything, turn off both.
 
 ## The rules
 
@@ -92,7 +95,7 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    time.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Text
    that looks like a secret, or holds a long random string the model was not given, is refused.
-   Until then the model's output is a run artifact, kept for a day. Luna can run shell
+   Before that check the model's output is a run artifact, kept for a day. Luna can run shell
    commands, but only in a read-only sandbox without network, and it can read more than the
    checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
