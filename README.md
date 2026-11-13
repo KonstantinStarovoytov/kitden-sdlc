@@ -16,7 +16,7 @@ untrusted text, a secret and write access at once.
 | Workflow check ([check.yml](.github/workflows/check.yml)) | zizmor, actionlint and the rule checker on every workflow change | live on Kitden |
 | Client watcher ([watch.yml](.github/workflows/watch.yml)) | Claude Sonnet 5.5 reads the release notes of Claude Code, Codex and Cursor; a script opens issues in Kitden | live: every day; the eval runs by hand |
 | Weekly numbers ([numbers.yml](.github/workflows/numbers.yml)) | counts the reviews, no model | live: every Monday |
-| Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; a job without a model opens the release pull request | ready in Kitden; the first release with it is still to come |
+| Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; scripts check them and Claude gets one pass to fix what they find; a job without a model opens the release pull request, as a draft when something is left | ready in Kitden; the first release with it is still to come |
 | Publish ([publish.yml](.github/workflows/publish.yml)) | no model; in the `release` environment it moves the `release` branch and opens the Homebrew pull request, and it publishes to the MCP Registry | ready in Kitden; the first release with it is still to come |
 | Release watch ([release-watch.yml](.github/workflows/release-watch.yml)) | daily, no model: an issue when a release is due or a store is behind | set up in Kitden; runs every day |
 

@@ -12,7 +12,7 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
 | weekly numbers | every Monday at 06:00 UTC | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
 | client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` and `WATCH_LIVE` switches |
-| release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context, write files to one output folder; jobs without the model set the version, record the README pictures and open the release pull request as the release app | 25 minutes, 40 turns, one run at a time, the `AGENTS_ENABLED` switch; it stops while a release pull request is open |
+| release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context, write files to one output folder; scripts check the files, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs: 25 minutes and 40 turns, then 10 minutes and 15 turns; one run at a time, the `AGENTS_ENABLED` switch; it stops while a release pull request is open |
 | release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time, the `AGENTS_ENABLED` switch |
 | publish | a `vX.Y.Z` tag in Kitden, after PyPI | none | move the `release` branch, publish to the MCP Registry, open the Homebrew pull request, write a summary | no model; each job writes to one place with its own short-lived token |
 
@@ -91,9 +91,14 @@ workflows live here, and Kitden calls them. The design is
   merged pull requests and the diff stat since the last tag. Claude reads them with read-only
   tools and writes the release notes, the README changes, the policy edits and its findings
   into one folder, using the `release-notes` and `readme-kitden` skills and
-  [platform-rules.md](platform-rules.md). Jobs without a model then check and set the version,
-  record the README pictures on macOS, and open the pull request `Kitden X.Y.Z` as the release
-  app, with the policy edits in a commit of their own.
+  [platform-rules.md](platform-rules.md). Jobs without a model then check and set the version
+  and run Kitden's docs tests and the release check on the files (`check`). When that finds
+  problems, Claude gets one pass (10 minutes, 15 turns) to fix them (`fix`), and a script keeps
+  the version and the scene list as they were. The README pictures are recorded on macOS, every
+  scene, beside these jobs (`record`). `final-check` runs the checks again with the pictures in,
+  and `open-pr` opens the pull request `Kitden X.Y.Z` as the release app, with the policy edits
+  in a commit of their own. The pull request is a draft when a problem or a failed picture is
+  left; its body lists them first.
 - Merging that pull request tags the version: Kitden's `release.yml` does it as the release
   app. The tag builds the package, publishes it to PyPI and makes the GitHub release, then
   calls publish.
