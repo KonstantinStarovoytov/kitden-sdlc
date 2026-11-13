@@ -20,6 +20,25 @@ def test_a_failed_reviewer_leaves_no_red_mark():
         assert any(str(s.get("if", "")).strip() == warning for s in job["steps"])
 
 
+def test_model_output_is_kept_for_one_day():
+    # Anyone signed in to GitHub can download a public repository's artifacts, and these
+    # are uploaded before any check of the model's text.
+    wanted = {
+        "review.yml": {"findings-claude", "findings-luna"},
+        "release-prep.yml": {"release-out"},
+    }
+    for file, names in wanted.items():
+        doc = yaml.safe_load((ROOT / ".github/workflows" / file).read_text())
+        uploads = {
+            step["with"]["name"]: step["with"]
+            for job in doc["jobs"].values()
+            for step in job.get("steps") or []
+            if "actions/upload-artifact" in str(step.get("uses", ""))
+        }
+        for name in names:
+            assert uploads[name].get("retention-days") == 1, name
+
+
 def test_every_model_job_in_release_prep_starts_with_the_same_hosts_step():
     doc = yaml.safe_load((ROOT / ".github/workflows/release-prep.yml").read_text())
     model_jobs = [j for j in doc["jobs"].values() if any(_is_model_step(s) for s in j["steps"])]

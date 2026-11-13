@@ -31,7 +31,9 @@ answer; if both fail, it says neither did and that it is not a review. A failed 
 leaves no red mark. The posting job refuses a reviewer's text that holds a long random string
 found nowhere in the pull request's title, body or files. That refusal, like one of text that
 looks like a secret, turns the job red, and so does a failure of the workflow's own steps
-(checkout, the prepare script, the cap, GitHub's API).
+(checkout, the prepare script, the cap, GitHub's API). Each findings file is kept as a run
+artifact for a day before these checks run, and anyone signed in to GitHub can download a
+public repository's artifacts.
 
 The two reviewers work by different methods, so they do not repeat each other's blind spots.
 Claude's skill follows Anthropic's

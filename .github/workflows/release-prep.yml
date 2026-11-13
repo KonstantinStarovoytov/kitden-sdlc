@@ -318,6 +318,7 @@ jobs:
           name: release-out
           path: out/
           if-no-files-found: error
+          retention-days: 1
 
   # The version is the owner's, or the agent's out/version.txt; release_bump.py refuses
   # anything but the next minor or patch. The scenes are checked against the pictures Kitden

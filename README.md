@@ -92,8 +92,9 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    time.
 6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Text
    that looks like a secret, or holds a long random string the model was not given, is refused.
-   Luna can run shell commands, but only in a read-only sandbox without network, and it can
-   read more than the checkout.
+   Until then the model's output is a run artifact, kept for a day. Luna can run shell
+   commands, but only in a read-only sandbox without network, and it can read more than the
+   checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
    never share a job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it

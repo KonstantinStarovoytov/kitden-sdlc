@@ -148,6 +148,7 @@ jobs:
           path: .review/findings.json
           include-hidden-files: true
           if-no-files-found: ignore
+          retention-days: 1
 
   luna:
     needs: cap
@@ -243,6 +244,7 @@ jobs:
           path: .review/findings.json
           include-hidden-files: true
           if-no-files-found: ignore
+          retention-days: 1
 
   # No model here: this job only turns the two findings files into one comment. The app's
   # key is used by one step, to get a short-lived token that can only write to pull requests.
