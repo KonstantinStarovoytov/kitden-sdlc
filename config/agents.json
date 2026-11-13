@@ -8,7 +8,7 @@
       "repo": "KonstantinStarovoytov/kitden",
       "workflow": "agents-review.yml",
       "key": "CLAUDE_CODE_OAUTH_TOKEN",
-      "cap": "10 reviews a day, 5 findings each"
+      "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
     },
     {
       "id": "luna",
@@ -18,7 +18,7 @@
       "repo": "KonstantinStarovoytov/kitden",
       "workflow": "agents-review.yml",
       "key": "OPENAI_API_KEY",
-      "cap": "10 reviews a day, 5 findings each"
+      "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
     },
     {
       "id": "watcher",
