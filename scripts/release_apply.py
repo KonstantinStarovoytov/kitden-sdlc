@@ -13,10 +13,12 @@ No model runs here; the files it reads were written by one, so they are only dat
       second. Writes DIR/pictures.json: what became of each scene. Refuses, writing nothing,
       any file it does not know.
   release_apply.py body --findings F --development D --changed C --out BODY [--problems F
-      --facts F --pictures F --results F --expected "a b" --fixed F]
+      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R]
       The pull request's body: what is still wrong, what scripts checked, the agent's findings,
       the real-client checks from Kitden's docs/development.md that the changed files touch,
-      and how to merge. Prints draft or ready.
+      and how to merge. R is the fix job's result (success, failure, cancelled, skipped or
+      empty). A --problems, --pictures or --facts file that is given but cannot be read counts
+      as a problem. Prints draft or ready.
 """
 
 import argparse
@@ -84,6 +86,8 @@ CLOSING = re.compile(
 # A Markdown heading of any level, which could pass for one of this body's own sections.
 HEADING = re.compile(r"^ {0,3}(#{1,6})(?=[ \t]|$)", re.MULTILINE)
 LINE_MAX = 300
+# GitHub refuses a body over 65,536 characters, so the problems are capped.
+PROBLEMS_MAX = 30
 SAFE_PATH = re.compile(r"[\w./@+-]+\Z", re.ASCII)
 STATES = ("changed", "the same", "not needed", "failed")
 MODEL = re.compile(r"[\w.:-]{1,80}\Z", re.ASCII)
@@ -357,8 +361,10 @@ def _names(names: list[str]) -> str:
     return ", ".join(f"`{name}`" for name in names)
 
 
-def _fix_pass(fixed: list[str] | None) -> str:
-    if fixed is None:
+def _fix_pass(fixed: list[str] | None, fix_result: str = "") -> str:
+    if fix_result in ("failure", "cancelled"):
+        return "One fix pass ran and failed; the first files are used."
+    if fix_result != "success" or fixed is None:
         return "No fix pass was needed."
     paths = [f"`{path}`" for path in fixed if SAFE_PATH.match(path)]
     if not paths:
@@ -426,6 +432,7 @@ def pr_body(
     expected: list[str] = (),
     errors: dict[str, str] | None = None,
     fixed: list[str] | None = None,
+    fix_result: str = "",
 ) -> str:
     """The release pull request's body. Raises ValueError when the findings, a problem or an
     error look like they hold a secret."""
@@ -440,11 +447,15 @@ def pr_body(
     parts = [
         f"Automated: prepared by kitden-sdlc's release-prep. The notes, the README and the "
         f"policy edits were written by {who}; the version, the commits and this text by "
-        f"scripts. The first commit holds the notes, the README, the version and the "
-        f"pictures; the second, if there is one, the policy files and `listing.toml`. "
-        + _fix_pass(fixed),
+        f"scripts. The first commit holds the notes, the guide, the README, the version and "
+        f"the pictures; the second, if there is one, the policy files, the plugin README "
+        f"and `listing.toml`. " + _fix_pass(fixed, fix_result),
     ]
-    to_fix = [f"- {_one_line(problem)}" for problem in problems]
+    to_fix = [f"- {_one_line(problem)}" for problem in problems[:PROBLEMS_MAX]]
+    if len(problems) > PROBLEMS_MAX:
+        to_fix.append(
+            f"- and {len(problems) - PROBLEMS_MAX} more: see the run's `release-verdict` artifact."
+        )
     for scene, state in sorted((pictures or {}).items()):
         if state == "failed" and SCENE.match(scene):
             error = _one_line(errors.get(scene, "")) or "no reason was kept"
@@ -523,6 +534,7 @@ def main(argv: list[str]) -> int:
     body_cmd.add_argument("--results", type=Path)
     body_cmd.add_argument("--expected", default="")
     body_cmd.add_argument("--fixed", type=Path)
+    body_cmd.add_argument("--fix-result", default="")
     body_cmd.add_argument("--model", default="")
     body_cmd.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -552,16 +564,29 @@ def main(argv: list[str]) -> int:
                 if line.startswith("- ")
             ]
             pictures = _results(args.pictures)
+            facts = _results(args.facts)
+            # A file that is given but cannot be read must not look like a clean result.
+            unreadable = [
+                path.name
+                for path, data in (
+                    (args.problems, "" if args.problems and args.problems.is_file() else None),
+                    (args.pictures, pictures),
+                    (args.facts, facts),
+                )
+                if path is not None and data is None
+            ]
+            problems += [f"The checks' result could not be read: {name}." for name in unreadable]
             body = pr_body(
                 _read(args.findings),
                 checks,
                 model=args.model,
                 problems=problems,
-                facts=_results(args.facts),
+                facts=facts,
                 pictures=pictures,
                 expected=args.expected.split(),
                 errors=_results(args.results),
                 fixed=_fixed(args.fixed),
+                fix_result=args.fix_result,
             )
             args.out.write_text(body)
             print("draft" if is_draft(problems, pictures or {}) else "ready")

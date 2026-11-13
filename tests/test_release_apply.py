@@ -692,10 +692,49 @@ def test_expected_but_the_same_is_called_out():
 
 
 def test_the_fix_pass_line_names_what_it_changed():
-    assert "No fix pass was needed." in pr_body("", [], fixed=None)
-    assert "One fix pass ran and changed nothing." in pr_body("", [], fixed=[])
-    body = pr_body("", [], fixed=["README.md", "docs/guide.md"])
+    assert "No fix pass was needed." in pr_body("", [], fixed=None, fix_result="success")
+    body = pr_body("", [], fixed=[], fix_result="success")
+    assert "One fix pass ran and changed nothing." in body
+    body = pr_body("", [], fixed=["README.md", "docs/guide.md"], fix_result="success")
     assert "One fix pass changed `README.md` and `docs/guide.md`." in body
+
+
+def test_the_first_line_says_which_commit_holds_the_guide_and_the_plugin_readme():
+    first = pr_body("", []).splitlines()[0]
+    assert "The first commit holds the notes, the guide, the README, the version and the" in first
+    assert "the policy files, the plugin README and `listing.toml`" in first
+
+
+def test_a_fix_pass_that_failed_is_said():
+    for result in ("failure", "cancelled"):
+        body = pr_body("", [], fix_result=result)
+        assert "One fix pass ran and failed; the first files are used." in body
+        assert "No fix pass was needed." not in body
+
+
+def test_no_fix_pass_line_when_the_job_did_not_run():
+    for result in ("skipped", ""):
+        body = pr_body("", [], fix_result=result, fixed=["README.md"])
+        assert "No fix pass was needed." in body
+        assert "One fix pass" not in body.replace("No fix pass", "")
+
+
+def test_the_body_shows_at_most_30_problems():
+    problems = [f"problem number {n}" for n in range(100)]
+    body = pr_body("", [], problems=problems)
+    section = body.split("## Fix before merge\n\n")[1].split("\n\n## ")[0]
+    lines = section.splitlines()
+    assert len(lines) == 31
+    assert lines[29] == "- problem number 29"
+    assert lines[30] == "- and 70 more: see the run's `release-verdict` artifact."
+    assert "problem number 30" not in body
+    assert len(body) < 65_536
+    assert is_draft(problems, {})
+
+
+def test_exactly_30_problems_are_all_shown():
+    body = pr_body("", [], problems=[f"p{n}" for n in range(30)])
+    assert "more: see" not in body and "- p29" in body
 
 
 def test_facts_that_failed_are_said():
@@ -765,6 +804,7 @@ def test_cli_body_writes_the_facts_and_prints_draft_or_ready(tmp_path, capsys):
         "--results", str(tmp_path / "results.json"),
         "--problems", str(tmp_path / "problems.md"),
         "--fixed", str(tmp_path / "fixed.txt"),
+        "--fix-result", "success",
         "--expected", "find pick",
         "--out", str(tmp_path / "body.md"),
     ]  # fmt: skip
@@ -795,5 +835,63 @@ def test_cli_body_with_no_fact_files_leaves_them_out(tmp_path, capsys):
         ]
     )  # fmt: skip
     assert code == 0
+    assert capsys.readouterr().out == "draft\n"
+    body = (tmp_path / "body.md").read_text()
+    assert "Checked by scripts" not in body
+    for name in ("nofacts.json", "nopictures.json", "noproblems.md"):
+        assert f"- The checks' result could not be read: {name}." in body
+
+
+def test_cli_body_with_an_unparsable_file_is_a_draft(tmp_path, capsys):
+    (tmp_path / "changed.txt").write_text("")
+    (tmp_path / "pictures.json").write_text("{not json")
+    (tmp_path / "facts.json").write_text("[1]")
+    (tmp_path / "problems.md").write_text("")
+    code = main(
+        [
+            "body",
+            "--findings", str(tmp_path / "none.md"),
+            "--development", str(tmp_path / "none2.md"),
+            "--changed", str(tmp_path / "changed.txt"),
+            "--facts", str(tmp_path / "facts.json"),
+            "--pictures", str(tmp_path / "pictures.json"),
+            "--problems", str(tmp_path / "problems.md"),
+            "--out", str(tmp_path / "body.md"),
+        ]
+    )  # fmt: skip
+    assert code == 0
+    assert capsys.readouterr().out == "draft\n"
+    body = (tmp_path / "body.md").read_text()
+    assert "could not be read: pictures.json." in body
+    assert "could not be read: facts.json." in body
+    assert "problems.md" not in body
+
+
+def test_cli_body_with_no_fact_options_stays_ready(tmp_path, capsys):
+    (tmp_path / "changed.txt").write_text("")
+    code = main(
+        [
+            "body",
+            "--findings", str(tmp_path / "none.md"),
+            "--development", str(tmp_path / "none2.md"),
+            "--changed", str(tmp_path / "changed.txt"),
+            "--out", str(tmp_path / "body.md"),
+        ]
+    )  # fmt: skip
+    assert code == 0
     assert capsys.readouterr().out == "ready\n"
-    assert "Checked by scripts" not in (tmp_path / "body.md").read_text()
+    assert "could not be read" not in (tmp_path / "body.md").read_text()
+
+
+def test_cli_body_passes_the_fix_result(tmp_path, capsys):
+    (tmp_path / "changed.txt").write_text("")
+    base = [
+        "body",
+        "--findings", str(tmp_path / "none.md"),
+        "--development", str(tmp_path / "none2.md"),
+        "--changed", str(tmp_path / "changed.txt"),
+        "--out", str(tmp_path / "body.md"),
+    ]  # fmt: skip
+    assert main([*base, "--fix-result", "failure"]) == 0
+    body = (tmp_path / "body.md").read_text()
+    assert "One fix pass ran and failed; the first files are used." in body

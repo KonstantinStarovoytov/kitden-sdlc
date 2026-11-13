@@ -155,7 +155,7 @@ Kitden's `AGENTS.md` asks for simple English, short and plain.
   Kitden's tests that the prompt lists, and so does `out/guide.md` when you wrote it.
 - The first screen still says what Kitden does, for which clients, with a real picture.
 - Everything you added has a cut or move beside it in `out/findings.md`.
-- Each image path exists in `docs/images/` or is a scene listed in `out/scenes.txt`.
+- Each image path exists in `docs/images/`.
 - The privacy and safety sentences match `PRIVACY.md`, or `out/policy/PRIVACY.md` when this
   run wrote one.
 - `out/scenes.txt` exists, with only names from `docs/readme-media.md`, or is empty.

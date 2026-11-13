@@ -134,3 +134,62 @@ def test_the_artifacts_have_these_names():
         "release-images",
         "release-verdict",
     }
+
+
+def test_every_job_that_runs_uv_sets_uv_up_first():
+    for name, job in doc["jobs"].items():
+        steps = job["steps"]
+        for index, step in enumerate(steps):
+            if re.search(r"\buv ", step.get("run", "")):
+                before = [s.get("uses", "") for s in steps[:index]]
+                assert any(u.startswith("astral-sh/setup-uv@") for u in before), name
+
+
+def test_record_installs_the_recorders_tools_before_it_prints_them():
+    steps = doc["jobs"]["record"]["steps"]
+    names = [s.get("name", "") for s in steps]
+    install = names.index("Install the recorder's tools")
+    assert steps[install]["run"].strip() == "brew install ffmpeg webp"
+    assert install < names.index("Which tools the runner has") < names.index("Record the scenes")
+
+
+def test_the_body_step_says_how_the_fix_pass_ended():
+    step = next(s for s in doc["jobs"]["open-pr"]["steps"] if s.get("id") == "body")
+    assert step["env"]["FIX_RESULT"] == "${{ needs.fix.result }}"
+    run = step["run"]
+    assert '--fix-result "$FIX_RESULT"' in run
+    assert run.count("--fixed") == 1
+    assert 'if [ "$FIX_RESULT" = success ]; then fixed=(--fixed' in run
+    # The pictures come from this job's own apply step, not from an artifact.
+    assert '--pictures "$RUNNER_TEMP/lists/pictures.json"' in run
+    assert "verdict/pictures.json" not in run
+
+
+def test_final_check_and_open_pr_choose_the_output_by_the_fix_result():
+    for name in ("final-check", "open-pr"):
+        steps = doc["jobs"][name]["steps"]
+        by_artifact = {
+            s["with"]["name"]: s
+            for s in steps
+            if s.get("uses", "").startswith("actions/download-artifact@")
+        }
+        assert by_artifact["release-out-fixed"]["if"] == "needs.fix.result == 'success'"
+        assert by_artifact["release-out"]["if"] == "needs.fix.result != 'success'"
+
+
+def test_open_pr_can_open_a_draft():
+    run = run_text(doc["jobs"]["open-pr"])
+    assert 'if [ "$STATE" = draft ]; then draft=(--draft); fi' in run
+    assert "gh pr create" in run and '"${draft[@]}"' in run
+
+
+def test_the_fix_job_settles_the_files_and_keeps_them_after_that():
+    steps = doc["jobs"]["fix"]["steps"]
+    settle = next(i for i, s in enumerate(steps) if "release_fix.py settle" in s.get("run", ""))
+    kept = {
+        s["with"]["name"]: i
+        for i, s in enumerate(steps)
+        if s.get("uses", "").startswith("actions/upload-artifact@")
+    }
+    assert settle < kept["release-out-fixed"]
+    assert settle < kept["release-fix"]

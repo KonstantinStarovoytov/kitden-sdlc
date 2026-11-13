@@ -523,6 +523,10 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .kitden-sdlc
           persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.10.10"
+          enable-cache: false
       - name: Get the context
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -595,8 +599,7 @@ jobs:
 
   # Kitden's own script, at the commit this run is for. It tries every scene, one by one;
   # a scene that fails does not stop the next, and results.json says what became of each.
-  # Whether the runner gets ffmpeg and img2webp is the owner's decision: a scene that needs
-  # a missing tool fails here and open-pr reports it.
+  # The job installs ffmpeg and img2webp first; a scene that still fails is reported by open-pr.
   record:
     needs: [guard, bump]
     if: vars.AGENTS_ENABLED == 'true'
@@ -613,6 +616,10 @@ jobs:
         with:
           version: "0.10.10"
           enable-cache: false
+      # The design says this job installs what Kitden's recorder needs. brew is not pinned;
+      # this job holds no secret, so an unpinned tool cannot reach one.
+      - name: Install the recorder's tools
+        run: brew install ffmpeg webp
       - name: Which tools the runner has
         run: |
           for tool in ffmpeg img2webp; do
@@ -848,18 +855,18 @@ jobs:
         id: body
         env:
           EXPECTED: ${{ needs.bump.outputs.expected }}
-          FIXED: ${{ needs.fix.result }}
+          FIX_RESULT: ${{ needs.fix.result }}
           MODEL: ${{ inputs.model }}
         run: |
           tag="$(git -C kitden describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)"
           git -C kitden diff --name-only "$tag" HEAD > "$RUNNER_TEMP/changed.txt"
           fixed=()
-          if [ "$FIXED" = success ]; then fixed=(--fixed "$RUNNER_TEMP/fix/fixed.txt"); fi
+          if [ "$FIX_RESULT" = success ]; then fixed=(--fixed "$RUNNER_TEMP/fix/fixed.txt"); fi
           state="$(uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py body \
             --findings "$RUNNER_TEMP/out/findings.md" --development kitden/docs/development.md \
             --changed "$RUNNER_TEMP/changed.txt" --model "$MODEL" \
             --problems "$RUNNER_TEMP/verdict/problems.md" --facts "$RUNNER_TEMP/verdict/facts.json" \
-            --pictures "$RUNNER_TEMP/verdict/pictures.json" \
+            --pictures "$RUNNER_TEMP/lists/pictures.json" --fix-result "$FIX_RESULT" \
             --results "$RUNNER_TEMP/images/results.json" --expected "$EXPECTED" \
             --out "$RUNNER_TEMP/body.md" "${fixed[@]}")"
           if [ "$state" != draft ] && [ "$state" != ready ]; then
