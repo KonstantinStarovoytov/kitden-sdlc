@@ -183,3 +183,33 @@ def test_tests_command_prints_one_path_per_line(capsys):
     assert capsys.readouterr().out == "tests/a.py\ntests/b/c.py\n"
     assert main(["tests", "../x.py"]) == 1
     assert "../x.py" in capsys.readouterr().out
+
+
+def test_a_nul_in_a_link_path_does_not_stop_the_verdict(tmp_path):
+    root = tmp_path / "kitden"
+    (root / "docs/releases").mkdir(parents=True)
+    (root / "docs/releases/v0.9.0.md").write_text("see blob/v0.9.0/docs/a\x00b.md here\n")
+    (root / "README.md").write_text('<img src="docs/images/a\x00b.png">\n')
+    (tmp_path / "c.json").write_text('{"prs": []}')
+    (tmp_path / "t.txt").write_text("")
+    out = tmp_path / "out"
+    code = main(["verdict", str(root), "--context", str(tmp_path / "c.json"),
+                 "--version", "0.9.0", "--tests-output", str(tmp_path / "t.txt"),
+                 "--tests-status", "0", "--check-output", str(tmp_path / "t.txt"),
+                 "--check-status", "0", "--out", str(out)])  # fmt: skip
+    assert code == 0
+    assert len((out / "problems.md").read_text().splitlines()) == 2
+    assert json.loads((out / "facts.json").read_text())["links"] == "broken"
+
+
+def test_link_problems_are_one_short_line(tmp_path):
+    long_path = "docs/" + "x" * 1000 + ".md"
+    notes = f"blob/v0.9.0/{long_path} and blob/v0.9.0/docs/odd name\x07.md"
+    problems = notes_problems(notes, {"prs": []}, tmp_path, "0.9.0")
+    picture = readme_problems(f'<img src="docs/images/{"y" * 1000}.png">', tmp_path)
+    assert len(problems) == 2
+    for problem in [*problems, *picture]:
+        assert len(problem) <= 303
+        assert "\n" not in problem
+    assert problems[0].endswith("...")
+    assert picture[0].endswith("...")

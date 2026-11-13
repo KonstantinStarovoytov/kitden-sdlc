@@ -64,19 +64,26 @@ def _login(author: str) -> str:
 
 def _is_file(root: Path, path: str) -> bool:
     """True when `path` is a file under `root`; false for anything that leaves it."""
-    target = (root / path).resolve()
-    return target.is_relative_to(root.resolve()) and target.is_file()
+    try:
+        target = (root / path).resolve()
+        return target.is_relative_to(root.resolve()) and target.is_file()
+    except (ValueError, OSError):  # a NUL character, a name too long: no such file
+        return False
 
 
 def _broken_links(notes: str, root: Path, version: str, name: str) -> list[str]:
     pattern = re.compile(BLOB_LINK.pattern.format(version=re.escape(version)))
     paths = dict.fromkeys(pattern.findall(notes))
-    return [f"{name}: link to {path} has no file" for path in paths if not _is_file(root, path)]
+    return [
+        _line(f"{name}: link to {path} has no file") for path in paths if not _is_file(root, path)
+    ]
 
 
 def _broken_pictures(readme: str, root: Path) -> list[str]:
     paths = dict.fromkeys(PICTURE.findall(readme))
-    return [f"README.md: picture {path} is missing" for path in paths if not _is_file(root, path)]
+    return [
+        _line(f"README.md: picture {path} is missing") for path in paths if not _is_file(root, path)
+    ]
 
 
 def _pr_counts(notes: str, context: dict) -> tuple[list[int], set[int]]:
