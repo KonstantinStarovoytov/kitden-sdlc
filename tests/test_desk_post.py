@@ -165,6 +165,13 @@ def test_a_column_nothing_measured_is_left_out_and_named():
     assert "Not measured yet: Nightly, Tester." in week
 
 
+def test_release_preps_verdicts_do_not_apply():
+    row = {"agent": "release-prep", "name": "Release prep", "runs": 2, "failed": 0, "did": 1,
+           "agreed": None, "disagreed": None}
+    week = render({**DESK, "week": [*DESK["week"], row]}).split("## This week")[1]
+    assert "| Release prep | 2 | 0 | 1 | — | — | — |" in week
+
+
 def test_a_cell_not_measured_says_so():
     row = {"agent": "watcher", "name": "Client watcher", "runs": 2, "failed": None, "did": 1,
            "agreed": None, "disagreed": 0}
@@ -191,9 +198,17 @@ def test_the_budget_has_two_tables_and_the_sentence():
     budget = render(DESK).split("## Budget")[1].split("## How to")[0]
     assert "| Claude reviewer | 12 | 20 reviews a day, 5 findings each |" in budget
     assert "OPENAI&#95;API&#95;KEY" in budget and "$5 a month" in budget
-    assert "`https://platform.openai.com/usage`" in budget  # shown, not linked
-    assert "](https://platform" not in budget
     assert "The providers enforce the money caps; no billing key is stored." in budget
+
+
+def test_the_rosters_usage_pages_are_linked_and_no_other():
+    budget = render(DESK).split("## Budget")[1].split("## How to")[0]
+    usage = "https://platform.openai.com/usage"  # in config/agents.json
+    assert f"[{usage}]({usage})" in budget
+    for other in ("https://platform.openai.com/usage/evil", "https://evil.example/usage"):
+        keys = [{**DESK["budget"]["keys"][0], "dashboard": other}]
+        budget = render({**DESK, "budget": {**DESK["budget"], "keys": keys}}).split("## Budget")[1]
+        assert f"`{other}`" in budget and f"]({other})" not in budget
 
 
 def test_how_to_links_the_owners_page():
@@ -335,6 +350,8 @@ def test_zero_days_reads_as_under_a_tenth():
 def test_the_week_table_says_what_its_columns_mean():
     week = render(DESK).split("## This week")[1].split("Reviews:")[0]
     assert "Did:" in week and "👍" in week and "`false-alarm`" in week
+    assert "Runs: runs that ended, well or badly" in week and "one per push" in week
+    assert "pull requests reviewed" in week
 
 
 def test_a_page_too_long_even_without_its_lists_is_cut_at_a_line():
@@ -351,6 +368,22 @@ def test_a_table_with_nothing_measured_is_one_sentence():
     assert "The agents' week: not measured yet." in week and "Did:" not in week
     assert "Who found problems: not measured yet." in week and "| 2026-11" not in week
     assert "Use: not measured yet." in render(nothing)
+
+
+def test_all_green_says_all_five_lights_are_green():
+    lights = [{"id": i, "name": i.capitalize(), "state": "green", "why": ""}
+              for i in ("works", "clients", "bugs", "agents", "queue")]
+    body = render({**DESK, "overall": "green", "lights": lights})
+    assert "**🟢 All five lights are green.**" in body and "is well" not in body
+
+
+def test_health_and_waiting_stay_the_first_lines_of_the_page():
+    lines = render(DESK).splitlines()
+    assert lines[1:5] == ["", "## Health", "", "**🟡 Something needs a look.**"]
+    assert [line[:4] for line in lines[6:11]] == ["- ⚪ ", "- 🟡 ", "- 🟢 ", "- 🟢 ", "- 🟢 "]
+    assert lines[11] == "" and lines[12].startswith("Use: ")
+    assert lines[13:17] == ["", "## Waiting for you", "", lines[16]]
+    assert lines[16].startswith("- Verdict: ")
 
 
 def test_all_grey_does_not_say_all_is_well():

@@ -9,12 +9,13 @@ week's note, and calls nothing.
 
 None in desk.json means "not measured": the page says so in words. Every title and `why` was
 written by a person or a model, so each goes through `one_line`; only a github.com address
-becomes a link.
+becomes a link, and the usage pages config/agents.json names, which only the owner changes.
 
 Standard library only: it runs with `uv run --no-project`.
 """
 
 import argparse
+import functools
 import json
 import re
 import sys
@@ -30,19 +31,23 @@ TITLE = "Kitden desk"
 LABELS = ["automated", "desk"]
 DATA = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json"
 HOW_TO = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/owner.md"
+ROSTER = Path(__file__).resolve().parent.parent / "config" / "agents.json"
 LIMIT = 65_536  # GitHub's limit for an issue body; the page counts UTF-8 bytes, never fewer
 MARKS = {"green": "🟢", "amber": "🟡", "red": "🔴", "grey": "⚪"}
 OVERALL = {
-    "green": "All is well.",
+    "green": "All five lights are green.",
     "amber": "Something needs a look.",
     "red": "Something is wrong.",
     "grey": "Some lights are not measured yet; none is amber or red.",
 }
+# Cells that do not apply: release prep gets no verdict from the owner.
+NOT_APPLICABLE = {"release-prep": ("agreed", "disagreed")}
 KINDS = {"pull": "Pull request", "verdict": "Verdict", "release": "Release",
          "paused": "Paused agent", "spot-check": "Spot check"}
 NOT_MEASURED_YET = "not measured yet"
 # An address we put into a link: github.com, and no character that could end the link.
 GITHUB = re.compile(r"https://github\.com/[\w.~/#?=&%+-]*\Z")
+USAGE = re.compile(r"https://[\w.-]+/[\w.~/#?=&%+-]*\Z")  # the same, on any https host
 SLUG = re.compile(r"[\w-]+/[\w.-]+\Z")
 SEARCHES = (  # (what, page, query)
     ("Open issues from people", "issues", "is:issue is:open -label:automated"),
@@ -97,11 +102,23 @@ def _link(text: str, url) -> str:
     return f"[{text}]({url})" if isinstance(url, str) and GITHUB.match(url) else text
 
 
+@functools.cache
+def _usage_pages() -> frozenset[str]:
+    """The usage pages the roster names; none when it cannot be read."""
+    try:
+        keys = json.loads(ROSTER.read_text())["keys"]
+        return frozenset(key["dashboard"] for key in keys
+                         if isinstance(key["dashboard"], str) and USAGE.match(key["dashboard"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return frozenset()
+
+
 def _address(url) -> Safe:
-    """An address: a link on github.com, plain text in a code span anywhere else."""
+    """An address: a link on github.com or when the roster names it, plain text in a code
+    span anywhere else."""
     if not isinstance(url, str) or not url.strip():
         return Safe("not given")
-    if GITHUB.match(url):
+    if GITHUB.match(url) or url in _usage_pages():
         return Safe(f"[{url}]({url})")
     return Safe("`" + re.sub(r"[`|\s]", "", url) + "`")
 
@@ -260,6 +277,10 @@ def _rows(desk: dict, key: str) -> list[dict]:
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
 
+def _applies(row: dict, key: str):
+    return DASH if key in NOT_APPLICABLE.get(row.get("agent"), ()) else row.get(key)
+
+
 def _this_week(desk: dict, shown: dict[str, int]) -> list[str]:
     lines = [f"Reviews are counted over the last {SINCE_DAYS} days, the weekly columns over "
              "the last 7 (the watcher's verdicts over 30).", ""]
@@ -269,13 +290,14 @@ def _this_week(desk: dict, shown: dict[str, int]) -> list[str]:
         ("Failed", lambda r: r.get("failed")),
         ("Did", lambda r: r.get("did")),
         ("No answer", lambda r: r.get("no_answer", DASH)),  # only a reviewer has the key
-        ("You agreed", lambda r: r.get("agreed")),
-        ("You disagreed", lambda r: r.get("disagreed")),
+        ("You agreed", lambda r: _applies(r, "agreed")),
+        ("You disagreed", lambda r: _applies(r, "disagreed")),
     ])
     if week:
-        lines += [*week, "", "Did: reviews written, issues opened or release pull requests "
-                  "opened. Failed: runs that failed. No answer: review comments in which that "
-                  "reviewer gave none. Agreed and disagreed: your 👍 and 👎 on a review, or "
+        lines += [*week, "", "Runs: runs that ended, well or badly; the two reviewers share one "
+                  "per push. Failed: those that failed. Did: pull requests reviewed, issues "
+                  "opened or release pull requests opened. No answer: review comments in which "
+                  "that reviewer gave none. Agreed and disagreed: your 👍 and 👎 on a review, or "
                   "`confirmed` and `false-alarm` on the watcher's issues."]
     else:
         lines += [f"The agents' week: {NOT_MEASURED_YET}."]
