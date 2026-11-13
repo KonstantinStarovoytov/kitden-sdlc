@@ -6,6 +6,7 @@ from subprocess import CalledProcessError
 
 import pytest
 
+import count_reviews
 import desk_gather
 from count_reviews import REPO
 from desk_gather import fetch_downloads, gather, main
@@ -125,6 +126,7 @@ class FakeApi:
         yield from self.listed
 
     def list_issue_comments(self, repo, pr):
+        self.asked.append(f"comments {pr}")
         return COMMENTS.get(pr, [])
 
     def list_issue_comment_reactions(self, repo, comment_id):
@@ -565,3 +567,37 @@ def test_no_check_run_reads_no_workflow_runs():
     api = FakeApi({**ANSWERS, CHECKS: {"check_runs": []}})
     facts = gather(api, REPO, ROSTER, NOW, None, fetch=lambda url: DOWNLOADS)
     assert facts.checks == [] and HEAD_RUNS not in api.asked
+
+
+# --- the review numbers come from the same read ---
+
+
+def test_main_writes_the_numbers_from_the_reviews_it_read_once(tmp_path):
+    api = FakeApi(ANSWERS)
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path / "desk")]
+    assert main(argv, api=api, now=NOW) == 0
+    assert api.asked.count("comments 7") == 1  # one read of the reviews
+    alone = tmp_path / "alone"
+    alone.mkdir()
+    assert count_reviews.main(["--out", str(alone)], api=FakeApi(ANSWERS), now=NOW) == 0
+    for name in ("numbers.md", "numbers.json"):
+        assert (tmp_path / "desk" / name).read_text() == (alone / name).read_text(), name
+    assert json.loads((tmp_path / "desk/numbers.json").read_text())["reviews"]["prs"] == 1
+
+
+def test_numbers_are_left_as_they_were_when_the_reviews_cannot_be_read(tmp_path, capsys):
+    (tmp_path / "numbers.md").write_text("before\n")
+    (tmp_path / "numbers.json").write_text("{}\n")
+    api = FakeApi(ANSWERS)
+
+    def broken(repo):
+        raise CalledProcessError(1, "gh")
+        yield  # pragma: no cover
+
+    api.list_pulls = broken
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    assert main(argv, api=api, now=NOW) == 0
+    assert (tmp_path / "numbers.md").read_text() == "before\n"
+    assert (tmp_path / "numbers.json").read_text() == "{}\n"
+    assert "::warning::desk: could not read reviews" in capsys.readouterr().out
+    assert (tmp_path / "desk.json").exists()

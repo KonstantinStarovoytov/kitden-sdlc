@@ -1,9 +1,12 @@
-"""Read the desk's facts from GitHub and from files, and write desk.json.
+"""Read the desk's facts from GitHub and from files, and write desk.json, numbers.md and
+numbers.json.
 
 Each fact is read on its own. One that cannot be read is None, never a default that looks like
 good news: it prints one `::warning::` line naming the field (never a token or an answer's text),
-the other reads still run, and desk.py shows what needs the missing fact as grey. The command
-exits 0 whatever could not be read; it fails only when it cannot write desk.json.
+the other reads still run, and desk.py shows what needs the missing fact as grey. The reviews
+are read once: the numbers files come from the same read (count_reviews.write_numbers), and
+when the reviews could not be read both files stay as they are. The command exits 0 whatever
+could not be read; it fails only when it cannot write its files.
 """
 
 import argparse
@@ -15,7 +18,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from count_reviews import REPO, SINCE_DAYS, GhNumbersApi, collect
+from count_reviews import REPO, SINCE_DAYS, GhNumbersApi, collect, write_numbers
 from desk import Facts, build
 
 Fetch = Callable[[str], str]
@@ -287,8 +290,10 @@ def main(argv: list[str], api=None, now: datetime | None = None) -> int:
     try:
         args.out.mkdir(parents=True, exist_ok=True)
         (args.out / "desk.json").write_text(json.dumps(build(facts, roster, now), indent=2) + "\n")
+        if facts.reviews is not None:
+            write_numbers(facts.reviews, args.out, now)
     except OSError:
-        print(f"::error::desk: could not write {args.out / 'desk.json'}")
+        print(f"::error::desk: could not write into {args.out}")
         return 1
     return 0
 

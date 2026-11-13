@@ -210,15 +210,9 @@ def _same_counts(saved: Path, data: dict) -> bool:
     return all(before.get(key) == data[key] for key in ("reviews", "reviewers", "days", "summary"))
 
 
-def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", default=REPO)
-    parser.add_argument("--maintainer", default=MAINTAINER)
-    parser.add_argument("--out", type=Path, default=Path())
-    args = parser.parse_args(argv)
-
-    now = now or datetime.now(UTC)
-    found = collect(api or GhNumbersApi(), args.repo, maintainer=args.maintainer, now=now)
+def write_numbers(found: list[Review], out: Path, now: datetime) -> None:
+    """Write numbers.json and numbers.md into `out` from the reviews `found`. When only the
+    date would differ, both files are left as they are, so the job commits nothing."""
     stats = aggregate(found)
     reviews = {
         "prs": len({r.pr for r in found}),
@@ -233,11 +227,24 @@ def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -
         "reviewers": {name: asdict(s) for name, s in stats.items()},
         "summary": numbers,
     }
-    saved = args.out / "numbers.json"
-    if _same_counts(saved, data) and (args.out / "numbers.md").exists():
-        return 0  # only the date would differ: leave both files so the job commits nothing
+    saved = out / "numbers.json"
+    if _same_counts(saved, data) and (out / "numbers.md").exists():
+        return
     saved.write_text(json.dumps(data, indent=2) + "\n")
-    (args.out / "numbers.md").write_text(render(stats, reviews, numbers, now.date()))
+    (out / "numbers.md").write_text(render(stats, reviews, numbers, now.date()))
+
+
+def main(argv: list[str], api: Api | None = None, now: datetime | None = None) -> int:
+    """By hand; the desk (desk_gather.py) writes the same two files every day."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", default=REPO)
+    parser.add_argument("--maintainer", default=MAINTAINER)
+    parser.add_argument("--out", type=Path, default=Path())
+    args = parser.parse_args(argv)
+
+    now = now or datetime.now(UTC)
+    found = collect(api or GhNumbersApi(), args.repo, maintainer=args.maintainer, now=now)
+    write_numbers(found, args.out, now)
     return 0
 
 

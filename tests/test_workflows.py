@@ -114,6 +114,16 @@ def test_the_desk_posts_after_the_numbers_as_the_review_app_on_kitden_only():
     assert checkouts and all("ref" not in (s.get("with") or {}) for s in checkouts)
 
 
+def test_the_desk_reads_the_reviews_once_and_writes_every_file_in_one_step():
+    doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
+    steps = doc["jobs"]["measure"]["steps"]
+    assert not any("count_reviews.py" in str(step.get("run", "")) for step in steps)
+    gather = [s for s in steps if "desk_gather.py" in str(s.get("run", ""))]
+    assert len(gather) == 1 and "--out out" in gather[0]["run"]
+    commit = next(s for s in steps if "git push" in str(s.get("run", "")))
+    assert "git add numbers.md numbers.json desk.json" in commit["run"]
+
+
 def test_the_desk_does_not_stop_when_the_watchers_log_is_missing():
     doc = yaml.safe_load((ROOT / ".github/workflows/desk.yml").read_text())
     memory = [

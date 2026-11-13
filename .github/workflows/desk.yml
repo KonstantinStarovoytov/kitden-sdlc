@@ -1,7 +1,7 @@
 name: desk
 
 # Every day, no model: work out whether Kitden is healthy and what waits for the owner.
-# `measure` counts the reviews, reads the facts and commits numbers.md, numbers.json and
+# `measure` reads the facts, the reviews among them, and commits numbers.md, numbers.json and
 # desk.json to the `numbers` branch, because `main` takes pull requests only. `post` shows
 # desk.json as the issue "Kitden desk". Two jobs, so that the job that writes to this
 # repository never holds the review app's key (RULES.md, rule 1). With AGENTS_ENABLED off
@@ -49,12 +49,9 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.10.10"
-      # Both read public repositories and this one's runs, so the job's own token is enough.
-      - name: Count
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: uv run --no-project --python 3.13 python scripts/count_reviews.py --out out
-      # Exits 0 when some reads failed: desk.json then shows what needs them as grey.
+      # It reads public repositories and this one's runs, so the job's own token is enough.
+      # It exits 0 when some reads failed: desk.json then shows what needs them as grey, and
+      # numbers.md and numbers.json stay as they were when the reviews could not be read.
       - name: Gather the desk's facts
         env:
           GH_TOKEN: ${{ github.token }}
