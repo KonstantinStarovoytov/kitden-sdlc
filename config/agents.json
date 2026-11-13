@@ -38,7 +38,7 @@
       "repo": "KonstantinStarovoytov/kitden",
       "workflow": "release-prep.yml",
       "key": "CLAUDE_CODE_OAUTH_TOKEN",
-      "cap": "40 turns and 25 minutes a run"
+      "cap": "60 turns and 25 minutes, then one fix pass of 15 turns and 10 minutes"
     }
   ],
   "keys": [

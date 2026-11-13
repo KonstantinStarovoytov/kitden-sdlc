@@ -811,3 +811,17 @@ def test_a_light_that_names_an_issue_carries_its_address():
     assert "url" not in light_works(BUILDS, REQUIRED) and "url" not in light_queue([])
     stale = light_clients([late], None, NOW)
     assert stale["url"] == late["html_url"] and "Also not measured" in stale["why"]
+
+
+# --- The release pull request ---
+
+
+def test_a_release_pull_request_says_how_to_accept_it_and_whether_it_is_a_draft():
+    ready = pull(79, "prepare-v0.9.0", login="kitden-beacon[bot]")
+    draft = {**pull(80, "prepare-v0.9.1", login="kitden-beacon[bot]"), "draft": True}
+    agent = {**pull(81, "agent/x", login="kitden-beacon[bot]"), "draft": True}
+    found = waiting([], [ready, draft, agent], [], NOW)
+    assert [w["title"] for w in found] == ["p", "p (draft)", "p (draft)"]
+    release = ("Review it; if it is a draft, fix what \"Fix before merge\" names and press "
+               "Ready for review; merge it with a merge commit.")
+    assert [w["do"] for w in found] == [release, release, "Review it and merge, or close it."]

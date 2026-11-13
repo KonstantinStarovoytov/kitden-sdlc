@@ -29,6 +29,9 @@ DO = {
     "paused": "Close it to start the agent again.",
     "spot-check": "Look at the change, then 👍 or 👎 on its Agent review comment.",
 }
+RELEASE_PULL = "prepare-v"  # the branch of the release pull request release prep opens
+DO_RELEASE = ('Review it; if it is a draft, fix what "Fix before merge" names and press Ready '
+              "for review; merge it with a merge commit.")
 CAUSED_BY = re.compile(r"^###[ \t]*Caused by[ \t\r]*$(.*?)(?=^###|\Z)", re.I | re.M | re.S)
 # "#N" or "PR#N", or the address of a pull request in REPO. Not a bare N, "owner/repo#N", "&#N;".
 REFERENCE = re.compile(
@@ -428,18 +431,27 @@ def overall(states: list[str]) -> str:
 # --- What waits for the owner ---
 
 
-def _wait(kind: str, title: str, url: str, days: float) -> dict:
-    return {"kind": kind, "title": title, "url": url, "do": DO[kind], "days": days}
+def _wait(kind: str, title: str, url: str, days: float, do: str = "") -> dict:
+    return {"kind": kind, "title": title, "url": url, "do": do or DO[kind], "days": days}
 
 
 def _title(item: dict) -> str:
-    """The item's own title, white space collapsed to single spaces, cut to TITLE_LENGTH."""
-    return " ".join((item.get("title") or "").split())[:TITLE_LENGTH]
+    """The item's own title, white space collapsed to single spaces, cut to TITLE_LENGTH; a
+    draft pull request's ends with "(draft)"."""
+    title = " ".join((item.get("title") or "").split())[:TITLE_LENGTH]
+    return f"{title} (draft)" if item.get("draft") is True else title
+
+
+def _do(item: dict) -> str:
+    """What to do with a release pull request; "" for any other item."""
+    head = (item.get("head") or {}).get("ref") or ""
+    return DO_RELEASE if head.startswith(RELEASE_PULL) else ""
 
 
 def _issue_waits(kind: str, items: list[dict], now: datetime) -> list[dict]:
     items = sorted(items, key=_opened)
-    return [_wait(kind, _title(item), item["html_url"], _days(item["created_at"], now))
+    return [_wait(kind, _title(item), item["html_url"], _days(item["created_at"], now),
+                  _do(item))
             for item in items]
 
 
@@ -447,7 +459,7 @@ def _agent_pulls(pulls: list[dict]) -> list[dict]:
     return [
         item for item in pulls
         if item["state"] == "open" and _by_a_bot(item)
-        and item["head"]["ref"].startswith(("agent/", "prepare-v"))
+        and item["head"]["ref"].startswith(("agent/", RELEASE_PULL))
     ]
 
 
@@ -542,7 +554,7 @@ def _watcher_week(issues: list[dict] | None, now: datetime) -> dict:
 def _release_week(pulls: list[dict] | None, now: datetime) -> dict:
     did = None if pulls is None else sum(
         1 for item in pulls
-        if _by_a_bot(item) and item["head"]["ref"].startswith("prepare-v")
+        if _by_a_bot(item) and item["head"]["ref"].startswith(RELEASE_PULL)
         and _age(item["created_at"], now) <= 7
     )
     return {"did": did, "agreed": None, "disagreed": None}
