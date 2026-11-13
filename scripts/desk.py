@@ -128,6 +128,17 @@ def _worst(*lights: dict | None) -> dict | None:
     return min(given, key=lambda light: ORDER.index(light["state"]), default=None)
 
 
+def _settle(light_id: str, found: list[dict | None], missing: str = "") -> dict:
+    """The worst light the read facts prove; else grey when `missing` names a fact that was not
+    read and could have shown something bad; else green."""
+    worst = _worst(*found)
+    if worst:
+        return worst
+    if missing:
+        return _light(light_id, "grey", f"Not measured yet: {missing}")
+    return _light(light_id, "green")
+
+
 def _limits(light_id: str, item: dict | None, now: datetime, amber: float, red: float,
             what: str) -> dict | None:
     """Red past `red` days, amber past `amber`, for the oldest `item`; None when neither."""
@@ -173,13 +184,12 @@ def _watch_log_age(watch_log: list[dict] | None, now: datetime) -> float | None:
 def light_clients(issues: list[dict] | None, watch_log: list[dict] | None, now: datetime) -> dict:
     if issues is None:
         return _light("clients", "grey", "Not measured yet: the issues were not read.")
-    age = _watch_log_age(watch_log, now)
-    if age is None or age > WATCH_LOG_DAYS:
-        why = f"Not measured yet: the watcher logged no run in the last {WATCH_LOG_DAYS} days."
-        return _light("clients", "grey", why)
     late = _oldest(_bots(issues, "client-change", "confirmed", "major"))
-    return _limits("clients", late, now, 3.5, 7, "(a confirmed major client change)") or _light(
-        "clients", "green")
+    found = _limits("clients", late, now, 3.5, 7, "(a confirmed major client change)")
+    age = _watch_log_age(watch_log, now)
+    stale = age is None or age > WATCH_LOG_DAYS
+    missing = f"the watcher logged no run in the last {WATCH_LOG_DAYS} days." if stale else ""
+    return _settle("clients", [found], missing)
 
 
 def _open_bugs_on(issues: list[dict], monday: datetime) -> int:
@@ -209,38 +219,59 @@ def light_bugs(issues: list[dict] | None, now: datetime) -> dict:
     if issues is None:
         return _light("bugs", "grey", "Not measured yet: the issues were not read.")
     late = _oldest(_bots(issues, "confirmed", "major"))
-    found = _worst(_limits("bugs", late, now, 7, 14, "(confirmed and major)"),
-                   _bugs_grew(issues, now))
-    return found or _light("bugs", "green")
+    return _settle("bugs", [_limits("bugs", late, now, 7, 14, "(confirmed and major)"),
+                            _bugs_grew(issues, now)])
+
+
+def _required_agents(required: list[str]) -> dict | None:
+    reviews = sorted(name for name in required if name.startswith("review /"))
+    if not reviews:
+        return None
+    return _light("agents", "red",
+                  f"Main requires {', '.join(reviews)}; an agent's job must never be required.")
+
+
+def _watcher_over_cap(issues: list[dict], now: datetime) -> dict | None:
+    monday = _monday(now)
+    this_week = [item for item in _findings(issues) if _at(item["created_at"]) >= monday]
+    if len(this_week) <= 2:
+        return None
+    return _light("agents", "red",
+                  f"The watcher opened {len(this_week)} issues this week, more than 2.")
+
+
+def _paused_agent(issues: list[dict]) -> dict | None:
+    paused = _oldest(_pauses(issues))
+    if paused is None:
+        return None
+    return _light("agents", "amber", f"Issue #{paused['number']} says an agent is paused.")
 
 
 def light_agents(issues: list[dict] | None, required: list[str] | None, now: datetime) -> dict:
-    if issues is None or required is None:
-        return _light("agents", "grey",
-                      "Not measured yet: the issues or main's rules were not read.")
-    reviews = sorted(name for name in required if name.startswith("review /"))
-    if reviews:
-        return _light("agents", "red",
-                      f"Main requires {', '.join(reviews)}; an agent's job must never be required.")
-    monday = _monday(now)
-    this_week = [item for item in _findings(issues) if _at(item["created_at"]) >= monday]
-    if len(this_week) > 2:
-        return _light("agents", "red",
-                      f"The watcher opened {len(this_week)} issues this week, more than 2.")
-    paused = _oldest(_pauses(issues))
-    if paused:
-        return _light("agents", "amber", f"Issue #{paused['number']} says an agent is paused.")
-    return _light("agents", "green")
+    found, missing = [], []
+    if required is None:
+        missing.append("main's rules")
+    else:
+        found.append(_required_agents(required))
+    if issues is None:
+        missing.append("the issues")
+    else:
+        found += [_watcher_over_cap(issues, now), _paused_agent(issues)]
+    return _settle("agents", found, f"{' and '.join(missing)} were not read." if missing else "")
 
 
-def light_queue(waiting: list[dict] | None) -> dict:
+def light_queue(waiting: list[dict] | None, complete: bool = True) -> dict:
+    """`complete` is False when the list could not hold everything: the reviews were not read,
+    so it has no spot check."""
     if waiting is None:
         return _light("queue", "grey", "Not measured yet: what waits for you was not read.")
     days = max((item["days"] for item in waiting), default=0)
+    found = None
     if days > 3.5:
         state = "red" if days > 7 else "amber"
-        return _light("queue", state, f"Something has waited {days} days for you.")
-    return _light("queue", "green")
+        found = _light("queue", state, f"Something has waited {days} days for you.")
+    missing = "" if complete else "the reviews were not read, so there is no spot check."
+    return _settle("queue", [found], missing)
 
 
 def overall(states: list[str]) -> str:
@@ -291,8 +322,9 @@ def _spot_check(reviews: list[Review], now: datetime) -> list[dict]:
 
 def waiting(issues: list[dict] | None, pulls: list[dict] | None,
             reviews: list[Review] | None, now: datetime) -> list[dict] | None:
-    """What the owner must do, in the order of DO, oldest first inside each kind."""
-    if issues is None or pulls is None or reviews is None:
+    """What the owner must do, in the order of DO, oldest first inside each kind; without
+    `reviews`, everything but the spot check."""
+    if issues is None or pulls is None:
         return None
     verdictless = [
         item for item in _findings(issues, open_only=True) if not names(item) & set(VERDICTS)
@@ -302,7 +334,7 @@ def waiting(issues: list[dict] | None, pulls: list[dict] | None,
         *_issue_waits("verdict", verdictless, now),
         *_issue_waits("release", _bots(issues, "release"), now),
         *_issue_waits("paused", _pauses(issues), now),
-        *_spot_check(reviews, now),
+        *([] if reviews is None else _spot_check(reviews, now)),
     ]
 
 
@@ -421,7 +453,7 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
         light_clients(facts.issues, facts.watch_log, now),
         light_bugs(facts.issues, now),
         light_agents(facts.issues, facts.required, now),
-        light_queue(wait),
+        light_queue(wait, complete=facts.reviews is not None),
     ]
     review = (summary(facts.reviews) if facts.reviews is not None
               else {"clean": None, "fixed": None, "days_to_merge": None})

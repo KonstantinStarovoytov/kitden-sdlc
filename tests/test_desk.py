@@ -335,8 +335,46 @@ def test_a_waiting_title_is_one_line_of_at_most_100_characters():
     assert title.startswith("Codex: key renamed x")
 
 
-def test_waiting_without_reviews_is_not_measured():
-    assert waiting([], [], None, NOW) is None
+def test_waiting_without_reviews_has_everything_but_the_spot_check():
+    old = pull(79, "agent/x", login="kitden-beacon[bot]", created=ago(20))
+    found = waiting([], [old], None, NOW)
+    assert [w["kind"] for w in found] == ["pull"]
+    assert waiting([], [], None, NOW) == []
+    assert waiting([], None, [], NOW) is None
+
+
+# --- Bad news the read facts prove wins over a fact that was not read ---
+
+
+def test_a_stale_watch_log_does_not_hide_a_late_client_change():
+    stale = [{"date": "2026-11-10", "pieces": 5, "judged": 5}]
+    late = [bot(5, labels=MAJOR, created=ago(46))]
+    assert light_clients(late, stale, NOW)["state"] == "red"
+    assert light_clients(late, None, NOW)["state"] == "red"
+    assert light_clients([bot(5, labels=MAJOR, created=ago(4))], None, NOW)["state"] == "amber"
+    assert light_clients([bot(5, labels=MAJOR, created=ago(1))], stale, NOW)["state"] == "grey"
+
+
+def test_one_missing_fact_does_not_hide_bad_news_on_agents():
+    paused = bot(7, "The client watcher is paused", labels=("automated", "desk"))
+    three = [bot(n, labels=("automated", "client-change", "major"), created=ago(0.1))
+             for n in (1, 2, 3)]
+    assert light_agents([paused], None, NOW)["state"] == "amber"
+    assert light_agents(three, None, NOW)["state"] == "red"
+    assert light_agents(None, ["review / claude"], NOW)["state"] == "red"
+    assert light_agents(None, ["build"], NOW)["state"] == "grey"
+    assert light_agents([], None, NOW)["state"] == "grey"
+
+
+def test_an_old_pull_request_is_red_on_the_queue_without_reviews():
+    old = pull(79, "agent/x", login="kitden-beacon[bot]", created=ago(20))
+    assert light_queue(waiting([], [old], None, NOW), complete=False)["state"] == "red"
+    assert light_queue([{"days": 4.0}], complete=False)["state"] == "amber"
+    assert light_queue([{"days": 1.0}], complete=False)["state"] == "grey"
+    assert light_queue([], complete=False)["state"] == "grey"
+    lights = build(Facts(issues=[], pulls=[old]), ROSTER, NOW)["lights"]
+    assert lights[-1]["state"] == "red"
+    assert build(Facts(issues=[], pulls=[]), ROSTER, NOW)["lights"][-1]["state"] == "grey"
 
 
 def test_the_spot_check_window_is_the_7_days_before_monday():
