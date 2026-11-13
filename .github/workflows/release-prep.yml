@@ -884,7 +884,7 @@ jobs:
             --problems "$RUNNER_TEMP/verdict/problems.md" --facts "$RUNNER_TEMP/verdict/facts.json" \
             --pictures "$RUNNER_TEMP/lists/pictures.json" --fix-result "$FIX_RESULT" \
             --results "$RUNNER_TEMP/images/results.json" --expected "$EXPECTED" \
-            --out "$RUNNER_TEMP/body.md" "${fixed[@]}")"
+            --root kitden --out "$RUNNER_TEMP/body.md" "${fixed[@]}")"
           if [ "$state" != draft ] && [ "$state" != ready ]; then
             echo "::error::The body script printed something else than draft or ready"
             exit 1

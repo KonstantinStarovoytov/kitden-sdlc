@@ -29,6 +29,7 @@ from post_findings import (
     refuse_secret_like,
     review_body,
 )
+from tests.fakes import KEY_TAIL, repo
 
 FIXTURE = Path(__file__).parent / "fixtures" / "findings_ok.json"
 ROOT = Path(__file__).parent.parent
@@ -65,6 +66,10 @@ class FakeApi:
     def compare(self, repo, base, head):
         self.calls.append(("compare", base, head))
         return self.compared
+
+    def pull_text(self, repo, pr):
+        self.calls.append(("pull_text", pr))
+        return "Title\n\nBody"
 
 
 def finding(path="a.py", line=1, kind="bug", text="Something is wrong."):
@@ -425,6 +430,56 @@ def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "looked like a secret" in captured.err
+
+
+def quoting(tmp_path):
+    text = f"The value {KEY_TAIL} is wrong."
+    return write(tmp_path, {"summary": "One problem.", "findings": [
+        {"path": "a.py", "line": 1, "kind": "bug", "text": text}]})
+
+
+def run_main(tmp_path, monkeypatch, files, *extra):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    tree = repo(tmp_path / "tree", files)
+    code = main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7", "--head-sha", "HEAD",
+                         "--tree", str(tree), *extra))
+    return code, api
+
+
+def test_main_refuses_a_random_run_the_pull_request_lacks(tmp_path, capsys, monkeypatch):
+    code, api = run_main(tmp_path, monkeypatch, {"a.py": "x = 1\n"})
+    err = capsys.readouterr().err
+    assert code == 1 and not [c for c in api.calls if c[0] in ("create", "update")]
+    assert "oat01-Zk…" in err and KEY_TAIL not in err
+
+
+def test_main_posts_a_random_run_the_pull_request_holds(tmp_path, monkeypatch):
+    code, api = run_main(tmp_path, monkeypatch, {"a.py": f"X = '{KEY_TAIL}'\n"})
+    assert code == 0 and api.calls[-1][0] == "create"
+
+
+def test_main_posts_a_random_run_the_pull_request_text_holds(tmp_path, monkeypatch):
+    api = FakeApi()
+    api.pull_text = lambda repo, pr: f"Rotate {KEY_TAIL} please"
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7")) == 0
+    assert api.calls[-1][0] == "create"
+
+
+def test_main_without_a_tree_refuses_and_a_plain_report_reads_no_pull_request(
+    tmp_path, monkeypatch
+):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7")) == 1
+    assert main(argv_for(FIXTURE, FIXTURE, "--pr", "7")) == 0
+    assert ("pull_text", 7) in api.calls and api.calls.count(("pull_text", 7)) == 1
+
+
+def test_dry_run_skips_the_random_run_check(tmp_path, capsys):
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--dry-run")) == 0
+    assert "One problem." in capsys.readouterr().out
 
 
 def test_dry_run_with_a_secret_exits_one(tmp_path, capsys):
@@ -915,6 +970,21 @@ def test_gh_api_compare_uses_the_read_token(monkeypatch):
     assert calls[0]["GH_TOKEN"] == "read"
     GhApi().create_issue_comment("o/r", 7, "hi")
     assert calls[1] is None  # posting keeps the job's GH_TOKEN
+
+
+def test_gh_api_pull_text_is_the_title_and_the_body(monkeypatch):
+    run_ = FakeRun('{"title": "Fix it", "body": "Some words."}')
+    envs = []
+    monkeypatch.setattr(
+        post_findings.subprocess,
+        "run",
+        lambda command, **kw: envs.append(kw.get("env")) or run_(command, **kw),
+    )
+    assert GhApi(read_token="read").pull_text("o/r", 7) == "Fix it\nSome words."
+    assert run_.commands[0][2] == "repos/o/r/pulls/7"
+    assert envs[0]["GH_TOKEN"] == "read"
+    run_.result.stdout = '{"title": "Fix it", "body": null}'
+    assert GhApi().pull_text("o/r", 7) == "Fix it\n"
 
 
 def test_gh_api_compare_gives_none_when_gh_fails(monkeypatch):

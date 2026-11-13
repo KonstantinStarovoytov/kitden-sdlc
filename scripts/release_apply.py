@@ -13,12 +13,13 @@ No model runs here; the files it reads were written by one, so they are only dat
       second. Writes DIR/pictures.json: what became of each scene. Refuses, writing nothing,
       any file it does not know.
   release_apply.py body --findings F --development D --changed C --out BODY [--problems F
-      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R]
+      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R --root ROOT]
       The pull request's body: what is still wrong, what scripts checked, the agent's findings,
       the real-client checks from Kitden's docs/development.md that the changed files touch,
       and how to merge. R is the fix job's result (success, failure, cancelled, skipped or
       empty). A --problems, --pictures or --facts file that is given but cannot be read counts
-      as a problem. Prints draft or ready.
+      as a problem. Prints draft or ready. ROOT is the Kitden checkout: a long random string
+      in the body's text must be in its HEAD.
 """
 
 import argparse
@@ -33,6 +34,7 @@ from pathlib import Path
 
 from post_findings import SECRET_LIKE, WORD_JOINER, quiet_mentions
 from release_bump import current_version
+from secret_filter import in_git, in_text, short, unknown_runs
 
 VERSION = re.compile(r"\d+\.\d+\.\d+\Z", re.ASCII)
 # What the agent may write in out/, and where each file goes. "content" files go in the first
@@ -160,10 +162,12 @@ def _no_link(root: Path, target: Path) -> None:
 def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path], list[Path]]:
     """Copy the agent's files from `out` into `root`. Returns (content files, policy files),
     relative to `root`, leaving out files that did not change. Raises ValueError, writing
-    nothing, for any file outside OUT_FILES, a link, or a file that is too large."""
+    nothing, for any file outside OUT_FILES, a link, a file that is too large, or text that
+    looks like a secret: a token, or a long random string that Kitden's HEAD does not hold."""
     version = version or current_version(root)
     if not VERSION.match(version):
         raise ValueError(f"version {version!r} is not X.Y.Z")
+    in_kitden = in_git(root, "HEAD")
     names = _files(out) if out.exists() else []
     targets = {name: target_for(name, version) for name in names}  # refuses unknown names
     planned: list[tuple[Path, str, bytes]] = []
@@ -181,6 +185,12 @@ def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path]
             raise ValueError(f"out/{name} is not UTF-8 text") from error
         if SECRET_LIKE.search(text):
             raise ValueError(f"out/{name} looks like it holds a secret: not committed")
+        unknown = unknown_runs([text], in_kitden)
+        if unknown:
+            raise ValueError(
+                f"out/{name} holds a long random string that is not in Kitden "
+                f"({short(unknown[0])}): not committed"
+            )
         _no_link(root, path)
         if (root / path).is_file() and (root / path).read_bytes() == data:
             continue
@@ -436,13 +446,22 @@ def pr_body(
     errors: dict[str, str] | None = None,
     fixed: list[str] | None = None,
     fix_result: str = "",
+    known: Callable[[str], bool] | None = None,
 ) -> str:
     """The release pull request's body. Raises ValueError when the findings, a problem or an
-    error look like they hold a secret."""
+    error look like they hold a secret: a token, or a long random string that `known` does
+    not know (by default none is known)."""
     errors = errors or {}
-    for text in (findings, *problems, *errors.values()):
+    texts = (findings, *problems, *errors.values())
+    for text in texts:
         if SECRET_LIKE.search(text):
             raise ValueError("the findings, a problem or an error look like they hold a secret")
+    unknown = unknown_runs(texts, known or in_text())
+    if unknown:
+        raise ValueError(
+            f"the findings, a problem or an error hold a long random string that is not in "
+            f"Kitden ({short(unknown[0])}): not posted"
+        )
     findings = findings.strip()
     if len(findings) > FINDINGS_MAX:
         findings = findings[:FINDINGS_MAX] + "\n\n[cut: the rest is in the run's artifact]"
@@ -540,6 +559,7 @@ def main(argv: list[str]) -> int:
     body_cmd.add_argument("--fix-result", default="")
     body_cmd.add_argument("--model", default="")
     body_cmd.add_argument("--out", type=Path, required=True)
+    body_cmd.add_argument("--root", type=Path, help="the Kitden checkout the agent read")
     args = parser.parse_args(argv)
 
     try:
@@ -590,6 +610,7 @@ def main(argv: list[str]) -> int:
                 errors=_results(args.results),
                 fixed=_fixed(args.fixed),
                 fix_result=args.fix_result,
+                known=in_git(args.root, "HEAD") if args.root else None,
             )
             args.out.write_text(body)
             print("draft" if is_draft(problems, pictures or {}) else "ready")

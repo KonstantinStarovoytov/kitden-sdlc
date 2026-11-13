@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
 
+from secret_filter import in_git, in_text, random_runs, short, unknown_runs
+
 SUMMARY_MAX = 300
 TEXT_MAX = 300
 FINDINGS_MAX = 5
@@ -163,13 +165,38 @@ def load_report(path: Path) -> Report | None:
 # --- Keeping secrets out ---
 
 
-def refuse_secret_like(report: Report) -> None:
-    """Raise SecretLikeError when any text that would be posted looks like a token."""
+def report_texts(report: Report) -> list[str]:
+    """Every text of the report that would be posted."""
     texts = [report.summary]
     for f in report.findings:
         texts += [f.path, f.text]
-    if any(SECRET_LIKE.search(text) for text in texts):
+    return texts
+
+
+def refuse_secret_like(report: Report) -> None:
+    """Raise SecretLikeError when any text that would be posted looks like a token."""
+    if any(SECRET_LIKE.search(text) for text in report_texts(report)):
         raise SecretLikeError
+
+
+def refuse_unknown_runs(
+    api: "Api", repo: str, pr: int, reports: list[Report], tree: Path | None, head_sha: str
+) -> None:
+    """Raise SecretLikeError when the reports hold a long random string (a key cut short)
+    that is neither in the pull request's title and body nor in its commit's files or file
+    names, which `tree` holds. Without `tree`, only the title and body count. The pull
+    request is read only when there is such a string."""
+    texts = [text for report in reports for text in report_texts(report)]
+    if not any(random_runs(text) for text in texts):
+        return
+    in_pr = in_text(api.pull_text(repo, pr))
+    in_tree = in_git(tree, head_sha) if tree else in_text()
+    unknown = unknown_runs(texts, lambda run: in_pr(run) or in_tree(run))
+    if unknown:
+        raise SecretLikeError(
+            "a reviewer's output holds a long random string that is not in the pull request: "
+            + ", ".join(short(run) for run in unknown)
+        )
 
 
 # --- Keeping people out of it ---
@@ -590,6 +617,8 @@ class Api(Protocol):
 
     def compare(self, repo: str, base: str, head: str) -> dict | None: ...
 
+    def pull_text(self, repo: str, pr: int) -> str: ...
+
 
 class GhApi:
     """The Api on top of the gh command line tool. `read_token`, when given, is used to
@@ -643,6 +672,11 @@ class GhApi:
             return None
         return data if isinstance(data, dict) else None
 
+    def pull_text(self, repo: str, pr: int) -> str:
+        """The pull request's title, a new line, and its body."""
+        data = json.loads(self._run(f"repos/{repo}/pulls/{pr}", token=self.read_token))
+        return f"{data.get('title') or ''}\n{data.get('body') or ''}"
+
 
 # --- Putting it together ---
 
@@ -686,6 +720,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--repo", default="owner/repo")
     parser.add_argument("--pr", type=int)
     parser.add_argument("--head-sha", default="0000000")
+    parser.add_argument(
+        "--tree", type=Path, help="a git repository holding --head-sha, to look up quoted strings"
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the comment, call nothing")
     args = parser.parse_args(argv)
     if not args.dry_run and args.pr is None:
@@ -708,13 +745,16 @@ def main(argv: list[str]) -> int:
             print(review_body(reports, args.repo, args.head_sha, names=names))
             return 0
         api = GhApi(read_token=os.environ.get("GH_READ_TOKEN") or None)
+        answers = [report for report in reports.values() if report]
+        refuse_unknown_runs(api, args.repo, args.pr, answers, args.tree, args.head_sha)
         comments = api.list_issue_comments(args.repo, args.pr)
         earlier, changes = earlier_review(api, args.repo, args.head_sha, find_ours(comments))
         body = review_body(reports, args.repo, args.head_sha, earlier, changes, names)
         post(api, args.repo, args.pr, body, comments)
-    except SecretLikeError:
+    except SecretLikeError as error:
         # Not the missing-report case: fail loud so the job turns red.
-        print("Refused: a reviewer's output looked like a secret", file=sys.stderr)
+        why = str(error) or "a reviewer's output looked like a secret"
+        print(f"Refused: {why}", file=sys.stderr)
         return 1
     return 0
 

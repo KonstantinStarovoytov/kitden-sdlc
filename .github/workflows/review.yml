@@ -284,6 +284,17 @@ jobs:
           client-id: ${{ inputs.app_client_id }}
           private-key: ${{ secrets.app_private_key }}
           permission-pull-requests: write
+      # Git objects only, never a checkout: post_findings.py looks up quoted strings in them.
+      - name: Get the pull request's commit
+        continue-on-error: true
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git init -q "$RUNNER_TEMP/pr"
+          git -C "$RUNNER_TEMP/pr" fetch -q --depth=1 \
+            "https://x-access-token:${GH_READ_TOKEN}@github.com/${REPO}.git" "$HEAD_SHA"
       # The comment keeps the findings of earlier runs. GH_READ_TOKEN compares the commit
       # the last run reviewed with this one, to tell which of them were fixed since; the
       # app's token may only write to pull requests.
@@ -300,3 +311,4 @@ jobs:
           --claude claude/findings.json --luna luna/findings.json
           --claude-model "$CLAUDE_MODEL"
           --repo "$REPO" --pr "$PR_NUMBER" --head-sha "$HEAD_SHA"
+          --tree "$RUNNER_TEMP/pr"

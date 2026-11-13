@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.fakes import KEY_TAIL
 from watch_route import (
     TEXT_MAX,
     TITLE_MAX,
@@ -167,6 +168,16 @@ def test_file_not_in_input_is_refused():
 def test_secret_like_text_is_refused():
     with pytest.raises(BadFindings):
         check(with_text("ghp_" + "a" * 20), INP)
+
+
+def test_a_random_string_the_input_lacks_is_refused():
+    with pytest.raises(BadFindings, match="not in the input"):
+        check(with_text(f"Set it to {KEY_TAIL}."), INP)
+
+
+def test_a_random_string_a_piece_holds_is_kept():
+    [out] = check(with_text(f"Set it to {KEY_TAIL}."), inp_piece_text(f"The key {KEY_TAIL}"))
+    assert KEY_TAIL in out["why"]
 
 
 def test_row_not_in_the_list_of_the_client_is_refused():

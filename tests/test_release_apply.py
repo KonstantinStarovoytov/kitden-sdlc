@@ -17,6 +17,8 @@ from release_apply import (
     scenes,
     target_for,
 )
+from secret_filter import in_text
+from tests.fakes import KEY_TAIL, repo
 
 
 def make_root(tmp_path: Path) -> Path:
@@ -922,3 +924,62 @@ def test_cli_body_passes_the_fix_result(tmp_path, capsys):
     assert main([*base, "--fix-result", "failure"]) == 0
     body = (tmp_path / "body.md").read_text()
     assert "One fix pass ran and failed; the first files are used." in body
+
+
+def test_apply_refuses_a_random_string_kitden_lacks(tmp_path):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    with pytest.raises(ValueError, match="oat01-Zk…") as refused:
+        apply(root, out, version="0.9.0")
+    assert KEY_TAIL not in str(refused.value)
+    assert not (root / "docs/releases/v0.9.0.md").exists()
+
+
+def test_apply_refuses_a_random_string_outside_git(tmp_path):
+    root = make_root(tmp_path)
+    (root / "README.md").write_text(f"{KEY_TAIL}\n")  # in the folder, but not committed
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    with pytest.raises(ValueError, match="random"):
+        apply(root, out)
+
+
+def test_apply_writes_a_random_string_kitden_holds(tmp_path):
+    root = repo(tmp_path / "kitden", {"README.md": f"Set {KEY_TAIL}.\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    content, _ = apply(root, out, version="0.9.0")
+    assert content == [Path("docs/releases/v0.9.0.md")]
+    assert KEY_TAIL in (root / "docs/releases/v0.9.0.md").read_text()
+
+
+def test_pr_body_refuses_a_random_string_it_does_not_know():
+    findings = f"## README\n\nSet {KEY_TAIL}.\n"
+    with pytest.raises(ValueError, match="oat01-Zk…") as refused:
+        pr_body(findings, [])
+    assert KEY_TAIL not in str(refused.value)
+    with pytest.raises(ValueError, match="random"):
+        pr_body(findings, [], known=in_text("other"))
+    body = pr_body(findings, [], known=in_text(KEY_TAIL))
+    assert KEY_TAIL in body
+
+
+def test_cli_body_knows_what_root_holds(tmp_path, capsys):
+    (tmp_path / "findings.md").write_text(f"## README\n\nSet {KEY_TAIL}.\n")
+    (tmp_path / "development.md").write_text(DEVELOPMENT)
+    (tmp_path / "changed.txt").write_text("")
+    argv = [
+        "body",
+        "--findings",
+        str(tmp_path / "findings.md"),
+        "--development",
+        str(tmp_path / "development.md"),
+        "--changed",
+        str(tmp_path / "changed.txt"),
+        "--out",
+        str(tmp_path / "body.md"),
+    ]
+    assert main(argv) == 1
+    assert "oat01-Zk…" in capsys.readouterr().out
+    assert not (tmp_path / "body.md").exists()
+    root = repo(tmp_path / "kitden", {"a.py": f"KEY = '{KEY_TAIL}'\n"})
+    assert main([*argv, "--root", str(root)]) == 0
+    assert KEY_TAIL in (tmp_path / "body.md").read_text()
