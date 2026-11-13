@@ -12,9 +12,11 @@ No model runs here; the files it reads were written by one, so they are only dat
       Writes DIR/content.txt and DIR/policy.txt: the files of the first commit and of the
       second. Writes DIR/pictures.json: what became of each scene. Refuses, writing nothing,
       any file it does not know.
-  release_apply.py body --findings F --development D --changed C --out BODY
-      The pull request's body: the agent's findings, the real-client checks from Kitden's
-      docs/development.md that the changed files touch, and how to merge.
+  release_apply.py body --findings F --development D --changed C --out BODY [--problems F
+      --facts F --pictures F --results F --expected "a b" --fixed F]
+      The pull request's body: what is still wrong, what scripts checked, the agent's findings,
+      the real-client checks from Kitden's docs/development.md that the changed files touch,
+      and how to merge. Prints draft or ready.
 """
 
 import argparse
@@ -81,6 +83,9 @@ CLOSING = re.compile(
 )
 # A Markdown heading of any level, which could pass for one of this body's own sections.
 HEADING = re.compile(r"^ {0,3}(#{1,6})(?=[ \t]|$)", re.MULTILINE)
+LINE_MAX = 300
+SAFE_PATH = re.compile(r"[\w./@+-]+\Z", re.ASCII)
+STATES = ("changed", "the same", "not needed", "failed")
 MODEL = re.compile(r"[\w.:-]{1,80}\Z", re.ASCII)
 
 CHECKS_HEADING = "## Check before a release"
@@ -321,20 +326,113 @@ def hand_checks(doc: str, changed: list[str]) -> list[str]:
     return picked
 
 
+def _quiet(text: str) -> str:
+    """`text` with no mention that pings anyone, no closing keyword that closes an issue, and
+    no heading above level 4."""
+    text = CLOSING.sub(lambda m: m.group(1) + WORD_JOINER, quiet_mentions(text))
+    return HEADING.sub(lambda m: "#" * max(4, len(m.group(1))), text)
+
+
 def quiet_findings(text: str) -> str:
     """The agent's findings, made safe to show in the PR body: no mention pings anyone, no
     closing keyword closes an issue, and every heading is level 4 or lower, inside a quote, so
     none passes for this body's own "Hand checks" or "Merge" sections."""
-    text = CLOSING.sub(lambda m: m.group(1) + WORD_JOINER, quiet_mentions(text))
-    text = HEADING.sub(lambda m: "#" * max(4, len(m.group(1))), text)
-    return "\n".join(f"> {line}" if line else ">" for line in text.splitlines())
+    return "\n".join(f"> {line}" if line else ">" for line in _quiet(text).splitlines())
 
 
-def pr_body(findings: str, checks: list[str], unrecorded: list[str], model: str = "") -> str:
-    """The release pull request's body. Raises ValueError when the findings look like they
-    hold a secret."""
-    if SECRET_LIKE.search(findings):
-        raise ValueError("the findings look like they hold a secret: not posted")
+def _one_line(text: str) -> str:
+    """`text` as one quiet line of at most LINE_MAX characters."""
+    text = " ".join(text.split())
+    if len(text) > LINE_MAX:
+        text = text[: LINE_MAX - 1] + "\u2026"
+    return _quiet(text)
+
+
+def is_draft(problems: list[str], pictures: dict[str, str]) -> bool:
+    """True when the pull request should be a draft: a problem is left, or a scene failed."""
+    return bool(problems) or "failed" in pictures.values()
+
+
+def _names(names: list[str]) -> str:
+    return ", ".join(f"`{name}`" for name in names)
+
+
+def _fix_pass(fixed: list[str] | None) -> str:
+    if fixed is None:
+        return "No fix pass was needed."
+    paths = [f"`{path}`" for path in fixed if SAFE_PATH.match(path)]
+    if not paths:
+        return "One fix pass ran and changed nothing."
+    listed = paths[0] if len(paths) == 1 else ", ".join(paths[:-1]) + " and " + paths[-1]
+    return f"One fix pass changed {listed}."
+
+
+def _count(facts: dict, key: str) -> int | None:
+    value = facts.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _facts_bullets(
+    facts: dict | None, pictures: dict[str, str] | None, expected: list[str]
+) -> list[str]:
+    bullets: list[str] = []
+    facts = facts or {}
+    readme: list[str] = []
+    if (lines := _count(facts, "readme_lines")) is not None:
+        readme.append(f"README: {lines} lines.")
+    for key, label in (("docs_tests", "Kitden's docs tests"), ("release_check", "Release check")):
+        if facts.get(key) in ("pass", "fail"):
+            readme.append(f"{label}: {facts[key]}.")
+    if readme:
+        bullets.append(" ".join(readme))
+    notes: list[str] = []
+    for named, total, what in (
+        ("prs_named", "prs_total", "pull requests named"),
+        ("authors_named", "authors_total", "authors"),
+    ):
+        if (a := _count(facts, named)) is not None and (b := _count(facts, total)) is not None:
+            notes.append(f"{a} of {b} {what}")
+    if facts.get("links") == "ok":
+        notes.append("all links point at files")
+    elif facts.get("links") == "broken":
+        notes.append("some links point at no file")
+    if notes:
+        bullets.append("Notes: " + ", ".join(notes) + ".")
+    pictures = {k: v for k, v in (pictures or {}).items() if SCENE.match(k)}
+    groups = []
+    for state in STATES:
+        names = sorted(k for k, v in pictures.items() if v == state)
+        if names:
+            groups.append(f"{_names(names)} {state}")
+    if groups:
+        bullets.append("Pictures: " + " \u00b7 ".join(groups))
+    same = sorted(k for k in set(expected) if pictures.get(k) == "the same")
+    if same:
+        bullets.append(
+            f"Expected by the agent but the same: {_names(same)}. "
+            "That scene does not show the change."
+        )
+    return bullets
+
+
+def pr_body(
+    findings: str,
+    checks: list[str],
+    *,
+    model: str = "",
+    problems: list[str] = (),
+    facts: dict | None = None,
+    pictures: dict[str, str] | None = None,
+    expected: list[str] = (),
+    errors: dict[str, str] | None = None,
+    fixed: list[str] | None = None,
+) -> str:
+    """The release pull request's body. Raises ValueError when the findings, a problem or an
+    error look like they hold a secret."""
+    errors = errors or {}
+    for text in (findings, *problems, *errors.values()):
+        if SECRET_LIKE.search(text):
+            raise ValueError("the findings, a problem or an error look like they hold a secret")
     findings = findings.strip()
     if len(findings) > FINDINGS_MAX:
         findings = findings[:FINDINGS_MAX] + "\n\n[cut: the rest is in the run's artifact]"
@@ -343,38 +441,47 @@ def pr_body(findings: str, checks: list[str], unrecorded: list[str], model: str 
         f"Automated: prepared by kitden-sdlc's release-prep. The notes, the README and the "
         f"policy edits were written by {who}; the version, the commits and this text by "
         f"scripts. The first commit holds the notes, the README, the version and the "
-        f"pictures; the second, if there is one, the policy files and `listing.toml`.",
+        f"pictures; the second, if there is one, the policy files and `listing.toml`. "
+        + _fix_pass(fixed),
+    ]
+    to_fix = [f"- {_one_line(problem)}" for problem in problems]
+    for scene, state in sorted((pictures or {}).items()):
+        if state == "failed" and SCENE.match(scene):
+            error = _one_line(errors.get(scene, "")) or "no reason was kept"
+            to_fix.append(
+                f"- Pictures: `{scene}` could not be recorded: {error.rstrip('.')}. Fix the "
+                f"scene in Kitden, or run `uv run --with playwright==1.64.1 python "
+                f"scripts/record_readme.py --only {scene}` and push the pictures to this branch."
+            )
+    if to_fix:
+        parts += ["## Fix before merge", "\n".join(to_fix)]
+    if bullets := _facts_bullets(facts, pictures, list(expected)):
+        parts += ["## Checked by scripts", "\n".join(f"- {bullet}" for bullet in bullets)]
+    parts += [
         "## Findings",
         quiet_findings(findings) if findings else "No findings from the agent.",
         "## Hand checks",
         "\n\n---\n\n".join(checks)
         if checks
         else "No real-client check in docs/development.md matches the files this release changed.",
-    ]
-    if unrecorded:
-        names = ", ".join(f"`{name}`" for name in unrecorded if SCENE.match(name))
-        parts += [
-            "## Pictures to record by hand",
-            f"The record job could not make these scenes: {names}. Run "
-            "`uv run --with playwright==1.64.1 python scripts/record_readme.py --only <scene>` "
-            "for each and push the pictures to this branch.",
-        ]
-    parts += [
         "## Merge",
         "Merge with a merge commit, not squash: the release notes link this branch's commits.",
     ]
     return "\n\n".join(parts) + "\n"
 
 
-def _read(path: Path) -> str:
+def _read(path: Path | None) -> str:
+    if path is None:
+        return ""
     try:
         return path.read_text()
     except FileNotFoundError:
         return ""
 
 
-def _results(path: Path | None) -> dict[str, str] | None:
-    """The record job's results.json; None when it is missing or not a JSON object."""
+def _results(path: Path | None) -> dict | None:
+    """A JSON object from `path`; None when the path is not given, the file is missing or it
+    is not a JSON object."""
     if path is None:
         return None
     try:
@@ -382,6 +489,13 @@ def _results(path: Path | None) -> dict[str, str] | None:
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def _fixed(path: Path | None) -> list[str] | None:
+    """The paths in fixed.txt; None when no fix pass ran (no file)."""
+    if path is None or not path.is_file():
+        return None
+    return [line.strip() for line in path.read_text().splitlines() if line.strip()]
 
 
 def main(argv: list[str]) -> int:
@@ -403,7 +517,12 @@ def main(argv: list[str]) -> int:
     body_cmd.add_argument("--findings", type=Path, required=True)
     body_cmd.add_argument("--development", type=Path, required=True)
     body_cmd.add_argument("--changed", type=Path, required=True)
-    body_cmd.add_argument("--unrecorded", default="")
+    body_cmd.add_argument("--problems", type=Path)
+    body_cmd.add_argument("--facts", type=Path)
+    body_cmd.add_argument("--pictures", type=Path)
+    body_cmd.add_argument("--results", type=Path)
+    body_cmd.add_argument("--expected", default="")
+    body_cmd.add_argument("--fixed", type=Path)
     body_cmd.add_argument("--model", default="")
     body_cmd.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -427,8 +546,25 @@ def main(argv: list[str]) -> int:
             print(f"First commit: {len(content)} files. Policy commit: {len(policy)} files.")
         else:
             checks = hand_checks(_read(args.development), _read(args.changed).split())
-            body = pr_body(_read(args.findings), checks, args.unrecorded.split(), model=args.model)
+            problems = [
+                line.removeprefix("- ")
+                for line in _read(args.problems).splitlines()
+                if line.startswith("- ")
+            ]
+            pictures = _results(args.pictures)
+            body = pr_body(
+                _read(args.findings),
+                checks,
+                model=args.model,
+                problems=problems,
+                facts=_results(args.facts),
+                pictures=pictures,
+                expected=args.expected.split(),
+                errors=_results(args.results),
+                fixed=_fixed(args.fixed),
+            )
             args.out.write_text(body)
+            print("draft" if is_draft(problems, pictures or {}) else "ready")
     except ValueError as error:
         print(error)
         return 1

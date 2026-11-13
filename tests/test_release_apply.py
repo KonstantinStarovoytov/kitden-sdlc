@@ -10,6 +10,7 @@ from release_apply import (
     apply,
     apply_images,
     hand_checks,
+    is_draft,
     is_stale,
     main,
     pr_body,
@@ -385,12 +386,10 @@ def test_pr_body_has_findings_checks_and_merge_note():
     body = pr_body(
         findings="## Release notes\n\nThanks @someone.\n",
         checks=["Before a release that touches X:\n\n1. Do it."],
-        unrecorded=["pick"],
     )
     assert "> #### Release notes" in body
     assert "@\u2060someone" in body
     assert "1. Do it." in body
-    assert "`pick`" in body and "record" in body
     assert "merge commit" in body and "not squash" in body
 
 
@@ -404,7 +403,7 @@ def test_findings_close_no_issue():
         "Resolved https://github.com/o/r/issues/4",
         "close #1",
     ):
-        body = pr_body(findings=text, checks=[], unrecorded=[])
+        body = pr_body(findings=text, checks=[])
         assert not re.search(
             r"(?i)\b(close[sd]?|fix(e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*([\w.-]+/[\w.-]+)?#\d", body
         ), text
@@ -413,15 +412,13 @@ def test_findings_close_no_issue():
         )
         assert "\u2060" in body
     # Words that only start the same way, or have no issue after them, stay as they are.
-    body = pr_body(
-        findings="The fix is small. Fixes the README. Closest #1st", checks=[], unrecorded=[]
-    )
+    body = pr_body(findings="The fix is small. Fixes the README. Closest #1st", checks=[])
     assert "\u2060" not in body
 
 
 def test_findings_cannot_pass_for_the_scripted_sections():
     findings = "# Hand checks\n\nNone needed.\n\n## Merge\n\nSquash it.\n\n###### Small\n#5 is fine"
-    body = pr_body(findings=findings, checks=[], unrecorded=[])
+    body = pr_body(findings=findings, checks=[])
     assert body.count("\n## Hand checks\n") == 1
     assert body.count("\n## Merge\n") == 1
     assert "> #### Hand checks" in body and "> #### Merge" in body
@@ -433,19 +430,19 @@ def test_findings_cannot_pass_for_the_scripted_sections():
 
 
 def test_pr_body_without_findings_or_checks():
-    body = pr_body(findings="", checks=[], unrecorded=[])
+    body = pr_body(findings="", checks=[])
     assert "No findings" in body
     assert "No real-client check" in body
-    assert "record" not in body
+    assert "## Fix before merge" not in body
 
 
 def test_pr_body_refuses_secret_like_text():
     with pytest.raises(ValueError, match="secret"):
-        pr_body(findings="ghp_" + "a" * 36, checks=[], unrecorded=[])
+        pr_body(findings="ghp_" + "a" * 36, checks=[])
 
 
 def test_pr_body_cuts_long_findings():
-    body = pr_body(findings="x" * 100_000, checks=[], unrecorded=[])
+    body = pr_body(findings="x" * 100_000, checks=[])
     assert len(body) < 65_000
 
 
@@ -556,8 +553,6 @@ def test_cli_body(tmp_path):
             str(tmp_path / "development.md"),
             "--changed",
             str(tmp_path / "changed.txt"),
-            "--unrecorded",
-            "",
             "--out",
             str(tmp_path / "body.md"),
         ]
@@ -626,3 +621,179 @@ def test_the_gateway_page_is_not_the_gateway():
     assert hand_checks(doc, ["src/kitden/web/static/js/library-map.js"]) == []
     server = hand_checks(doc, ["src/kitden/local_gateway/proxy.py"])
     assert any("the Kitden gateway" in p for p in server)
+
+
+FACTS = {
+    "readme_lines": 125,
+    "docs_tests": "pass",
+    "release_check": "pass",
+    "prs_named": 7,
+    "prs_total": 7,
+    "authors_named": 1,
+    "authors_total": 1,
+    "links": "ok",
+}
+
+
+def test_a_clean_run_says_so_and_is_ready():
+    pictures = {"find": "the same", "pick": "the same"}
+    body = pr_body("Fine.", [], facts=FACTS, pictures=pictures, problems=[])
+    assert "## Fix before merge" not in body
+    assert not is_draft([], pictures)
+    assert body.index("## Checked by scripts") < body.index("## Findings")
+    assert "No fix pass was needed." in body
+    assert "- README: 125 lines. Kitden's docs tests: pass. Release check: pass." in body
+    assert "- Notes: 7 of 7 pull requests named, 1 of 1 authors, all links point at files." in body
+
+
+def test_a_problem_makes_a_draft_and_leads_the_body():
+    body = pr_body("", [], problems=["README.md: line 3 is wrong"], facts=FACTS)
+    assert is_draft(["README.md: line 3 is wrong"], {})
+    assert "- README.md: line 3 is wrong" in body
+    assert body.index("## Fix before merge") < body.index("## Checked by scripts")
+
+
+def test_a_failed_scene_makes_a_draft_and_says_how_to_record_it():
+    pictures = {"pick": "failed", "find": "changed"}
+    body = pr_body("", [], pictures=pictures, errors={"pick": "timeout at step 3"})
+    assert is_draft([], pictures)
+    assert (
+        "- Pictures: `pick` could not be recorded: timeout at step 3. Fix the scene in Kitden, "
+        "or run `uv run --with playwright==1.64.1 python scripts/record_readme.py --only pick` "
+        "and push the pictures to this branch."
+    ) in body
+    assert "`find`" in body.split("## Checked by scripts")[1]
+    assert "`find` could not" not in body
+
+
+def test_pictures_line_orders_the_states():
+    pictures = {
+        "tools": "not needed",
+        "pick": "not needed",
+        "library": "the same",
+        "find": "the same",
+        "context": "changed",
+    }
+    body = pr_body("", [], pictures=pictures)
+    assert (
+        "- Pictures: `context` changed \u00b7 `find`, `library` the same \u00b7 "
+        "`pick`, `tools` not needed"
+    ) in body
+
+
+def test_expected_but_the_same_is_called_out():
+    pictures = {"library": "the same", "pick": "changed"}
+    body = pr_body("", [], pictures=pictures, expected=["library", "pick"])
+    assert (
+        "- Expected by the agent but the same: `library`. That scene does not show the change."
+    ) in body
+    body = pr_body("", [], pictures={"library": "not needed"}, expected=["library"])
+    assert "Expected by the agent" not in body
+
+
+def test_the_fix_pass_line_names_what_it_changed():
+    assert "No fix pass was needed." in pr_body("", [], fixed=None)
+    assert "One fix pass ran and changed nothing." in pr_body("", [], fixed=[])
+    body = pr_body("", [], fixed=["README.md", "docs/guide.md"])
+    assert "One fix pass changed `README.md` and `docs/guide.md`." in body
+
+
+def test_facts_that_failed_are_said():
+    facts = {**FACTS, "docs_tests": "fail", "release_check": "fail", "links": "broken"}
+    body = pr_body("", [], facts=facts)
+    assert "Kitden's docs tests: fail. Release check: fail." in body
+    assert "some links point at no file." in body
+
+
+def test_missing_facts_leave_the_bullets_out():
+    body = pr_body("", [])
+    assert "README:" not in body and "Notes:" not in body and "Pictures:" not in body
+
+
+def test_problem_text_cannot_ping_close_or_fake_a_heading():
+    problem = "README.md: @someone Fixes #3\n## Merge\nsquash it"
+    body = pr_body("", [], problems=[problem, "## Merge"], errors={}, pictures={})
+    assert "@someone" not in body and body.count("\n## Merge\n") == 1
+    assert not re.search(r"Fixes #3", body)
+    fixed = pr_body("", [], pictures={"pick": "failed"}, errors={"pick": "@a closes #4\n# Merge"})
+    assert "@a" not in fixed and not re.search(r"closes #4", fixed)
+    assert fixed.count("\n## Merge\n") == 1 and "\n# Merge" not in fixed
+    section = body.split("## Fix before merge\n\n")[1].split("\n\n## ")[0]
+    assert all(line.startswith("- ") for line in section.splitlines())
+
+
+def test_a_long_problem_is_cut_to_one_line():
+    body = pr_body("", [], problems=["x" * 1000])
+    line = next(line for line in body.splitlines() if line.startswith("- xxx"))
+    assert len(line) <= 2 + 300
+
+
+def test_a_secret_in_a_problem_is_refused():
+    with pytest.raises(ValueError, match="secret"):
+        pr_body("", [], problems=["token ghp_" + "a" * 36])
+    with pytest.raises(ValueError, match="secret"):
+        pr_body("", [], pictures={"pick": "failed"}, errors={"pick": "sk-ant-" + "a" * 30})
+
+
+def test_the_facts_part_is_short():
+    pictures = {f"scene{i}": ("failed" if i % 2 else "the same") for i in range(12)}
+    pictures = {name.replace("scene", "s-").replace("0", "a"): v for name, v in pictures.items()}
+    problems = [f"problem {n}" for n in range(30)]
+    body = pr_body(
+        "", [], problems=problems, facts=FACTS, pictures=pictures, expected=list(pictures)
+    )
+    section = body.split("## Checked by scripts\n\n")[1].split("\n\n## ")[0]
+    assert 1 <= len(section.splitlines()) <= 4
+
+
+def test_cli_body_writes_the_facts_and_prints_draft_or_ready(tmp_path, capsys):
+    (tmp_path / "findings.md").write_text("")
+    (tmp_path / "development.md").write_text(DEVELOPMENT)
+    (tmp_path / "changed.txt").write_text("")
+    (tmp_path / "facts.json").write_text(json.dumps(FACTS))
+    (tmp_path / "pictures.json").write_text(json.dumps({"pick": "failed", "find": "the same"}))
+    (tmp_path / "results.json").write_text(json.dumps({"pick": "boom", "find": ""}))
+    (tmp_path / "problems.md").write_text("- README.md: bad\n")
+    (tmp_path / "fixed.txt").write_text("README.md\n")
+    args = [
+        "body",
+        "--findings", str(tmp_path / "findings.md"),
+        "--development", str(tmp_path / "development.md"),
+        "--changed", str(tmp_path / "changed.txt"),
+        "--facts", str(tmp_path / "facts.json"),
+        "--pictures", str(tmp_path / "pictures.json"),
+        "--results", str(tmp_path / "results.json"),
+        "--problems", str(tmp_path / "problems.md"),
+        "--fixed", str(tmp_path / "fixed.txt"),
+        "--expected", "find pick",
+        "--out", str(tmp_path / "body.md"),
+    ]  # fmt: skip
+    assert main(args) == 0
+    assert capsys.readouterr().out == "draft\n"
+    body = (tmp_path / "body.md").read_text()
+    assert "- README.md: bad" in body and "boom" in body
+    assert "One fix pass changed `README.md`." in body
+    assert "Expected by the agent but the same: `find`." in body
+    (tmp_path / "problems.md").write_text("")
+    (tmp_path / "pictures.json").write_text(json.dumps({"find": "the same"}))
+    assert main(args) == 0
+    assert capsys.readouterr().out == "ready\n"
+
+
+def test_cli_body_with_no_fact_files_leaves_them_out(tmp_path, capsys):
+    (tmp_path / "changed.txt").write_text("")
+    code = main(
+        [
+            "body",
+            "--findings", str(tmp_path / "none.md"),
+            "--development", str(tmp_path / "none2.md"),
+            "--changed", str(tmp_path / "changed.txt"),
+            "--facts", str(tmp_path / "nofacts.json"),
+            "--pictures", str(tmp_path / "nopictures.json"),
+            "--problems", str(tmp_path / "noproblems.md"),
+            "--out", str(tmp_path / "body.md"),
+        ]
+    )  # fmt: skip
+    assert code == 0
+    assert capsys.readouterr().out == "ready\n"
+    assert "Checked by scripts" not in (tmp_path / "body.md").read_text()
