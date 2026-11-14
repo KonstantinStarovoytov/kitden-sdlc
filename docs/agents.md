@@ -89,13 +89,15 @@ The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WAT
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
-Every finding issue starts with one line: an automated check opened it, which model wrote it,
-and that a maintainer checks it before anyone works on it (with a link to Kitden's AI policy).
-Then the same sections each time: what changed, what it means for Kitden (type and severity in
-plain words), why, where in Kitden, scale, how sure, and what a maintainer does with it: put
-`confirmed` on it if it is right (it stays open until the problem is fixed), or close it with
-`false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
-contributor works on a false alarm.
+An issue is short and in plain words. One line says an automated check wrote it, with which
+model, and that a maintainer checks it (with a link to Kitden's AI policy). Then the risk
+(High, Medium, Low), whether it is urgent and whether the watcher is sure; then one line each
+for what changed, what it means, why, where in Kitden, which Kitden versions were checked and
+the source; then what to do: put `confirmed` on it if it is right (it stays open until it is
+fixed), or close it with `false-alarm`. Add `good first issue` or `help wanted` only after
+`confirmed`, so no contributor works on a false alarm. The weekly summary lists its items the
+same way, with a table on top when there are several; words of a row that the note mentions
+but the model found nothing for go into one line at the end.
 
 | Label | Meaning |
 |---|---|

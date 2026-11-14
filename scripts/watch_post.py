@@ -7,9 +7,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from bot_issues import GhIssues, ensure_labels, pause
-from watch_list import parse_list, row_labels
 from watch_route import (
-    TEXT_MAX,
     VERSION_MAX,
     BadFindings,
     Plan,
@@ -28,96 +26,91 @@ PAUSED_MEANS = ("That includes its weekly summary: what it finds is kept for its
                 "after this issue is closed.")
 
 
-# Shown with every finding: docs/watch-effects.md says the same in more words.
-TYPE_TEXT = {
-    "breaks": ("Breaks",
-               "A Kitden action fails, or writes something the client no longer accepts."),
-    "wrong-data": ("Wrong data", "Kitden shows one thing while the client has another."),
-    "unknown": ("Unknown", "Kitden cannot read the new value and says so."),
-    "outdated": ("Outdated", "Kitden stays right; its list or a code comment is out of date."),
-    "gap": ("Gap", "The client keeps something that Kitden does not show yet."),
+# Plain words for the type and severity of docs/watch-effects.md.
+WHAT = {
+    "breaks": "A Kitden action fails.",
+    "wrong-data": "Kitden shows wrong information.",
+    "gap": "Kitden does not show this yet.",
+    "unknown": "Kitden cannot tell, and says so.",
+    "outdated": "Only Kitden's own notes are out of date.",
 }
-SEVERITY_TEXT = {
-    "major": "A user who trusts Kitden here does a wrong action and gets a result they did not "
-             "expect.",
-    "medium": "A user does extra or useless steps, but nothing unexpected happens.",
-    "minor": "What a user does stays the same.",
-}
-MAINTAINERS_SUMMARY = ("To confirm an item or mark it a false alarm, open an issue for it; this "
-                       "summary is only a list.")
+RISK = {"major": "High", "medium": "Medium", "minor": "Low"}
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
-MAINTAINERS = ("Put `confirmed` on it if this is right; it stays open until the problem is "
-               "fixed. Close it with `false-alarm` if it is not. Add `good first issue` or "
-               "`help wanted` only after it is confirmed.")
+NEXT = ("**Next:** add `confirmed` if this is right (it stays open until it is fixed), or close "
+        "it with `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`.")
+NEXT_SUMMARY = ("**Next:** nothing here is urgent. To act on an item, open an issue for it; this "
+                "summary is only a list.")
 
 
 def first_line(repo: str = "") -> str:
-    """The first line of every issue: who opened it, which model wrote it, what happens next."""
+    """One line: an automated check wrote this, with which model, and a person checks it."""
     model = os.environ.get("WATCH_MODEL") or "a model"
-    policy = f" ([AI policy](https://github.com/{repo}/blob/main/AI_POLICY.md))" if repo else ""
-    return (f"Opened by Kitden's [client watcher]({HOW_IT_WORKS}), an automated check of the "
-            f"release notes and docs of Claude Code, Codex and Cursor. Written by {model}; a "
-            f"maintainer checks it before anyone works on it{policy}.")
+    policy = f" [AI policy](https://github.com/{repo}/blob/main/AI_POLICY.md)." if repo else ""
+    return (f"_Automated: Kitden's [client watcher]({HOW_IT_WORKS}) wrote this with {model}. "
+            f"A maintainer checks it.{policy}_")
 
 
 def _version(item: dict) -> str:
     return _quiet(item.get("version") or "", VERSION_MAX)
 
 
-def _seen_in(item: dict, inp: dict) -> str:
-    text = inp.get("list", "")
-    labels = row_labels(text)
-    for r in parse_list(text):
-        if (r.client, labels[(r.client, r.what)]) == (item.get("client"), item.get("row")):
-            return f"seen in {r.seen_in}"
-    return ""
+def _hint(item: dict) -> bool:
+    """A word of a row is in the note but the model found nothing: not a finding."""
+    return bool(item.get("hint")) or item.get("title", "").startswith("Mentions `")
 
 
-def _scale(item: dict, inp: dict) -> str:
+def _who(item: dict) -> str:
+    return " ".join(x for x in (client_name(item), _version(item)) if x)
+
+
+def _versions(item: dict, inp: dict) -> str:
     files = item.get("files") or []
     same = bool(files) and all(inp["files"].get(f, {}).get("same_in_release") for f in files)
-    kitden = f"main and {inp['release']}" if same else f"main; {inp['release']} not checked"
-    return (f"- Client versions: {_version(item) or 'unknown'}\n"
-            f"- Systems: {item.get('systems') or 'not checked'}\n- Kitden versions: {kitden}")
+    kitden = f"main and {inp['release']}" if same else f"main ({inp['release']} not checked)"
+    systems = item.get("systems") or ""
+    on = f"; systems: {systems}" if systems and systems != "not checked" else ""
+    return f"checked on Kitden {kitden}{on}"
 
 
-def _where(item: dict, inp: dict) -> str:
-    row = _quiet(item.get("row") or "", TEXT_MAX)
-    lines = []
-    if row:
-        seen = _seen_in(item, inp)
-        lines.append(f"- Row in `docs/clients.md`: {row}" + (f" ({seen})" if seen else ""))
-    else:
-        lines.append("- No row in `docs/clients.md` is about it.")
-    files = item.get("files") or []
-    if files:
-        lines.append("- Files: " + ", ".join(f"`{f}`" for f in files))
-    return "\n".join(lines)
-
-
-def _item(item: dict, inp: dict, level: str = "##") -> str:
-    """One finding in sections, the same in an urgent issue and in the summary."""
+def _item(item: dict, inp: dict, who: bool = False) -> str:
+    """One finding: risk first, then what changed, what it means, why, where. `who` puts the
+    client and its version before the change, where no heading says them."""
     effect, severity = _kind(item)
-    name, means = TYPE_TEXT.get(effect, (effect, ""))
-    who = " ".join(x for x in (client_name(item), _version(item)) if x)
-    source = f"\n\nSource: {item['url']}" if item.get("url") else ""
-    sure = ("Sure: the note says it plainly and the code shows it." if item.get("sure")
-            else "Not sure: the note or the code leaves room for doubt; check before acting.")
-    return "\n\n".join([
-        f"{level} What changed\n\n{who}: {item.get('changed', '')}{source}",
-        f"{level} What it means for Kitden\n\n**{name}, {severity}.** {means} "
-        f"{SEVERITY_TEXT.get(severity, '')}\n\n{item.get('user_gets', '')}".rstrip(),
-        f"{level} Why\n\n{item.get('why', '')}".rstrip(),
-        f"{level} Where in Kitden\n\n{_where(item, inp)}",
-        f"{level} Scale\n\n{_scale(item, inp)}",
-        f"{level} How sure\n\n{sure}",
-    ])
+    gets = item.get("user_gets", "")
+    gets = "" if gets.strip(" .").lower() in ("", "not checked") else " " + gets
+    files = item.get("files") or []
+    lines = [
+        f"**Risk: {RISK.get(severity, severity)}** · "
+        f"**Sure: {'yes' if item.get('sure') else 'no'}**",
+        "",
+        f"**What changed:** {_who(item) + ': ' if who else ''}{item.get('changed', '')}",
+        f"**What it means:** {WHAT.get(effect, effect)}{gets}",
+    ]
+    if item.get("why"):
+        lines.append(f"**Why:** {item['why']}")
+    if files:
+        lines.append("**Where:** " + ", ".join(f"`{f}`" for f in files))
+    lines.append(f"**Kitden:** {_versions(item, inp)}")
+    if item.get("url"):
+        lines.append(f"**Source:** {item['url']}")
+    return "\n".join(lines)  # GitHub shows each line of an issue on its own line
 
 
 def render_urgent(finding: dict, inp: dict, repo: str = "") -> tuple[str, str]:
+    # The title form is what the router matches known issues by: keep it.
     title = f"{client_name(finding)}: {finding['title']}"
-    return title, (f"{first_line(repo)}\n\n{_item(finding, inp)}\n\n"
-                   f"## For maintainers\n\n{MAINTAINERS}\n")
+    body = f"{first_line(repo)}\n\n**Urgent: yes** · {_item(finding, inp, who=True)}"
+    return title, f"{body}\n\n{NEXT}\n"
+
+
+def _hints(items: list[dict]) -> str:
+    by_piece: dict[str, list[str]] = {}
+    for i in items:
+        word = i["title"].removeprefix("Mentions ").strip()
+        by_piece.setdefault(_who(i) or "a note", []).append(word)
+    parts = [f"{who} mentions {', '.join(words)}" for who, words in by_piece.items()]
+    return ("**Mentioned, nothing found:** " + "; ".join(parts) + ". The model checked these "
+            "rows and saw no change; look only if you want to.")
 
 
 def render_summary(items: list[dict], today: date, inp: dict | None = None,
@@ -125,17 +118,24 @@ def render_summary(items: list[dict], today: date, inp: dict | None = None,
     """Return the title, the body and the items that did not fit, for the next summary."""
     inp = inp or {"files": {}, "release": "the latest release"}
     monday = today - timedelta(days=today.weekday())
-    blocks = [f"## {i['title']}\n\n`{'` `'.join(labels(i))}`\n\n{_item(i, inp, '###')}"
-              for i in items]
-    body = (f"{first_line(repo)}\n\nThe changes of this week that are not urgent, the gravest "
-            f"first. {MAINTAINERS_SUMMARY}")
+    real = [i for i in items if not _hint(i)]
+    hints = [i for i in items if _hint(i)]
+    body = first_line(repo)
+    if len(real) > 1:
+        rows = [f"| {n} | {_who(i)}: {_quiet(i['title'], 80)} | {RISK.get(_kind(i)[1], '')} | "
+                f"{'yes' if i.get('sure') else 'no'} |" for n, i in enumerate(real, 1)]
+        body += "\n\n| # | Change | Risk | Sure |\n|---|---|---|---|\n" + "\n".join(rows)
     rest = []
-    for n, block in enumerate(blocks):
-        if len(body) + len(block) + 100 > SUMMARY_MAX:
-            body += f"\n\n…and {len(blocks) - n} more items in the next summary"
-            rest = items[n:]
+    for n, i in enumerate(real, 1):
+        block = f"### {n}. {_who(i)}: {i['title']}\n\n{_item(i, inp)}"
+        if len(body) + len(block) + 400 > SUMMARY_MAX:
+            body += f"\n\n…and {len(real) - n + 1} more items in the next summary"
+            rest = real[n - 1:]
             break
         body += "\n\n" + block
+    if hints:
+        body += "\n\n" + _hints(hints)
+    body += "\n\n" + NEXT_SUMMARY
     return f"Client changes, week of {monday}", body + "\n", rest
 
 

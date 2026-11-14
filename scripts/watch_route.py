@@ -183,6 +183,7 @@ def word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]:
             where = _quiet(piece["version"], VERSION_MAX) or "this page"
             hits.append({
                 "piece": piece["id"], "client": row.client, "title": f"Mentions `{word}`",
+                "hint": True,
                 "changed": f"The text of {where} has the word `{word}`.",
                 "version": piece["version"],
                 "url": piece["url"], "row": label, "files": row.files,

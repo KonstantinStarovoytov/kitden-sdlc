@@ -92,18 +92,18 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
     assert len(gh.created) == 1 and gh.created[0][2] == ["automated", "client-change", "summary"]
     title, body, _ = gh.created[0]
     assert title == "Client changes, week of 2026-11-09"
-    assert body.count("\n## ") == 2 and "minor" in body
+    assert body.count("\n### ") == 2 and "Risk: Low" in body
 
 
 def test_release_not_checked_when_a_file_differs():
     _, body = render_urgent(finding(), inp(same=False))
-    assert "main; v0.7.2 not checked" in body
+    assert "main (v0.7.2 not checked)" in body
 
 
 def test_summary_item_without_piece_url_or_version():
     item = {"title": "t", "effect": "minor", "client": "codex", "sure": True}
     _, body, _ = render_summary([item], MON)
-    assert "### " in body and "unknown" in body
+    assert "### 1. Codex: t" in body and "Risk: Low" in body
 
 
 def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
@@ -139,35 +139,34 @@ def test_every_missing_label_is_created_on_each_run(tmp_path):
 
 def test_what_it_touches_shows_where_the_user_sees_it():
     _, body = render_urgent(finding(), inp())
-    assert "- Row in `docs/clients.md`: the `skillOverrides` key (seen in 2.1)" in body
-    assert "- Files: `src/kitden/skills.py`" in body
-    _, body = render_urgent(finding(row="not a row"), inp())
-    assert "seen in" not in body
+    assert "**Where:** `src/kitden/skills.py`" in body
+    assert "docs/clients.md" not in body  # the list's row is for the judge, not the reader
 
 
 def test_first_line_names_the_model_of_the_run(monkeypatch):
     monkeypatch.delenv("WATCH_MODEL", raising=False)
-    assert "Written by a model;" in first_line()
+    assert "wrote this with a model." in first_line()
     monkeypatch.setenv("WATCH_MODEL", "gpt-7")
     _, body = render_urgent(finding(), inp())
     assert body.splitlines()[0] == first_line()
-    assert "Written by gpt-7; a maintainer checks it" in body.splitlines()[0]
+    assert "wrote this with gpt-7. A maintainer checks it." in body.splitlines()[0]
 
 
-def test_an_issue_has_the_sections_a_reader_needs_and_the_ai_policy():
+def test_an_issue_says_risk_and_urgency_first_then_the_rest_in_plain_lines():
     _, body = render_urgent(finding(), inp(), "o/kitden")
-    for heading in ("What changed", "What it means for Kitden", "Why", "Where in Kitden",
-                    "Scale", "How sure", "For maintainers"):
-        assert f"\n## {heading}\n" in body
-    assert "**Breaks, major.**" in body
-    assert "https://github.com/o/kitden/blob/main/AI_POLICY.md" in body.splitlines()[0]
+    lines = body.splitlines()
+    assert "https://github.com/o/kitden/blob/main/AI_POLICY.md" in lines[0]
+    assert lines[2] == "**Urgent: yes** · **Risk: High** · **Sure: yes**"
+    for label in ("What changed", "What it means", "Why", "Where", "Kitden", "Source", "Next"):
+        assert f"\n**{label}:** " in body
+    assert "A Kitden action fails." in body
+    assert "##" not in body  # no headings, no repeated labels
 
 
 def test_an_issue_says_confirmed_keeps_it_open():
     _, body = render_urgent(finding(), inp(1))
-    assert ("Put `confirmed` on it if this is right; it stays open until the problem is fixed."
-            in body)
-    assert "Close it with `false-alarm` if it is not." in body
+    assert "add `confirmed` if this is right (it stays open until it is fixed)" in body
+    assert "close it with `false-alarm`" in body
 
 
 def long_items(n):
@@ -180,15 +179,15 @@ def test_long_summary_is_cut_with_a_count_of_the_rest():
     items = long_items(100)
     _, body, rest = render_summary(items, MON)
     assert len(body) <= SUMMARY_MAX
-    shown = body.count("\n## ")
+    shown = body.count("\n### ")
     assert 0 < shown < 100 and rest == items[shown:]
-    assert body.rstrip().endswith(f"…and {100 - shown} more items in the next summary")
+    assert f"…and {100 - shown} more items in the next summary" in body
 
 
 def test_items_cut_from_the_summary_are_kept_for_the_next_one(tmp_path):
     gh = FakeIssues()
     run(inp(0, state={**STATE, "kept": long_items(100)}), None, gh, tmp_path, MON)
-    shown = gh.created[0][1].count("\n## ")
+    shown = gh.created[0][1].count("\n### ")
     state = json.loads((tmp_path / "state.json").read_text())
     assert [k["title"] for k in state["kept"]] == [f"t{i}" for i in range(shown, 100)]
 
@@ -204,9 +203,14 @@ def test_version_is_quiet_and_cut():
     assert "@\u2060bob" in body and "@bob" not in body and "9" * 101 not in body
 
 
-def test_row_with_a_mention_is_quiet_in_the_issue():
-    _, body = render_urgent(finding(row="the `@scope/x` key"), inp())
-    assert "@\u2060scope" in body
+def test_a_word_the_model_passed_over_is_one_line_not_an_item():
+    hints = [{"title": f"Mentions `{w}`", "hint": True, "client": "claude-code",
+              "version": "2.1.325", "effect": "unknown", "severity": "minor", "sure": False}
+             for w in (".claude/settings.json", ".claude")]
+    _, body, _ = render_summary(hints, MON)
+    assert "###" not in body and "| # |" not in body
+    assert ("**Mentioned, nothing found:** Claude Code 2.1.325 mentions "
+            "`.claude/settings.json`, `.claude`.") in body
 
 
 def paused(state="open"):
@@ -260,7 +264,7 @@ def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path, capsys)
     assert len(lifted.created) == 1
     title, body, labels = lifted.created[0]
     assert labels == ["automated", "client-change", "summary"]
-    assert all(f"## {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
+    assert all(f": {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
 
 
 def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):
