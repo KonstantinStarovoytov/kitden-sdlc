@@ -10,14 +10,38 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](../evals/README.md) | read the checkout, write findings | see below | `AGENTS_ENABLED` and `REVIEW_LIVE`, in Kitden |
 | `luna` reviewer | the same | GPT-6 Luna | read in a sandbox with no network, answer with findings | see below | the same |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only | none |
-| weekly numbers | every Monday at 06:00 UTC | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code | none |
+| the desk | every day at 06:41 UTC, or by hand | none | count reviews, read Kitden's facts, commit `numbers.md`, `numbers.json` and `desk.json` to the `numbers` branch; a second job shows `desk.json` as the issue "Kitden desk" in Kitden, as Lantern | no model, no pull request code; 10 and 5 minutes, one run at a time | `AGENTS_ENABLED`, in kitden-sdlc, for the issue only: the numbers update without it |
 | client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time | `AGENTS_ENABLED` and `WATCH_LIVE`, in kitden-sdlc |
 | release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context; write the notes, the README, the guide, the policy files and the plugin README to one output folder; scripts check them, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs with the same read-only tools: 25 minutes and 60 turns, then 10 minutes and 15 turns; one run at a time; it does not start while a release pull request is open or three bot pull requests wait, and stops when the branch `prepare-vX.Y.Z` exists | `AGENTS_ENABLED`, in Kitden; started by hand |
 | release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time | `AGENTS_ENABLED`, in Kitden |
 | publish | a `vX.Y.Z` tag in Kitden, after PyPI | none | move the `release` branch, publish to the MCP Registry, open the Homebrew pull request, write a summary | no model; each job writes to one place with its own short-lived token | none |
 
-The weekly numbers have not run yet; the first run is on Monday. Then
-[numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md) fills in.
+## The desk
+
+Once a day a job without a model reads facts from GitHub and files and works out five lights and
+what waits for the owner ([desk.py](../scripts/desk.py)). It saves them as `desk.json` on the
+`numbers` branch, next to the public page
+[numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md). A
+second job, only with `AGENTS_ENABLED` on, shows `desk.json` as the pinned issue "Kitden desk" and
+adds one comment with the week's first run. Started by hand from another branch, the desk
+neither commits nor posts. What the owner does about each line is in [owner.md](owner.md).
+
+A light is the worst thing the read facts prove: bad news that was read always wins, and grey
+means something was not read and nothing bad was found. A red or amber light also says what it
+could not read, and links the issue it names. The overall light is the worst of the five, red
+first, then amber, grey and green.
+
+Works judges the newest run of each check on `main`'s newest commit, among the checks that
+the push to `main` started. A check `main` requires counts whatever started it, and so does a
+check whose start is not known. Release prep started by hand and scheduled runs do not count.
+
+| Light | Red | Amber | Grey |
+|---|---|---|---|
+| Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part |
+| Clients | a `confirmed` `major` client change has been open over 7 days | the same, over 3.5 days | the issues were not read; the watcher logged no run that read something in the last 2 days |
+| Bugs | a `confirmed` `major` bot issue has been open over 14 days; open bugs grew on each of the last 3 Mondays | the same issue over 7 days; open bugs grew on the last 2 Mondays | the issues were not read |
+| Agents | `main` requires a review check; the watcher opened more than 2 issues this week | an issue says an agent is paused; in 7 days an agent failed more than half of 4 or more runs, or a reviewer gave no answer in more than half of 4 or more review comments | `main`'s rules, the issues, an agent's runs or the reviews were not read; `main`'s rules were read only in part |
+| Queue | something has waited for you over 7 days | something has waited over 3.5 days | what waits was not read, or not all of it |
 
 ## The reviewers
 
@@ -91,8 +115,8 @@ contributor works on a false alarm.
 | `confirmed` | Set by the owner: the bot was right; the issue stays open until fixed |
 | `false-alarm` | Set by the owner on closing: the bot was wrong |
 
-The watcher knows its open issues by the label `client-change`. Remove that label, or close the
-issue, and it may report the same finding again.
+The watcher knows its open issues by the label `client-change` and its own authorship. Remove
+that label, or close the issue, and it may report the same finding again.
 
 When more than half of its last 10 issues with a verdict are `false-alarm`, the watcher opens
 one issue, "The client watcher is paused", with the labels `automated` and `desk`, and opens

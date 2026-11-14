@@ -1,0 +1,74 @@
+{
+  "agents": [
+    {
+      "id": "claude",
+      "name": "Claude reviewer",
+      "model": true,
+      "switch": "REVIEW_LIVE",
+      "repo": "KonstantinStarovoytov/kitden",
+      "workflow": "agents-review.yml",
+      "key": "CLAUDE_CODE_OAUTH_TOKEN",
+      "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
+    },
+    {
+      "id": "luna",
+      "name": "Luna reviewer",
+      "model": true,
+      "switch": "REVIEW_LIVE",
+      "repo": "KonstantinStarovoytov/kitden",
+      "workflow": "agents-review.yml",
+      "key": "OPENAI_API_KEY",
+      "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
+    },
+    {
+      "id": "watcher",
+      "name": "Client watcher",
+      "model": true,
+      "switch": "WATCH_LIVE",
+      "repo": "KonstantinStarovoytov/kitden-sdlc",
+      "workflow": "watch.yml",
+      "key": "ANTHROPIC_API_KEY",
+      "cap": "60 model calls a run"
+    },
+    {
+      "id": "release-prep",
+      "name": "Release prep",
+      "model": true,
+      "switch": "AGENTS_ENABLED",
+      "repo": "KonstantinStarovoytov/kitden",
+      "workflow": "release-prep.yml",
+      "key": "CLAUDE_CODE_OAUTH_TOKEN",
+      "cap": "60 turns and 25 minutes, then one fix pass of 15 turns and 10 minutes"
+    }
+  ],
+  "keys": [
+    {
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "stored": "Kitden",
+      "used_by": ["claude reviewer", "release prep"],
+      "money_cap": "the Max plan",
+      "dashboard": "https://claude.ai/settings/usage"
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "stored": "Kitden",
+      "used_by": ["luna reviewer"],
+      "money_cap": "$5 a month",
+      "dashboard": "https://platform.openai.com/usage"
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "stored": "kitden-sdlc",
+      "used_by": ["the watch eval on an OpenAI model"],
+      "money_cap": "not set",
+      "dashboard": "https://platform.openai.com/usage"
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "stored": "kitden-sdlc",
+      "used_by": ["client watcher", "the watch eval"],
+      "money_cap": "not set",
+      "dashboard": "https://console.anthropic.com/settings/usage"
+    }
+  ]
+}

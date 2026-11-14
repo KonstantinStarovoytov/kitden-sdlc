@@ -1,7 +1,8 @@
 """The issues a bot opens in Kitden: known by their author, labelled by where they come from.
 
-A bot never edits, labels or closes an issue a person opened, even one with the bot's title
-and labels: `by_bot` keeps only the issues whose author is BOT.
+A bot never edits, labels, closes or comments on an issue a person opened, even one with the
+bot's title and labels: `by_bot` keeps only the issues whose author is BOT, and GhIssues writes
+only to an issue that `by_bot` or `create` gave in this run.
 
 `pause` stops an agent whose issues the owner mostly marks `false-alarm` (spec 1.5).
 
@@ -42,11 +43,28 @@ VERDICTS = ("confirmed", "false-alarm")  # set by the owner on an agent's issue
 PAUSE_AFTER = 10  # the verdicts counted: with fewer there is no pause
 
 
+class NotTheBots(ValueError):
+    """A write to an issue that `by_bot` or `create` did not give in this run."""
+
+
+def issue_number(address: str) -> int:
+    """The number at the end of an issue's address, `https://github.com/o/r/issues/N`."""
+    return int(address.rstrip("/").rsplit("/", 1)[-1])
+
+
+def check_ours(ours: set[int], number: int) -> None:
+    """Raise NotTheBots unless `number` is one of `ours`."""
+    if number not in ours:
+        raise NotTheBots(f"issue #{number} was not given by by_bot or create in this run, so it "
+                         "may be a person's: nothing was written to it")
+
+
 class GhIssues:
     """Issues and labels of one repository through `gh api`, with the token in GH_TOKEN."""
 
     def __init__(self, repo: str):
         self.repo = repo
+        self.ours: set[int] = set()  # the numbers by_bot and create gave: the only ones written
 
     def _run(self, *args: str) -> str:
         done = subprocess.run(  # noqa: S603
@@ -72,10 +90,12 @@ class GhIssues:
     def by_bot(self, state: str = "open", label: str = "automated") -> list[dict]:
         """The issues with this label whose author is BOT; pull requests are left out."""
         query = urllib.parse.urlencode({"state": state, "labels": label, "per_page": 100})
-        return [
+        found = [
             item for item in self._list(f"repos/{self.repo}/issues?{query}")
             if "pull_request" not in item and (item.get("user") or {}).get("login") == BOT
         ]
+        self.ours |= {item["number"] for item in found}
+        return found
 
     def create(self, title: str, body: str, labels: list[str]) -> str:
         """Open an issue; returns its address."""
@@ -83,10 +103,13 @@ class GhIssues:
                 "-f", f"body={body}", "--jq", ".html_url"]
         for name in labels:
             args += ["-f", f"labels[]={name}"]
-        return self._run(*args).strip()
+        address = self._run(*args).strip()
+        self.ours.add(issue_number(address))
+        return address
 
     def edit(self, number: int, body: str, labels: list[str]) -> None:
         """Set the body and add the labels; labels a person set stay."""
+        check_ours(self.ours, number)
         self._run(f"repos/{self.repo}/issues/{number}", "--method", "PATCH", "-f", f"body={body}")
         args = [f"repos/{self.repo}/issues/{number}/labels", "--method", "POST"]
         for name in labels:
@@ -94,9 +117,11 @@ class GhIssues:
         self._run(*args)
 
     def close(self, number: int) -> None:
+        check_ours(self.ours, number)
         self._run(f"repos/{self.repo}/issues/{number}", "--method", "PATCH", "-f", "state=closed")
 
     def comment(self, number: int, body: str) -> None:
+        check_ours(self.ours, number)
         self._run(f"repos/{self.repo}/issues/{number}/comments", "--method", "POST",
                   "-f", f"body={body}")
 
@@ -163,17 +188,19 @@ def find_open(gh: GhIssues, title: str) -> int | None:
     return None
 
 
-def upsert(gh: GhIssues, title: str, body: str, labels: list[str]) -> None:
+def upsert(gh: GhIssues, title: str, body: str, labels: list[str]) -> int | None:
     """Edit the bot's open issue with this title, open one if none, close it when `body` is
-    empty. An issue a person opened is never touched."""
+    empty. An issue a person opened is never touched. Returns the number of the issue now open
+    with this body, or None when `body` is empty."""
     number = find_open(gh, title)
     if not body:
         if number is not None:
             gh.close(number)
-    elif number is None:
-        gh.create(title, body, labels)
-    else:
-        gh.edit(number, body, labels)
+        return None
+    if number is None:
+        return issue_number(gh.create(title, body, labels))
+    gh.edit(number, body, labels)
+    return number
 
 
 def paused_title(agent: str) -> str:

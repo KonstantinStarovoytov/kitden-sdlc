@@ -11,6 +11,7 @@ from bot_issues import (
     PAUSE_AFTER,
     VERDICTS,
     GhIssues,
+    NotTheBots,
     ensure_labels,
     find_open,
     names,
@@ -175,10 +176,65 @@ def test_a_label_another_run_just_made_is_no_failure_and_any_other_failure_is(mo
 
 def test_fake_comments_are_the_bots():
     gh = FakeIssues([issue(4)])
+    gh.by_bot()
     gh.comment(4, "hello")
     assert gh.commented == [(4, "hello")]
     assert gh.comments(4) == [{"user": {"login": BOT}, "body": "hello"}]
     assert gh.comments(5) == []
+
+
+def test_gh_issues_writes_only_to_an_issue_by_bot_or_create_gave(monkeypatch):
+    run = FakeRun(json.dumps([issue(5, "T"), issue(6, "T", login="someone")]))
+    monkeypatch.setattr(bot_issues.subprocess, "run", run)
+    gh = GhIssues("o/kitden")
+    for write in (lambda: gh.edit(5, "b", ["automated"]), lambda: gh.close(5),
+                  lambda: gh.comment(5, "hi")):
+        with pytest.raises(NotTheBots, match="#5"):
+            write()
+    assert run.commands == []
+    gh.by_bot()
+    with pytest.raises(NotTheBots, match="#6"):  # a person's issue: by_bot left it out
+        gh.comment(6, "hi")
+    gh.edit(5, "b", ["automated"])
+    gh.close(5)
+    gh.comment(5, "hi")
+    assert [c[2] for c in run.commands[1:]] == [
+        "repos/o/kitden/issues/5", "repos/o/kitden/issues/5/labels",
+        "repos/o/kitden/issues/5", "repos/o/kitden/issues/5/comments"]
+
+
+def test_gh_issues_may_write_to_the_issue_it_just_opened(monkeypatch):
+    run = FakeRun("https://github.com/o/kitden/issues/12\n")
+    monkeypatch.setattr(bot_issues.subprocess, "run", run)
+    gh = GhIssues("o/kitden")
+    gh.create("T", "b", ["automated"])
+    gh.comment(12, "hi")
+    with pytest.raises(NotTheBots):
+        gh.comment(11, "hi")
+    assert len(run.commands) == 2
+
+
+def test_the_fake_refuses_the_same_writes():
+    gh = FakeIssues([issue(5, "T"), issue(6, "T", login="someone")])
+    for write in (lambda: gh.edit(5, "b", ["automated"]), lambda: gh.close(5),
+                  lambda: gh.comment(5, "hi")):
+        with pytest.raises(NotTheBots, match="#5"):
+            write()
+    gh.by_bot()
+    with pytest.raises(NotTheBots, match="#6"):
+        gh.close(6)
+    assert gh.edited == gh.closed == gh.commented == []
+    gh.comment(5, "hi")
+    gh.create("U", "b", ["automated"])
+    gh.close(7)
+    assert gh.commented == [(5, "hi")] and gh.closed == [7]
+
+
+def test_upsert_gives_the_number_of_the_issue_it_wrote():
+    gh = FakeIssues([issue(7, "T")])
+    assert upsert(gh, "T", "new", ["automated"]) == 7
+    assert upsert(gh, "U", "new", ["automated"]) == 8
+    assert upsert(gh, "T", "", ["automated"]) is None
 
 
 FOUND = "Codex: the hooks key was renamed"  # a title a model wrote

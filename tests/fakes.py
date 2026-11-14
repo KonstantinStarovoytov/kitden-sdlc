@@ -4,7 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from bot_issues import BOT, names
+from bot_issues import BOT, check_ours, names
 
 # A key without its prefix: what is left when a model cuts off a token's first characters.
 KEY_TAIL = "oat01-Zk3vQ9xLr7TnB2mWc8YpD4sHf6JgA1uE5N0aVbXe"
@@ -50,45 +50,55 @@ def issue(number: int, title: str = "t", labels: tuple[str, ...] = ("automated",
 
 
 class FakeIssues:
-    """GhIssues without GitHub: the issues and labels it is given, and a record of each write."""
+    """GhIssues without GitHub: the issues, labels and comments (number: list of comments as
+    GitHub gives them) it is given, and a record of each write. Like GhIssues it writes only to
+    an issue that by_bot or create gave."""
 
     repo = ""
 
-    def __init__(self, issues=(), labels=()):
+    def __init__(self, issues=(), labels=(), comments=None):
         self.issues = [dict(item) for item in issues]
         self.have = set(labels)
+        self.ours: set[int] = set()
         self.created: list[tuple[str, str, list[str]]] = []
         self.edited: list[tuple[int, str, list[str]]] = []
         self.closed: list[int] = []
         self.commented: list[tuple[int, str]] = []
         self.created_labels: list[tuple[str, str, str]] = []
-        self._comments: dict[int, list[dict]] = {}
+        self._comments: dict[int, list[dict]] = {
+            number: list(items) for number, items in (comments or {}).items()}
 
     def _issue(self, number: int) -> dict:
         return next(item for item in self.issues if item["number"] == number)
 
     def by_bot(self, state="open", label="automated"):
-        return [item for item in self.issues
-                if state in ("all", item["state"]) and label in names(item)
-                and "pull_request" not in item and item["user"]["login"] == BOT]
+        found = [item for item in self.issues
+                 if state in ("all", item["state"]) and label in names(item)
+                 and "pull_request" not in item and item["user"]["login"] == BOT]
+        self.ours |= {item["number"] for item in found}
+        return found
 
     def create(self, title, body, labels):
         self.created.append((title, body, list(labels)))
         number = max((item["number"] for item in self.issues), default=0) + 1
         self.issues.append(issue(number, title, tuple(labels), body=body))
+        self.ours.add(number)
         return self.issues[-1]["html_url"]
 
     def edit(self, number, body, labels):
+        check_ours(self.ours, number)
         self.edited.append((number, body, list(labels)))
         item = self._issue(number)
         item["body"] = body
         item["labels"] += [{"name": name} for name in labels if name not in names(item)]
 
     def close(self, number):
+        check_ours(self.ours, number)
         self.closed.append(number)
         self._issue(number)["state"] = "closed"
 
     def comment(self, number, body):
+        check_ours(self.ours, number)
         self.commented.append((number, body))
         self._comments.setdefault(number, []).append({"user": {"login": BOT}, "body": body})
 
