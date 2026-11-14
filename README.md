@@ -10,15 +10,9 @@ untrusted text, a secret and write access at once.
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) [![Tests and checks](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml/badge.svg)](https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/checks.yml)
 
-| Part | What it does | Status |
-|---|---|---|
-| Review ([review.yml](.github/workflows/review.yml)) | Claude and Luna read each pull request; the Lantern app posts one "Agent review" comment | live on Kitden |
-| Workflow check ([check.yml](.github/workflows/check.yml)) | zizmor, actionlint and the rule checker on every workflow change | live on Kitden |
-| Client watcher ([watch.yml](.github/workflows/watch.yml)) | Claude Sonnet 5.5 reads the release notes of Claude Code, Codex and Cursor; a script opens issues in Kitden | live: every day; the eval runs by hand |
-| The desk ([desk.yml](.github/workflows/desk.yml)) | every day, no model: works out Kitden's health and what waits for the owner, and shows it in the pinned issue "Kitden desk" | every day; the issue needs `AGENTS_ENABLED` |
-| Release prep ([release-prep.yml](.github/workflows/release-prep.yml)) | Claude drafts the notes, README and policy edits with read-only tools; scripts check them and Claude gets one pass to fix what they find; a job without a model opens the release pull request, as a draft when something is left | ready in Kitden; the first release with it is still to come |
-| Publish ([publish.yml](.github/workflows/publish.yml)) | no model; in the `release` environment it moves the `release` branch and opens the Homebrew pull request, and it publishes to the MCP Registry | ready in Kitden; the first release with it is still to come |
-| Release watch ([release-watch.yml](.github/workflows/release-watch.yml)) | daily, no model: an issue when a release is due or a store is behind | set up in Kitden; runs every day |
+**[Open the live map](https://konstantinstarovoytov.github.io/kitden-sdlc/map/)**: every
+workflow in Kitden, kitden-sdlc and the Homebrew tap, what starts it, its jobs and their steps.
+The three pictures below are its three stories.
 
 Every agent, its model and its limits: [docs/agents.md](docs/agents.md).
 
@@ -32,52 +26,42 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 | <img src="docs/images/apps/beacon.svg" width="40" alt="Kitden Beacon"> | **Kitden Beacon**<br/>`kitden-beacon` | opens the release pull request, tags the release, moves the `release` branch, opens the Homebrew pull request |
 | <img src="docs/images/apps/kettle.svg" width="40" alt="Kitden Kettle"> | **Kitden Kettle**<br/>`kitden-kettle` | keeps the Homebrew formula up to date in the tap, every day |
 
-## How it works
+## What causes what
 
-| When | What runs | You do | You hear |
-|---|---|---|---|
-| A pull request to `main` | Claude and Luna review it; Lantern posts one "Agent review" comment | read it; merging is yours | a comment |
-| A pull request changes a workflow | zizmor, actionlint, the rule checker | fix a red check | a red check |
-| Every day, 05:17 UTC | the client watcher reads Claude Code, Codex and Cursor notes | put `confirmed` on each issue that is right (it stays open until fixed), or close it with `false-alarm` | an issue for a sure major problem (two a week at most); a summary on Monday; or one issue "The client watcher is paused": close it to lift the pause |
-| Every day, 06:23 UTC | the release watch, no model | run Release prep (the issue links to it), or re-run what it names | "Time for a release?", "Release vX.Y.Z is not everywhere" |
-| Every day, 06:41 UTC | the desk, no model: Kitden's health and what waits for you, in the pinned issue "Kitden desk" | do what its "Waiting for you" lines say ([what you do](docs/owner.md)) | one comment on the desk issue a week, with the week's first run |
+A column is a place: you, Kitden, kitden-sdlc, the Homebrew tap, what you get. An arrow says
+why the next thing starts. A dot on a job means a model runs in it.
 
-Bots never write `@name`. Every issue a bot opens has the label `automated` and one label that
-says where it comes from: `client-change`, `release` or `desk`.
-
-Everything a bot posts has one look: badges first (a version on orange, the risk as bars, a
-check or a question mark), one plain line, a box that says what you do, the small print last.
-[What each mark means](docs/agents.md#one-look).
-
-### Review
+### A pull request
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/review-dark.svg">
-  <img src="docs/images/review-light.svg" width="720" alt="Review: you open a pull request; a daily cap of 10; Claude Sonnet 5.5 and GPT-6 Luna each read the change on their own; Lantern merges both reviews into one comment, keeping fixed findings marked; you fix or merge, and it never approves or blocks.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/map-pull-request-dark.png">
+  <img src="docs/images/map-pull-request-light.png" width="820" alt="You open a pull request in Kitden. Always: release.yml runs the checks. To main: agents-review.yml uses review.yml, where Claude and Luna read the change and Lantern posts one review comment that never blocks. If a workflow changed: agents-check.yml uses check.yml. If the page changed: scenes.yml records the README pictures.">
 </picture>
 
 The cap is 10 reviews a day by default; Kitden's caller sets `AGENTS_REVIEW_DAILY_CAP`, or 20.
 
-### Client watcher
+### A release
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/watcher-dark.svg">
-  <img src="docs/images/watcher-light.svg" width="720" alt="Client watcher: every day at 05:17 UTC a script fetches the new parts of the release notes and docs of Claude Code, Codex and Cursor; Claude Sonnet 5.5 checks every row of Kitden's list with a quote, reads Kitden's code for a type and a severity, and takes a second look at a sure break or wrong data; Lantern opens an issue for a sure major one at once (two a week at most) and puts the rest in Monday's summary; you confirm it or close it as a false alarm.">
-</picture>
-
-
-### Release
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/release-dark.svg">
-  <img src="docs/images/release-light.svg" width="720" alt="Release: you start Release prep; a script gathers the changes; Claude drafts the release notes, README and policy edits; a script checks and prepares; Beacon opens the pull request Kitden X.Y.Z; you review and merge it; Beacon tags it; the build is tested on Linux and macOS, then goes to PyPI and the GitHub release; Beacon moves the release branch and opens the Homebrew pull request; the MCP Registry is published and a table of every store follows. Every day Kettle keeps the Homebrew formula up to date and Lantern opens an issue when a store is behind or a release is due.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/map-release-dark.png">
+  <img src="docs/images/map-release-light.png" width="820" alt="You press Run workflow: release-prep.yml in Kitden uses release-prep.yml in kitden-sdlc, where Claude drafts and scripts check, and Beacon opens the pull request Kitden X.Y.Z. You read it and merge; release.yml builds and Beacon tags. The tag starts release.yml again: PyPI and the GitHub release, then it uses publish.yml, which moves the release branch, publishes to the MCP Registry and opens a pull request in the tap. There tests.yml, auto-pull.yml and publish.yml run one after another, and brew install kitden works.">
 </picture>
 
 You never open an issue for a release. In Kitden on GitHub: **Actions → Release prep → Run
 workflow**, keep "Use workflow from" on `main`, keep the version on **Auto** (or pick
 **Features (0.X.0)** or **Fixes (0.0.X)**), press the green **Run workflow**. Then review and
-merge the pull request **Kitden X.Y.Z**. The bot's issue "Time for a release?" links to the
-same page.
+merge the pull request **Kitden X.Y.Z**.
+
+### Every day
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/map-every-day-dark.png">
+  <img src="docs/images/map-every-day-light.png" width="820" alt="By the clock, in UTC. 05:17: watch.yml reads what Claude Code, Codex and Cursor changed, and Lantern opens an issue in Kitden. 05:17: latest-deps.yml tests Kitden on the newest dependencies. 06:23: release-watch.yml in Kitden uses release-watch.yml in kitden-sdlc, and Lantern opens Time for a release. 06:41: desk.yml updates the Kitden desk issue. 13:10: autobump.yml in the tap opens a pull request for a new version.">
+</picture>
+
+What you do with each issue: [docs/owner.md](docs/owner.md). Bots never write `@name`. Every
+issue a bot opens has the label `automated` and one label that says where it comes from:
+`client-change`, `release` or `desk`. [What each mark in a bot's text means](docs/agents.md#one-look).
 
 Three switches stop it all: `AGENTS_ENABLED` (everything), `REVIEW_LIVE` (the two reviewers)
 and `WATCH_LIVE` (the watcher's daily run). `AGENTS_ENABLED` is two variables, one in Kitden
