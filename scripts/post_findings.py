@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
 
+from secret_filter import has_commit, in_git, in_text, random_runs, unknown_runs
+
 SUMMARY_MAX = 300
 TEXT_MAX = 300
 FINDINGS_MAX = 5
@@ -163,13 +165,64 @@ def load_report(path: Path) -> Report | None:
 # --- Keeping secrets out ---
 
 
-def refuse_secret_like(report: Report) -> None:
-    """Raise SecretLikeError when any text that would be posted looks like a token."""
+def report_texts(report: Report) -> list[str]:
+    """Every text of the report that would be posted."""
     texts = [report.summary]
     for f in report.findings:
         texts += [f.path, f.text]
-    if any(SECRET_LIKE.search(text) for text in texts):
+    return texts
+
+
+def refuse_secret_like(report: Report) -> None:
+    """Raise SecretLikeError when any text that would be posted looks like a token."""
+    if any(SECRET_LIKE.search(text) for text in report_texts(report)):
         raise SecretLikeError
+
+
+def refuse_unknown_runs(
+    api: "Api",
+    repo: str,
+    pr: int,
+    reports: dict[str, Report | None],
+    tree: Path | None,
+    head_sha: str,
+    base_sha: str | None = None,
+    names: dict[str, str] | None = None,
+) -> None:
+    """Raise SecretLikeError when the reports hold a long random string (a key cut short)
+    that the reviewers were not given: it is not in the pull request's title and body, nor
+    in the files or file names of its head commit or of its base commit, which `tree`
+    holds. Without `tree`, only the title and body count; with a `tree` that lacks the head
+    commit, nothing does. The pull request is read only when there is such a string. The
+    message counts the strings and never shows one: each may be a key."""
+    texts = {name: report_texts(report) for name, report in reports.items() if report}
+    if not any(random_runs(text) for each in texts.values() for text in each):
+        return
+    # The fetch of the pull request's commits failed: then nothing counts as known.
+    unread = tree is not None and not has_commit(tree, head_sha)
+    sources = []
+    if not unread:
+        pull = api.pull_text(repo, pr)
+        if pull is None:
+            print("::warning::Cannot read the pull request's title and body; nothing in them "
+                  "counts as known.")
+        else:
+            sources.append(in_text(pull))
+        if tree:
+            sources += [in_git(tree, sha) for sha in (head_sha, base_sha) if sha]
+    counts = {
+        name: len(unknown_runs(each, lambda run: any(known(run) for known in sources)))
+        for name, each in texts.items()
+    }
+    names = names or REVIEWERS
+    held = [f"{n} in {names[name]}'s text" for name, n in counts.items() if n]
+    if held:
+        why = "long random strings that are not in what the reviewers were given: "
+        why += ", ".join(held)
+        if unread:
+            why += "; the pull request's files could not be read, so every long random string"
+            why += " is refused"
+        raise SecretLikeError(why)
 
 
 # --- Keeping people out of it ---
@@ -530,12 +583,19 @@ def review_body(
 ) -> str:
     """The whole comment. `reports` has None for a reviewer that gave no usable answer.
     `earlier` is what the comment held before, and `changes` what changed since. `names`
-    are the reviewers' names as the comment shows them."""
+    are the reviewers' names as the comment shows them.
+
+    With no answer at all this commit was not reviewed: the earlier findings stay as they
+    were, none is marked fixed, and the hidden line keeps the last reviewed commit, so the
+    next review compares from there."""
     parts = [TITLE]
     answered_now = [name for name in REVIEWERS if reports.get(name)]
     answered = [n for n in REVIEWERS if n in answered_now or (earlier and n in earlier.answered)]
+    reviewed = head_sha
+    if not answered_now:
+        reviewed, changes = (earlier.head if earlier else head_sha), {}
     items, dropped = trim(
-        carry(merge(reports), earlier, head_sha, changes),
+        carry(merge(reports), earlier, reviewed, changes),
         earlier.dropped if earlier else {name: 0 for name in [*REVIEWERS, "both"]},
     )
     # Earlier text was checked when it was first posted; check it again all the same.
@@ -544,7 +604,10 @@ def review_body(
     still = [i for i in items if not i.now and not i.fixed]
     fixed = [i for i in items if not i.now and i.fixed]
     latest = next((r for name in REVIEWERS if (r := reports.get(name))), None)
-    if latest:
+    if not latest:
+        commit = one_line(head_sha[:7])
+        parts.append(f"Neither reviewer gave a usable answer for {commit}. This is not a review.")
+    else:
         parts.append(one_line(latest.summary))
         if current:
             bullets = "\n".join(_bullet(item, repo, names) for item in current)
@@ -570,10 +633,10 @@ def review_body(
     if left_out:
         parts.append(f"{left_out} older findings are left out to keep this comment short.")
     silent = [names[name] for name in REVIEWERS if not reports.get(name)]
-    if silent:
+    if latest and silent:
         parts.append(" and ".join(silent) + " gave no usable answer this time.")
     parts.append("<sub>👍 useful · 👎 wrong</sub>")
-    parts.append(state_line(Earlier(head_sha, answered, items, dropped)))
+    parts.append(state_line(Earlier(reviewed, answered, items, dropped)))
     parts.append(marker(answered, items, dropped))
     return "\n\n".join(parts)
 
@@ -589,6 +652,8 @@ class Api(Protocol):
     def update_issue_comment(self, repo: str, comment_id: int, body: str) -> None: ...
 
     def compare(self, repo: str, base: str, head: str) -> dict | None: ...
+
+    def pull_text(self, repo: str, pr: int) -> str | None: ...
 
 
 class GhApi:
@@ -643,6 +708,16 @@ class GhApi:
             return None
         return data if isinstance(data, dict) else None
 
+    def pull_text(self, repo: str, pr: int) -> str | None:
+        """The pull request's title, a new line, and its body, or None when gh fails."""
+        try:
+            data = json.loads(self._run(f"repos/{repo}/pulls/{pr}", token=self.read_token))
+        except (subprocess.CalledProcessError, ValueError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        return f"{data.get('title') or ''}\n{data.get('body') or ''}"
+
 
 # --- Putting it together ---
 
@@ -686,19 +761,21 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--repo", default="owner/repo")
     parser.add_argument("--pr", type=int)
     parser.add_argument("--head-sha", default="0000000")
+    parser.add_argument(
+        "--tree", type=Path, help="a git repository holding --head-sha, to look up quoted strings"
+    )
+    parser.add_argument("--base-sha", help="the base commit in --tree, also known to the reviewers")
     parser.add_argument("--dry-run", action="store_true", help="print the comment, call nothing")
     args = parser.parse_args(argv)
     if not args.dry_run and args.pr is None:
         parser.error("--pr is required without --dry-run")
 
-    # A missing or broken file must not fail the job. With one answer the comment says
-    # who is missing; with none there is nothing to post.
+    # A missing or broken file must not fail the job. The comment says who is missing;
+    # with no answer at all it says this commit was not reviewed.
     reports = {"claude": load_report(args.claude), "luna": load_report(args.luna)}
     for name, report in reports.items():
         if report is None:
             print(f"::warning::The {name} reviewer gave no usable answer this time.")
-    if not any(reports.values()):
-        return 0
     try:
         for report in reports.values():
             if report:
@@ -708,13 +785,17 @@ def main(argv: list[str]) -> int:
             print(review_body(reports, args.repo, args.head_sha, names=names))
             return 0
         api = GhApi(read_token=os.environ.get("GH_READ_TOKEN") or None)
+        refuse_unknown_runs(
+            api, args.repo, args.pr, reports, args.tree, args.head_sha, args.base_sha, names
+        )
         comments = api.list_issue_comments(args.repo, args.pr)
         earlier, changes = earlier_review(api, args.repo, args.head_sha, find_ours(comments))
         body = review_body(reports, args.repo, args.head_sha, earlier, changes, names)
         post(api, args.repo, args.pr, body, comments)
-    except SecretLikeError:
+    except SecretLikeError as error:
         # Not the missing-report case: fail loud so the job turns red.
-        print("Refused: a reviewer's output looked like a secret", file=sys.stderr)
+        why = str(error) or "a reviewer's output looked like a secret"
+        print(f"Refused: {why}", file=sys.stderr)
         return 1
     return 0
 

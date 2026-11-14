@@ -1,0 +1,13 @@
+# Once a week Dependabot opens one pull request with newer versions of the actions.
+# A version must be a week old first, so a bad release has time to be noticed.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]

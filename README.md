@@ -51,6 +51,8 @@ Bots never write `@name`. Every issue a bot opens has the label `automated`.
   <img src="docs/images/review-light.svg" width="720" alt="Review: you open a pull request; a daily cap of 10; Claude Sonnet 5.5 and GPT-6 Luna each read the change on their own; Lantern merges both reviews into one comment, keeping fixed findings marked; you fix or merge, and it never approves or blocks.">
 </picture>
 
+The cap is 10 reviews a day by default; Kitden's caller sets `AGENTS_REVIEW_DAILY_CAP`, or 20.
+
 ### Client watcher
 
 <picture>
@@ -73,8 +75,9 @@ merge the pull request **Kitden X.Y.Z**. The bot's issue "Time for a release?" l
 same page. Do not open issues with the bots' titles yourself: the bot finds its issues by the
 exact title and would rewrite or close yours.
 
-Two switches stop it all: `AGENTS_ENABLED` (everything) and `WATCH_LIVE` (the watcher's daily
-run).
+Three switches stop it all: `AGENTS_ENABLED` (everything), `REVIEW_LIVE` (the two reviewers)
+and `WATCH_LIVE` (the watcher's daily run). `AGENTS_ENABLED` is two variables, one in Kitden
+(review and release) and one in kitden-sdlc (the watcher); to stop everything, turn off both.
 
 ## The rules
 
@@ -88,14 +91,22 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 4. Every action is pinned to a full SHA. The caller may use this repository's workflows at
    `main`, which is protected.
 5. Every agent job has a timeout, a turn limit and one run per pull request. Luna has only
-   the 15 minutes. An agent that is a script has `MAX_MODEL_CALLS` and runs one at a time.
-6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Luna
-   can run shell commands, but only in a read-only sandbox without network, and it can read
-   more than the checkout.
+   a 12-minute step limit. An agent that is a script has `MAX_MODEL_CALLS` and runs one at a
+   time.
+6. Tools are allowed by exact name: no Bash, web or MCP. Claude reads only the checkout. Text
+   that looks like a secret, or holds a long random string the model was not given, is refused.
+   Before that check the model's output is a run artifact, kept for a day. Luna can run shell
+   commands, but only in a read-only sandbox without network, and it can read more than the
+   checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
    never share a job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it
    (today the "Agent review" title).
+9. A job that runs a model starts with Harden-Runner, which for now only records the hosts it
+   reaches.
+10. A model step never prints its full output or debug logs.
+11. No agent is in anyone's way: no required check, no approving or requesting changes, no red
+    mark when a reviewer fails.
 
 ## Copy this
 
@@ -111,5 +122,5 @@ setup: [docs/setup.md](docs/setup.md) for review and the watcher,
 - [LOG.md](LOG.md): what went wrong while building, and what changed
 - Designs: [reviewers](docs/design.md), [client watcher](docs/watcher-design.md),
   [release flow](docs/superpowers/specs/2026-11-12-release-flow-design.md)
-- [MERGE_POLICY.md](MERGE_POLICY.md): the reviewers only comment, never approve or block
+- [MERGE_POLICY.md](MERGE_POLICY.md): what agents may and may not do to a pull request
 - Evals: [review tasks](evals/README.md), [watch tasks](evals/watch/README.md)

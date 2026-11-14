@@ -29,6 +29,7 @@ from post_findings import (
     refuse_secret_like,
     review_body,
 )
+from tests.fakes import KEY_TAIL, repo, shows_key
 
 FIXTURE = Path(__file__).parent / "fixtures" / "findings_ok.json"
 ROOT = Path(__file__).parent.parent
@@ -65,6 +66,10 @@ class FakeApi:
     def compare(self, repo, base, head):
         self.calls.append(("compare", base, head))
         return self.compared
+
+    def pull_text(self, repo, pr):
+        self.calls.append(("pull_text", pr))
+        return "Title\n\nBody"
 
 
 def finding(path="a.py", line=1, kind="bug", text="Something is wrong."):
@@ -288,8 +293,15 @@ def test_one_line_joins_and_quiets():
 def test_a_silent_reviewer_is_named():
     assert "Luna gave no usable answer this time." in body_of(report(), None)
     assert "Claude gave no usable answer this time." in body_of(None, report())
-    assert "Claude and Luna gave no usable answer this time." in body_of(None, None)
+    assert "gave no usable answer this time" not in body_of(None, None)
     assert "gave no usable answer" not in body_of(report(), report())
+
+
+def test_no_answer_at_all_says_so_and_is_not_a_review():
+    body = body_of(None, None)
+    assert "Neither reviewer gave a usable answer for abcdef1. This is not a review." in body
+    assert "No problems found." not in body
+    assert read_marker(body) == {"claude": None, "luna": None, "both": 0}
 
 
 def test_the_body_ends_with_the_marker():
@@ -389,11 +401,22 @@ def argv_for(claude, luna, *extra):
     return ["--claude", str(claude), "--luna", str(luna), *extra]
 
 
-def test_main_with_both_files_missing_posts_and_prints_nothing(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(post_findings, "GhApi", lambda **_: pytest.fail("no GitHub"))
-    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7")
+def test_main_with_both_files_missing_posts_that_neither_answered(tmp_path, capsys, monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7", "--head-sha", SHA)
     assert main(argv) == 0
     assert capsys.readouterr().out.count("::warning::") == 2
+    assert [call[0] for call in api.calls] == ["create"]
+    body = api.comments[0]["body"]
+    assert "Neither reviewer gave a usable answer for abcdef1. This is not a review." in body
+    assert read_marker(body) == {"claude": None, "luna": None, "both": 0}
+
+
+def test_dry_run_with_both_files_missing_prints_that_neither_answered(tmp_path, capsys):
+    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--dry-run", "--head-sha", SHA)
+    assert main(argv) == 0
+    assert "Neither reviewer gave a usable answer for abcdef1." in capsys.readouterr().out
 
 
 def test_main_with_one_file_missing_still_prints_a_body(tmp_path, capsys):
@@ -425,6 +448,98 @@ def test_main_refuses_a_secret_and_exits_one(tmp_path, capsys, monkeypatch):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "looked like a secret" in captured.err
+
+
+def quoting(tmp_path):
+    text = f"The value {KEY_TAIL} is wrong."
+    return write(tmp_path, {"summary": "One problem.", "findings": [
+        {"path": "a.py", "line": 1, "kind": "bug", "text": text}]})
+
+
+def run_main(tmp_path, monkeypatch, files, *extra):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    tree = repo(tmp_path / "tree", files)
+    code = main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7", "--head-sha", "HEAD",
+                         "--tree", str(tree), *extra))
+    return code, api
+
+
+def test_main_refuses_a_random_run_the_pull_request_lacks(tmp_path, capsys, monkeypatch):
+    code, api = run_main(tmp_path, monkeypatch, {"a.py": "x = 1\n"})
+    err = capsys.readouterr().err
+    assert code == 1 and not [c for c in api.calls if c[0] in ("create", "update")]
+    assert "not in what the reviewers were given: 1 in Claude's text" in err
+    assert not shows_key(err)
+
+
+def test_main_refuses_every_random_run_when_the_tree_lacks_the_head(tmp_path, capsys, monkeypatch):
+    # The fetch of the pull request's commit failed: the tree holds another commit.
+    api = FakeApi()
+    api.pull_text = lambda repo, pr: f"Rotate {KEY_TAIL} please"
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    tree = repo(tmp_path / "tree", {"a.py": f"X = '{KEY_TAIL}'\n"})
+    argv = argv_for(quoting(tmp_path), FIXTURE, "--pr", "7", "--head-sha", "1" * 40,
+                    "--tree", str(tree))
+    assert main(argv) == 1
+    assert not [c for c in api.calls if c[0] in ("create", "update")]
+    err = capsys.readouterr().err
+    assert "the pull request's files could not be read, so every long random string" in err
+    assert not shows_key(err)
+
+
+def test_main_knows_nothing_when_the_pull_request_text_cannot_be_read(
+    tmp_path, capsys, monkeypatch
+):
+    api = FakeApi()
+    api.pull_text = lambda repo, pr: None
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7")) == 1
+    captured = capsys.readouterr()
+    assert "Cannot read the pull request's title and body" in captured.out
+    assert "Refused:" in captured.err and "Traceback" not in captured.err
+
+
+def test_main_posts_a_random_run_the_pull_request_holds(tmp_path, monkeypatch):
+    code, api = run_main(tmp_path, monkeypatch, {"a.py": f"X = '{KEY_TAIL}'\n"})
+    assert code == 0 and api.calls[-1][0] == "create"
+
+
+def test_main_posts_a_random_run_only_the_base_commit_holds(tmp_path, monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    tree = repo(tmp_path / "tree", {"a.py": f"X = '{KEY_TAIL}'\n"})
+    base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tree, capture_output=True,
+                          text=True, check=True).stdout.strip()
+    repo(tree, {"a.py": "X = 1\n"})  # a second commit: the head no longer holds it
+    argv = argv_for(quoting(tmp_path), FIXTURE, "--pr", "7", "--head-sha", "HEAD",
+                    "--tree", str(tree))
+    assert main(argv) == 1
+    assert main([*argv, "--base-sha", base]) == 0
+    assert api.calls[-1][0] == "create"
+
+
+def test_main_posts_a_random_run_the_pull_request_text_holds(tmp_path, monkeypatch):
+    api = FakeApi()
+    api.pull_text = lambda repo, pr: f"Rotate {KEY_TAIL} please"
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7")) == 0
+    assert api.calls[-1][0] == "create"
+
+
+def test_main_without_a_tree_refuses_and_a_plain_report_reads_no_pull_request(
+    tmp_path, monkeypatch
+):
+    api = FakeApi()
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--pr", "7")) == 1
+    assert main(argv_for(FIXTURE, FIXTURE, "--pr", "7")) == 0
+    assert ("pull_text", 7) in api.calls and api.calls.count(("pull_text", 7)) == 1
+
+
+def test_dry_run_skips_the_random_run_check(tmp_path, capsys):
+    assert main(argv_for(quoting(tmp_path), FIXTURE, "--dry-run")) == 0
+    assert "One problem." in capsys.readouterr().out
 
 
 def test_dry_run_with_a_secret_exits_one(tmp_path, capsys):
@@ -769,6 +884,29 @@ def test_a_reviewer_silent_now_keeps_its_earlier_findings_and_counts():
     assert read_marker(body) == {"claude": 0, "luna": 1, "both": 0}
 
 
+def test_no_answer_keeps_the_earlier_findings_and_marks_none_fixed(tmp_path, monkeypatch):
+    api = FakeApi()
+    before = run(api, report([finding("a.py", 11, text="Off by one."), ROADMAP]), report())
+    # The next push changes the lines of a.py:11, but nobody reviews it.
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    argv = argv_for(tmp_path / "a.json", tmp_path / "b.json", "--pr", "7", "--repo", "o/r",
+                    "--head-sha", NEXT)
+    assert main(argv) == 0
+    body = api.comments[0]["body"]
+    assert [call[0] for call in api.calls if call[0] != "compare"] == ["create", "update"]
+    assert "Neither reviewer gave a usable answer for 1556615." in body
+    assert "**Not repeated by the latest review (2)**" in body and "Fixed" not in body
+    assert read_marker(body) == read_marker(before) == {"claude": 2, "luna": 0, "both": 0}
+    # The hidden line is the earlier one: the next review compares from the last reviewed
+    # commit, so it can still mark a.py:11 fixed.
+    assert read_state(body) == read_state(before)
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    after = run(api, report(), report(), head=LAST)
+    assert ("compare", SHA, LAST) in api.calls
+    assert "Off by one. *(Claude, fixed in 9999999)*" in after
+
+
 def test_a_long_history_is_cut_but_still_counted():
     fixed = [Item(finding(f"f{n}.py", 1), ["claude"], SHA, SHA, SHA) for n in range(30)]
     earlier = Earlier(SHA, ["claude"], fixed, {"claude": 0, "luna": 0, "both": 0})
@@ -915,6 +1053,31 @@ def test_gh_api_compare_uses_the_read_token(monkeypatch):
     assert calls[0]["GH_TOKEN"] == "read"
     GhApi().create_issue_comment("o/r", 7, "hi")
     assert calls[1] is None  # posting keeps the job's GH_TOKEN
+
+
+def test_gh_api_pull_text_is_the_title_and_the_body(monkeypatch):
+    run_ = FakeRun('{"title": "Fix it", "body": "Some words."}')
+    envs = []
+    monkeypatch.setattr(
+        post_findings.subprocess,
+        "run",
+        lambda command, **kw: envs.append(kw.get("env")) or run_(command, **kw),
+    )
+    assert GhApi(read_token="read").pull_text("o/r", 7) == "Fix it\nSome words."
+    assert run_.commands[0][2] == "repos/o/r/pulls/7"
+    assert envs[0]["GH_TOKEN"] == "read"
+    run_.result.stdout = '{"title": "Fix it", "body": null}'
+    assert GhApi().pull_text("o/r", 7) == "Fix it\n"
+
+
+def test_gh_api_pull_text_gives_none_when_gh_fails(monkeypatch):
+    def fail(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(post_findings.subprocess, "run", fail)
+    assert GhApi().pull_text("o/r", 7) is None
+    monkeypatch.setattr(post_findings.subprocess, "run", FakeRun("not json"))
+    assert GhApi().pull_text("o/r", 7) is None
 
 
 def test_gh_api_compare_gives_none_when_gh_fails(monkeypatch):

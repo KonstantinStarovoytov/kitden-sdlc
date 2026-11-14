@@ -7,18 +7,24 @@ No model runs here; the files it reads were written by one, so they are only dat
   release_apply.py all-scenes IMAGES_DIR
       Prints every scene that has a picture, on one line.
   release_apply.py apply ROOT OUT --version X.Y.Z --lists DIR [--images DIR --results FILE]
+                         [--context CONTEXT_JSON --given FILE ...]
       Copies the agent's files from OUT into the Kitden checkout ROOT, and the recorded
       pictures from --images: a still when its bytes differ, an animation when it is stale.
       Writes DIR/content.txt and DIR/policy.txt: the files of the first commit and of the
       second. Writes DIR/pictures.json: what became of each scene. Refuses, writing nothing,
       any file it does not know.
   release_apply.py body --findings F --development D --changed C --out BODY [--problems F
-      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R]
+      --facts F --pictures F --results F --expected "a b" --fixed F --fix-result R --root ROOT
+      --context CONTEXT_JSON --given FILE ...]
       The pull request's body: what is still wrong, what scripts checked, the agent's findings,
       the real-client checks from Kitden's docs/development.md that the changed files touch,
       and how to merge. R is the fix job's result (success, failure, cancelled, skipped or
       empty). A --problems, --pictures or --facts file that is given but cannot be read counts
-      as a problem. Prints draft or ready.
+      as a problem. Prints draft or ready. ROOT is the Kitden checkout.
+
+A long random string in the agent's files or in the body's text must be in what the agent
+read: ROOT's HEAD, the context.json it was given, or a --given file (the fix pass: the first
+problems.md, which scripts wrote). A missing file knows nothing.
 """
 
 import argparse
@@ -33,6 +39,7 @@ from pathlib import Path
 
 from post_findings import SECRET_LIKE, WORD_JOINER, quiet_mentions
 from release_bump import current_version
+from secret_filter import in_git, in_text, unknown_runs
 
 VERSION = re.compile(r"\d+\.\d+\.\d+\Z", re.ASCII)
 # What the agent may write in out/, and where each file goes. "content" files go in the first
@@ -123,7 +130,7 @@ def target_for(name: str, version: str) -> tuple[Path, str] | None:
     """Where out/`name` goes in Kitden and in which commit; None for the workflow's own files.
     Raises ValueError for any other name."""
     if name not in OUT_FILES:
-        raise ValueError(f"out/{name} is not allowed")
+        raise ValueError("a file in out/ has a name that is not allowed")
     target = OUT_FILES[name]
     if target is None:
         return None
@@ -134,19 +141,31 @@ def target_for(name: str, version: str) -> tuple[Path, str] | None:
 
 
 def _files(folder: Path) -> list[str]:
-    """Every file under `folder`, as relative POSIX names. Refuses links and odd files."""
+    """Every file under `folder`, as relative POSIX names. Refuses links and odd files,
+    counting them: the agent chooses the names, and a refusal must not show them."""
     if folder.is_symlink():
         raise ValueError(f"{folder} is a link")
     names: list[str] = []
+    odd = 0
     for top, dirs, files in os.walk(folder, followlinks=False):
         for name in [*dirs, *files]:
             path = Path(top, name)
-            if path.is_symlink():
-                raise ValueError(f"{path.relative_to(folder)} is a link")
-            if name in files and not path.is_file():
-                raise ValueError(f"{path.relative_to(folder)} is not a plain file")
+            if path.is_symlink() or (name in files and not path.is_file()):
+                odd += 1
         names += [Path(top, name).relative_to(folder).as_posix() for name in files]
+    if odd:
+        raise ValueError(
+            f"{folder.name}/ holds links or other files that are not plain ({odd}): refused"
+        )
     return sorted(names)
+
+
+def refuse_unknown_names(names: list[str]) -> None:
+    """Raises ValueError when a name in `names` is not in OUT_FILES. The message counts the
+    names and shows none of them: the agent chose them, and the job log is public."""
+    unknown = [name for name in names if name not in OUT_FILES]
+    if unknown:
+        raise ValueError(f"out/ holds files whose names are not allowed ({len(unknown)}): refused")
 
 
 def _no_link(root: Path, target: Path) -> None:
@@ -157,15 +176,21 @@ def _no_link(root: Path, target: Path) -> None:
         path = path.parent
 
 
-def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path], list[Path]]:
+def apply(
+    root: Path, out: Path, version: str | None = None, context: str = ""
+) -> tuple[list[Path], list[Path]]:
     """Copy the agent's files from `out` into `root`. Returns (content files, policy files),
     relative to `root`, leaving out files that did not change. Raises ValueError, writing
-    nothing, for any file outside OUT_FILES, a link, or a file that is too large."""
+    nothing, for any file outside OUT_FILES, a link, a file that is too large, or text that
+    looks like a secret: a token, or a long random string that neither Kitden's HEAD nor
+    `context` (the text the agent was given besides Kitden) holds."""
     version = version or current_version(root)
     if not VERSION.match(version):
         raise ValueError(f"version {version!r} is not X.Y.Z")
+    in_kitden = given(root, context)
     names = _files(out) if out.exists() else []
-    targets = {name: target_for(name, version) for name in names}  # refuses unknown names
+    refuse_unknown_names(names)
+    targets = {name: target_for(name, version) for name in names}
     planned: list[tuple[Path, str, bytes]] = []
     for name in sorted(targets, key=list(OUT_FILES).index):
         target = targets[name]
@@ -181,6 +206,12 @@ def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path]
             raise ValueError(f"out/{name} is not UTF-8 text") from error
         if SECRET_LIKE.search(text):
             raise ValueError(f"out/{name} looks like it holds a secret: not committed")
+        unknown = unknown_runs([text], in_kitden)
+        if unknown:
+            raise ValueError(
+                f"out/{name} holds long random strings that are not in what the agent was "
+                f"given ({len(unknown)}): not committed"
+            )
         _no_link(root, path)
         if (root / path).is_file() and (root / path).read_bytes() == data:
             continue
@@ -192,6 +223,13 @@ def apply(root: Path, out: Path, version: str | None = None) -> tuple[list[Path]
     content = [path for path, kind, _ in planned if kind == "content"]
     policy = [path for path, kind, _ in planned if kind == "policy"]
     return content, policy
+
+
+def given(root: Path | None, context: str) -> Callable[[str], bool]:
+    """Knows a run that Kitden's HEAD in `root` (when given) or the text `context` holds."""
+    in_context = in_text(context)
+    in_kitden = in_git(root, "HEAD") if root else in_text()
+    return lambda run: in_kitden(run) or in_context(run)
 
 
 def scenes(text: str, images: Path) -> list[str]:
@@ -436,13 +474,24 @@ def pr_body(
     errors: dict[str, str] | None = None,
     fixed: list[str] | None = None,
     fix_result: str = "",
+    known: Callable[[str], bool] | None = None,
 ) -> str:
-    """The release pull request's body. Raises ValueError when the findings, a problem or an
-    error look like they hold a secret."""
+    """The release pull request's body. Raises ValueError when the findings, a problem, an
+    error or a fixed path look like they hold a secret: a token, or a long random string that
+    `known` does not know (by default none is known)."""
     errors = errors or {}
-    for text in (findings, *problems, *errors.values()):
+    texts = (findings, *problems, *errors.values(), *(fixed or ()))
+    for text in texts:
         if SECRET_LIKE.search(text):
-            raise ValueError("the findings, a problem or an error look like they hold a secret")
+            raise ValueError(
+                "the findings, a problem, an error or a fixed path look like they hold a secret"
+            )
+    unknown = unknown_runs(texts, known or in_text())
+    if unknown:
+        raise ValueError(
+            f"the findings, a problem, an error or a fixed path hold long random strings that "
+            f"are not in what the agent was given ({len(unknown)}): not posted"
+        )
     findings = findings.strip()
     if len(findings) > FINDINGS_MAX:
         findings = findings[:FINDINGS_MAX] + "\n\n[cut: the rest is in the run's artifact]"
@@ -512,6 +561,9 @@ def _fixed(path: Path | None) -> list[str] | None:
     return [line.strip() for line in path.read_text().splitlines() if line.strip()]
 
 
+GIVEN_HELP = "another file scripts wrote that the agent read (the fix pass: the first problems.md)"
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -527,6 +579,8 @@ def main(argv: list[str]) -> int:
     apply_cmd.add_argument("--images", type=Path)
     apply_cmd.add_argument("--results", type=Path)
     apply_cmd.add_argument("--lists", type=Path, required=True)
+    apply_cmd.add_argument("--context", type=Path, help="the context.json the agent read")
+    apply_cmd.add_argument("--given", type=Path, action="append", default=[], help=GIVEN_HELP)
     body_cmd = commands.add_parser("body")
     body_cmd.add_argument("--findings", type=Path, required=True)
     body_cmd.add_argument("--development", type=Path, required=True)
@@ -540,15 +594,21 @@ def main(argv: list[str]) -> int:
     body_cmd.add_argument("--fix-result", default="")
     body_cmd.add_argument("--model", default="")
     body_cmd.add_argument("--out", type=Path, required=True)
+    body_cmd.add_argument("--root", type=Path, help="the Kitden checkout the agent read")
+    body_cmd.add_argument("--context", type=Path, help="the context.json the agent read")
+    body_cmd.add_argument("--given", type=Path, action="append", default=[], help=GIVEN_HELP)
     args = parser.parse_args(argv)
 
+    # Runs never cross a line, so the texts can be read as one.
+    given_files = [getattr(args, "context", None), *getattr(args, "given", [])]
+    context = "\n".join(_read(path) for path in given_files if path)
     try:
         if args.command == "scenes":
             print(" ".join(scenes(_read(args.scenes_txt), args.images)))
         elif args.command == "all-scenes":
             print(" ".join(all_scenes(args.images)))
         elif args.command == "apply":
-            content, policy = apply(args.root, args.out, args.version)
+            content, policy = apply(args.root, args.out, args.version, context)
             pictures: dict[str, str] = {}
             if args.images:
                 results = _results(args.results)
@@ -590,11 +650,14 @@ def main(argv: list[str]) -> int:
                 errors=_results(args.results),
                 fixed=_fixed(args.fixed),
                 fix_result=args.fix_result,
+                known=given(args.root, context),
             )
             args.out.write_text(body)
             print("draft" if is_draft(problems, pictures or {}) else "ready")
     except ValueError as error:
-        print(error)
+        # stderr: the workflow keeps stdout (draft or ready, the scenes) in a variable, and the
+        # reason must reach the log. No message holds the agent's text or a name it chose.
+        print(error, file=sys.stderr)
         return 1
     return 0
 

@@ -1,10 +1,12 @@
 """Check the judge's findings and decide which are urgent and which wait for the summary."""
 
 import copy
+import json
 from dataclasses import dataclass
 from datetime import date
 
 from post_findings import MENTION, SECRET_LIKE, WORD_JOINER
+from secret_filter import in_text, unknown_runs
 from watch_list import CLIENTS, parse_list, row_labels, terms
 
 URGENT_PER_WEEK = 2
@@ -49,6 +51,8 @@ def check(findings: dict, inp: dict) -> list[dict]:
     _need(all(isinstance(j, str) and j in pieces for j in judged + failed),
           "judged or failed piece not fetched")
     _need(not set(judged) & set(failed), "piece both judged and failed")
+    # A long random string the model wrote is a key cut short unless the input holds it.
+    in_input = in_text(json.dumps(inp, ensure_ascii=False))
     out = []
     for item in items:
         _need(isinstance(item, dict) and set(item) == KEYS, "finding keys")
@@ -67,6 +71,7 @@ def check(findings: dict, inp: dict) -> list[dict]:
         _need(item["row"] in {"", *rows}, "row not in the list")
         texts = [item[k] for k in STRINGS] + item["files"]
         _need(not any(SECRET_LIKE.search(t) for t in texts), "secret-like text")
+        _need(not unknown_runs(texts, in_input), "a long random string that is not in the input")
         clean = dict(item)
         for k in CUT:
             clean[k] = _quiet(item[k], TITLE_MAX if k == "title" else TEXT_MAX)

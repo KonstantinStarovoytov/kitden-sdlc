@@ -5,16 +5,16 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 
 ## The agents
 
-| Agent | Runs when | Model | May do | Limits |
-|---|---|---|---|---|
-| `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](../evals/README.md); runs on a Max subscription | read the checkout, write findings | see below |
-| `luna` reviewer | the same | GPT-6 Luna; runs on a project API key with a $5 monthly budget | read in a sandbox with no network, answer with findings | see below |
-| workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only |
-| weekly numbers | every Monday at 06:00 UTC | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code |
-| client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time, the `AGENTS_ENABLED` and `WATCH_LIVE` switches |
-| release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context, write files to one output folder; scripts check the files, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs: 25 minutes and 60 turns, then 10 minutes and 15 turns; one run at a time, the `AGENTS_ENABLED` switch; it stops while a release pull request is open |
-| release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time, the `AGENTS_ENABLED` switch |
-| publish | a `vX.Y.Z` tag in Kitden, after PyPI | none | move the `release` branch, publish to the MCP Registry, open the Homebrew pull request, write a summary | no model; each job writes to one place with its own short-lived token |
+| Agent | Runs when | Model | May do | Limits | Switch |
+|---|---|---|---|---|---|
+| `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](../evals/README.md) | read the checkout, write findings | see below | `AGENTS_ENABLED` and `REVIEW_LIVE`, in Kitden |
+| `luna` reviewer | the same | GPT-6 Luna | read in a sandbox with no network, answer with findings | see below | the same |
+| workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only | none |
+| weekly numbers | every Monday at 06:00 UTC | none | count reviews, commit `numbers.md` and `numbers.json` to the `numbers` branch | no model, no pull request code | none |
+| client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time | `AGENTS_ENABLED` and `WATCH_LIVE`, in kitden-sdlc |
+| release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context; write the notes, the README, the guide, the policy files and the plugin README to one output folder; scripts check them, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs with the same read-only tools: 25 minutes and 60 turns, then 10 minutes and 15 turns; one run at a time; it does not start while a release pull request is open or three bot pull requests wait, and stops when the branch `prepare-vX.Y.Z` exists | `AGENTS_ENABLED`, in Kitden; started by hand |
+| release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time | `AGENTS_ENABLED`, in Kitden |
+| publish | a `vX.Y.Z` tag in Kitden, after PyPI | none | move the `release` branch, publish to the MCP Registry, open the Homebrew pull request, write a summary | no model; each job writes to one place with its own short-lived token | none |
 
 The weekly numbers have not run yet; the first run is on Monday. Then
 [numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md) fills in.
@@ -26,7 +26,14 @@ finding. A job without a model writes it and edits it in place on later pushes, 
 first one sends a notification. A finding both reviewers made is listed once. A finding from
 an earlier push that the latest review does not repeat stays in the comment: under "Fixed"
 when the lines it points to changed since, or else under "Not repeated by the latest
-review". The counts keep it either way.
+review". The counts keep it either way. If one reviewer fails, the comment says which gave no
+answer; if both fail, it says neither did and that it is not a review. A failed reviewer
+leaves no red mark. The posting job refuses a reviewer's text that holds a long random string
+found nowhere in the pull request's title, body or files. That refusal, like one of text that
+looks like a secret, turns the job red, and so does a failure of the workflow's own steps
+(checkout, the prepare script, the cap, GitHub's API). Each findings file is kept as a run
+artifact for a day before these checks run, and anyone signed in to GitHub can download a
+public repository's artifacts.
 
 The two reviewers work by different methods, so they do not repeat each other's blind spots.
 Claude's skill follows Anthropic's
@@ -35,10 +42,11 @@ report only what is surely wrong, and check each finding before keeping it. Luna
 follows the review rubric of [OpenAI's Codex](https://github.com/openai/codex). Both sources
 are under Apache-2.0; the text here is rewritten for Kitden.
 
-Limits for both reviewers: 15 minutes, 5 findings each, at most 10 reviews a day, fork pull
-requests and bots skipped, the `AGENTS_ENABLED` variable switches everything off, and the
-label `no-agent-review` skips one pull request. The reviewers only comment: they never
-approve and never block ([merge policy](../MERGE_POLICY.md)).
+Limits for both reviewers: 12 minutes for the model step and 15 for its job, 5 findings
+each, at most 10 reviews a day by default (Kitden's caller sets `AGENTS_REVIEW_DAILY_CAP`, or
+20), fork pull requests and bots skipped, and the label `no-agent-review` skips one pull
+request. The reviewers only comment: they never approve and never block
+([rule 11](../RULES.md)).
 
 On Kitden, `agents-review.yml` calls [review.yml](../.github/workflows/review.yml), and the
 Lantern app posts the "Agent review" comment. `agents-check.yml` calls
@@ -98,7 +106,13 @@ workflows live here, and Kitden calls them. The design is
   scene, beside these jobs (`record`). `final-check` runs the checks again with the pictures in,
   and `open-pr` opens the pull request `Kitden X.Y.Z` as the release app, with the policy edits
   in a commit of their own. The pull request is a draft when a problem or a failed picture is
-  left; its body lists them first.
+  left; its body lists them first. Both agent jobs start with Harden-Runner. The files each
+  pass writes, and the lists of problems that quote them, are kept as run artifacts for a day.
+  Before anything is committed or posted, a script refuses the agent's files and the body's
+  text when they look like a secret or hold a long random string that is not in Kitden,
+  `context.json` or, after a fix pass, the first list of problems. A refusal says why in the
+  job's log and shows no part of the string, nor the name of a file the agent was not allowed
+  to write.
 - Merging that pull request tags the version: Kitden's `release.yml` does it as the release
   app. The tag builds the package, publishes it to PyPI and makes the GitHub release, then
   calls publish.
@@ -139,6 +153,17 @@ never hold the release key. The tap's auto-pull accepts bump pull requests from 
 app's bot (`RELEASE_APP_BOT`), the tap app's bot (`TAP_APP_BOT`) and `github-actions[bot]`.
 The owner's one-time setup of the app, environments and rules is in
 [release-setup.md](release-setup.md).
+
+## The keys
+
+| Key | Stored in | Used by | Money cap |
+|---|---|---|---|
+| `CLAUDE_CODE_OAUTH_TOKEN` | Kitden | `claude` reviewer, release prep | the Max plan |
+| `OPENAI_API_KEY` | Kitden | `luna` reviewer | $5 a month |
+| `OPENAI_API_KEY` | kitden-sdlc | the watch eval on an OpenAI model | not set |
+| `ANTHROPIC_API_KEY` | kitden-sdlc | client watcher, the watch eval | not set |
+
+Until the owner makes the second OpenAI key, the kitden-sdlc one may be the same as Kitden's.
 
 ## What went wrong
 

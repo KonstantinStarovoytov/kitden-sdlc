@@ -12,6 +12,8 @@ SWITCH_PARTS = (
     "github.event.pull_request.head.repo.full_name == github.repository",
     "!endsWith(github.actor, '[bot]')",
 )
+# The reviewers have a switch of their own, on top of the first one.
+REVIEW_SWITCH = "vars.REVIEW_LIVE == 'true'"
 PINNED = re.compile(r"^[^@\s]+@[0-9a-f]{40}")
 # kitden-sdlc's own workflows may be called at main: that branch is protected.
 OWN_MAIN = re.compile(r"^KonstantinStarovoytov/kitden-sdlc/\.github/workflows/[\w.-]+@main$")
@@ -19,7 +21,19 @@ OWN_MAIN = re.compile(r"^KonstantinStarovoytov/kitden-sdlc/\.github/workflows/[\
 MODEL_SECRET = re.compile(
     r"secrets\.(openai_api_key|claude_code_oauth_token|anthropic_api_key)", re.I
 )
+# Rule 9: a model job starts with a step that records where the job connects.
+HOSTS_ACTION = "step-security/harden-runner"
+EGRESS_POLICIES = ("audit", "block")
 SCHEDULED_EVENTS = {"schedule", "workflow_dispatch"}
+# Rule 10: a model step never prints its full output or debug logs.
+DEBUG_INPUTS = ("show_full_output", "display_report")
+DEBUG_FLAGS = ("--debug", "--verbose", "--mcp-debug")
+# A flag anywhere in the text: bare, quoted, in a JSON list, or before `=value`.
+FLAG = re.compile(r"--[\w-]+")
+DEBUG_ENV = (
+    "ACTIONS_STEP_DEBUG", "ACTIONS_RUNNER_DEBUG", "RUNNER_DEBUG", "DEBUG",
+    "ANTHROPIC_LOG", "OPENAI_LOG",
+)
 
 
 def _jobs(doc: dict) -> dict:
@@ -121,6 +135,54 @@ def _release_violations(doc: dict) -> list[tuple[int, str]]:
     return found
 
 
+def _debug_env_names(env, where: str) -> list[tuple[int, str]]:
+    if not isinstance(env, dict):
+        return []
+    wanted = {name.upper() for name in DEBUG_ENV}
+    return [
+        (10, f"{where}: env {key} turns on debug logs")
+        for key in env
+        if str(key).upper() in wanted
+    ]
+
+
+def _debug_violations(doc: dict) -> list[tuple[int, str]]:
+    """Rule 10: no full output, debug flag or debug env on an agent workflow."""
+    found = _debug_env_names(doc.get("env"), "top level")
+    for name, job in _jobs(doc).items():
+        if not _is_agent_job(job):
+            continue
+        found += _debug_env_names(job.get("env"), f"job {name}")
+        for step in job.get("steps") or []:
+            found += _debug_env_names(step.get("env"), f"job {name}")
+            if not _is_model_step(step):
+                continue
+            inputs = step.get("with") or {}
+            for key in DEBUG_INPUTS:
+                if str(inputs.get(key)).strip().lower() == "true":
+                    found.append((10, f"job {name}: {key} prints the full model output"))
+            for key in ("claude_args", "codex-args"):
+                value = inputs.get(key, "")
+                text = " ".join(map(str, value)) if isinstance(value, list) else str(value)
+                for flag in FLAG.findall(text):
+                    if flag in DEBUG_FLAGS:
+                        found.append((10, f"job {name}: {key} has {flag}"))
+    return found
+
+
+def _hosts_violation(job: dict) -> str | None:
+    """Rule 9: the first step is the hosts step, and it writes its policy out."""
+    steps = job.get("steps") or []
+    first = steps[0] if steps and isinstance(steps[0], dict) else {}
+    if not str(first.get("uses", "")).startswith(HOSTS_ACTION):
+        return f"the first step must be {HOSTS_ACTION}"
+    inputs = first.get("with")
+    policy = inputs.get("egress-policy") if isinstance(inputs, dict) else None
+    if str(policy) not in EGRESS_POLICIES:
+        return f"{HOSTS_ACTION} must set egress-policy to {' or '.join(EGRESS_POLICIES)}"
+    return None
+
+
 def check_workflow(doc: dict, path: str) -> list[str]:
     if not isinstance(doc, dict):
         return []
@@ -147,6 +209,8 @@ def check_workflow(doc: dict, path: str) -> list[str]:
             missing = [part for part in SWITCH_PARTS if part not in condition]
             if missing:
                 found.append((2, f"job {name} has no switch condition for: {', '.join(missing)}"))
+            if _is_review_caller(job) and REVIEW_SWITCH not in condition:
+                found.append((2, f"job {name} has no switch {REVIEW_SWITCH}"))
     # A scheduled agent: schedule and by hand only, and every job carries the switch.
     if script_jobs:
         extra = _events(doc) - SCHEDULED_EVENTS
@@ -192,6 +256,16 @@ def check_workflow(doc: dict, path: str) -> list[str]:
         found.append((5, "concurrency with cancel-in-progress: true is missing"))
     if script_jobs and not isinstance(doc.get("concurrency"), dict | str):
         found.append((5, "a scheduled agent needs a top-level concurrency, one run at a time"))
+
+    # Rule 9: every job that runs a model records where it connects.
+    for name, job in jobs.items():
+        if _has_model_step(job) or name in script_jobs:
+            problem = _hosts_violation(job)
+            if problem:
+                found.append((9, f"job {name}: {problem}"))
+
+    # Rule 10: no full output or debug logs.
+    found += _debug_violations(doc)
 
     return [f"{path}: rule {rule}: {message}" for rule, message in found]
 

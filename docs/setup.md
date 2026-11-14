@@ -24,15 +24,21 @@ Before you start:
 2. Run `claude setup-token` and save the result as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
 3. Make an OpenAI project key with a monthly budget; save it as `OPENAI_API_KEY`. For the
    client watcher, make an Anthropic API key with a monthly limit; save it as `ANTHROPIC_API_KEY`.
-4. Set the variable `AGENTS_ENABLED` to `true`; it switches review, the watcher, release prep
-   and release watch. For the client watcher, set `WATCH_LIVE` to `true` only after the eval
-   has passed.
+4. Set the variable `AGENTS_ENABLED` to `true` in two places: in your project's repository
+   for review, release prep and release watch, and in kitden-sdlc for the watcher. To stop
+   everything, turn off both. Set `REVIEW_LIVE` to `true`, in the repository whose workflow
+   calls review.yml (not in kitden-sdlc), to let the two reviewers run. For the client
+   watcher, set `WATCH_LIVE` to `true` only after the eval has passed.
 5. Create a GitHub App, install it on the repository, and save its client id as the variable
    `AGENTS_APP_CLIENT_ID` and its private key as the secret `AGENTS_APP_PRIVATE_KEY`. Kitden's
    app is called Lantern. For the review it is optional: it posts the comment under the bot's
    own name (write access to pull requests), and without it the comment comes from
    `github-actions`. Release watch and the client watcher need it, with write access to
    issues. With your own app, put its bot name into `BOTS` in `post_findings.py`.
+
+Never use GitHub's "Enable debug logging" on a re-run of an agent workflow, and never set
+`ACTIONS_STEP_DEBUG` or `ACTIONS_RUNNER_DEBUG`, as a variable or as a secret: they make a
+model's output public.
 
 ## The release flow, once
 

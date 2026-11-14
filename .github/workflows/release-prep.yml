@@ -207,6 +207,12 @@ jobs:
     permissions:
       contents: read # check out Kitden
     steps:
+      # Records every host this job connects to (rule 9). After a week of records the list
+      # becomes a limit.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       # Without these two the checkout below would fall back to Kitden's code.
       - name: Make sure this workflow knows its own commit
         env:
@@ -312,6 +318,7 @@ jobs:
           name: release-out
           path: out/
           if-no-files-found: error
+          retention-days: 1
 
   # The version is the owner's, or the agent's out/version.txt; release_bump.py refuses
   # anything but the next minor or patch. The scenes are checked against the pictures Kitden
@@ -462,7 +469,8 @@ jobs:
             kitden "$VERSION"
           git -C kitden diff --name-only > "$lists/bump.txt"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
-            apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists"
+            apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
+            --context "$RUNNER_TEMP/context/context.json"
       # The test output and the check's message are data: only the script reads them.
       - name: Check the files
         id: verdict
@@ -488,12 +496,14 @@ jobs:
           else
             echo "problems=false" >> "$GITHUB_OUTPUT"
           fi
+      # problems.md quotes the agent's files and the test output on them: a day, as release-out.
       - name: Keep the verdict
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-verdict-first
           path: ${{ runner.temp }}/verdict/
           if-no-files-found: error
+          retention-days: 1
 
   # The agent again, once, only when check found problems. problems.md holds test output and
   # may quote pull request text, so it is data here, as in agent. Same tools, same token,
@@ -506,6 +516,11 @@ jobs:
     permissions:
       contents: read # check out Kitden
     steps:
+      # Records every host this job connects to (rule 9), as in agent.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - name: Make sure this workflow knows its own commit
         env:
           WORKFLOW_REPO: ${{ job.workflow_repository }}
@@ -595,12 +610,14 @@ jobs:
           name: release-out-fixed
           path: out/
           if-no-files-found: error
+          retention-days: 1
       - name: Keep the list of changed files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-fix
           path: ${{ runner.temp }}/fixed.txt
           if-no-files-found: error
+          retention-days: 1
 
   # Kitden's own script, at the commit this run is for. It tries every scene, one by one;
   # a scene that fails does not stop the next, and results.json says what became of each.
@@ -731,19 +748,31 @@ jobs:
         with:
           name: release-context
           path: ${{ runner.temp }}/context
+      # The fix pass also read the first problems.md, which scripts wrote: release_apply.py
+      # knows the strings it holds when the fixed files are used.
+      - name: Get the problems the fix pass was given
+        if: needs.fix.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-verdict-first
+          path: ${{ runner.temp }}/verdict-first
       # Without the pictures' folder or results.json, apply counts every scene as failed.
       - name: Put the files in
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          FIX_RESULT: ${{ needs.fix.result }}
         run: |
           lists="$RUNNER_TEMP/lists"
           mkdir -p "$lists"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_bump.py \
             kitden "$VERSION"
           git -C kitden diff --name-only > "$lists/bump.txt"
+          given=()
+          if [ "$FIX_RESULT" = success ]; then given=(--given "$RUNNER_TEMP/verdict-first/problems.md"); fi
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
             apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
-            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json"
+            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json" \
+            --context "$RUNNER_TEMP/context/context.json" "${given[@]}"
       - name: Check the files
         id: verdict
         env:
@@ -764,12 +793,14 @@ jobs:
             --check-output "$RUNNER_TEMP/check.txt" --check-status "$c" \
             --out "$RUNNER_TEMP/verdict"
           cp "$RUNNER_TEMP/lists/pictures.json" "$RUNNER_TEMP/verdict/pictures.json"
+      # problems.md quotes the agent's files and the test output on them: a day, as release-out.
       - name: Keep the verdict
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-verdict
           path: ${{ runner.temp }}/verdict/
           if-no-files-found: error
+          retention-days: 1
 
   # No model here: the agent's files are only data. The release app's key is used by one step,
   # to get a short-lived token that can write Kitden's contents and pull requests. It takes
@@ -841,20 +872,38 @@ jobs:
         with:
           name: release-verdict
           path: ${{ runner.temp }}/verdict
+      # What the agent read besides Kitden: release_apply.py knows the strings it holds.
+      - name: Get the context
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-context
+          path: ${{ runner.temp }}/context
+      # The fix pass also read the first problems.md, which scripts wrote: release_apply.py
+      # knows the strings it holds when the fixed files are used.
+      - name: Get the problems the fix pass was given
+        if: needs.fix.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-verdict-first
+          path: ${{ runner.temp }}/verdict-first
       # The bump is run again from the same script and commit, and its files are listed
       # before the agent's files are put in. apply refuses any file it does not know.
       - name: Put the files in
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          FIX_RESULT: ${{ needs.fix.result }}
         run: |
           lists="$RUNNER_TEMP/lists"
           mkdir -p "$lists"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_bump.py \
             kitden "$VERSION"
           git -C kitden diff --name-only > "$lists/bump.txt"
+          given=()
+          if [ "$FIX_RESULT" = success ]; then given=(--given "$RUNNER_TEMP/verdict-first/problems.md"); fi
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
             apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
-            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json"
+            --images "$RUNNER_TEMP/images" --results "$RUNNER_TEMP/images/results.json" \
+            --context "$RUNNER_TEMP/context/context.json" "${given[@]}"
       # The body step prints draft or ready; the PR is opened as a draft when it is draft.
       - name: Write the PR body
         id: body
@@ -867,13 +916,16 @@ jobs:
           git -C kitden diff --name-only "$tag" HEAD > "$RUNNER_TEMP/changed.txt"
           fixed=()
           if [ "$FIX_RESULT" = success ]; then fixed=(--fixed "$RUNNER_TEMP/fix/fixed.txt"); fi
+          given=()
+          if [ "$FIX_RESULT" = success ]; then given=(--given "$RUNNER_TEMP/verdict-first/problems.md"); fi
           state="$(uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py body \
             --findings "$RUNNER_TEMP/out/findings.md" --development kitden/docs/development.md \
             --changed "$RUNNER_TEMP/changed.txt" --model "$MODEL" \
             --problems "$RUNNER_TEMP/verdict/problems.md" --facts "$RUNNER_TEMP/verdict/facts.json" \
             --pictures "$RUNNER_TEMP/lists/pictures.json" --fix-result "$FIX_RESULT" \
             --results "$RUNNER_TEMP/images/results.json" --expected "$EXPECTED" \
-            --out "$RUNNER_TEMP/body.md" "${fixed[@]}")"
+            --root kitden --context "$RUNNER_TEMP/context/context.json" \
+            --out "$RUNNER_TEMP/body.md" "${fixed[@]}" "${given[@]}")"
           if [ "$state" != draft ] && [ "$state" != ready ]; then
             echo "::error::The body script printed something else than draft or ready"
             exit 1

@@ -13,10 +13,11 @@ concurrency:
 
 jobs:
   review:
-    # Only with the switch on, only for branches in this repository, never for bots,
+    # Only with both switches on, only for branches in this repository, never for bots,
     # drafts, or pull requests labelled no-agent-review.
     if: >-
       vars.AGENTS_ENABLED == 'true'
+      && vars.REVIEW_LIVE == 'true'
       && github.event.pull_request.head.repo.full_name == github.repository
       && !endsWith(github.actor, '[bot]')
       && !github.event.pull_request.draft
@@ -28,6 +29,8 @@ jobs:
       actions: read # today's runs are counted
     with:
       model: claude-sonnet-5-5
+      # Reviews a day: the repository variable AGENTS_REVIEW_DAILY_CAP, or 20 without it.
+      daily_cap: ${{ fromJSON(vars.AGENTS_REVIEW_DAILY_CAP || '20') }}
       app_client_id: ${{ vars.AGENTS_APP_CLIENT_ID }} # the Lantern app posts the comment
     secrets:
       claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

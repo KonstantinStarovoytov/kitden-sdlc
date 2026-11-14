@@ -65,3 +65,26 @@ Problems found while building the reviewers, and what changed because of each.
 - **Luna failed on the ubuntu26 image.** The Codex action's drop-sudo step could not restrict
   the D-Bus socket there (openai/codex-action#188). The `luna` job runs on `ubuntu-24.04`
   until that is fixed; drop-sudo stays.
+
+## 2026-11-13
+
+- **A failed reviewer left a red mark on the pull request.** One reviewer's error turned its
+  job red even though the other review was fine. Now a failed reviewer no longer fails its job:
+  the comment says which one gave no answer, or that neither did. The model step's timeout is
+  under the job's, so a hang fails only the step. A refusal to post secret-like text still
+  turns the job red, and so does a failure of the workflow's own steps.
+  Kept by: `tests/test_workflows.py::test_a_failed_reviewer_leaves_no_red_mark`.
+- **Release prep gained a second model step without the new rules.** The fix pass came from
+  main while the safety work was under way. It had no Harden-Runner step, its output was kept
+  as long as the repository's default, and the secret check did not know the first list of
+  problems the pass was given. Now it starts like the first pass, its output is kept for a
+  day, and the fixed files and every part of the body pass both secret checks, against what
+  each pass was given.
+  Kept by: `tests/test_release_prep_workflow.py::test_after_a_fix_pass_the_first_problems_are_given_text_too`.
+- **A refusal could show the agent's text in the public log, or nothing at all.** A file in
+  out/ with a name that is not allowed was refused by its name, which the agent chose. A
+  refused pull request body went to the captured output, so the step failed with no reason.
+  The lists of problems, which quote the agent's files, were kept as long as the repository's
+  default. Now a refusal counts what it refused and goes to the log on stderr, and the two
+  verdicts are kept for a day.
+  Kept by: `tests/test_release_apply.py::test_a_name_that_is_not_allowed_is_counted_and_never_shown`.

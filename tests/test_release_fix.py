@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from release_fix import main, settle
+from tests.fakes import KEY_TAIL, shows_key
 
 
 def make(folder: Path, files: dict[str, str]) -> Path:
@@ -51,19 +52,26 @@ def test_a_file_the_pass_deleted_is_put_back_and_not_listed(tmp_path):
 
 
 def test_a_file_it_does_not_know_is_refused_and_nothing_changes(tmp_path):
+    # The model chose the name, and the log is public: the message counts, it never names.
     before = make(tmp_path / "before", {"version.txt": "0.9.0"})
-    after = make(tmp_path / "after", {"version.txt": "1.0.0", "extra.sh": "x"})
-    with pytest.raises(ValueError, match="extra.sh"):
+    after = make(tmp_path / "after", {"version.txt": "1.0.0", "extra.sh": "x", KEY_TAIL: "y"})
+    with pytest.raises(ValueError, match=r"names are not allowed \(2\)") as refused:
         settle(before, after, "0.9.0")
+    assert "extra" not in str(refused.value) and not shows_key(str(refused.value))
     assert (after / "version.txt").read_text() == "1.0.0"
 
 
-def test_a_link_is_refused(tmp_path):
+@pytest.mark.parametrize("name", ["guide.md", f"{KEY_TAIL}.md"], ids=["allowed", "unknown"])
+def test_a_link_is_refused(tmp_path, name):
+    # A link is refused under a name release_apply knows as well as under one it does not,
+    # and the message never shows the name.
     before = make(tmp_path / "before", {})
     after = make(tmp_path / "after", {"README.md": "a"})
-    (after / "guide.md").symlink_to(after / "README.md")
-    with pytest.raises(ValueError, match="link"):
+    (after / name).symlink_to(after / "README.md")
+    with pytest.raises(ValueError, match=r"links or other files that are not plain \(1\)") as e:
         settle(before, after, "0.9.0")
+    assert not shows_key(str(e.value)) and "guide" not in str(e.value)
+    assert (after / name).is_symlink() and not (after / "version.txt").exists()
 
 
 def test_the_command_writes_one_path_per_line(tmp_path, capsys):
@@ -91,4 +99,6 @@ def test_the_command_prints_the_error_and_returns_1(tmp_path, capsys):
     changed = tmp_path / "changed.txt"
     args = ["settle", str(before), str(after), "--version", "0.9.0", "--changed", str(changed)]
     assert main(args) == 1
-    assert "extra.sh" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert captured.out == "" and "not allowed (1)" in captured.err
+    assert "extra" not in captured.err

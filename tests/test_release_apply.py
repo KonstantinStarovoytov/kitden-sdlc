@@ -17,6 +17,8 @@ from release_apply import (
     scenes,
     target_for,
 )
+from secret_filter import in_text
+from tests.fakes import KEY_TAIL, repo, shows_key
 
 
 def make_root(tmp_path: Path) -> Path:
@@ -555,7 +557,7 @@ def test_cli_apply_refusal_exits_1(tmp_path, capsys):
     out = make_out(tmp_path, {".github/workflows/x.yml": "x"})
     code = main(["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path)])
     assert code == 1
-    assert "not allowed" in capsys.readouterr().out
+    assert "not allowed" in capsys.readouterr().err
 
 
 def test_cli_scenes(tmp_path, capsys):
@@ -922,3 +924,204 @@ def test_cli_body_passes_the_fix_result(tmp_path, capsys):
     assert main([*base, "--fix-result", "failure"]) == 0
     body = (tmp_path / "body.md").read_text()
     assert "One fix pass ran and failed; the first files are used." in body
+
+
+def test_apply_refuses_a_random_string_kitden_lacks(tmp_path):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    with pytest.raises(ValueError, match=r"not in what the agent was given \(1\)") as refused:
+        apply(root, out, version="0.9.0")
+    assert not shows_key(str(refused.value))
+    assert not (root / "docs/releases/v0.9.0.md").exists()
+
+
+def test_apply_refuses_a_random_string_outside_git(tmp_path):
+    root = make_root(tmp_path)
+    (root / "README.md").write_text(f"{KEY_TAIL}\n")  # in the folder, but not committed
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    with pytest.raises(ValueError, match="random"):
+        apply(root, out)
+
+
+def test_apply_writes_a_random_string_kitden_holds(tmp_path):
+    root = repo(tmp_path / "kitden", {"README.md": f"Set {KEY_TAIL}.\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    content, _ = apply(root, out, version="0.9.0")
+    assert content == [Path("docs/releases/v0.9.0.md")]
+    assert KEY_TAIL in (root / "docs/releases/v0.9.0.md").read_text()
+
+
+def test_pr_body_refuses_a_random_string_it_does_not_know():
+    findings = f"## README\n\nSet {KEY_TAIL}.\n"
+    with pytest.raises(ValueError, match=r"not in what the agent was given \(1\)") as refused:
+        pr_body(findings, [])
+    assert not shows_key(str(refused.value))
+    with pytest.raises(ValueError, match="random"):
+        pr_body(findings, [], known=in_text("other"))
+    body = pr_body(findings, [], known=in_text(KEY_TAIL))
+    assert KEY_TAIL in body
+
+
+def test_cli_body_knows_what_root_holds(tmp_path, capsys):
+    (tmp_path / "findings.md").write_text(f"## README\n\nSet {KEY_TAIL}.\n")
+    (tmp_path / "development.md").write_text(DEVELOPMENT)
+    (tmp_path / "changed.txt").write_text("")
+    argv = [
+        "body",
+        "--findings",
+        str(tmp_path / "findings.md"),
+        "--development",
+        str(tmp_path / "development.md"),
+        "--changed",
+        str(tmp_path / "changed.txt"),
+        "--out",
+        str(tmp_path / "body.md"),
+    ]
+    assert main(argv) == 1
+    out = capsys.readouterr().err
+    assert "long random strings" in out and not shows_key(out)
+    assert not (tmp_path / "body.md").exists()
+    root = repo(tmp_path / "kitden", {"a.py": f"KEY = '{KEY_TAIL}'\n"})
+    assert main([*argv, "--root", str(root)]) == 0
+    assert KEY_TAIL in (tmp_path / "body.md").read_text()
+
+
+def test_apply_knows_what_the_context_holds(tmp_path):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    with pytest.raises(ValueError, match="random"):
+        apply(root, out, version="0.9.0", context='{"prs": []}')
+    content, _ = apply(root, out, version="0.9.0", context=f'{{"body": "Rotate {KEY_TAIL}"}}')
+    assert content == [Path("docs/releases/v0.9.0.md")]
+
+
+def test_cli_apply_and_body_read_the_context(tmp_path, capsys):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    (out / "findings.md").write_text(f"## Notes\n\nSet {KEY_TAIL}.\n")
+    context = tmp_path / "context.json"
+    context.write_text(f'{{"body": "Rotate {KEY_TAIL}"}}')
+    (tmp_path / "development.md").write_text(DEVELOPMENT)
+    (tmp_path / "changed.txt").write_text("")
+    apply_argv = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path)]
+    body_argv = [
+        "body",
+        "--findings",
+        str(out / "findings.md"),
+        "--development",
+        str(tmp_path / "development.md"),
+        "--changed",
+        str(tmp_path / "changed.txt"),
+        "--root",
+        str(root),
+        "--out",
+        str(tmp_path / "body.md"),
+    ]
+    missing = ["--context", str(tmp_path / "none.json")]
+    assert main([*apply_argv, *missing]) == 1 and main([*body_argv, *missing]) == 1
+    assert not shows_key("".join(capsys.readouterr()))
+    assert main([*apply_argv, "--context", str(context)]) == 0
+    assert main([*body_argv, "--context", str(context)]) == 0
+    assert KEY_TAIL in (tmp_path / "body.md").read_text()
+
+
+def test_cli_apply_knows_the_problems_the_fix_pass_was_given(tmp_path, capsys):
+    # The fix pass read the first problems.md, which scripts wrote: a string it copied from
+    # there is given text, as context.json is. A --given file that is missing knows nothing.
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    out = make_out(tmp_path, {"notes.md": f"# n\n\nSet {KEY_TAIL}.\n"})
+    context = tmp_path / "context.json"
+    context.write_text('{"prs": []}')
+    problems = tmp_path / "problems.md"
+    problems.write_text(f"- README.md: Kitden's test said {KEY_TAIL}\n")
+    argv = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path / "l")]
+    argv += ["--context", str(context)]
+    assert main(argv) == 1
+    assert main([*argv, "--given", str(tmp_path / "none.md")]) == 1
+    assert not shows_key("".join(capsys.readouterr()))
+    assert not (root / "docs/releases/v0.9.0.md").exists()
+    assert main([*argv, "--given", str(problems)]) == 0
+    assert KEY_TAIL in (root / "docs/releases/v0.9.0.md").read_text()
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        {"problems": [f"README.md: Kitden's test said {KEY_TAIL}"]},
+        {"pictures": {"pick": "failed"}, "errors": {"pick": f"timeout at {KEY_TAIL}"}},
+        {"fixed": [f"docs/{KEY_TAIL}.md"], "fix_result": "success"},
+    ],
+    ids=["fix-before-merge", "picture-error", "fixed-list"],
+)
+def test_the_body_checks_every_text_it_shows_for_random_strings(parts):
+    with pytest.raises(ValueError, match="an error or a fixed path hold long random") as refused:
+        pr_body("", [], **parts)
+    assert not shows_key(str(refused.value))
+    assert KEY_TAIL in pr_body("", [], known=in_text(KEY_TAIL), **parts)
+
+
+def test_cli_body_knows_the_first_problems_after_a_fix_pass(tmp_path, capsys):
+    root = repo(tmp_path / "kitden", {"README.md": "old readme\n"})
+    (tmp_path / "findings.md").write_text(f"## Fixes\n\nThe test said {KEY_TAIL}; fixed.\n")
+    (tmp_path / "context.json").write_text('{"prs": []}')
+    (tmp_path / "first.md").write_text(f"- README.md: Kitden's test said {KEY_TAIL}\n")
+    (tmp_path / "changed.txt").write_text("")
+    argv = [
+        "body",
+        "--findings", str(tmp_path / "findings.md"),
+        "--development", str(tmp_path / "none.md"),
+        "--changed", str(tmp_path / "changed.txt"),
+        "--root", str(root),
+        "--context", str(tmp_path / "context.json"),
+        "--out", str(tmp_path / "body.md"),
+    ]  # fmt: skip
+    assert main(argv) == 1
+    assert "long random strings" in capsys.readouterr().err
+    assert not (tmp_path / "body.md").exists()
+    assert main([*argv, "--given", str(tmp_path / "first.md")]) == 0
+    assert capsys.readouterr().out == "ready\n"
+    assert KEY_TAIL in (tmp_path / "body.md").read_text()
+
+
+def test_a_name_that_is_not_allowed_is_counted_and_never_shown(tmp_path, capsys):
+    # The agent chooses the names in out/, and the job log is public.
+    root = make_root(tmp_path)
+    files = {"README.md": "new readme\n", f"{KEY_TAIL}.md": "x", f"policy/{KEY_TAIL}": "y"}
+    out = make_out(tmp_path, files)
+    with pytest.raises(ValueError, match=r"names are not allowed \(2\)") as refused:
+        apply(root, out)
+    assert not shows_key(str(refused.value))
+    argv = ["apply", str(root), str(out), "--version", "0.9.0", "--lists", str(tmp_path / "l")]
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert "not allowed (2)" in captured.err
+    assert not shows_key(captured.out + captured.err)
+    assert (root / "README.md").read_text() == "old readme\n"
+
+
+def test_a_link_in_out_is_counted_and_never_named(tmp_path):
+    root = make_root(tmp_path)
+    out = make_out(tmp_path, {"README.md": "new readme\n"})
+    (out / f"{KEY_TAIL}.md").symlink_to(out / "README.md")
+    with pytest.raises(ValueError, match=r"not plain \(1\)") as refused:
+        apply(root, out)
+    assert not shows_key(str(refused.value))
+
+
+def test_a_refused_body_says_why_on_stderr_and_nothing_on_stdout(tmp_path, capsys):
+    # The workflow captures stdout as the draft or ready state; the reason must reach the log.
+    (tmp_path / "findings.md").write_text(f"## README\n\nSet {KEY_TAIL}.\n")
+    (tmp_path / "changed.txt").write_text("")
+    argv = [
+        "body",
+        "--findings", str(tmp_path / "findings.md"),
+        "--development", str(tmp_path / "none.md"),
+        "--changed", str(tmp_path / "changed.txt"),
+        "--out", str(tmp_path / "body.md"),
+    ]  # fmt: skip
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "long random strings" in captured.err and "not posted" in captured.err
+    assert not shows_key(captured.err)
+    assert not (tmp_path / "body.md").exists()

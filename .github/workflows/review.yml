@@ -71,6 +71,12 @@ jobs:
       contents: read # check out the code
       pull-requests: read # read the diff and the description
     steps:
+      # Records every host this job connects to (rule 9). After a week of records the list
+      # becomes a limit.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       # Without these two the checkout below would fall back to the pull request's code.
       - name: Make sure this workflow knows its own commit
         env:
@@ -113,8 +119,13 @@ jobs:
           -o -path ./.claude -o -path ./CLAUDE.md \) -prune
           -o \( -name CLAUDE.md -o -name CLAUDE.local.md -o -name .claude \)
           -print -prune -exec rm -rf {} +
+      # A failed reviewer does not fail the job: the review comment says it gave no answer.
+      # The step's own timeout, under the job's, makes a hang a failed step, not a failed job.
       - name: Review
+        id: review
         if: steps.prepare.outputs.skip != 'true'
+        continue-on-error: true
+        timeout-minutes: 12
         uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
@@ -127,6 +138,9 @@ jobs:
             --plugin-dir .kitden-sdlc/plugins/kitden-sdlc
             --allowedTools "Read(./**),Edit(./.review/**)"
             --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Task,Read(**/.git/**),Read(**/.kitden-sdlc/**),Read(~/.*),Read(~/.*/**),Read(//proc/**)"
+      - name: Say that Claude failed
+        if: steps.review.outcome == 'failure'
+        run: echo "::warning::The Claude reviewer failed; the review comment says who gave no answer."
       - name: Keep the findings
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -134,6 +148,7 @@ jobs:
           path: .review/findings.json
           include-hidden-files: true
           if-no-files-found: ignore
+          retention-days: 1
 
   luna:
     needs: cap
@@ -146,6 +161,12 @@ jobs:
       contents: read # check out the code
       pull-requests: read # read the diff and the description
     steps:
+      # Records every host this job connects to (rule 9). After a week of records the list
+      # becomes a limit.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       # Without these two the checkout below would fall back to the pull request's code.
       - name: Make sure this workflow knows its own commit
         env:
@@ -193,9 +214,13 @@ jobs:
       # the final message to the findings file. Web search is off. The earlier step deletes the pull
       # request's agent files, and project_doc_max_bytes=0 asks Codex to read no
       # project instructions as well.
+      # A failed reviewer does not fail the job: the review comment says it gave no answer.
+      # The step's own timeout, under the job's, makes a hang a failed step, not a failed job.
       - name: Review
         id: luna
         if: steps.prepare.outputs.skip != 'true'
+        continue-on-error: true
+        timeout-minutes: 12
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         with:
           openai-api-key: ${{ secrets.openai_api_key }}
@@ -206,6 +231,9 @@ jobs:
           output-file: .review/findings.json
           permission-profile: ":read-only"
           codex-args: '["-c", "project_doc_max_bytes=0", "-c", "web_search=\"disabled\""]'
+      - name: Say that Luna failed
+        if: steps.luna.outcome == 'failure'
+        run: echo "::warning::The Luna reviewer failed; the review comment says who gave no answer."
       # Luna's answer, or the too-large notice the script wrote. A job output would not
       # do: GitHub drops an output that looks like it holds a secret.
       - name: Keep the findings
@@ -216,11 +244,14 @@ jobs:
           path: .review/findings.json
           include-hidden-files: true
           if-no-files-found: ignore
+          retention-days: 1
 
   # No model here: this job only turns the two findings files into one comment. The app's
   # key is used by one step, to get a short-lived token that can only write to pull requests.
   post:
     needs: [cap, claude, luna]
+    # With continue-on-error, success here means the job ended, not that the reviewer
+    # answered; post_findings.py tells the two apart.
     if: >-
       !cancelled() && needs.cap.outputs.skip == 'false'
       && (needs.claude.result == 'success' || needs.luna.result == 'success')
@@ -272,6 +303,19 @@ jobs:
           client-id: ${{ inputs.app_client_id }}
           private-key: ${{ secrets.app_private_key }}
           permission-pull-requests: write
+      # Git objects only, never a checkout: post_findings.py looks up quoted strings in them.
+      # The base commit too: the reviewers' checkout is the merge, so they read its files.
+      - name: Get the pull request's commit
+        continue-on-error: true
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git init -q "$RUNNER_TEMP/pr"
+          git -C "$RUNNER_TEMP/pr" fetch -q --depth=1 \
+            "https://x-access-token:${GH_READ_TOKEN}@github.com/${REPO}.git" "$HEAD_SHA" "$BASE_SHA"
       # The comment keeps the findings of earlier runs. GH_READ_TOKEN compares the commit
       # the last run reviewed with this one, to tell which of them were fixed since; the
       # app's token may only write to pull requests.
@@ -282,9 +326,11 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CLAUDE_MODEL: ${{ inputs.model }}
         run: >-
           uv run --no-project python scripts/post_findings.py
           --claude claude/findings.json --luna luna/findings.json
           --claude-model "$CLAUDE_MODEL"
           --repo "$REPO" --pr "$PR_NUMBER" --head-sha "$HEAD_SHA"
+          --tree "$RUNNER_TEMP/pr" --base-sha "$BASE_SHA"
