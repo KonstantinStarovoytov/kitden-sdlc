@@ -14,34 +14,11 @@ from release_watch import (
     proposal_body,
     propose,
     run,
-    upsert,
 )
+from tests.fakes import FakeIssues, issue
 
 OWNER = "KonstantinStarovoytov"
 NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
-
-
-class FakeGh:
-    """Open issues by number; records what was done."""
-
-    def __init__(self, open_issues: dict[int, str] | None = None):
-        self.open = dict(open_issues or {})
-        self.calls: list[tuple] = []
-
-    def find_open(self, title):
-        for number, found in self.open.items():
-            if found == title:
-                return number
-        return None
-
-    def create(self, title, body):
-        self.calls.append(("create", title, body))
-
-    def edit(self, number, body):
-        self.calls.append(("edit", number, body))
-
-    def close(self, number):
-        self.calls.append(("close", number))
 
 
 # propose
@@ -144,33 +121,6 @@ def test_bodies_say_who_opened_them_and_have_three_parts():
         assert heads == ["## What happened", "## What it means", "## What to do"]
 
 
-# upsert
-
-
-def test_upsert_creates_when_none():
-    gh = FakeGh()
-    upsert("T", "body", gh)
-    assert gh.calls == [("create", "T", "body")]
-
-
-def test_upsert_edits_existing():
-    gh = FakeGh({4: "Other", 5: "T"})
-    upsert("T", "new body", gh)
-    assert gh.calls == [("edit", 5, "new body")]
-
-
-def test_upsert_closes_when_green():
-    gh = FakeGh({5: "T"})
-    upsert("T", "", gh)
-    assert gh.calls == [("close", 5)]
-
-
-def test_upsert_empty_with_no_issue_does_nothing():
-    gh = FakeGh()
-    upsert("T", "", gh)
-    assert gh.calls == []
-
-
 # gather, with a fake fetch
 
 
@@ -266,67 +216,60 @@ def test_gather_pages_through_files():
 
 # run
 
+RELEASE = ("automated", "release")
+
 
 def test_run_opens_proposal_and_closes_green_drift(monkeypatch):
     drift_title = release_watch.drift_title("v0.10.0")
-    gh = FakeGh({9: drift_title})
+    gh = FakeIssues([issue(9, drift_title, labels=RELEASE)])
     monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: [Row("PyPI", "1", "1", True)])
     fetch = make_fetch(prs={11: []}, files={11: ["src/a.py"]})
     run(fetch, gh, NOW)
-    assert ("create", release_watch.PROPOSAL_TITLE, proposal_body([11])) in gh.calls
-    assert ("close", 9) in gh.calls
+    assert gh.created == [(release_watch.PROPOSAL_TITLE, proposal_body([11]), list(RELEASE))]
+    assert gh.closed == [9]
 
 
 def test_run_reports_drift_and_closes_stale_proposal(monkeypatch):
     rows = [Row("PyPI", "0.10.0", "0.9.9", False)]
     monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: rows)
-    gh = FakeGh({2: release_watch.PROPOSAL_TITLE})
+    gh = FakeIssues([issue(2, release_watch.PROPOSAL_TITLE, labels=RELEASE)])
     run(make_fetch(), gh, NOW)
-    assert ("close", 2) in gh.calls
-    created = [c for c in gh.calls if c[0] == "create"]
-    assert created[0][1] == "Release v0.10.0 is not everywhere"
-    assert "0.9.9" in created[0][2]
+    assert gh.closed == [2]
+    assert gh.created[0][0] == "Release v0.10.0 is not everywhere"
+    assert "0.9.9" in gh.created[0][1]
+
+
+def test_run_gives_both_issues_the_labels_automated_and_release(monkeypatch):
+    rows = [Row("PyPI", "0.10.0", "0.9.9", False)]
+    monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: rows)
+    gh = FakeIssues([issue(2, release_watch.PROPOSAL_TITLE)])  # opened before `release` existed
+    run(make_fetch(prs={11: []}, files={11: ["src/a.py"]}), gh, NOW)
+    assert gh.edited == [(2, proposal_body([11]), ["automated", "release"])]
+    assert [labels for *_, labels in gh.created] == [["automated", "release"]]
+    assert "release" in {name for name, *_ in gh.created_labels}
+
+
+def test_run_never_touches_a_persons_issue_with_the_same_title(monkeypatch):
+    monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: [Row("PyPI", "1", "1", True)])
+    drift_title = release_watch.drift_title("v0.10.0")
+    theirs = [issue(3, release_watch.PROPOSAL_TITLE, labels=RELEASE, login="someone"),
+              issue(4, drift_title, labels=RELEASE, login="someone")]
+    gh = FakeIssues(theirs)
+    run(make_fetch(prs={11: []}, files={11: ["src/a.py"]}), gh, NOW)
+    assert gh.edited == [] and gh.closed == []
+    assert [title for title, *_ in gh.created] == [release_watch.PROPOSAL_TITLE]
 
 
 def test_homebrew_waits_48_hours(monkeypatch):
     rows = [Row("Homebrew formula", "0.10.0", "0.9.9", False)]
     monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: rows)
-    gh = FakeGh()
+    gh = FakeIssues()
     run(make_fetch(date="2026-11-11T12:00:00Z"), gh, NOW)  # 24 hours old
-    assert gh.calls == []
+    assert gh.created == [] and gh.edited == [] and gh.closed == []
 
 
 def test_run_without_a_tag_does_nothing():
-    gh = FakeGh()
+    gh = FakeIssues()
     run(make_fetch(tags=[]), gh, NOW)
-    assert gh.calls == []
-
-
-# the gh CLI
-
-
-def test_gh_cli_commands(monkeypatch):
-    calls = []
-
-    def fake_run(cmd, **kwargs):
-        calls.append((cmd, kwargs))
-
-        class Result:
-            stdout = json.dumps([{"number": 3, "title": "T x"}, {"number": 4, "title": "T"}])
-
-        return Result()
-
-    monkeypatch.setattr(release_watch.subprocess, "run", fake_run)
-    gh = release_watch.GhCli()
-    assert gh.find_open("T") == 4
-    gh.create("T", "b")
-    gh.edit(4, "c")
-    gh.close(4)
-    commands = [c[0] for c in calls]
-    assert all(f"{OWNER}/kitden" in cmd for cmd in commands)
-    assert commands[1][:3] == ["gh", "issue", "create"]
-    assert commands[1][commands[1].index("--label") + 1] == "automated"
-    assert commands[2][:4] == ["gh", "issue", "edit", "4"]
-    assert commands[2][commands[2].index("--add-label") + 1] == "automated"
-    assert commands[3][:4] == ["gh", "issue", "close", "4"]
-    assert all(kw.get("check") is True for _, kw in calls)
+    assert gh.created == [] and gh.edited == [] and gh.closed == []
+    assert gh.created_labels == []

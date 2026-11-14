@@ -1,3 +1,7 @@
+import json
+import subprocess
+
+import bot_issues
 import watch_harvest
 from watch_harvest import harvest
 from watch_pages import Section
@@ -107,3 +111,25 @@ def test_fetch_pieces_reads_each_source_once_and_reads_doc_pages(tmp_path, monke
     assert (doc["kind"], doc["version"], doc["url"], doc["source"], doc["key"]) == (
         "doc", "", DOC, DOC, "Hooks")
     assert doc["client"] == "claude-code" and DOC in doc["text"]
+
+
+def test_harvest_reads_open_and_closed_issues(monkeypatch):
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, json.dumps(issue(7, "confirmed")) + "\n", "")
+
+    monkeypatch.setattr(watch_harvest.subprocess, "run", run)
+    assert watch_harvest._issues("o/kitden") == [issue(7, "confirmed")]
+    address = commands[0][3]
+    assert "state=all" in address and "labels=client-change" in address
+
+
+def test_only_issues_with_one_verdict_need_their_piece_fetched():
+    both = issue(1, "confirmed", "false-alarm")
+    open_and_undecided = issue(2)
+    confirmed, false_alarm = issue(3, "confirmed"), issue(4, "false-alarm")
+    assert watch_harvest._judged([both, open_and_undecided, confirmed, false_alarm]) == [
+        confirmed, false_alarm]
+    assert watch_harvest.verdict is bot_issues.verdict  # one predicate for the pause and here

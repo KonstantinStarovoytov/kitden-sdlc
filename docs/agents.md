@@ -65,17 +65,20 @@ The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WAT
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
-Every issue starts with one line: an automated check opened it, which model wrote it, and that
-a maintainer checks it before anyone works on it (with a link to Kitden's AI policy). Then the
-same sections each time: what changed, what it means for Kitden (type and severity in plain
-words), why, where in Kitden, scale, how sure, and what a maintainer does with it. Add
-`good first issue` or `help wanted` only after `confirmed`, so no contributor works on a false
-alarm.
+Every finding issue starts with one line: an automated check opened it, which model wrote it,
+and that a maintainer checks it before anyone works on it (with a link to Kitden's AI policy).
+Then the same sections each time: what changed, what it means for Kitden (type and severity in
+plain words), why, where in Kitden, scale, how sure, and what a maintainer does with it: put
+`confirmed` on it if it is right (it stays open until the problem is fixed), or close it with
+`false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
+contributor works on a false alarm.
 
 | Label | Meaning |
 |---|---|
 | `automated` | Opened by an automated check; a maintainer confirms it before work starts |
 | `client-change` | Opened by the watcher: a client changed |
+| `release` | Opened by the release watch |
+| `desk` | The owner's desk |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
 | `wrong-data` | Kitden shows one thing while the client has another |
@@ -85,7 +88,18 @@ alarm.
 | `major`, `medium`, `minor` | What a user who trusts Kitden ends up doing: a wrong action, extra steps, or nothing else ([watch-effects.md](watch-effects.md)) |
 | `unsure` | The watcher is not sure Kitden is touched |
 | `summary` | The weekly summary |
-| `confirmed`, `false-alarm` | Set by the owner on closing: the watcher was right or wrong |
+| `confirmed` | Set by the owner: the bot was right; the issue stays open until fixed |
+| `false-alarm` | Set by the owner on closing: the bot was wrong |
+
+The watcher knows its open issues by the label `client-change`. Remove that label, or close the
+issue, and it may report the same finding again.
+
+When more than half of its last 10 issues with a verdict are `false-alarm`, the watcher opens
+one issue, "The client watcher is paused", with the labels `automated` and `desk`, and opens
+nothing else while that issue is open. What it finds in that time waits for its first summary
+after the pause. The owner lifts the pause by closing that issue as it is, not renamed and
+with `automated` still on it: the watcher finds it by its author, that label and its title.
+The count starts again from the issues opened after that.
 
 ## The release flow
 
@@ -128,9 +142,11 @@ workflows live here, and Kitden calls them. The design is
   `install.*` wait and the last tag is 7 days old (sooner when one is labelled `bug`). It
   opens "Release vX.Y.Z is not everywhere" while a store is behind or different; Homebrew
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
-  no longer holds. Both carry the label `automated` and open with one line saying who opened
-  them, that no model wrote them and that a maintainer confirms them, then three parts: what
-  happened, what it means, what to do.
+  no longer holds. It knows its issues by author, the label `automated` and title, so it never
+  touches one a person opened; remove `automated` from one and it may open a new issue. Both
+  carry the labels `automated` and `release` and open with one line saying who opened them,
+  that no model wrote them and that a maintainer confirms them, then three parts:
+  what happened, what it means, what to do.
 
 Identities: three GitHub Apps, each with its own name and icon, so nobody mistakes one
 for another. Lantern (a lantern on deep teal) comments and opens issues. Kitden Beacon (a

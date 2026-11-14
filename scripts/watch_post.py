@@ -3,18 +3,16 @@
 import argparse
 import json
 import os
-import subprocess  # noqa: S404
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Protocol
 
-import yaml
-
+from bot_issues import GhIssues, ensure_labels, pause
 from watch_list import parse_list, row_labels
 from watch_route import (
     TEXT_MAX,
     VERSION_MAX,
     BadFindings,
+    Plan,
     _kind,
     _quiet,
     check,
@@ -25,44 +23,9 @@ from watch_route import (
 )
 
 SUMMARY_MAX = 60000
-LABELS_FILE = Path(__file__).resolve().parent.parent / "config" / "watch-labels.yml"
-
-
-class GitHub(Protocol):
-    def label_names(self) -> set[str]: ...
-
-    def create_label(self, name: str, color: str, description: str) -> None: ...
-
-    def create_issue(self, title: str, body: str, labels: list[str]) -> str: ...
-
-
-class GhApi:
-    """The GitHub on top of the gh command line tool."""
-
-    def __init__(self, repo: str):
-        self.repo = repo
-
-    def _run(self, *args: str) -> str:
-        done = subprocess.run(  # noqa: S603
-            ["gh", "api", *args],  # noqa: S607
-            check=True, capture_output=True, text=True,
-        )
-        return done.stdout
-
-    def label_names(self) -> set[str]:
-        text = self._run(f"repos/{self.repo}/labels?per_page=100", "--paginate", "--jq", ".[].name")
-        return set(text.split("\n")) - {""}
-
-    def create_label(self, name: str, color: str, description: str) -> None:
-        self._run(f"repos/{self.repo}/labels", "--method", "POST", "-f", f"name={name}",
-                  "-f", f"color={color}", "-f", f"description={description}")
-
-    def create_issue(self, title: str, body: str, labels: list[str]) -> str:
-        args = [f"repos/{self.repo}/issues", "--method", "POST", "-f", f"title={title}",
-                "-f", f"body={body}", "--jq", ".html_url"]
-        for name in labels:
-            args += ["-f", f"labels[]={name}"]
-        return self._run(*args).strip()
+AGENT = "The client watcher"  # its pause issue is "The client watcher is paused"
+PAUSED_MEANS = ("That includes its weekly summary: what it finds is kept for its first summary "
+                "after this issue is closed.")
 
 
 # Shown with every finding: docs/watch-effects.md says the same in more words.
@@ -83,8 +46,9 @@ SEVERITY_TEXT = {
 MAINTAINERS_SUMMARY = ("To confirm an item or mark it a false alarm, open an issue for it; this "
                        "summary is only a list.")
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
-MAINTAINERS = ("Close it with `confirmed` if this is right, or `false-alarm` if it is not. Add "
-               "`good first issue` or `help wanted` only after it is confirmed.")
+MAINTAINERS = ("Put `confirmed` on it if this is right; it stays open until the problem is "
+               "fixed. Close it with `false-alarm` if it is not. Add `good first issue` or "
+               "`help wanted` only after it is confirmed.")
 
 
 def first_line(repo: str = "") -> str:
@@ -180,7 +144,18 @@ def _append(path: Path, lines: list[dict]) -> None:
         f.writelines(json.dumps(x) + "\n" for x in lines)
 
 
-def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date) -> None:
+def _hold(plan: Plan) -> Plan:
+    """The plan of a paused day: nothing posted, every finding kept for the next summary, and
+    no urgent issue counted against the week's cap."""
+    state = plan.state
+    state["kept"] = plan.urgent + (plan.summary or []) + state["kept"]
+    state["urgent"]["count"] -= len(plan.urgent)
+    if plan.summary:
+        state.pop("summary_week", None)  # the summary is still due once the pause is lifted
+    return Plan([], None, state)
+
+
+def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: date) -> None:
     try:
         found = [] if findings is None else check(findings, inp)
         judged, failed = ([], []) if findings is None else (findings["judged"], findings["failed"])
@@ -189,25 +164,29 @@ def run(inp: dict, findings: dict | None, gh: GitHub, memory: Path, today: date)
         raise SystemExit(1) from error
     found += word_hits(found, judged, inp)
     plan = route(found, inp["state"], judged, inp, today, failed)
+    ensure_labels(gh)
+    paused = pause(gh, AGENT, "client-change", PAUSED_MEANS)
+    if paused:
+        plan = _hold(plan)
+        kept = len(plan.state["kept"])
+        print(f"{AGENT} is paused: nothing posted, {kept} finding{'' if kept == 1 else 's'} "
+              "kept for its first summary after the pause.")
 
-    repo = getattr(gh, "repo", "")
+    repo = gh.repo
     posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
     if plan.summary:
         title, body, rest = render_summary(plan.summary, today, inp, repo)
         posts.append((title, body, ["automated", "client-change", "summary"]))
         plan.state["kept"] = rest + plan.state["kept"]
-    have = gh.label_names()
-    for entry in yaml.safe_load(LABELS_FILE.read_text()):
-        if entry["name"] not in have:
-            gh.create_label(entry["name"], entry["color"], entry["description"])
-    addresses = [gh.create_issue(*post) for post in posts]
+    addresses = [gh.create(*post) for post in posts]
     opened = {f["title"]: address for f, address in zip(plan.urgent, addresses, strict=False)}
 
     memory.mkdir(parents=True, exist_ok=True)
     (memory / "state.json").write_text(json.dumps(plan.state, indent=2) + "\n", encoding="utf-8")
     log = {"date": str(today), "pieces": len(inp["pieces"]), "judged": len(judged),
            "failed": len(failed),
-           "findings": len(found), "urgent": len(plan.urgent), "summary": len(plan.summary or [])}
+           "findings": len(found), "urgent": len(plan.urgent), "summary": len(plan.summary or []),
+           "paused": paused}
     _append(memory / "log.jsonl", [log])
     archive = [{"date": str(today), **{k: f[k] for k in
                ("piece", "client", "version", "url", "row", "title", "effect", "severity",
@@ -233,7 +212,7 @@ def main() -> None:
     a = parser.parse_args()
     inp = json.loads(a.input.read_text(encoding="utf-8"))
     findings = json.loads(a.findings.read_text(encoding="utf-8")) if a.findings else None
-    run(inp, findings, GhApi(a.repo), a.memory, a.today)
+    run(inp, findings, GhIssues(a.repo), a.memory, a.today)
 
 
 if __name__ == "__main__":

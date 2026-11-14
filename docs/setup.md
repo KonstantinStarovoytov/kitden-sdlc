@@ -34,7 +34,8 @@ Before you start:
    app is called Lantern. For the review it is optional: it posts the comment under the bot's
    own name (write access to pull requests), and without it the comment comes from
    `github-actions`. Release watch and the client watcher need it, with write access to
-   issues. With your own app, put its bot name into `BOTS` in `post_findings.py`.
+   issues. With your own app, put its bot name into `BOTS` in `post_findings.py` and into
+   `BOT` in `bot_issues.py`.
 
 Never use GitHub's "Enable debug logging" on a re-run of an agent workflow, and never set
 `ACTIONS_STEP_DEBUG` or `ACTIONS_RUNNER_DEBUG`, as a variable or as a secret: they make a
