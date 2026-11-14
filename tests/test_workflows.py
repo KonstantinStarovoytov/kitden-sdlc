@@ -149,3 +149,249 @@ def test_the_watcher_knows_only_the_bots_own_issues_as_known_titles():
     step = next(s for s in steps if s.get("name") == "List the open watcher issues")
     assert 'select(.user.login == "kitden-lantern[bot]")' in step["run"]
     assert "select(.pull_request | not)" in step["run"]
+
+
+# --- Guards that LOG.md names. Each is a function of the file's text, so a negative case can
+# --- check the same function on a copy of the text with the guard cut out.
+
+WORKFLOWS = ROOT / ".github/workflows"
+
+
+def _without(text: str, guard: str) -> str:
+    assert guard in text, guard
+    return text.replace(guard, "")
+
+
+def _cut_last(text: str, guard: str) -> str:
+    head, found, tail = text.rpartition(guard)
+    assert found, guard
+    return head + tail
+
+
+def _steps(doc: dict, job: str) -> list[dict]:
+    return doc["jobs"][job]["steps"]
+
+
+def _step(doc: dict, job: str, name: str) -> dict | None:
+    return next((s for s in _steps(doc, job) if s.get("name") == name), None)
+
+
+def _before(doc: dict, job: str, first: str, second: str) -> bool:
+    names = [s.get("name") for s in _steps(doc, job)]
+    return first in names and second in names and names.index(first) < names.index(second)
+
+
+def _codex_safety_problems(text: str) -> list[str]:
+    doc = yaml.safe_load(text)
+    steps = [s for job in doc["jobs"].values() for s in job.get("steps") or []]
+    codex = [s for s in steps if "openai/codex-action" in str(s.get("uses", ""))]
+    problems = [] if codex else ["no codex step"]
+    for step in codex:
+        # Not setting it means the action's default, drop-sudo. read-only would leave the
+        # OpenAI key where the model can read it from memory.
+        if step.get("with", {}).get("safety-strategy", "drop-sudo") != "drop-sudo":
+            problems.append("safety-strategy is not drop-sudo")
+    return problems
+
+
+def test_no_codex_step_names_a_safety_strategy_but_drop_sudo():
+    for file in WORKFLOWS.glob("*.yml"):
+        text = file.read_text()
+        if "openai/codex-action" in text:
+            assert _codex_safety_problems(text) == [], file.name
+    review = (WORKFLOWS / "review.yml").read_text()
+    assert _codex_safety_problems(review) == []
+    for bad in ("safety-strategy: read-only", "safety-strategy: unsafe"):
+        marked = review.replace(
+            "          output-file: .review/findings.json\n",
+            f"          output-file: .review/findings.json\n          {bad}\n",
+        )
+        assert marked != review
+        assert _codex_safety_problems(marked) == ["safety-strategy is not drop-sudo"]
+    explicit = review.replace(
+        "          output-file: .review/findings.json\n",
+        "          output-file: .review/findings.json\n          safety-strategy: drop-sudo\n",
+    )
+    assert _codex_safety_problems(explicit) == []
+
+
+PREPARE = ROOT / "scripts/prepare_review.sh"
+
+
+def _review_folder_problems(script: str) -> list[str]:
+    lines = [line.strip() for line in script.splitlines()]
+    try:
+        wipe, make, first_write = (
+            lines.index("rm -rf .review"),
+            lines.index("mkdir .review"),
+            next(i for i, line in enumerate(lines) if "> .review/" in line),
+        )
+    except (ValueError, StopIteration):
+        return ["the folder is not wiped and made before the first write"]
+    return [] if wipe < make < first_write else ["the wipe is not first"]
+
+
+def test_the_review_folder_is_wiped_before_anything_is_written_to_it():
+    script = PREPARE.read_text()
+    assert _review_folder_problems(script) == []
+    assert _review_folder_problems(_without(script, "rm -rf .review\n")) != []
+    swapped = script.replace(
+        "rm -rf .review\nmkdir .review\n", "mkdir -p .review\nrm -rf .review\n"
+    )
+    assert swapped != script and _review_folder_problems(swapped) != []
+
+
+AGENT_FILES_STEP = "Remove the pull request's agent instructions"
+CODEX_REVIEW_STEP = "Review"
+
+
+def _luna_problems(text: str) -> list[str]:
+    doc = yaml.safe_load(text)
+    problems = []
+    step = _step(doc, "luna", AGENT_FILES_STEP)
+    if step is None:
+        return ["the step that removes the agent instructions is missing"]
+    run = step["run"]
+    for wanted in ("AGENTS.md", "AGENTS.override.md", ".agents", ".codex", "-name AGENTS.md"):
+        if wanted not in run:
+            problems.append(f"it does not remove {wanted}")
+    if "rm " not in run or "find " not in run:
+        problems.append("it does not delete")
+    if step.get("if") != "steps.prepare.outputs.skip != 'true'":
+        problems.append("it does not run whenever Codex runs")
+    if not _before(doc, "luna", AGENT_FILES_STEP, CODEX_REVIEW_STEP):
+        problems.append("it does not run before Codex")
+    review = _step(doc, "luna", CODEX_REVIEW_STEP)
+    if "project_doc_max_bytes=0" not in str(review["with"]["codex-args"]):
+        problems.append("project docs are not capped at 0 bytes")
+    return problems
+
+
+def test_codex_never_sees_the_pull_requests_agent_files_or_project_docs():
+    text = (WORKFLOWS / "review.yml").read_text()
+    assert _luna_problems(text) == []
+    assert (
+        _luna_problems(text.replace("rm -rf AGENTS.md AGENTS.override.md .agents .codex\n", ""))
+        != []
+    )
+    assert _luna_problems(_without(text, "project_doc_max_bytes=0")) != []
+    assert (
+        _luna_problems(text.replace(f"- name: {AGENT_FILES_STEP}", "- name: Something else")) != []
+    )
+    late = text.replace(
+        f"- name: {AGENT_FILES_STEP}\n        if: steps.prepare.outputs.skip != 'true'",
+        f"- name: {AGENT_FILES_STEP}\n        if: false",
+    )
+    assert late != text and _luna_problems(late) != []
+
+
+def _check_problems(text: str, zizmor: tuple[str, ...], actionlint: tuple[str, ...]) -> list[str]:
+    (job,) = yaml.safe_load(text)["jobs"].values()
+    runs = [" ".join(str(s["run"]).split()) for s in job["steps"] if "run" in s]
+    problems = []
+    for name, flags in (("zizmor", zizmor), ("actionlint", actionlint)):
+        run = next((r for r in runs if name in r), "")
+        if not run:
+            problems.append(f"no {name} step")
+        problems += [f"{name} lacks {flag}" for flag in flags if flag not in run]
+    return problems
+
+
+def test_a_pull_request_cannot_switch_off_zizmor_or_actionlint():
+    # check.yml runs on the caller's checkout, where our files sit in .kitden-sdlc; checks.yml
+    # runs in this repository, where they are in config/.
+    cases = {
+        "check.yml": (
+            (
+                "uvx --no-config zizmor==1.32.0",
+                "--config .kitden-sdlc/config/zizmor.yml",
+                "--no-ignores",
+            ),
+            ("-config-file .kitden-sdlc/config/actionlint.yaml",),
+        ),
+        "checks.yml": (
+            ("uvx --no-config zizmor==1.32.0 --no-config --no-ignores",),
+            ("-config-file config/actionlint.yaml",),
+        ),
+    }
+    for file, (zizmor, actionlint) in cases.items():
+        text = (WORKFLOWS / file).read_text()
+        assert _check_problems(text, zizmor, actionlint) == [], file
+        for guard in (*zizmor, *actionlint):
+            # The same check on a copy with one guard cut out must complain.
+            # (the last place it occurs: a comment above the step may name the flag too).
+            cut = _cut_last(text, guard.removeprefix("uvx "))
+            assert _check_problems(cut, zizmor, actionlint) != [], (file, guard)
+    assert (ROOT / "config/zizmor.yml").is_file() and (ROOT / "config/actionlint.yaml").is_file()
+
+
+NESTED_STEP = "Remove the pull request's nested Claude files"
+
+
+def _nested_claude_problems(text: str) -> list[str]:
+    doc = yaml.safe_load(text)
+    step = _step(doc, "claude", NESTED_STEP)
+    if step is None:
+        return ["the step is missing"]
+    run = " ".join(str(step["run"]).split())
+    problems = [
+        f"it does not remove {wanted}"
+        for wanted in ("-name CLAUDE.md", "-name CLAUDE.local.md", "-name .claude", "rm -rf")
+        if wanted not in run
+    ]
+    if not _before(doc, "claude", NESTED_STEP, "Review"):
+        problems.append("it does not run before Claude")
+    return problems
+
+
+def test_claude_never_reads_a_claude_file_the_pull_request_adds():
+    text = (WORKFLOWS / "review.yml").read_text()
+    assert _nested_claude_problems(text) == []
+    for wanted in (
+        "-name CLAUDE.md",
+        "-name CLAUDE.local.md",
+        "-name .claude",
+        "-exec rm -rf {} +",
+    ):
+        assert (
+            _nested_claude_problems(
+                text.replace(wanted, "-name x" if wanted.startswith("-name") else "", 1)
+            )
+            != []
+        ), wanted
+    assert _nested_claude_problems(text.replace(NESTED_STEP, "Something else")) != []
+
+
+def _cap_problems(text: str) -> list[str]:
+    doc = yaml.safe_load(text)
+    step = next((s for s in _steps(doc, "cap") if s.get("id") == "count"), None)
+    if step is None:
+        return ["no counting step"]
+    run = " ".join(str(step["run"]).split())
+    problems = []
+    for wanted, why in (
+        ('.conclusion != "cancelled"', "cancelled runs would use up the cap"),
+        ('.conclusion != "skipped"', "skipped runs would use up the cap"),
+        ("(.databaseId | tostring) != env.RUN_ID", "the run would count itself"),
+        ('[ "$runs" -ge "$DAILY_CAP" ]', "a cap of 10 would not mean 10"),
+        ("--created", "yesterday's runs would count"),
+    ):
+        if wanted not in run:
+            problems.append(why)
+    if step["env"].get("RUN_ID") != "${{ github.run_id }}":
+        problems.append("the run's own id is not given")
+    return problems
+
+
+def test_the_daily_cap_counts_only_runs_that_did_work_and_not_itself():
+    text = (WORKFLOWS / "review.yml").read_text()
+    assert _cap_problems(text) == []
+    for guard in (
+        '.conclusion != "cancelled"',
+        '.conclusion != "skipped"',
+        "(.databaseId | tostring) != env.RUN_ID",
+        '-ge "$DAILY_CAP"',
+        "--created",
+    ):
+        assert _cap_problems(text.replace(guard, "", 1)) != [], guard
+    assert _cap_problems(text.replace("RUN_ID: ${{ github.run_id }}", "RUN_ID: ''")) != []

@@ -1,0 +1,8 @@
+{
+  "id": "032-install-skill-no-script",
+  "base": "fda788da179d3d5b4eb5f31e97b6cafedfaeaaee",
+  "source": "pr#52",
+  "kind": "clean",
+  "title": "The install skill no longer downloads and runs a script",
+  "defect": null
+}

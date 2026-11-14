@@ -1,0 +1,149 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index d92c9fe..99a6ce8 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -12,6 +12,9 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **Releases come from one pull request:** each release is one pull request to review and
+   merge; the tag, PyPI, the GitHub release, the MCP Registry, Homebrew and the plugin follow on
+   their own. Both plugin marketplaces read the plugin from the `release` branch (#71).
++- **`kitden open` after an update in a terminal:** when the page still running is from another
++  Kitden version, `kitden open` stops it and starts the new one, instead of giving a link to a
++  page that can only fail.
+ 
+ ### 0.8.0
+ 
+diff --git a/src/kitden/cli.py b/src/kitden/cli.py
+index c56a81a..85b4e9c 100644
+--- a/src/kitden/cli.py
++++ b/src/kitden/cli.py
+@@ -119,6 +119,11 @@ def _show(url: str, args: argparse.Namespace) -> None:
+ def _open(args: argparse.Namespace) -> int:
+     """Open the running page for this home folder, or start one in the background (FR-008)."""
+     root = _home(args) or Path.home()
++    running = page.read_record(root) if page.page_running(root) else None
++    # Kitden updated in a terminal while its page ran: that page cannot serve any more.
++    if running and running.get("version") != __version__ and not page.stop_page(root, running):
++        print("The page of the old Kitden version did not stop.", file=sys.stderr)
++        return EXIT_NOT_STARTED
+     if not page.page_running(root):  # a page still starting holds the lock: none starts again
+         page.remove_record(root)  # left by a page that ended without cleaning up
+         page.start_background(root, args.home)
+diff --git a/src/kitden/page.py b/src/kitden/page.py
+index abae07a..a0bb9f1 100644
+--- a/src/kitden/page.py
++++ b/src/kitden/page.py
+@@ -5,15 +5,18 @@ releases it when the process ends, so a crash never leaves a "running" page behi
+ `page.json` (mode 0600) holds its port and start link, so `kitden open` can reopen it.
+ """
+ 
++import contextlib
+ import fcntl
+ import json
+ import os
++import signal
+ import subprocess
+ import sys
+ import time
+ from datetime import UTC, datetime
+ from pathlib import Path
+ 
++from kitden import __version__
+ from kitden.gateways import data_dir, private_data_dir
+ 
+ HOST = "127.0.0.1"
+@@ -70,6 +73,7 @@ def page_running(home: Path) -> bool:
+ def write_record(home: Path, port: int, token: str, background: bool) -> None:
+     record = {
+         "pid": os.getpid(),
++        "version": __version__,
+         "port": port,
+         "token": token,
+         "background": background,
+@@ -106,6 +110,18 @@ def wait_for_record(home: Path, seconds: float = WAIT_SECONDS) -> dict | None:
+     return None
+ 
+ 
++def stop_page(home: Path, record: dict) -> bool:
++    """Stop the running page and wait until it has ended. For a page of another Kitden version:
++    after `brew upgrade` or `uv tool upgrade` in a terminal its files are gone or changed."""
++    with contextlib.suppress(KeyError, TypeError, ValueError, OSError):
++        os.kill(int(record["pid"]), signal.SIGTERM)
++    lock = PageLock(home)
++    if not lock.acquire(wait=TAKE_OVER_SECONDS):
++        return False
++    lock.release()
++    return True
++
++
+ class IdleClock:
+     """Says when a background page has had no tab and no running change for `wait` seconds."""
+ 
+diff --git a/tests/unit/test_cli.py b/tests/unit/test_cli.py
+index 9bd8161..8c1b980 100644
+--- a/tests/unit/test_cli.py
++++ b/tests/unit/test_cli.py
+@@ -197,6 +197,64 @@ def test_open_with_a_running_page_opens_it_and_starts_nothing(tmp_path, monkeypa
+     assert "http://127.0.0.1:47899/?token=tok" in capsys.readouterr().out
+ 
+ 
++def _other_version_page(home, version, stops=True):
++    """A page of another Kitden version in its own process, as after `brew upgrade` in a
++    terminal; `version` None is a page from before records had one."""
++    script = (
++        "import json, signal, sys, time\n"
++        "from pathlib import Path\n"
++        "from kitden import page\n"
++        "home = Path(sys.argv[1])\n"
++        "if sys.argv[3] == 'no': signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
++        "lock = page.PageLock(home)\n"
++        "assert lock.acquire()\n"
++        "page.write_record(home, port=47897, token='old', background=True)\n"
++        "path = page.data_dir(home) / page.RECORD\n"
++        "record = json.loads(path.read_text())\n"
++        "record.pop('version')\n"
++        "if sys.argv[2]: record['version'] = sys.argv[2]\n"
++        "path.write_text(json.dumps(record))\n"
++        "print('ready', flush=True)\n"
++        "time.sleep(60)\n"
++    )
++    child = subprocess.Popen(
++        [sys.executable, "-c", script, str(home), version or "", "yes" if stops else "no"],
++        stdout=subprocess.PIPE,
++        text=True,
++    )
++    assert child.stdout.readline().strip() == "ready"
++    return child
++
++
++@pytest.mark.parametrize("version", ["0.0.1", None])
++def test_open_replaces_a_page_of_another_version(tmp_path, monkeypatch, version):
++    old = _other_version_page(tmp_path, version)
++    locks = []
++    monkeypatch.setattr(page, "start_background", lambda home, arg: locks.append(_hold_page(home)))
++    opened = []
++    monkeypatch.setattr(cli.webbrowser, "open", opened.append)
++    try:
++        assert main(["open", "--home", str(tmp_path)]) == 0
++        assert old.wait(timeout=5) is not None
++    finally:
++        old.kill()
++        for lock in locks:
++            lock.release()
++    assert opened == ["http://127.0.0.1:47899/?token=tok"]
++
++
++def test_open_says_so_when_the_old_version_page_does_not_stop(tmp_path, monkeypatch, capsys):
++    old = _other_version_page(tmp_path, "0.0.1", stops=False)
++    monkeypatch.setattr(page, "TAKE_OVER_SECONDS", 0.3)
++    monkeypatch.setattr(page, "start_background", lambda *a: pytest.fail("started a second page"))
++    try:
++        assert main(["open", "--home", str(tmp_path)]) == cli.EXIT_NOT_STARTED
++    finally:
++        old.kill()
++        old.wait()
++    assert "did not stop" in capsys.readouterr().err
++
++
+ def test_open_starts_nothing_while_a_page_is_still_starting(tmp_path, monkeypatch):
+     """The page holds the lock but has not written its record yet: no second page starts."""
+     lock = page.PageLock(tmp_path)

@@ -1,0 +1,8 @@
+{
+  "id": "029-large-skills-orange",
+  "base": "829e3f13ea4684e81e943c55c1be1f5a769bdcc8",
+  "source": "pr#72",
+  "kind": "clean",
+  "title": "Show large skills in orange on Context",
+  "defect": null
+}

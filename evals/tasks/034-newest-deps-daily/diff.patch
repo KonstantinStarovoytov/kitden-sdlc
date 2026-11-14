@@ -1,0 +1,78 @@
+diff --git a/.github/workflows/latest-deps.yml b/.github/workflows/latest-deps.yml
+new file mode 100644
+index 0000000..c6f5996
+--- /dev/null
++++ b/.github/workflows/latest-deps.yml
+@@ -0,0 +1,24 @@
++# Once a day the Python tests run on the newest versions of the dependencies. People who
++# install Kitden get those versions, not the ones in uv.lock, so a break shows here first.
++name: Newest dependencies
++
++on:
++  schedule:
++    - cron: "17 5 * * *"
++  workflow_dispatch:
++
++permissions:
++  contents: read
++
++jobs:
++  test:
++    runs-on: macos-latest
++    steps:
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++        with:
++          persist-credentials: false
++      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
++        with:
++          version: "0.10.10"
++      - run: uv sync --upgrade
++      - run: uv run --no-sync pytest -q
+diff --git a/docs/development.md b/docs/development.md
+index e305838..781f26b 100644
+--- a/docs/development.md
++++ b/docs/development.md
+@@ -208,6 +208,9 @@ budget (`scripts/measure-start.py`), a dependency audit (`pip-audit`), a check o
+ files (`zizmor`) and the package build. On a tag it also stops if the notes file is missing.
+ Then it publishes to PyPI with trusted publishing and creates the GitHub release with the
+ notes file as its text.
++Once a day the tests also run on the newest versions of the dependencies
++(`.github/workflows/latest-deps.yml`): people who install Kitden get those, not the ones in
++`uv.lock`. When that run fails, GitHub sends an email.
+ `README.md` is also the PyPI page. [README media](readme-media.md) says how its pictures are
+ made, how their addresses work on GitHub and PyPI, and what to check before promoting a release.
+ 
+diff --git a/tests/unit/test_latest_deps_workflow.py b/tests/unit/test_latest_deps_workflow.py
+new file mode 100644
+index 0000000..0cd749b
+--- /dev/null
++++ b/tests/unit/test_latest_deps_workflow.py
+@@ -0,0 +1,28 @@
++"""The daily check on the newest dependencies: users get those, not the locked ones."""
++
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++WORKFLOW = ROOT / ".github/workflows/latest-deps.yml"
++
++
++def test_it_runs_the_tests_on_the_newest_versions_every_day():
++    text = WORKFLOW.read_text()
++    assert "schedule:" in text and "cron:" in text
++    assert "workflow_dispatch:" in text
++    assert "uv sync --upgrade" in text
++    assert "uv run --no-sync pytest -q" in text
++    # The locked versions are the pull request checks' job.
++    assert "--locked" not in text
++
++
++def test_it_has_no_secret_and_cannot_write():
++    text = WORKFLOW.read_text()
++    assert "secrets." not in text
++    assert "contents: read" in text and "write" not in text
++    assert "persist-credentials: false" in text
++
++
++def test_the_development_page_names_the_daily_check():
++    text = " ".join((ROOT / "docs/development.md").read_text().split())
++    assert "Once a day the tests also run on the newest versions of the dependencies" in text

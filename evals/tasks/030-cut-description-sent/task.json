@@ -1,0 +1,8 @@
+{
+  "id": "030-cut-description-sent",
+  "base": "d9ccb6bfd57a0f0e35787d69721b2fd5a5c7daba",
+  "source": "pr#78",
+  "kind": "clean",
+  "title": "Show how much of a cut skill description was sent",
+  "defect": null
+}

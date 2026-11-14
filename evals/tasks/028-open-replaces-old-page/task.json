@@ -1,0 +1,8 @@
+{
+  "id": "028-open-replaces-old-page",
+  "base": "57e1037e4b74ecda975271359cab1f6be47bff15",
+  "source": "pr#70",
+  "kind": "clean",
+  "title": "Restart a page of another version on kitden open",
+  "defect": null
+}

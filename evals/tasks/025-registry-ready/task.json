@@ -1,0 +1,8 @@
+{
+  "id": "025-registry-ready",
+  "base": "a1aea372f171b6f555ab75f2b7d81a6fa4c811b0",
+  "source": "pr#22",
+  "kind": "clean",
+  "title": "Ready for the MCP Registry, version 0.6.1",
+  "defect": null
+}

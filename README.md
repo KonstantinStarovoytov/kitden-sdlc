@@ -123,6 +123,7 @@ setup: [docs/setup.md](docs/setup.md) for review and the watcher,
 - [docs/owner.md](docs/owner.md): everything you do, one table; the switches
 - [desk.json](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json) on the `numbers` branch: the desk's data
 - [docs/setup.md](docs/setup.md) and [docs/release-setup.md](docs/release-setup.md): the one-time setup
+- [docs/decisions.md](docs/decisions.md): every standing choice, why, and when to look again
 - [LOG.md](LOG.md): what went wrong while building, and what changed
 - Designs: [reviewers](docs/design.md), [client watcher](docs/watcher-design.md),
   [release flow](docs/superpowers/specs/2026-11-12-release-flow-design.md)

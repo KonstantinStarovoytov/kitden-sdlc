@@ -51,7 +51,7 @@ def build_review(kitden: Path, folder: Path, task: dict, patch: Path) -> None:
     numstat = git("apply", "--numstat", str(patch), cwd=folder).stdout
     names = [line.split("\t", 2)[2] for line in numstat.splitlines() if line]
     (review / "files.txt").write_text("".join(f"{name}\n" for name in names))
-    (review / "pr.md").write_text(f"# {task['title']}\n\n")
+    (review / "pr.md").write_text(f"# {task['title']}\n\n{task.get('body', '')}")
     # The working rules come from the base commit, not from the change.
     for name in RULE_FILES:
         shown = git("-C", str(kitden), "show", f"{task['base']}:{name}", check=False)

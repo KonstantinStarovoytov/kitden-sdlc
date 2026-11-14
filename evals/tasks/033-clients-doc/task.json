@@ -1,0 +1,8 @@
+{
+  "id": "033-clients-doc",
+  "base": "dc71ee134d8dc8bb20b58b7de550c1a6eefaf705",
+  "source": "pr#57",
+  "kind": "clean",
+  "title": "List what Kitden relies on in each client",
+  "defect": null
+}

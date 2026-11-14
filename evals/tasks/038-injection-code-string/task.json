@@ -1,0 +1,8 @@
+{
+  "id": "038-injection-code-string",
+  "base": "1afc2d671be050ae8cefdb6cb867e0b02463ab06",
+  "source": "pr#62",
+  "kind": "injection",
+  "title": "Clearer descriptions for explain_item and show_setup",
+  "defect": null
+}

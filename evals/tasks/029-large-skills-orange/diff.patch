@@ -1,0 +1,217 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 89c2c59..d9f44de 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -18,6 +18,9 @@ What Kitden does today and what comes next. Ideas and bugs:
+ - **`kitden open` after an update in a terminal:** when the page still running is from another
+   Kitden version, `kitden open` stops it and starts the new one, instead of giving a link to a
+   page that can only fail.
++- **Context shows the large skills:** on the side whose descriptions are sent, each skill and its
++  piece of the skill list turn from grey to orange with the length of its description, so the
++  few skills that take most of the list stand out (#72).
+ 
+ ### 0.8.0
+ 
+diff --git a/docs/design.md b/docs/design.md
+index 2fdfff8..ec25cc9 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -123,8 +123,8 @@ Context (`context.js`, from `/api/context`; checked 2026-11-09):
+ - **Head.** The title is "Do your skills fit?", then a lede for the client shown and a chip for each client: its mark, its name and a lamp (green fits, amber does not, grey cannot tell). The pressed chip is on the route tint.
+ - **Window cards.** Two buttons side by side, the last chat's window ("Last chat · Nov 6") and an estimate, each with a lamp, its size, the models and a short result. The pressed one is on the route tint. Without a checked estimate only the first shows.
+ - **Verdict.** One sentence at 15 px under the cards. The words "Estimate:" and "After Apply, estimate:" are in the route colour; a fact from the last chat has none. The room left sits under it, quieter.
+-- **Zoom bar.** The context window as a thin strip whose small slice widens into the skill list's bar. Each skill is one piece as wide as what was sent; the names are one grey piece. A 2 px line marks the limit with its flag ("Limit: 8,000 characters"). The part past the line is hatched amber (`--hatch`, light and dark values) and labelled "Over the limit: not sent" ("cut off" for Codex); room left says "Free". A redraw moves each piece from where it was in 240 ms.
+-- **Two sides.** Two panels of skill pills, the second dimmer with a hatched mark (Cursor's mark is a plain outline). A pill shows the name and its size. A pill the tray changes has a dashed line; after Apply, a skill that gets its description is filled and one that loses it has an amber line. A skill on no side sits apart below. Pointing at a pill or a piece lights both.
++- **Zoom bar.** The context window as a thin strip whose small slice widens into the skill list's bar. Each skill is one piece as wide as what was sent, grey to brand orange by its size against the largest on the first side (`--heat`); the names are one grey piece. A 2 px line marks the limit with its flag ("Limit: 8,000 characters"). The part past the line is hatched amber (`--hatch`, light and dark values) and labelled "Over the limit: not sent" ("cut off" for Codex); room left says "Free". A redraw moves each piece from where it was in 240 ms.
++- **Two sides.** Two panels of skill pills, the second dimmer with a hatched mark (Cursor's mark is a plain outline). A pill shows the name and its size. On the first side its line, fill and size warm from grey to brand orange with the same heat as its piece, so the largest descriptions stand out; the second side stays grey. The skill whose Details show has an ink ring (an ink piece), never orange. A pill the tray changes has a dashed line; after Apply, a skill that gets its description is filled and one that loses it has an amber line. A skill on no side sits apart below. Pointing at a pill or a piece lights both.
+ - **Details.** A skill opens the floating Details with its size, its source, a state switch (On, Name only, Off; Codex has On and Off; a plugin skill and Cursor have none) and the skill's note, one sentence on what its state means for the list (some skills have none). A press adds one `skill.rule` row to the tray; while the row waits, the pressed state shows a solid ring in the preview colour on the preview fill (`.ctx-switch button.pending`). The rule is the Library's, so Apply, backup, verify and Undo are unchanged.
+ - **How this is counted.** A folded list under the picture: where the last list came from, the rule and the date it was checked, and what is not measured. It stays open across a redraw. Paths and log names live only here and in Details.
+ - **Toast.** After Apply: "Applied 2 changes. The backup is in Changes. Your next chat will show the real list." with Undo ("Undo all" for two or more changes).
+diff --git a/docs/guide.md b/docs/guide.md
+index 827f049..ba29214 100644
+--- a/docs/guide.md
++++ b/docs/guide.md
+@@ -32,7 +32,9 @@ the skill list from the last chat log, plus the settings, skill files and use co
+ to size and check that list; it keeps none of it and sends nothing. Estimates for another
+ window, or for a change you are about to make, show only while Kitden's rule rebuilds that last
+ list. Claude Code's log does not say the window, so Kitden names it only when one window alone
+-gives that list. Cursor gets no verdict, because Kitden cannot see what Cursor sends. In a skill's
++gives that list. Cursor gets no verdict, because Kitden cannot see what Cursor sends. Skills
++whose descriptions are sent go from grey to orange with the length of their description, so the
++few that take most of the list stand out. In a skill's
+ **Details**, switch it to **On**, **Name only** (Claude Code) or **Off** where the client
+ allows it; built-in skills, Claude Code plugin skills and Cursor have no switch. The change goes through preview,
+ **Apply** and **Undo** like any other. The **Overview** shows a card when a last chat's list
+diff --git a/src/kitden/web/static/js/context.js b/src/kitden/web/static/js/context.js
+index 189b559..c3d2efe 100644
+--- a/src/kitden/web/static/js/context.js
++++ b/src/kitden/web/static/js/context.js
+@@ -140,8 +140,10 @@ export function renderContext(main, { again = false } = {}) {
+   // A message beside windows (the estimate could not be checked) is a note under the verdict.
+   if (windows.length && card.message) main.append(el("p", "ctx-note", card.message));
+   const result = shown ? (after ? after.result : shown.result) : null;
+-  if (shown) main.append(zoom(card, shown, result, `${card.client}:${index}`));
+-  if (card.skills.length) main.append(sidesFor(card, result, after, Boolean(after) || index > 0));
++  const estimate = Boolean(after) || index > 0;
++  const heat = heatOf(card, result, estimate);
++  if (shown) main.append(zoom(card, shown, result, `${card.client}:${index}`, heat));
++  if (card.skills.length) main.append(sidesFor(card, result, after, estimate, heat));
+   if (card.how.length) main.append(howFor(card.how));
+   markAll();
+   followDraft();
+@@ -152,8 +154,8 @@ export function renderContext(main, { again = false } = {}) {
+ // The context window as a thin strip whose small slice opens into the skill list's bar: a piece
+ // per skill as wide as what was sent, the names' characters as one piece, then past the limit
+ // line, hatched, what was not sent (Codex: cut off). The scale is the limit (or what was sent,
+-// when it is larger) plus what did not fit.
+-function zoom(card, w, r, at) {
++// when it is larger) plus what did not fit. A sent piece takes its skill's heat.
++function zoom(card, w, r, at, heat) {
+   const sent = r.sent || {};
+   const over = r.over || {};
+   const total = (part) => Object.values(part).reduce((sum, n) => sum + n, 0);
+@@ -189,6 +191,7 @@ function zoom(card, w, r, at) {
+       place(piece, `${kind}:${skill.name}`, kind === "sent" ? used : past, size);
+       if (kind === "sent") used += size;
+       else past += size;
++      if (kind === "sent" && heat.has(skill.name)) piece.style.setProperty("--heat", heat.get(skill.name));
+       lights(piece, skill.name);
+       piece.addEventListener("click", () => openSkill(card.client, skill.name));
+       bar.append(piece);
+@@ -263,7 +266,16 @@ function sideOf(card, skill, result, estimate) {
+   return skill.name in (result.sent || {}) ? 0 : 1;
+ }
+ 
+-function sidesFor(card, result, after, estimate) {
++// How warm each skill on the first side is, grey to orange: its size against the largest there,
++// "0.00" to "1.00". The sizes to weigh at a glance; the other side stays grey.
++function heatOf(card, result, estimate) {
++  const states = draftFrom(current("context"))[card.client] || {};
++  const first = card.skills.filter((s) => states[s.name] !== "off" && sideOf(card, s, result, estimate) === 0);
++  const top = Math.max(0, ...first.map((s) => s.size));
++  return new Map(first.map((s) => [s.name, (top ? s.size / top : 0).toFixed(2)]));
++}
++
++function sidesFor(card, result, after, estimate, heat) {
+   const states = draftFrom(current("context"))[card.client] || {};
+   const box = el("div", "ctx-sides");
+   const clouds = card.sides.map((name, i) => {
+@@ -281,7 +293,7 @@ function sidesFor(card, result, after, estimate) {
+     // A skill the tray turns off leaves the list.
+     if (states[skill.name] === "off") continue;
+     const side = sideOf(card, skill, result, estimate);
+-    (clouds[side] || apart).append(pillFor(card, skill, states, after));
++    (clouds[side] || apart).append(pillFor(card, skill, states, after, heat));
+   }
+   const wrap = el("div");
+   wrap.append(box);
+@@ -289,11 +301,13 @@ function sidesFor(card, result, after, estimate) {
+   return wrap;
+ }
+ 
+-// A skill's pill: its name and size. A dashed line while the tray changes it; after Apply, a skill
+-// that gets its description is filled, one that loses it is lit amber.
+-function pillFor(card, skill, states, after) {
++// A skill's pill: its name and size, warmed by its heat on the first side. A dashed line while the
++// tray changes it; after Apply, a skill that gets its description is filled, one that loses it is
++// lit amber.
++function pillFor(card, skill, states, after, heat) {
+   const node = button("", () => openSkill(card.client, skill.name), "ctx-pill");
+   node.dataset.skill = skill.name;
++  if (heat.has(skill.name)) node.style.setProperty("--heat", heat.get(skill.name));
+   node.dataset.focus = `skill:${card.client}:${skill.name}`;
+   node.append(el("span", null, skill.shown));
+   if (skill.size) node.append(el("u", null, fmt(skill.size)));
+diff --git a/src/kitden/web/static/style.css b/src/kitden/web/static/style.css
+index e584adf..2f0a7ac 100644
+--- a/src/kitden/web/static/style.css
++++ b/src/kitden/web/static/style.css
+@@ -74,6 +74,8 @@
+   --lamp-warn-soft: rgba(151, 89, 10, 0.10);
+   /* Past the limit on the Context picture: amber hatching. */
+   --hatch: repeating-linear-gradient(135deg, rgb(151 89 10 / .5) 0 2px, transparent 2px 6px);
++  /* The fill of the warmest skill pill on Context (--heat 1): brand orange over the pill. */
++  --heat-fill: 24%;
+   --lamp-off: #80868f;
+   /* The door's light in the logo's gesture (logo.js): the warm sand of the mockup, never a text colour. */
+   --hearth: #e6b46d;
+@@ -117,7 +119,7 @@
+     --route: #f09a7c; --route-soft: #382a27;
+     --success: #47c27a; --on-success: #0b1a12;
+     --lamp-on: #47c27a; --lamp-warn: #eac27c; --lamp-warn-soft: rgba(234, 194, 124, 0.12); --lamp-off: #707886; --hearth: #f3cc8f;
+-    --hatch: repeating-linear-gradient(135deg, #eac27c80 0 2px, transparent 2px 6px);
++    --hatch: repeating-linear-gradient(135deg, #eac27c80 0 2px, transparent 2px 6px); --heat-fill: 30%;
+     --danger: #f07070; --on-danger: #2a0d0d; --focus: #f09a7c;
+     --diff-add: #47c27a; --diff-del: #f07070;
+     --dim: #1b1f26; --preview-fill: #f09a7c10; --preview-line: #f09a7c80;
+@@ -134,7 +136,7 @@
+   --route: #f09a7c; --route-soft: #382a27;
+   --success: #47c27a; --on-success: #0b1a12;
+   --lamp-on: #47c27a; --lamp-warn: #eac27c; --lamp-warn-soft: rgba(234, 194, 124, 0.12); --lamp-off: #707886; --hearth: #f3cc8f;
+-  --hatch: repeating-linear-gradient(135deg, #eac27c80 0 2px, transparent 2px 6px);
++  --hatch: repeating-linear-gradient(135deg, #eac27c80 0 2px, transparent 2px 6px); --heat-fill: 30%;
+   --danger: #f07070; --on-danger: #2a0d0d; --focus: #f09a7c;
+   --diff-add: #47c27a; --diff-del: #f07070;
+   --dim: #1b1f26; --preview-fill: #f09a7c10; --preview-line: #f09a7c80;
+@@ -1311,11 +1313,12 @@ html.map-entrance::view-transition-new(page) { animation: none; }
+ .ctx-hold { position: relative; margin: 0 0 26px; }
+ .ctx-bar { position: relative; height: 56px; border: 1px solid var(--wire); border-radius: 7px; overflow: hidden; background: var(--inset); }
+ .ctx-seg { position: absolute; top: 0; bottom: 0; border-right: 1px solid var(--inset); cursor: pointer; transition: background-color var(--t-fast) ease; }
+-.ctx-seg.sent { background-color: var(--link); }
++/* --heat (0 to 1, context.js): a skill's size against the largest on the first side, grey to orange. */
++.ctx-seg.sent { background-color: color-mix(in oklab, var(--brand) calc(var(--heat, 0) * 100%), var(--link)); }
+ .ctx-seg.over { background-image: var(--hatch); border-right-color: var(--lamp-warn-soft); }
+ .ctx-seg.names { background-color: var(--panel-raised); cursor: default; }
+ .ctx-seg.hot { background-color: var(--ink-3); }
+-.ctx-seg.sel { background-color: var(--route); background-image: none; }
++.ctx-seg.sel { background-color: var(--ink); background-image: none; }
+ .ctx-limit { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); pointer-events: none; }
+ .ctx-chip { position: absolute; top: 29px; transform: translate(-50%, -50%); padding: 2px 8px; border: 1px solid var(--wire); border-radius: 6px; background: var(--panel); font-size: 11px; font-weight: 500; white-space: nowrap; pointer-events: none; }
+ .ctx-flag { position: absolute; bottom: calc(100% + 6px); font-size: 11px; font-weight: 500; color: var(--ink); white-space: nowrap; pointer-events: none; }
+@@ -1330,14 +1333,14 @@ html.map-entrance::view-transition-new(page) { animation: none; }
+ .ctx-side.calm h3 i { background: none; box-shadow: inset 0 0 0 1px var(--link); }
+ .ctx-cloud { display: flex; flex-wrap: wrap; gap: 5px; }
+ .ctx-apart { max-width: 900px; margin-top: 10px; }
+-.ctx-pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 8px; border: 1px solid var(--wire); border-radius: 7px; background: var(--panel-raised); color: var(--ink); font: inherit; font-size: 11.5px; white-space: nowrap; cursor: pointer; transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease, color var(--t-fast) ease; }
+-.ctx-pill u { text-decoration: none; font-size: 10px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
++.ctx-pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 8px; border: 1px solid color-mix(in oklab, var(--brand) calc(var(--heat, 0) * 100%), var(--wire)); border-radius: 7px; background: color-mix(in oklab, var(--brand) calc(var(--heat, 0) * var(--heat-fill)), var(--panel-raised)); color: var(--ink); font: inherit; font-size: 11.5px; white-space: nowrap; cursor: pointer; transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease, color var(--t-fast) ease; }
++.ctx-pill u { text-decoration: none; font-size: 10px; font-weight: calc(400 + var(--heat, 0) * 200); color: color-mix(in oklab, var(--route) calc(var(--heat, 0) * 100%), var(--ink-4)); font-variant-numeric: tabular-nums; }
+ .lo .ctx-pill, .ctx-apart .ctx-pill { background: transparent; color: var(--ink-3); }
+ .ctx-pill:hover, .ctx-pill.hot { border-color: var(--ink-3); }
+ .ctx-pill.chg { border-style: dashed; border-color: var(--preview-line); }
+ .ctx-pill.back { border-color: var(--preview-line); background: var(--preview-fill); color: var(--ink); }
+ .ctx-pill.lost { border-color: var(--lamp-warn); color: var(--ink); }
+-.ctx-pill.sel { border-color: var(--route); background: var(--route-soft); color: var(--ink); }
++.ctx-pill.sel { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); color: var(--ink); }
+ /* A skill's switch in Details: the pressed state rests raised; dashed while its row waits in the tray. */
+ .ctx-switch { justify-self: start; }
+ .ctx-switch button[aria-pressed="true"] { background: var(--panel-raised); box-shadow: 0 1px 2px rgb(0 0 0 / .25); }
+diff --git a/tests/frontend/context-page.test.mjs b/tests/frontend/context-page.test.mjs
+index f8a1a56..540c191 100644
+--- a/tests/frontend/context-page.test.mjs
++++ b/tests/frontend/context-page.test.mjs
+@@ -464,6 +464,24 @@ test('the two sides list the pills by side, and hovering one lights its piece an
+   assert.deepEqual(pills().filter((p) => p.classList.contains('hot')).map((p) => p.dataset.skill), ['alpha']);
+ });
+ 
++test('a skill on the first side warms with its size against the largest there, pill and piece alike', async () => {
++  await fresh();
++  state.selected = { kind: 'client', name: 'claude_code' };
++  show(answer(TIGHT, CODEX, CURSOR));
++  const heat = (node) => node.style['--heat'];
++  assert.deepEqual(['alpha', 'beta'].map((name) => [heat(pillOf(name)), heat(pieceOf(name))]), [['1.00', '1.00'], ['0.50', '0.50']]);
++  // Name only stays grey: its pill and its piece past the limit.
++  assert.equal(heat(pillOf('gamma')), undefined);
++  assert.equal(heat(pieceOf('gamma', 'over')), undefined);
++  // On a window where gamma is sent too, it warms against alpha.
++  const wide = { ...TIGHT.windows[0], tag: 'Estimate', result: { ...TIGHT.windows[0].result, sent: { alpha: 4000, beta: 2000, gamma: 3000 }, over: {}, misfit: null } };
++  show(answer({ ...TIGHT, windows: [TIGHT.windows[0], wide] }, CODEX, CURSOR));
++  await fire(cards()[1], 'click');
++  assert.equal(heat(pillOf('gamma')), '0.75');
++  assert.equal(heat(pieceOf('gamma')), '0.75');
++  await fire(cards()[0], 'click');
++});
++
+ test('Details shows no size for a skill whose description Kitden could not read', async () => {
+   await fresh();
+   state.selected = { kind: 'client', name: 'claude_code' };

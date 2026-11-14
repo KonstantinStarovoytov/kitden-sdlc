@@ -21,7 +21,7 @@ pytest, ruff, `gh` CLI.
 ## Global Constraints
 
 - Two checkouts side by side: `kitden-sdlc` (this repository, branch `watcher-design`) and
-  `../mcp-gateway` (`KonstantinStarovoytov/kitden`). Task 1 is in `kitden`, on a new branch
+  `../kitden` (`KonstantinStarovoytov/kitden`). Task 1 is in `kitden`, on a new branch
   `client-list` from `origin/main`, in its own worktree. All other tasks are here.
 - New Python files are flat in `scripts/`, named `watch_*.py`; tests in `tests/test_watch_*.py`.
   pytest already has `scripts` on its path.
