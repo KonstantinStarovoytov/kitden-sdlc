@@ -67,6 +67,17 @@ three: one job reads, one runs the model with no way to write, one writes with n
 
 All eleven rules, checked by a script on every change: [RULES.md](RULES.md).
 
+## It checks itself
+
+The agents are measured, and what they get wrong becomes the next test.
+
+- **Your verdict is the data.** You mark a watcher issue `confirmed` or `false-alarm`.
+- **Verdicts become tests.** About once a month they are turned into new eval tasks, as a pull request: [evals/watch](evals/watch/README.md).
+- **No change without a score.** A change to a prompt, a skill or a model comes with its eval table, before and after.
+- **A noisy agent pauses itself.** When more than half of its last 10 verdicts are false alarms, it stops and asks you.
+
+The desk shows the same health every day in one issue: [docs/agents.md](docs/agents.md#the-desk).
+
 ## What you do
 
 Read the comments, answer the issues, press **Run workflow** to release. Every action and
