@@ -409,7 +409,7 @@ const WF = [
   what:'Tests on the newest dependency versions.',
   stages:[['test']],
   jobs:[{n:'test', tags:['macOS'], when:'always', steps:['`uv sync --upgrade`','`pytest`']}]},
- {id:'k-scenes', r:'k', file:'scenes.yml', name:'Scenes', kind:'own',
+ {id:'k-scenes', r:'k', file:'scenes.yml', name:'README scenes', kind:'own',
   trigger:'A pull request that changes `src/kitden`',
   what:'Can the README pictures still be recorded?',
   stages:[['scenes']],
@@ -481,7 +481,7 @@ const WF = [
    {n:'eval', tags:['model:your choice','harden','langfuse'], when:'by hand only',
     steps:['Record hosts','Judge the test tasks','Score them']}
   ]},
- {id:'s-desk', r:'s', file:'desk.yml', name:'Desk', kind:'own',
+ {id:'s-desk', r:'s', file:'desk.yml', name:'Kitden desk', kind:'own',
   trigger:'Every day, 06:41 UTC',
   what:'Kitden’s health and what waits for you. No model.',
   stages:[['measure'],['post']],
@@ -489,7 +489,7 @@ const WF = [
    {n:'measure', tags:['no model'], when:'always', steps:['Gather the facts','Commit the numbers']},
    {n:'post', tags:['no model','Lantern'], when:'`AGENTS_ENABLED` on', steps:['Update the “Kitden desk” issue']}
   ]},
- {id:'s-checks', r:'s', file:'checks.yml', name:'Checks', kind:'own',
+ {id:'s-checks', r:'s', file:'checks.yml', name:'Tests and checks', kind:'own',
   trigger:'Any push or pull request',
   what:'kitden-sdlc checks itself.',
   stages:[['checks']],
