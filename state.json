@@ -441,7 +441,8 @@
       "0.2.31": "9dd3772d5c894659a1eed4f38bcc930a15895a8c6ad35a29c03d2fc017655b4b",
       "0.2.30": "193d8f09ad794e324e030d9143f68528eaa9c5cce800d82439c56c5e83f8780a",
       "0.2.26": "d3fd57aedea3398b4981ec9649e784954dd17f04a192ec44c9fc761ac4262422",
-      "0.2.21": "389fa5732f4e37228fe863cd515853de2e814dae0333054769b142f1e7c5c205"
+      "0.2.21": "389fa5732f4e37228fe863cd515853de2e814dae0333054769b142f1e7c5c205",
+      "2.1.325": "057831d458d6c67665b85867bd2b17cef8f2bdcf7f6b95340ed70dd847760c10"
     },
     "cursor-changelog": {
       "": "01c91aaabc4986baa25082a6254a65d3e1bcd0c357644d489eb04d8faf923e5d",
@@ -486,9 +487,9 @@
       "Performance and quality": "4ed155e58b0ed4697d4faaae265ed5a64c78b4b0168df68c1ed9098c3bbed2bd",
       "Evaluation": "046833fe793ae501ccfd6c408a7dd07261dd1781833923e4d100815889c939de",
       "Cost and throughput": "0241ba0e536350e66d6759fc890fdbf2591c3f831fc8da7073cb5e74ea0db0e7",
-      "Safety and governance": "7cc4f9b7e446fc0a2defaa00e8619cae52e603412d94add44b4263e836729fa8",
+      "Safety and governance": "e67acd6bc6c2d6bd4b63daf346e37f9f15b1b8e589cb439fa0ab81447f235c43",
       "Infrastructure and access": "7a58a0e374d3c90e6199395b2e96b4e6aa28f6a61c1788106101c732584b32c1",
-      "Operations": "a5fc8912f1f66215be6a0fa87beaebd93438b619860a5a7781d7f69927fc61b7",
+      "Operations": "0fbe0445a5583954eb29fcac1acf0ee017c494cb93d81c6aa2c0d3ad104d91cc",
       "Core concepts (2)": "be53573fce44d2851b2a2504ed81ef28930e4a663fac3a858d21a1407af3cc4b",
       "Plan": "0d68861c381f09334f11b12f1aa62cba5ed098fc2a154935fe5d60aa973e8133",
       "Build": "f9185c7f157bf155a8dc82b8eaa735e2ec16036ed7d366ff67973d6c0895e7b4",
@@ -497,7 +498,7 @@
       "Guides": "daebc598f74101cd5829d78cc18721dad0a03202788eb4cd3e46ddf0fa40872b",
       "Resources (2)": "61b6c8b90dc9c9355db79615857c94e413654c90629f61ec11d36dd8372ba0cb",
       "Identity": "62620254074d96199b193f08942f02c93941cd71629fd52f370251a1b0432290",
-      "ChatGPT plan usage": "6912fdb7eeae093ab9df14f1e878f4aeab0ec443df1443717768b3d99be1a0e1",
+      "ChatGPT plan usage": "af46ea39db9c8bef0c0a73b7f64aecc5b1f57aabb3b1f4f27aa6e7c2601c99e9",
       "Guides (2)": "2187468901c66ed789ff42645799adbbb2e2f7be175ab52950c7b83d61d863ad",
       "File Upload": "8bef5e9c1507c5992f654f9fcd43630d912a757b632fb393fe3e4b8803b500c2",
       "API": "0819b46dc2735544297316c2af810e615614451a8812e28b9eec960f19755b08",
@@ -561,7 +562,9 @@
       "Customize fallback filenames": "ab2ba894150a17b23a912f4b1b553be159eb9b1c17f76a54bd6d25fbc811d88f",
       "Verify your setup": "5d02bea452e2ad3fa7c04f97b00956c1f420b20206eaba628f00493b3917d4a1",
       "Troubleshoot discovery issues": "44bccbf07abd54750b7d63b2741fa82221ddcbdf8007b6c3820d1701275e8946",
-      "Next steps": "5ad6a65dab7da468d3b38a7b432c0b60a9d0972e75343a2f61b2871c691c24cf"
+      "Next steps": "5ad6a65dab7da468d3b38a7b432c0b60a9d0972e75343a2f61b2871c691c24cf",
+      "Commerce Partner Playbook": "3d61a147abbf3d6debb63a3e91e6de7b19e33d4a8da5954927f70e23f1ac7a95",
+      "Product feeds \u00b7 Reference": "eb1f10af62adbc9d33cbc00e939faa3dc6a8116c3f1fa471e82878d00217b9ae"
     },
     "https://learn.chatgpt.com/docs/plugins": {
       "": "811e74367c51d64ab9ba12d56654f7c7017e6a33e36d2e4796272bfbfd173bb8",
@@ -598,9 +601,9 @@
       "Performance and quality": "4ed155e58b0ed4697d4faaae265ed5a64c78b4b0168df68c1ed9098c3bbed2bd",
       "Evaluation": "046833fe793ae501ccfd6c408a7dd07261dd1781833923e4d100815889c939de",
       "Cost and throughput": "0241ba0e536350e66d6759fc890fdbf2591c3f831fc8da7073cb5e74ea0db0e7",
-      "Safety and governance": "7cc4f9b7e446fc0a2defaa00e8619cae52e603412d94add44b4263e836729fa8",
+      "Safety and governance": "e67acd6bc6c2d6bd4b63daf346e37f9f15b1b8e589cb439fa0ab81447f235c43",
       "Infrastructure and access": "7a58a0e374d3c90e6199395b2e96b4e6aa28f6a61c1788106101c732584b32c1",
-      "Operations": "a5fc8912f1f66215be6a0fa87beaebd93438b619860a5a7781d7f69927fc61b7",
+      "Operations": "0fbe0445a5583954eb29fcac1acf0ee017c494cb93d81c6aa2c0d3ad104d91cc",
       "Core concepts (2)": "be53573fce44d2851b2a2504ed81ef28930e4a663fac3a858d21a1407af3cc4b",
       "Plan": "0d68861c381f09334f11b12f1aa62cba5ed098fc2a154935fe5d60aa973e8133",
       "Build": "f9185c7f157bf155a8dc82b8eaa735e2ec16036ed7d366ff67973d6c0895e7b4",
@@ -609,7 +612,7 @@
       "Guides": "daebc598f74101cd5829d78cc18721dad0a03202788eb4cd3e46ddf0fa40872b",
       "Resources (2)": "61b6c8b90dc9c9355db79615857c94e413654c90629f61ec11d36dd8372ba0cb",
       "Identity": "62620254074d96199b193f08942f02c93941cd71629fd52f370251a1b0432290",
-      "ChatGPT plan usage": "6912fdb7eeae093ab9df14f1e878f4aeab0ec443df1443717768b3d99be1a0e1",
+      "ChatGPT plan usage": "af46ea39db9c8bef0c0a73b7f64aecc5b1f57aabb3b1f4f27aa6e7c2601c99e9",
       "Guides (2)": "2187468901c66ed789ff42645799adbbb2e2f7be175ab52950c7b83d61d863ad",
       "File Upload": "8bef5e9c1507c5992f654f9fcd43630d912a757b632fb393fe3e4b8803b500c2",
       "API": "0819b46dc2735544297316c2af810e615614451a8812e28b9eec960f19755b08",
@@ -679,7 +682,9 @@
       "How permissions and data sharing work": "5a749f007bb5059fb0e140804ae75fcdf157162665bda8dd40ea2a63e16f4976",
       "Remove a plugin": "cee9a88ff263fcbbbe3130e07596dfd1e235f65bf59dd3539a5534b9922ff904",
       "Build your own plugin": "9e43c40efc3f1f29e14cf039b620585b5322af9c7396d40259abfb3e1988ca8b",
-      "Plugin guides": "84bab34b45bd5ab30bfdbb58904d6f5ecabcb7a04be88bc11cf2c0a57c8d6969"
+      "Plugin guides": "84bab34b45bd5ab30bfdbb58904d6f5ecabcb7a04be88bc11cf2c0a57c8d6969",
+      "Commerce Partner Playbook": "3d61a147abbf3d6debb63a3e91e6de7b19e33d4a8da5954927f70e23f1ac7a95",
+      "Product feeds \u00b7 Reference": "eb1f10af62adbc9d33cbc00e939faa3dc6a8116c3f1fa471e82878d00217b9ae"
     },
     "https://learn.chatgpt.com/docs/build-skills": {
       "": "c64faf54fb1fd50c3d5f96504cd139384fde098d8fa942dd67ae2a1d0aa1db37",
@@ -716,9 +721,9 @@
       "Performance and quality": "4ed155e58b0ed4697d4faaae265ed5a64c78b4b0168df68c1ed9098c3bbed2bd",
       "Evaluation": "046833fe793ae501ccfd6c408a7dd07261dd1781833923e4d100815889c939de",
       "Cost and throughput": "0241ba0e536350e66d6759fc890fdbf2591c3f831fc8da7073cb5e74ea0db0e7",
-      "Safety and governance": "7cc4f9b7e446fc0a2defaa00e8619cae52e603412d94add44b4263e836729fa8",
+      "Safety and governance": "e67acd6bc6c2d6bd4b63daf346e37f9f15b1b8e589cb439fa0ab81447f235c43",
       "Infrastructure and access": "7a58a0e374d3c90e6199395b2e96b4e6aa28f6a61c1788106101c732584b32c1",
-      "Operations": "a5fc8912f1f66215be6a0fa87beaebd93438b619860a5a7781d7f69927fc61b7",
+      "Operations": "0fbe0445a5583954eb29fcac1acf0ee017c494cb93d81c6aa2c0d3ad104d91cc",
       "Core concepts (2)": "be53573fce44d2851b2a2504ed81ef28930e4a663fac3a858d21a1407af3cc4b",
       "Plan": "0d68861c381f09334f11b12f1aa62cba5ed098fc2a154935fe5d60aa973e8133",
       "Build": "f9185c7f157bf155a8dc82b8eaa735e2ec16036ed7d366ff67973d6c0895e7b4",
@@ -727,7 +732,7 @@
       "Guides": "daebc598f74101cd5829d78cc18721dad0a03202788eb4cd3e46ddf0fa40872b",
       "Resources (2)": "61b6c8b90dc9c9355db79615857c94e413654c90629f61ec11d36dd8372ba0cb",
       "Identity": "62620254074d96199b193f08942f02c93941cd71629fd52f370251a1b0432290",
-      "ChatGPT plan usage": "6912fdb7eeae093ab9df14f1e878f4aeab0ec443df1443717768b3d99be1a0e1",
+      "ChatGPT plan usage": "af46ea39db9c8bef0c0a73b7f64aecc5b1f57aabb3b1f4f27aa6e7c2601c99e9",
       "Guides (2)": "2187468901c66ed789ff42645799adbbb2e2f7be175ab52950c7b83d61d863ad",
       "File Upload": "8bef5e9c1507c5992f654f9fcd43630d912a757b632fb393fe3e4b8803b500c2",
       "API": "0819b46dc2735544297316c2af810e615614451a8812e28b9eec960f19755b08",
@@ -791,7 +796,9 @@
       "Install curated skills for local use": "64a503cc5c5da90b4c1b0934fdc21c89903a622902b1a952ef8bc19ae289d153",
       "Enable or disable local Codex skills": "2cfb30c5083b7e67bdd1abc07b502eb5505d1e4588fc8f4a8341af93e2924092",
       "Optional metadata": "c9d49c0fdc0b0caf8b5e7a2e3ee11414589745888582e514d23dfa03e9c61690",
-      "Best practices": "3d7b805ea6fdd0d46d4e8346e28ad3df1cdee7c28183d30ab6bdaa1038b00e66"
+      "Best practices": "3d7b805ea6fdd0d46d4e8346e28ad3df1cdee7c28183d30ab6bdaa1038b00e66",
+      "Commerce Partner Playbook": "3d61a147abbf3d6debb63a3e91e6de7b19e33d4a8da5954927f70e23f1ac7a95",
+      "Product feeds \u00b7 Reference": "eb1f10af62adbc9d33cbc00e939faa3dc6a8116c3f1fa471e82878d00217b9ae"
     },
     "https://developers.openai.com/codex/config-reference": {
       "": "acda3e94778e2500bbd03c64e06186c8d57cd35313aa041c30a72cc2cf8ce07c",
@@ -828,9 +835,9 @@
       "Performance and quality": "4ed155e58b0ed4697d4faaae265ed5a64c78b4b0168df68c1ed9098c3bbed2bd",
       "Evaluation": "046833fe793ae501ccfd6c408a7dd07261dd1781833923e4d100815889c939de",
       "Cost and throughput": "0241ba0e536350e66d6759fc890fdbf2591c3f831fc8da7073cb5e74ea0db0e7",
-      "Safety and governance": "7cc4f9b7e446fc0a2defaa00e8619cae52e603412d94add44b4263e836729fa8",
+      "Safety and governance": "e67acd6bc6c2d6bd4b63daf346e37f9f15b1b8e589cb439fa0ab81447f235c43",
       "Infrastructure and access": "7a58a0e374d3c90e6199395b2e96b4e6aa28f6a61c1788106101c732584b32c1",
-      "Operations": "a5fc8912f1f66215be6a0fa87beaebd93438b619860a5a7781d7f69927fc61b7",
+      "Operations": "0fbe0445a5583954eb29fcac1acf0ee017c494cb93d81c6aa2c0d3ad104d91cc",
       "Core concepts (2)": "be53573fce44d2851b2a2504ed81ef28930e4a663fac3a858d21a1407af3cc4b",
       "Plan": "0d68861c381f09334f11b12f1aa62cba5ed098fc2a154935fe5d60aa973e8133",
       "Build": "f9185c7f157bf155a8dc82b8eaa735e2ec16036ed7d366ff67973d6c0895e7b4",
@@ -839,7 +846,7 @@
       "Guides": "daebc598f74101cd5829d78cc18721dad0a03202788eb4cd3e46ddf0fa40872b",
       "Resources (2)": "61b6c8b90dc9c9355db79615857c94e413654c90629f61ec11d36dd8372ba0cb",
       "Identity": "62620254074d96199b193f08942f02c93941cd71629fd52f370251a1b0432290",
-      "ChatGPT plan usage": "6912fdb7eeae093ab9df14f1e878f4aeab0ec443df1443717768b3d99be1a0e1",
+      "ChatGPT plan usage": "af46ea39db9c8bef0c0a73b7f64aecc5b1f57aabb3b1f4f27aa6e7c2601c99e9",
       "Guides (2)": "2187468901c66ed789ff42645799adbbb2e2f7be175ab52950c7b83d61d863ad",
       "File Upload": "8bef5e9c1507c5992f654f9fcd43630d912a757b632fb393fe3e4b8803b500c2",
       "API": "0819b46dc2735544297316c2af810e615614451a8812e28b9eec960f19755b08",
@@ -900,7 +907,8 @@
       "Agent Security requirements for Local computer access with Work Cloud": "d9cf536c56f00cdbb743620201cf356151d97f632a56e41ca4b8e677d46c5082",
       "Local computer access with Work Cloud compatibility limits": "345d0db876df4b762b8f4215584c713651b3c569fd0be48831de98e019717089",
       "config.toml": "56307c61b8bf18f4d52c551ca5baf3f0a47419c8cf4facb5aaa3cc4fb5b5f0d4",
-      "requirements.toml": "5a9ac81ce1bd69b502304d0466bb8e3d7228ee777f9d34eee6ef35809150e6db"
+      "requirements.toml": "5a9ac81ce1bd69b502304d0466bb8e3d7228ee777f9d34eee6ef35809150e6db",
+      "Commerce Partner Playbook": "3d61a147abbf3d6debb63a3e91e6de7b19e33d4a8da5954927f70e23f1ac7a95"
     },
     "https://cursor.com/docs/plugins": {
       "": "d8195d4936d09d013d55db6d426e7c18de2d92d3b87860920b9467fe4bc7001e",
@@ -1051,19 +1059,26 @@
       "Related": "f64b772816b61a1f3a5b399c401ff7b1f3fee8dff41128e1d7d8eaed11fca7d8",
       "Was this article helpful?": "3f9a1996c907ea11bce8b458ba4ecd5439eafc4e93c5df3fb1c871cfc69bb641",
       "Was this article helpful? (2)": "d7d99eeb7ebce129650a4d5f03ab6af93819eaced78b086c157e950b6f0de6b7"
+    },
+    "codex-releases": {
+      "rust-v0.169.0": "2bb7a49f09704c2ec9b18f45218266b7b21fa64cfd999b05ea52d90f5c0150fd",
+      "rust-v0.168.0": "cf956409d8b8243d2eecb49b6eb65f9392fd02c398f5cb87995be63c9f16e02a",
+      "rust-v0.167.2": "9b33d982509a854c6a1e7f422203299fc439246816c868afe05e4f3645866d6b",
+      "rust-v0.167.1": "bf78adc18f322037af83c7129666358532fa90f22cb6b430871753a81e7334af",
+      "rust-v0.167.0": "9f67528a7151bf4e17b1b382eb2fa53b029e8c68904bc00c354376838ddee062"
     }
   },
   "fails": {
     "claude-code-changelog": 0,
-    "codex-releases": 1,
+    "codex-releases": 0,
     "cursor-changelog": 0,
-    "https://code.claude.com/docs/en/mcp": 1,
-    "https://code.claude.com/docs/en/plugins/install": 1,
-    "https://code.claude.com/docs/en/plugins/cli-reference": 1,
-    "https://code.claude.com/docs/en/plugins/loading": 1,
-    "https://code.claude.com/docs/en/settings": 1,
-    "https://code.claude.com/docs/en/skills": 1,
-    "https://code.claude.com/docs/en/memory": 1,
+    "https://code.claude.com/docs/en/mcp": 2,
+    "https://code.claude.com/docs/en/plugins/install": 2,
+    "https://code.claude.com/docs/en/plugins/cli-reference": 2,
+    "https://code.claude.com/docs/en/plugins/loading": 2,
+    "https://code.claude.com/docs/en/settings": 2,
+    "https://code.claude.com/docs/en/skills": 2,
+    "https://code.claude.com/docs/en/memory": 2,
     "https://learn.chatgpt.com/docs/agent-configuration/agents-md": 0,
     "https://learn.chatgpt.com/docs/plugins": 0,
     "https://learn.chatgpt.com/docs/build-skills": 0,
@@ -1078,6 +1093,6 @@
     "week": "2026-W46",
     "count": 0
   },
-  "summary_week": "",
+  "summary_week": "2026-W46",
   "tries": {}
 }
