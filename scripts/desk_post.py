@@ -170,20 +170,19 @@ def _small(desk: dict) -> str:
                        f"Numbers read at {_when(desk.get('updated'))}, from [desk.json]({DATA})")
 
 
-def _badge(light: dict) -> str:
-    name = one_line(str(light.get("name") or light.get("id") or "?"))
+def _state(light: dict) -> str:
     state = light.get("state")
     if state == "green":
-        return style.ok(name, "ok")
+        return style.mark("ok", style.GREEN, "check")
     if state == "amber":
-        return style.warn(name, "look")
+        return style.mark("look", style.AMBER, "ask")
     if state == "red":
-        return style.bad(name, "wrong")
-    return style.info(name, "not measured")
+        return style.mark("wrong", style.RED, "cross")
+    return style.mark("not measured")
 
 
 def _why(light: dict) -> str:
-    """Why a light is not green, in words; "" when its badge says it all."""
+    """Why a light is not green, in words; "" when its mark says it all."""
     state = light.get("state")
     why = one_line(str(light.get("why") or ""))
     if state == "green" or not why:
@@ -194,11 +193,17 @@ def _why(light: dict) -> str:
 
 
 def _badges(desk: dict) -> str:
-    """The first lines, in the bots' one look (bot_style.py): a badge for each light on a line
-    of its own, with the reason beside one that is not green."""
+    """The first thing on the page, in the bots' one look (bot_style.py): a small table with a
+    row for each light: its name, its mark, and the reason when it is not green."""
     lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
-    lines = [f"{_badge(light)} {_why(light)}".rstrip() for light in lights]
-    return "\n".join(lines) or style.info("lights", "none")  # an issue keeps each line apart
+    if not lights:
+        return style.info("lights", "none")
+    rows = []
+    for light in lights:
+        name = one_line(str(light.get("name") or light.get("id") or "?"))
+        rows.append(f"| **{name}** | {_state(light)} | {_why(light).replace('|', '&#124;')} |")
+    head = f"| Light | {style.wide('State', 8)} | Why |\n|---|---|---|\n"
+    return head + "\n".join(rows)
 
 
 def _use(use: dict) -> str:

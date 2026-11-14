@@ -61,8 +61,8 @@ def lead(body):
 
 
 def light_line(body, name):
-    """The line of one light: its badge, then its reason when it is not green."""
-    line, = [x for x in body.split("\n\n")[0].splitlines() if f'alt="{name}: ' in x]
+    """The table row of one light: its name, its mark, its reason when it is not green."""
+    line, = [x for x in body.split("\n\n")[0].splitlines() if x.startswith(f"| **{name}** |")]
     return line
 
 
@@ -71,9 +71,10 @@ def test_render_has_the_six_parts_in_order():
     places = [body.index(f"## {part}") for part in
               ("Health", "Waiting for you", "Links", "This week", "Budget", "How to")]
     assert places == sorted(places) and "no model" in body.splitlines()[-1]
-    lights = body.split("\n\n")[0].splitlines()  # the bots' one look: a badge for each light
-    assert len(lights) == 5 and all(line.startswith("<picture>") for line in lights)
-    assert 'alt="Works: not measured"' in lights[0] and 'alt="Clients: look"' in lights[1]
+    table = body.split("\n\n")[0].splitlines()  # the bots' one look: a row for each light
+    assert table[0].replace("&nbsp;", "") == "| Light | State | Why |" and len(table) == 7
+    assert 'alt="not measured">' in light_line(body, "Works")
+    assert 'alt="look">' in light_line(body, "Clients")
     assert "🟡" not in body and "🟢" not in body  # the badges say it: no second set of marks
 
 
@@ -85,12 +86,13 @@ def test_the_small_print_says_who_wrote_it_when_and_from_which_file():
 
 def test_a_light_that_is_not_green_says_why_and_a_green_one_is_only_a_badge():
     body = render(DESK)
-    assert light_line(body, "Works").endswith("</picture> no check run of main was read.")
-    assert "</picture> Issue &#35;12" in light_line(body, "Clients")
-    assert light_line(body, "Bugs").endswith("</picture>")  # green: the badge says it all
+    works = light_line(body, "Works")
+    assert works.endswith('alt="not measured"> | no check run of main was read. |')
+    assert 'alt="look"> | Issue &#35;12' in light_line(body, "Clients")
+    assert light_line(body, "Bugs").endswith('alt="ok"> |  |')  # green: the mark says it all
     assert lead(body) == "Something needs a look."
     grey = {**DESK, "lights": [{"id": "works", "name": "Works", "state": "grey", "why": ""}]}
-    assert light_line(render(grey), "Works").endswith('alt="Works: not measured"></picture>')
+    assert light_line(render(grey), "Works").endswith('alt="not measured"> |  |')
 
 
 def test_the_use_line_counts_and_says_what_was_not_measured():
@@ -398,7 +400,7 @@ def test_all_green_says_all_five_lights_are_green():
 
 def test_health_and_waiting_stay_the_first_lines_of_the_page():
     parts = render(DESK).split("\n\n")
-    assert len(parts[0].splitlines()) == 5  # the five lights, one on each line
+    assert len(parts[0].splitlines()) == 7  # a table: its two head lines and the five lights
     assert parts[1:3] == ["Something needs a look.", "### Health"]
     assert parts[3].startswith("Use: ") and parts[4] == "### Waiting for you"
     assert parts[5].startswith("- Verdict: ")
@@ -414,10 +416,10 @@ def test_a_lights_address_is_linked_when_it_is_on_github():
     light = {"id": "clients", "name": "Clients", "state": "red", "url": URL,
              "why": "Issue #12 (a confirmed major client change) has been open 8.0 days."}
     body = render({**DESK, "lights": [light]})
-    assert light_line(body, "Clients").endswith(f"</picture> [{one_line(light['why'])}]({URL})")
+    assert light_line(body, "Clients").endswith(f"> | [{one_line(light['why'])}]({URL}) |")
     for url in ("http://evil.example/x", "https://github.com/x) [y](http://evil"):
         body = render({**DESK, "lights": [{**light, "url": url}], "waiting": [], "misses": []})
-        assert "evil" not in body and "</picture> Issue &#35;12" in light_line(body, "Clients")
+        assert "evil" not in body and 'alt="wrong"> | Issue &#35;12' in light_line(body, "Clients")
 
 
 # --- What build writes, rendered ---
@@ -438,7 +440,7 @@ def test_the_page_of_what_build_writes_from_no_fact():
     body = render(build(Facts(), ROSTER, NOW))
     assert "None" not in body and "null" not in body and "| |" not in body
     assert lead(body) == "Some lights are not measured yet; none is amber or red."
-    assert body.count(': not measured"></picture>') == 5
+    assert body.count('alt="not measured"> |') == 5
     assert "## Waiting for you\n\nNot measured." in body
     assert "The agents' week: not measured yet." in body
     assert "Reviews: not measured yet." in body and "Misses: not measured yet." in body

@@ -110,6 +110,22 @@ def info(label: str, message: str) -> str:
     return badge(label, message, GREY)
 
 
+def mark(word: str, color: str = GREY, icon: str = "") -> str:
+    """A badge of one part: a mark and a word on `color`, the same in both themes. For a
+    table whose first column already names the thing."""
+    word = plain(word)
+    url = f"{SHIELDS}{_part(word)}-{color}"
+    if icon:
+        url += "?logo=" + quote(_icon(ICONS[icon]("#FFFFFF")), safe="")
+    return f'<img src="{url}" alt="{html.escape(word, quote=True)}">'
+
+
+def wide(name: str, spaces: int) -> str:
+    """A column name with hard spaces on both sides. GitHub shrinks a picture in a table to
+    the width of its column; the spaces keep the column as wide as its badge."""
+    return "&nbsp;" * spaces + name + "&nbsp;" * spaces
+
+
 def row(*badges: str) -> str:
     """The first line of a bot's text: its badges, side by side."""
     return " ".join(b for b in badges if b)

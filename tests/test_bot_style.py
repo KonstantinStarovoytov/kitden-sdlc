@@ -73,3 +73,12 @@ def test_a_row_a_box_and_the_small_print():
     with pytest.raises(ValueError, match="no such box"):
         style.box("CAUTION", "x")
     assert style.small("a", "", "[b](c)") == "<sub>a · [b](c)</sub>"
+
+
+def test_a_mark_is_one_part_and_a_wide_name_keeps_its_column():
+    mark = style.mark("ok", style.GREEN, "check")
+    assert mark.startswith('<img src="https://img.shields.io/badge/ok-177A42?logo=')
+    assert mark.endswith('alt="ok">') and "<picture>" not in mark  # the same in both themes
+    assert style.mark("not measured") == (
+        '<img src="https://img.shields.io/badge/not_measured-626977" alt="not measured">')
+    assert style.wide("Risk", 2) == "&nbsp;&nbsp;Risk&nbsp;&nbsp;"

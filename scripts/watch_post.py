@@ -99,14 +99,8 @@ def _foot(item: dict, inp: dict, how: bool = False) -> str:
     return style.small(_versions(item, inp), source, HOW if how else "")
 
 
-def _wide(name: str, spaces: int) -> str:
-    """A column name with hard spaces on both sides. GitHub shrinks a picture in a table to
-    the width of its column; the spaces keep the column as wide as its badge."""
-    return "&nbsp;" * spaces + name + "&nbsp;" * spaces
-
-
-TABLE_HEAD = (f"| # | {_wide('Client', 20)} | Change | {_wide('Risk', 16)} | {_wide('Sure', 10)} |"
-              "\n|---|---|---|---|---|\n")
+TABLE_HEAD = (f"| # | {style.wide('Client', 20)} | Change | {style.wide('Risk', 16)} | "
+              f"{style.wide('Sure', 10)} |\n|---|---|---|---|---|\n")
 
 
 def _marks(item: dict) -> tuple[str, str, str]:

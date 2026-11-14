@@ -30,9 +30,10 @@ The desk shows Works, Clients, Bugs, Agents and Queue. Green is fine, amber is w
 this week, red is worth a look today, and grey means the desk could not read something and
 found nothing bad. The rules for each are in [agents.md](agents.md#the-desk).
 
-On the desk each light is a badge on a line of its own: green with a check ("ok"), amber with
-a question mark ("look"), red with a cross ("wrong"), grey ("not measured"). A light that is
-not green has its reason beside the badge. Under the five, one line says how they stand.
+The desk opens with a small table, a row for each light: its name, its mark and why. The
+mark is green with a check ("ok"), amber with a question mark ("look"), red with a cross
+("wrong") or grey ("not measured"); only a light that is not green has a reason. Under the
+table one line says how the five stand.
 
 - **Works:** on `main`'s newest commit, the checks its push started passed, and so did every
   check `main` requires.
