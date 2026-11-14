@@ -19,8 +19,8 @@ VERSION_MAX = 100
 EFFECTS = ("breaks", "wrong-data", "unknown", "outdated", "gap")
 SEVERITIES = ("major", "medium", "minor")
 STRINGS = ("piece", "client", "title", "changed", "version", "url", "row", "effect",
-           "severity", "user_gets", "systems", "why")
-CUT = ("title", "changed", "user_gets", "systems", "why")
+           "severity", "user_gets", "systems", "why", "fix")
+CUT = ("title", "changed", "user_gets", "systems", "why", "fix")
 KEYS = {*STRINGS, "files", "sure"}
 TOP_KEYS = {"judged", "findings", "failed"}
 NAMES = {v: k for k, v in CLIENTS.items()}
@@ -183,6 +183,7 @@ def word_hits(findings: list[dict], judged: list[str], inp: dict) -> list[dict]:
             where = _quiet(piece["version"], VERSION_MAX) or "this page"
             hits.append({
                 "piece": piece["id"], "client": row.client, "title": f"Mentions `{word}`",
+                "hint": True,
                 "changed": f"The text of {where} has the word `{word}`.",
                 "version": piece["version"],
                 "url": piece["url"], "row": label, "files": row.files,

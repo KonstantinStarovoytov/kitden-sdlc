@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import bot_issues
+import bot_style as style
 from bot_issues import GhIssues, ensure_labels
 from release_stores import (
     COMMIT,
@@ -49,9 +50,9 @@ PREP_BRANCH = "prepare-v"  # release prep's own PRs, which bump the version: not
 PER_PAGE = 100
 ISSUE_LABELS = ["automated", "release"]  # every bot issue: `automated`, then which bot
 AI_POLICY = f"https://github.com/{REPO_SLUG}/blob/main/AI_POLICY.md"
-HEADER = (
-    "Opened by release-watch, a daily check in kitden-sdlc with no AI model. "
-    f"A maintainer confirms it before work starts ([AI policy]({AI_POLICY}))."
+SMALL = (
+    "Opened by release-watch, a daily check in kitden-sdlc with no AI model",
+    f"[AI policy]({AI_POLICY})",
 )
 
 # How to put each place right. Places not listed here are changed by hand. kitden-sdlc's
@@ -111,41 +112,71 @@ def propose(
     return None
 
 
-def proposal_body(prs: list[int]) -> str:
+def _s(n: int) -> str:
+    return "" if n == 1 else "s"
+
+
+def _ago(age_days: float | None) -> str:
+    if age_days is None:
+        return ""
+    days = int(age_days)
+    return style.info("last release", "today" if days < 1 else f"{days} day{_s(days)} ago")
+
+
+def _tag(tag: str) -> str:
+    return style.version("Kitden", tag.removeprefix("v")) if tag else ""
+
+
+def proposal_body(prs: list[int], age_days: float | None = None) -> str:
+    """The bots' one look (bot_style.py): badges, one line, the list, what to do. It names no
+    version: the next one is not chosen yet, and the last one would read as it."""
     links = "\n".join(f"- {PULL.format(number=number)}" for number in sorted(prs))
-    return (
-        f"{HEADER}\n\n"
-        "## What happened\n\n"
-        "These merged pull requests changed what users get since the last release:\n\n"
-        f"{links}\n\n"
-        "## What it means\n\n"
+    n = len(prs)
+    waiting = style.info("waiting", f"{n} change{_s(n)}")
+    parts = [
+        style.row(_ago(age_days), waiting),
         "Users do not have these changes yet: they reach PyPI, Homebrew and the plugin only "
-        "with a release.\n\n"
-        "## What to do\n\n"
-        f"Run [{PREP_NAME}]({PREP}). It picks the version, writes the notes and opens the "
-        "release pull request for you to review and merge.\n\n"
-        "This issue is updated every day and closes itself when a release is made."
-    )
+        "with a release.",
+        "### Not released yet\n"
+        "These merged pull requests changed what users get since the last release:\n\n"
+        f"{links}",
+        style.box(
+            "IMPORTANT",
+            f"Run [{PREP_NAME}]({PREP}). It picks the version, writes the notes and opens the "
+            "release pull request for you to review and merge.",
+        ),
+        style.small(*SMALL, "updated every day; closes itself when a release is made"),
+    ]
+    return "\n\n".join(parts)
 
 
 def drift_title(tag: str) -> str:
     return f"Release {tag} is not everywhere"
 
 
+def _place(row: Row) -> str:
+    if row.ok:
+        return style.ok(row.place, "ok")
+    return style.warn(row.place, "by hand") if row.ok is None else style.bad(row.place, "behind")
+
+
 def drift_body(tag: str, rows: list[Row], late: list[Row]) -> str:
+    """The bots' one look (bot_style.py): badges, one line, Problem, Fix, what it means."""
     fixes = "\n".join(f"- {row.place}: {fix_for(row)}" for row in late)
-    return (
-        f"{HEADER}\n\n"
-        "## What happened\n\n"
-        f"Kitden {tag} is behind or different in these places:\n\n"
-        f"{summary(rows)}\n\n"
-        "## What it means\n\n"
-        f"People who install Kitden from these places do not get {tag}, or see an old "
-        "description.\n\n"
-        "## What to do\n\n"
-        f"{fixes}\n\n"
-        "This issue is updated every day and closes itself when every store is right."
-    )
+    n = len(late)
+    parts = [
+        style.row(_tag(tag), *(_place(row) for row in rows)),
+        f"Kitden {tag} is behind or different in {n} place{_s(n)}.",
+        f"### Problem\n{summary(rows)}",
+        f"### Fix\n{fixes}",
+        style.box(
+            "WARNING",
+            f"People who install Kitden from these places do not get {tag}, or see an old "
+            "description.",
+        ),
+        style.small(*SMALL, "updated every day; closes itself when every store is right"),
+    ]
+    return "\n\n".join(parts)
 
 
 @dataclass
@@ -215,7 +246,8 @@ def run(fetch: Fetch, gh: GhIssues, now: datetime) -> None:
         return
     ensure_labels(gh)
     prs = propose(data.changed, data.labels, data.age_days)
-    bot_issues.upsert(gh, PROPOSAL_TITLE, proposal_body(prs) if prs else "", ISSUE_LABELS)
+    proposal = proposal_body(prs, data.age_days) if prs else ""
+    bot_issues.upsert(gh, PROPOSAL_TITLE, proposal, ISSUE_LABELS)
     rows = read_all(data.tag, fetch)
     late = behind(rows, data.age_days * 24)
     body = drift_body(data.tag, rows, late) if late else ""

@@ -74,4 +74,7 @@ Fill them in this order: first what you read, then the verdict.
 - `systems`: which systems (macOS, Linux, Windows) are hit; "not checked" unless the change
   or the row says otherwise.
 - `why`: the reason in one or two sentences, naming the function or constant you read.
+- `fix`: what to change in Kitden so it is right again, in one or two plain sentences: the
+  file and the change ("read `skills/` in both folders in `src/kitden/clients/claude.py`").
+  Empty when the effect is `none`.
 - `title`: a short title that names the client's change, not Kitden's code.

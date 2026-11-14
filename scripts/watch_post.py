@@ -2,14 +2,12 @@
 
 import argparse
 import json
-import os
 from datetime import date, timedelta
 from pathlib import Path
 
+import bot_style as style
 from bot_issues import GhIssues, ensure_labels, pause
-from watch_list import parse_list, row_labels
 from watch_route import (
-    TEXT_MAX,
     VERSION_MAX,
     BadFindings,
     Plan,
@@ -23,120 +21,202 @@ from watch_route import (
 )
 
 SUMMARY_MAX = 60000
+ROOM = 3000  # kept for what follows the items: the mentions, the checklist, the box
 AGENT = "The client watcher"  # its pause issue is "The client watcher is paused"
 PAUSED_MEANS = ("That includes its weekly summary: what it finds is kept for its first summary "
                 "after this issue is closed.")
 
 
-# Shown with every finding: docs/watch-effects.md says the same in more words.
-TYPE_TEXT = {
-    "breaks": ("Breaks",
-               "A Kitden action fails, or writes something the client no longer accepts."),
-    "wrong-data": ("Wrong data", "Kitden shows one thing while the client has another."),
-    "unknown": ("Unknown", "Kitden cannot read the new value and says so."),
-    "outdated": ("Outdated", "Kitden stays right; its list or a code comment is out of date."),
-    "gap": ("Gap", "The client keeps something that Kitden does not show yet."),
+# Plain words for the type and severity of docs/watch-effects.md.
+WHAT = {
+    "breaks": "A Kitden action fails.",
+    "wrong-data": "Kitden shows wrong information.",
+    "gap": "Kitden does not show this yet.",
+    "unknown": "Kitden cannot tell, and says so.",
+    "outdated": "Only Kitden's own notes are out of date.",
 }
-SEVERITY_TEXT = {
-    "major": "A user who trusts Kitden here does a wrong action and gets a result they did not "
-             "expect.",
-    "medium": "A user does extra or useless steps, but nothing unexpected happens.",
-    "minor": "What a user does stays the same.",
-}
-MAINTAINERS_SUMMARY = ("To confirm an item or mark it a false alarm, open an issue for it; this "
-                       "summary is only a list.")
+RISK = {"major": "High", "medium": "Medium", "minor": "Low"}
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
-MAINTAINERS = ("Put `confirmed` on it if this is right; it stays open until the problem is "
-               "fixed. Close it with `false-alarm` if it is not. Add `good first issue` or "
-               "`help wanted` only after it is confirmed.")
+NEXT = ("Add `confirmed` if this is right (it stays open until it is fixed), or close it with "
+        "`false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`.")
+NEXT_SUMMARY = ("Nothing here is urgent. To act on an item, open an issue for it; this summary "
+                "is only a list.")
+HOW = f"[how the watcher works]({HOW_IT_WORKS})"
+
+# What a fix must not forget, from Kitden's CONTRIBUTING.md, by the type of the finding.
+CHECKS = {
+    "docs": "Read the client's own docs first: the note may not say enough.",
+    "new-row": "If Kitden should show it, add a row to `docs/clients.md`.",
+    "test": "Test with a sandbox home, never your own settings.",
+    "apply": "A change to a client's settings goes through preview → Apply with a backup → "
+             "verify → Undo.",
+    "privacy": "Update `PRIVACY.md` if Kitden now reads a new file or folder.",
+    "row": "Update the row in `docs/clients.md` and its checked date.",
+    "roadmap": 'Add a line to `ROADMAP.md` under "Not yet released".',
+    "guide": "Update `docs/guide.md` if what the user sees changes.",
+}
+TODO = {
+    "breaks": ("test", "apply", "row", "roadmap", "guide"),
+    "wrong-data": ("test", "row", "roadmap", "guide"),
+    "gap": ("new-row", "test", "privacy", "roadmap", "guide"),
+    "unknown": ("docs", "row"),
+    "outdated": ("row",),
+}
 
 
-def first_line(repo: str = "") -> str:
-    """The first line of every issue: who opened it, which model wrote it, what happens next."""
-    model = os.environ.get("WATCH_MODEL") or "a model"
-    policy = f" ([AI policy](https://github.com/{repo}/blob/main/AI_POLICY.md))" if repo else ""
-    return (f"Opened by Kitden's [client watcher]({HOW_IT_WORKS}), an automated check of the "
-            f"release notes and docs of Claude Code, Codex and Cursor. Written by {model}; a "
-            f"maintainer checks it before anyone works on it{policy}.")
+def dont_forget(effects: list[str], boxes: bool = True) -> str:
+    """The checks a fix needs, once each, in the order of CHECKS."""
+    keys = {k for e in effects for k in TODO.get(e, ())}
+    mark = "- [ ] " if boxes else "- "
+    return "\n".join(mark + text for k, text in CHECKS.items() if k in keys)
 
 
 def _version(item: dict) -> str:
     return _quiet(item.get("version") or "", VERSION_MAX)
 
 
-def _seen_in(item: dict, inp: dict) -> str:
-    text = inp.get("list", "")
-    labels = row_labels(text)
-    for r in parse_list(text):
-        if (r.client, labels[(r.client, r.what)]) == (item.get("client"), item.get("row")):
-            return f"seen in {r.seen_in}"
-    return ""
+def _hint(item: dict) -> bool:
+    """A word of a row is in the note but the model found nothing: not a finding."""
+    return bool(item.get("hint")) or item.get("title", "").startswith("Mentions `")
 
 
-def _scale(item: dict, inp: dict) -> str:
+def _who(item: dict) -> str:
+    return " ".join(x for x in (client_name(item), _version(item)) if x)
+
+
+def _versions(item: dict, inp: dict) -> str:
     files = item.get("files") or []
     same = bool(files) and all(inp["files"].get(f, {}).get("same_in_release") for f in files)
-    kitden = f"main and {inp['release']}" if same else f"main; {inp['release']} not checked"
-    return (f"- Client versions: {_version(item) or 'unknown'}\n"
-            f"- Systems: {item.get('systems') or 'not checked'}\n- Kitden versions: {kitden}")
+    kitden = f"main and {inp['release']}" if same else f"main ({inp['release']} not checked)"
+    systems = item.get("systems") or ""
+    on = f" · systems: {systems}" if systems and systems != "not checked" else ""
+    return f"Checked on Kitden {kitden}{on}"
 
 
-def _where(item: dict, inp: dict) -> str:
-    row = _quiet(item.get("row") or "", TEXT_MAX)
-    lines = []
-    if row:
-        seen = _seen_in(item, inp)
-        lines.append(f"- Row in `docs/clients.md`: {row}" + (f" ({seen})" if seen else ""))
-    else:
-        lines.append("- No row in `docs/clients.md` is about it.")
+def _foot(item: dict, inp: dict, how: bool = False) -> str:
+    """The small print: what was checked and the source."""
+    source = f"[source]({item['url']})" if item.get("url") else ""
+    return style.small(_versions(item, inp), source, HOW if how else "")
+
+
+TABLE_HEAD = (f"| # | {style.wide('Client', 20)} | Change | {style.wide('Risk', 16)} | "
+              f"{style.wide('Sure', 10)} |\n|---|---|---|---|---|\n")
+
+
+def _marks(item: dict) -> tuple[str, str, str]:
+    """Three badges: the client and its version, the risk, whether the watcher is sure."""
+    _, severity = _kind(item)
+    client = (style.version(client_name(item), _version(item)) if _version(item)
+              else style.info("client", client_name(item)))
+    return (client, style.risk(RISK.get(severity, "low").lower()),
+            style.sure(bool(item.get("sure"))))
+
+
+def _badges(item: dict) -> str:
+    return style.row(*_marks(item))
+
+
+def _flat(text) -> str:
+    """The model's text on one line, so it cannot start a heading, a list or a box."""
+    return " ".join(str(text or "").split())
+
+
+def _lead(item: dict) -> str:
+    """One plain sentence: what the Kitden user gets."""
+    effect, _ = _kind(item)
+    gets = _flat(item.get("user_gets"))
+    gets = "" if gets.strip(" .").lower() in ("", "not checked") else " " + gets
+    return f"{WHAT.get(effect, effect)}{gets}"
+
+
+def _problem(item: dict) -> str:
+    return " ".join(x for x in (_flat(item.get("changed")), _flat(item.get("why"))) if x)
+
+
+def _files(item: dict) -> str:
     files = item.get("files") or []
-    if files:
-        lines.append("- Files: " + ", ".join(f"`{f}`" for f in files))
-    return "\n".join(lines)
+    return "**Files:** " + ", ".join(f"`{f}`" for f in files) if files else ""
 
 
-def _item(item: dict, inp: dict, level: str = "##") -> str:
-    """One finding in sections, the same in an urgent issue and in the summary."""
-    effect, severity = _kind(item)
-    name, means = TYPE_TEXT.get(effect, (effect, ""))
-    who = " ".join(x for x in (client_name(item), _version(item)) if x)
-    source = f"\n\nSource: {item['url']}" if item.get("url") else ""
-    sure = ("Sure: the note says it plainly and the code shows it." if item.get("sure")
-            else "Not sure: the note or the code leaves room for doubt; check before acting.")
-    return "\n\n".join([
-        f"{level} What changed\n\n{who}: {item.get('changed', '')}{source}",
-        f"{level} What it means for Kitden\n\n**{name}, {severity}.** {means} "
-        f"{SEVERITY_TEXT.get(severity, '')}\n\n{item.get('user_gets', '')}".rstrip(),
-        f"{level} Why\n\n{item.get('why', '')}".rstrip(),
-        f"{level} Where in Kitden\n\n{_where(item, inp)}",
-        f"{level} Scale\n\n{_scale(item, inp)}",
-        f"{level} How sure\n\n{sure}",
-    ])
+def _item(item: dict, inp: dict, badges: bool = True) -> str:
+    """One item of the summary: the badges (unless a table above has them), the lead line,
+    the problem, the fix, the files."""
+    lines = [*([_badges(item), ""] if badges else []), _lead(item), ""]
+    if _problem(item):
+        lines.append(f"**Problem:** {_problem(item)}")
+    if _flat(item.get("fix")):
+        lines.append(f"**Fix:** {_flat(item['fix'])}")
+    if _files(item):
+        lines.append(_files(item))
+    return "\n".join([*lines, "", _foot(item, inp)])  # GitHub keeps each line on its own
 
 
-def render_urgent(finding: dict, inp: dict, repo: str = "") -> tuple[str, str]:
+def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
+    """An issue of its own: the badges, the lead line, Problem, Fix, Checklist, what to do."""
+    # The title form is what the router matches known issues by: keep it.
     title = f"{client_name(finding)}: {finding['title']}"
-    return title, (f"{first_line(repo)}\n\n{_item(finding, inp)}\n\n"
-                   f"## For maintainers\n\n{MAINTAINERS}\n")
+    parts = [_badges(finding), _lead(finding)]
+    if _problem(finding):
+        parts.append(f"### Problem\n{_problem(finding)}")
+    fix = "\n".join(x for x in (_flat(finding.get("fix")), _files(finding)) if x)
+    if fix:
+        parts.append(f"### Fix\n{fix}")
+    todo = dont_forget([_kind(finding)[0]])
+    if todo:
+        parts.append(f"### Checklist\n{todo}")
+    parts += [style.box("IMPORTANT", NEXT), _foot(finding, inp, how=True)]
+    return title, "\n\n".join(parts) + "\n"
 
 
-def render_summary(items: list[dict], today: date, inp: dict | None = None,
-                   repo: str = "") -> tuple[str, str, list[dict]]:
+def _hints(items: list[dict]) -> str:
+    by_piece: dict[str, list[str]] = {}
+    for i in items:
+        word = i["title"].removeprefix("Mentions ").strip()
+        by_piece.setdefault(_who(i) or "a note", []).append(word)
+    parts = [f"{who} mentions {', '.join(words)}" for who, words in by_piece.items()]
+    return ("**Mentioned, nothing found:** " + "; ".join(parts) + ". The model checked these "
+            "rows and saw no change; look only if you want to.")
+
+
+def render_summary(items: list[dict], today: date,
+                   inp: dict | None = None) -> tuple[str, str, list[dict]]:
     """Return the title, the body and the items that did not fit, for the next summary."""
     inp = inp or {"files": {}, "release": "the latest release"}
     monday = today - timedelta(days=today.weekday())
-    blocks = [f"## {i['title']}\n\n`{'` `'.join(labels(i))}`\n\n{_item(i, inp, '###')}"
-              for i in items]
-    body = (f"{first_line(repo)}\n\nThe changes of this week that are not urgent, the gravest "
-            f"first. {MAINTAINERS_SUMMARY}")
-    rest = []
-    for n, block in enumerate(blocks):
-        if len(body) + len(block) + 100 > SUMMARY_MAX:
-            body += f"\n\n…and {len(blocks) - n} more items in the next summary"
-            rest = items[n:]
+    real = [i for i in items if not _hint(i)]
+    hints = [i for i in items if _hint(i)]
+    # With several items a table on top holds the badges of each; one item has its own.
+    table = len(real) > 1
+    rows, blocks, rest, size = [], [], [], 0
+    for n, i in enumerate(real, 1):
+        title = _flat(i["title"])
+        row = ""
+        if table:
+            client, risk, sure = _marks(i)
+            change = _quiet(title, 80).replace("|", "\\|")
+            row = f"| {n} | {client} | {change} | {risk} | {sure} |"
+        head = f"### {n}. {_who(i)}: {title}" if table else f"### {n}. {title}"
+        block = f"{head}\n\n{_item(i, inp, badges=not table)}"
+        if size + len(row) + len(block) + ROOM > SUMMARY_MAX:
+            rest = real[n - 1:]
             break
-        body += "\n\n" + block
-    return f"Client changes, week of {monday}", body + "\n", rest
+        rows.append(row)
+        blocks.append(block)
+        size += len(row) + len(block) + 4
+    parts = []
+    if table and rows:
+        parts.append(TABLE_HEAD + "\n".join(rows))
+    parts += blocks
+    if rest:
+        parts.append(f"…and {len(rest)} more items in the next summary")
+    body = "\n\n".join(parts)
+    if hints:
+        body += "\n\n" + _hints(hints)
+    todo = dont_forget([_kind(i)[0] for i in real if i not in rest], boxes=False)
+    if todo:
+        body += f"\n\n**When you fix one:**\n{todo}"
+    body += f"\n\n{style.box('NOTE', NEXT_SUMMARY)}\n\n{style.small(HOW)}"
+    return f"Client changes, week of {monday}", body.strip() + "\n", rest
 
 
 def _append(path: Path, lines: list[dict]) -> None:
@@ -172,10 +252,9 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
         print(f"{AGENT} is paused: nothing posted, {kept} finding{'' if kept == 1 else 's'} "
               "kept for its first summary after the pause.")
 
-    repo = gh.repo
-    posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
+    posts = [(*render_urgent(f, inp), labels(f)) for f in plan.urgent]
     if plan.summary:
-        title, body, rest = render_summary(plan.summary, today, inp, repo)
+        title, body, rest = render_summary(plan.summary, today, inp)
         posts.append((title, body, ["automated", "client-change", "summary"]))
         plan.state["kept"] = rest + plan.state["kept"]
     addresses = [gh.create(*post) for post in posts]

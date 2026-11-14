@@ -49,7 +49,8 @@ def finding(**kw):
             "version": "2.1.320", "url": URL, "row": "the `skillOverrides` key",
             "files": ["src/kitden/skills.py"], "effect": "outdated",
             "severity": "minor" if effect in ("outdated", "unknown") else "major", "sure": True,
-            "user_gets": "u", "systems": "not checked", "why": "w"}
+            "user_gets": "u", "systems": "not checked", "why": "w",
+            "fix": "f"}
     return {**base, **kw}
 
 

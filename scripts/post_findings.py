@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
 
+import bot_style as style
 from secret_filter import has_commit, in_git, in_text, random_runs, unknown_runs
 
 SUMMARY_MAX = 300
@@ -604,14 +605,25 @@ def review_body(
     still = [i for i in items if not i.now and not i.fixed]
     fixed = [i for i in items if not i.now and i.fixed]
     latest = next((r for name in REVIEWERS if (r := reports.get(name))), None)
+    # The bots' one look (bot_style.py): who answered, how much there is to check, the commit.
+    badges = [style.ok(names[n], "answered") if reports.get(n)
+              else style.warn(names[n], "no answer") for n in REVIEWERS]
+    if latest:
+        badges.append(style.info("to check", str(len(current))) if current
+                      else style.ok("new problems", "none"))
+    if COMMIT.match(head_sha):
+        badges.append(style.info("commit", head_sha[:7]))
+    parts.append(style.row(*badges))
     if not latest:
         commit = one_line(head_sha[:7])
-        parts.append(f"Neither reviewer gave a usable answer for {commit}. This is not a review.")
+        parts.append(style.box(
+            "WARNING",
+            f"Neither reviewer gave a usable answer for {commit}. This is not a review."))
     else:
         parts.append(one_line(latest.summary))
         if current:
             bullets = "\n".join(_bullet(item, repo, names) for item in current)
-            parts.append(f"**To check ({len(current)})**\n{bullets}")
+            parts.append(f"### To check ({len(current)})\n{bullets}")
         elif still:
             parts.append("No new problems found. The earlier findings below stay until fixed.")
         else:
@@ -619,14 +631,14 @@ def review_body(
     if still:
         bullets = "\n".join(_bullet(i, repo, names, f", found in {i.seen[:7]}") for i in still)
         parts.append(
-            f"**Not repeated by the latest review ({len(still)})**\n"
+            f"### Not repeated by the latest review ({len(still)})\n"
             "Found on an earlier push. Nothing shows that their lines changed since, "
             f"so they may still be there.\n{bullets}"
         )
     if fixed:
         bullets = "\n".join(_bullet(i, repo, names, f", fixed in {i.fixed[:7]}") for i in fixed)
         parts.append(
-            f"**Fixed ({len(fixed)})**\n"
+            f"### Fixed ({len(fixed)})\n"
             f"The lines these point to changed after they were found.\n{bullets}"
         )
     left_out = sum(dropped.values())

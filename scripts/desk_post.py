@@ -23,6 +23,7 @@ import urllib.parse
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import bot_style as style
 from bot_issues import BOT, GhIssues, ensure_labels, upsert
 from count_reviews import REPO, SINCE_DAYS
 from post_findings import one_line
@@ -164,21 +165,57 @@ def _list(desk: dict, key: str):
 # --- The page ---
 
 
-def _header(desk: dict) -> str:
-    return (f"Written by desk_post.py, a script in kitden-sdlc; no model wrote it. "
-            f"Numbers read at {_when(desk.get('updated'))}, from [desk.json]({DATA}).")
+def _small(desk: dict) -> str:
+    return style.small("Written by desk_post.py, a script in kitden-sdlc; no model wrote it",
+                       f"Numbers read at {_when(desk.get('updated'))}, from [desk.json]({DATA})")
 
 
-def _light(light: dict) -> str:
+# What each light checks, in a few words; the rules are in docs/owner.md.
+CHECKS = {
+    "works": "the checks on `main` pass",
+    "clients": "no confirmed client change waits long",
+    "bugs": "open bugs do not keep growing",
+    "agents": "the bots run and are not paused",
+    "queue": "nothing waits for you long",
+}
+
+
+def _state(light: dict) -> str:
     state = light.get("state")
-    name = one_line(str(light.get("name") or light.get("id") or "?"))
+    if state == "green":
+        return style.mark("ok", style.GREEN, "check")
+    if state == "amber":
+        return style.mark("look", style.AMBER, "ask")
+    if state == "red":
+        return style.mark("wrong", style.RED, "cross")
+    return style.mark("not measured")
+
+
+def _why(light: dict) -> str:
+    """Why a light is not green, in words; "" when its mark says it all."""
+    state = light.get("state")
     why = one_line(str(light.get("why") or ""))
-    if state not in MARKS or state == "grey":
-        why = re.sub(rf"^{NOT_MEASURED_YET}:?\s*", "", why, flags=re.I)
-        return f"- ⚪ {name}: {NOT_MEASURED_YET}" + (f": {why}" if why else ".")
     if state == "green" or not why:
-        return f"- {MARKS[state]} {name}"
-    return f"- {MARKS[state]} {name}: {_link(why, light.get('url'))}"
+        return ""
+    if state not in MARKS or state == "grey":
+        return re.sub(rf"^{NOT_MEASURED_YET}:?\s*", "", why, flags=re.I)
+    return _link(why, light.get("url"))
+
+
+def _badges(desk: dict) -> str:
+    """The first thing on the page, in the bots' one look (bot_style.py): a small table with a
+    row for each light: its name, its mark, what it checks, and the reason when it is not green."""
+    lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
+    if not lights:
+        return style.info("lights", "none")
+    rows = []
+    for light in lights:
+        name = one_line(str(light.get("name") or light.get("id") or "?"))
+        checks = CHECKS.get(light.get("id"), "")
+        why = _why(light).replace("|", "&#124;")
+        rows.append(f"| **{name}** | {_state(light)} | {checks} | {why} |")
+    head = f"| Light | {style.wide('State', 8)} | Checks that | Why not |\n|---|---|---|---|\n"
+    return head + "\n".join(rows)
 
 
 def _use(use: dict) -> str:
@@ -200,13 +237,15 @@ def _use(use: dict) -> str:
     return "Use: " + "; ".join(parts) + "."
 
 
-def _health(desk: dict) -> list[str]:
+def _lead(desk: dict) -> str:
+    """The one line under the badges: how the five lights stand."""
     state = desk.get("overall")
-    state = state if state in MARKS else "grey"
-    lights = desk.get("lights") or []
-    lines = [f"**{MARKS[state]} {OVERALL[state]}**", ""]
-    lines += [_light(light) for light in lights if isinstance(light, dict)] or ["- ⚪ No light."]
-    return [*lines, "", _use(desk.get("use") or {})]
+    return OVERALL[state if state in MARKS else "grey"]
+
+
+def _health(desk: dict) -> list[str]:
+    """How Kitden is used. The lights are the badges on top."""
+    return [_use(desk.get("use") or {})]
 
 
 def _wait(item: dict) -> str:
@@ -341,13 +380,15 @@ def _budget(desk: dict) -> list[str]:
 
 def _page(desk: dict, shown: dict[str, int]) -> str:
     parts = [
-        [_header(desk)],
-        ["## Health", "", *_health(desk)],
-        ["## Waiting for you", "", *_waiting(_list(desk, "waiting"), shown["waiting"])],
-        ["## Links", "", *_links(desk)],
-        ["## This week", "", *_this_week(desk, shown)],
-        ["## Budget", "", *_budget(desk)],
-        ["## How to", "", f"What each light means and what to do: [docs/owner.md]({HOW_TO})."],
+        [_badges(desk)],
+        [_lead(desk)],
+        ["### Health", "", *_health(desk)],
+        ["### Waiting for you", "", *_waiting(_list(desk, "waiting"), shown["waiting"])],
+        ["### Links", "", *_links(desk)],
+        ["### This week", "", *_this_week(desk, shown)],
+        ["### Budget", "", *_budget(desk)],
+        ["### How to", "", f"What each light means and what to do: [docs/owner.md]({HOW_TO})."],
+        [_small(desk)],
     ]
     return "\n\n".join("\n".join(part) for part in parts) + "\n"
 

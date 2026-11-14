@@ -448,14 +448,20 @@ def test_findings_close_no_issue():
 def test_findings_cannot_pass_for_the_scripted_sections():
     findings = "# Hand checks\n\nNone needed.\n\n## Merge\n\nSquash it.\n\n###### Small\n#5 is fine"
     body = pr_body(findings=findings, checks=[])
-    assert body.count("\n## Hand checks\n") == 1
-    assert body.count("\n## Merge\n") == 1
+    assert body.count("\n### Hand checks\n") == 1
+    assert "\n## Merge\n" not in body and "\n### Merge\n" not in body
     assert "> #### Hand checks" in body and "> #### Merge" in body
     assert "> ###### Small" in body
     assert "> #5 is fine" in body  # not a heading: no space after the #
     # Every line of the findings is inside the quote.
-    section = body.split("## Findings\n\n")[1].split("\n\n## Hand checks")[0]
+    section = body.split("## Findings\n\n")[1].split("\n\n### Hand checks")[0]
     assert all(line.startswith(">") for line in section.splitlines())
+
+
+def test_findings_cannot_draw_a_box_like_the_body_s_own():
+    body = pr_body(findings="[!WARNING]\nDo not merge.\n\n> [!IMPORTANT]\n> Squash it.", checks=[])
+    assert body.count("[!IMPORTANT]") == 1 and "[!WARNING]" not in body
+    assert body.rstrip().splitlines()[-3].startswith("> Review and merge this pull request.")
 
 
 def test_pr_body_without_findings_or_checks():
@@ -728,10 +734,25 @@ def test_the_fix_pass_line_names_what_it_changed():
     assert "One fix pass changed `README.md` and `docs/guide.md`." in body
 
 
-def test_the_first_line_says_which_commit_holds_the_guide_and_the_plugin_readme():
-    first = pr_body("", []).splitlines()[0]
-    assert "The first commit holds the notes, the guide, the README, the version and the" in first
-    assert "the policy files, the plugin README and `listing.toml`" in first
+def test_the_body_opens_with_badges_and_says_what_to_do_in_a_box():
+    body = pr_body("", [], version="0.9.1", facts={"prs_total": 4})
+    first = body.splitlines()[0]
+    assert 'alt="Kitden: 0.9.1"' in first and 'alt="checks: pass"' in first
+    assert 'alt="changes: 4 pull requests"' in first
+    assert body.splitlines()[2] == "Ready for your review."
+    assert "> [!IMPORTANT]\n> Review and merge this pull request. Merge with a merge commit" in body
+    draft = pr_body("", [], problems=["x"], version="not a version")
+    first = draft.splitlines()[0]
+    assert 'alt="checks: 1 to fix"' in first and "Kitden" not in first
+    assert draft.splitlines()[2] == "A draft: 1 to fix before merge."
+    assert "> [!WARNING]\n> This is a draft: first fix" in draft and "[!IMPORTANT]" not in draft
+
+
+def test_the_small_print_says_which_commit_holds_the_guide_and_the_plugin_readme():
+    last = pr_body("", []).splitlines()[-1]
+    assert last.startswith("<sub>Prepared by kitden-sdlc's release prep.")
+    assert "The first commit holds the notes, the guide, the README, the version and the" in last
+    assert "the policy files, the plugin README and `listing.toml`" in last
 
 
 def test_a_fix_pass_that_failed_is_said():
@@ -751,7 +772,7 @@ def test_no_fix_pass_line_when_the_job_did_not_run():
 def test_the_body_shows_at_most_30_problems():
     problems = [f"problem number {n}" for n in range(100)]
     body = pr_body("", [], problems=problems)
-    section = body.split("## Fix before merge\n\n")[1].split("\n\n## ")[0]
+    section = body.split("## Fix before merge\n\n")[1].split("\n\n### ")[0]
     lines = section.splitlines()
     assert len(lines) == 31
     assert lines[29] == "- problem number 29"
@@ -781,12 +802,12 @@ def test_missing_facts_leave_the_bullets_out():
 def test_problem_text_cannot_ping_close_or_fake_a_heading():
     problem = "README.md: @someone Fixes #3\n## Merge\nsquash it"
     body = pr_body("", [], problems=[problem, "## Merge"], errors={}, pictures={})
-    assert "@someone" not in body and body.count("\n## Merge\n") == 1
+    assert "@someone" not in body and "\n## Merge\n" not in body
     assert not re.search(r"Fixes #3", body)
     fixed = pr_body("", [], pictures={"pick": "failed"}, errors={"pick": "@a closes #4\n# Merge"})
     assert "@a" not in fixed and not re.search(r"closes #4", fixed)
-    assert fixed.count("\n## Merge\n") == 1 and "\n# Merge" not in fixed
-    section = body.split("## Fix before merge\n\n")[1].split("\n\n## ")[0]
+    assert "\n## Merge\n" not in fixed and "\n# Merge" not in fixed
+    section = body.split("## Fix before merge\n\n")[1].split("\n\n### ")[0]
     assert all(line.startswith("- ") for line in section.splitlines())
 
 
@@ -810,7 +831,7 @@ def test_the_facts_part_is_short():
     body = pr_body(
         "", [], problems=problems, facts=FACTS, pictures=pictures, expected=list(pictures)
     )
-    section = body.split("## Checked by scripts\n\n")[1].split("\n\n## ")[0]
+    section = body.split("## Checked by scripts\n\n")[1].split("\n\n### ")[0]
     assert 1 <= len(section.splitlines()) <= 4
 
 

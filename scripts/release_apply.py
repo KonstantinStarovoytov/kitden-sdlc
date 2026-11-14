@@ -37,6 +37,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+import bot_style as style
 from post_findings import SECRET_LIKE, WORD_JOINER, quiet_mentions
 from release_bump import current_version
 from secret_filter import in_git, in_text, unknown_runs
@@ -372,9 +373,10 @@ def hand_checks(doc: str, changed: list[str]) -> list[str]:
 
 
 def _quiet(text: str) -> str:
-    """`text` with no mention that pings anyone, no closing keyword that closes an issue, and
-    no heading above level 4."""
+    """`text` with no mention that pings anyone, no closing keyword that closes an issue, no
+    box that looks like this body's own, and no heading above level 4."""
     text = CLOSING.sub(lambda m: m.group(1) + WORD_JOINER, quiet_mentions(text))
+    text = text.replace("[!", "[" + WORD_JOINER + "!")  # no box of GitHub's, like "[!NOTE]"
     return HEADING.sub(lambda m: "#" * max(4, len(m.group(1))), text)
 
 
@@ -396,6 +398,11 @@ def _one_line(text: str) -> str:
 def is_draft(problems: list[str], pictures: dict[str, str]) -> bool:
     """True when the pull request should be a draft: a problem is left, or a scene failed."""
     return bool(problems) or "failed" in pictures.values()
+
+
+MERGE = "Merge with a merge commit, not squash: the release notes link this branch's commits."
+READY = "Review and merge this pull request. " + MERGE
+DRAFT = 'This is a draft: first fix what "Fix before merge" lists. ' + MERGE
 
 
 def _names(names: list[str]) -> str:
@@ -475,10 +482,12 @@ def pr_body(
     fixed: list[str] | None = None,
     fix_result: str = "",
     known: Callable[[str], bool] | None = None,
+    version: str = "",
 ) -> str:
-    """The release pull request's body. Raises ValueError when the findings, a problem, an
-    error or a fixed path look like they hold a secret: a token, or a long random string that
-    `known` does not know (by default none is known)."""
+    """The release pull request's body, in the bots' one look (bot_style.py): badges, one
+    line, the parts, a box that says what to do, the small print. Raises ValueError when the
+    findings, a problem, an error or a fixed path look like they hold a secret: a token, or a
+    long random string that `known` does not know (by default none is known)."""
     errors = errors or {}
     texts = (findings, *problems, *errors.values(), *(fixed or ()))
     for text in texts:
@@ -496,13 +505,6 @@ def pr_body(
     if len(findings) > FINDINGS_MAX:
         findings = findings[:FINDINGS_MAX] + "\n\n[cut: the rest is in the run's artifact]"
     who = f"`{model}`" if MODEL.match(model) else "a model"
-    parts = [
-        f"Automated: prepared by kitden-sdlc's release-prep. The notes, the README and the "
-        f"policy edits were written by {who}; the version, the commits and this text by "
-        f"scripts. The first commit holds the notes, the guide, the README, the version and "
-        f"the pictures; the second, if there is one, the policy files, the plugin README "
-        f"and `listing.toml`. " + _fix_pass(fixed, fix_result),
-    ]
     to_fix = [f"- {_one_line(problem)}" for problem in problems[:PROBLEMS_MAX]]
     if len(problems) > PROBLEMS_MAX:
         to_fix.append(
@@ -516,19 +518,35 @@ def pr_body(
                 f"scene in Kitden, or run `uv run --with playwright==1.64.1 python "
                 f"scripts/record_readme.py --only {scene}` and push the pictures to this branch."
             )
+    badges = [style.version("Kitden", version)] if VERSION.match(version) else []
+    badges.append(
+        style.bad("checks", f"{len(to_fix)} to fix") if to_fix else style.ok("checks")
+    )
+    if (total := _count(facts or {}, "prs_total")) is not None:
+        badges.append(style.info("changes", f"{total} pull request{'' if total == 1 else 's'}"))
+    parts = [
+        style.row(*badges),
+        f"A draft: {len(to_fix)} to fix before merge." if to_fix else "Ready for your review.",
+    ]
     if to_fix:
-        parts += ["## Fix before merge", "\n".join(to_fix)]
+        parts += ["### Fix before merge", "\n".join(to_fix)]
     if bullets := _facts_bullets(facts, pictures, list(expected)):
-        parts += ["## Checked by scripts", "\n".join(f"- {bullet}" for bullet in bullets)]
+        parts += ["### Checked by scripts", "\n".join(f"- {bullet}" for bullet in bullets)]
     parts += [
-        "## Findings",
+        "### Findings",
         quiet_findings(findings) if findings else "No findings from the agent.",
-        "## Hand checks",
+        "### Hand checks",
         "\n\n---\n\n".join(checks)
         if checks
         else "No real-client check in docs/development.md matches the files this release changed.",
-        "## Merge",
-        "Merge with a merge commit, not squash: the release notes link this branch's commits.",
+        style.box("WARNING", DRAFT) if to_fix else style.box("IMPORTANT", READY),
+        style.small(
+            f"Prepared by kitden-sdlc's release prep. The notes, the README and the policy "
+            f"edits were written by {who}; the version, the commits and this text by scripts. "
+            f"The first commit holds the notes, the guide, the README, the version and the "
+            f"pictures; the second, if there is one, the policy files, the plugin README and "
+            f"`listing.toml`. " + _fix_pass(fixed, fix_result)
+        ),
     ]
     return "\n\n".join(parts) + "\n"
 
@@ -552,6 +570,14 @@ def _results(path: Path | None) -> dict | None:
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def _version(root: Path | None) -> str:
+    """The version the bump wrote into the checkout, or "" when it cannot be read."""
+    try:
+        return str(current_version(root)) if root else ""
+    except (OSError, KeyError, ValueError):
+        return ""
 
 
 def _fixed(path: Path | None) -> list[str] | None:
@@ -651,6 +677,7 @@ def main(argv: list[str]) -> int:
                 fixed=_fixed(args.fixed),
                 fix_result=args.fix_result,
                 known=given(args.root, context),
+                version=_version(args.root),
             )
             args.out.write_text(body)
             print("draft" if is_draft(problems, pictures or {}) else "ready")
