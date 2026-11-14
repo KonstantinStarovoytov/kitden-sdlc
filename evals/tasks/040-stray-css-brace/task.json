@@ -1,0 +1,13 @@
+{
+  "id": "040-stray-css-brace",
+  "base": "af421d8982c2be283593f692afd95950a2a347eb",
+  "source": "commit:a0003d5",
+  "kind": "defect",
+  "title": "The dot grid and a calm spotlight under the pointer",
+  "defect": {
+    "path": "src/kitden/web/static/style.css",
+    "line": 678,
+    "text": "A stray } after the div.map .block rules closes nothing (so the next rule is dropped), and the spotlight's @media block is never closed, so every rule after it applies only when reduced motion is off."
+  },
+  "fix": "e837341c4d5f87e6b8e6f0f25f4f281ed2539cd1"
+}
