@@ -72,7 +72,8 @@ def test_render_has_the_six_parts_in_order():
               ("Health", "Waiting for you", "Links", "This week", "Budget", "How to")]
     assert places == sorted(places) and "no model" in body.splitlines()[-1]
     table = body.split("\n\n")[0].splitlines()  # the bots' one look: a row for each light
-    assert table[0].replace("&nbsp;", "") == "| Light | State | Why |" and len(table) == 7
+    assert table[0].replace("&nbsp;", "") == "| Light | State | Checks that | Why not |"
+    assert len(table) == 7
     assert 'alt="not measured">' in light_line(body, "Works")
     assert 'alt="look">' in light_line(body, "Clients")
     assert "🟡" not in body and "🟢" not in body  # the badges say it: no second set of marks
@@ -87,12 +88,12 @@ def test_the_small_print_says_who_wrote_it_when_and_from_which_file():
 def test_a_light_that_is_not_green_says_why_and_a_green_one_is_only_a_badge():
     body = render(DESK)
     works = light_line(body, "Works")
-    assert works.endswith('alt="not measured"> | no check run of main was read. |')
-    assert 'alt="look"> | Issue &#35;12' in light_line(body, "Clients")
-    assert light_line(body, "Bugs").endswith('alt="ok"> |  |')  # green: the mark says it all
+    assert works.endswith("| the checks on `main` pass | no check run of main was read. |")
+    assert "waits long | Issue &#35;12" in light_line(body, "Clients")
+    assert light_line(body, "Bugs").endswith("keep growing |  |")  # green: no reason
     assert lead(body) == "Something needs a look."
     grey = {**DESK, "lights": [{"id": "works", "name": "Works", "state": "grey", "why": ""}]}
-    assert light_line(render(grey), "Works").endswith('alt="not measured"> |  |')
+    assert light_line(render(grey), "Works").endswith("| the checks on `main` pass |  |")
 
 
 def test_the_use_line_counts_and_says_what_was_not_measured():
@@ -416,10 +417,10 @@ def test_a_lights_address_is_linked_when_it_is_on_github():
     light = {"id": "clients", "name": "Clients", "state": "red", "url": URL,
              "why": "Issue #12 (a confirmed major client change) has been open 8.0 days."}
     body = render({**DESK, "lights": [light]})
-    assert light_line(body, "Clients").endswith(f"> | [{one_line(light['why'])}]({URL}) |")
+    assert light_line(body, "Clients").endswith(f"long | [{one_line(light['why'])}]({URL}) |")
     for url in ("http://evil.example/x", "https://github.com/x) [y](http://evil"):
         body = render({**DESK, "lights": [{**light, "url": url}], "waiting": [], "misses": []})
-        assert "evil" not in body and 'alt="wrong"> | Issue &#35;12' in light_line(body, "Clients")
+        assert "evil" not in body and "long | Issue &#35;12" in light_line(body, "Clients")
 
 
 # --- What build writes, rendered ---

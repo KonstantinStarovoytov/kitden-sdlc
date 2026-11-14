@@ -30,7 +30,8 @@ The desk shows Works, Clients, Bugs, Agents and Queue. Green is fine, amber is w
 this week, red is worth a look today, and grey means the desk could not read something and
 found nothing bad. The rules for each are in [agents.md](agents.md#the-desk).
 
-The desk opens with a small table, a row for each light: its name, its mark and why. The
+The desk opens with a small table, a row for each light: its name, its mark, what it checks
+and why it is not green. The
 mark is green with a check ("ok"), amber with a question mark ("look"), red with a cross
 ("wrong") or grey ("not measured"); only a light that is not green has a reason. Under the
 table one line says how the five stand.

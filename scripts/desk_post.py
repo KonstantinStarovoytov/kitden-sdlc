@@ -170,6 +170,16 @@ def _small(desk: dict) -> str:
                        f"Numbers read at {_when(desk.get('updated'))}, from [desk.json]({DATA})")
 
 
+# What each light checks, in a few words; the rules are in docs/owner.md.
+CHECKS = {
+    "works": "the checks on `main` pass",
+    "clients": "no confirmed client change waits long",
+    "bugs": "open bugs do not keep growing",
+    "agents": "the bots run and are not paused",
+    "queue": "nothing waits for you long",
+}
+
+
 def _state(light: dict) -> str:
     state = light.get("state")
     if state == "green":
@@ -194,15 +204,17 @@ def _why(light: dict) -> str:
 
 def _badges(desk: dict) -> str:
     """The first thing on the page, in the bots' one look (bot_style.py): a small table with a
-    row for each light: its name, its mark, and the reason when it is not green."""
+    row for each light: its name, its mark, what it checks, and the reason when it is not green."""
     lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
     if not lights:
         return style.info("lights", "none")
     rows = []
     for light in lights:
         name = one_line(str(light.get("name") or light.get("id") or "?"))
-        rows.append(f"| **{name}** | {_state(light)} | {_why(light).replace('|', '&#124;')} |")
-    head = f"| Light | {style.wide('State', 8)} | Why |\n|---|---|---|\n"
+        checks = CHECKS.get(light.get("id"), "")
+        why = _why(light).replace("|", "&#124;")
+        rows.append(f"| **{name}** | {_state(light)} | {checks} | {why} |")
+    head = f"| Light | {style.wide('State', 8)} | Checks that | Why not |\n|---|---|---|---|\n"
     return head + "\n".join(rows)
 
 
