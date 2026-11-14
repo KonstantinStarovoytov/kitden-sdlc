@@ -23,6 +23,7 @@ import urllib.parse
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import bot_style as style
 from bot_issues import BOT, GhIssues, ensure_labels, upsert
 from count_reviews import REPO, SINCE_DAYS
 from post_findings import one_line
@@ -164,9 +165,27 @@ def _list(desk: dict, key: str):
 # --- The page ---
 
 
-def _header(desk: dict) -> str:
-    return (f"Written by desk_post.py, a script in kitden-sdlc; no model wrote it. "
-            f"Numbers read at {_when(desk.get('updated'))}, from [desk.json]({DATA}).")
+def _small(desk: dict) -> str:
+    return style.small("Written by desk_post.py, a script in kitden-sdlc; no model wrote it",
+                       f"Numbers read at {_when(desk.get('updated'))}, from [desk.json]({DATA})")
+
+
+def _badge(light: dict) -> str:
+    name = one_line(str(light.get("name") or light.get("id") or "?"))
+    state = light.get("state")
+    if state == "green":
+        return style.ok(name, "ok")
+    if state == "amber":
+        return style.warn(name, "look")
+    if state == "red":
+        return style.bad(name, "wrong")
+    return style.info(name, "not measured")
+
+
+def _badges(desk: dict) -> str:
+    """The first line, in the bots' one look (bot_style.py): a badge for each light."""
+    lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
+    return style.row(*(_badge(light) for light in lights)) or style.info("lights", "none")
 
 
 def _light(light: dict) -> str:
@@ -341,13 +360,14 @@ def _budget(desk: dict) -> list[str]:
 
 def _page(desk: dict, shown: dict[str, int]) -> str:
     parts = [
-        [_header(desk)],
-        ["## Health", "", *_health(desk)],
-        ["## Waiting for you", "", *_waiting(_list(desk, "waiting"), shown["waiting"])],
-        ["## Links", "", *_links(desk)],
-        ["## This week", "", *_this_week(desk, shown)],
-        ["## Budget", "", *_budget(desk)],
-        ["## How to", "", f"What each light means and what to do: [docs/owner.md]({HOW_TO})."],
+        [_badges(desk)],
+        ["### Health", "", *_health(desk)],
+        ["### Waiting for you", "", *_waiting(_list(desk, "waiting"), shown["waiting"])],
+        ["### Links", "", *_links(desk)],
+        ["### This week", "", *_this_week(desk, shown)],
+        ["### Budget", "", *_budget(desk)],
+        ["### How to", "", f"What each light means and what to do: [docs/owner.md]({HOW_TO})."],
+        [_small(desk)],
     ]
     return "\n\n".join("\n".join(part) for part in parts) + "\n"
 

@@ -5,6 +5,7 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
+import bot_style as style
 from bot_issues import GhIssues, ensure_labels, pause
 from watch_route import (
     VERSION_MAX,
@@ -35,10 +36,11 @@ WHAT = {
 }
 RISK = {"major": "High", "medium": "Medium", "minor": "Low"}
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
-NEXT = ("**Next:** add `confirmed` if this is right (it stays open until it is fixed), or close "
-        "it with `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`.")
-NEXT_SUMMARY = ("**Next:** nothing here is urgent. To act on an item, open an issue for it; this "
-                "summary is only a list.")
+NEXT = ("Add `confirmed` if this is right (it stays open until it is fixed), or close it with "
+        "`false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`.")
+NEXT_SUMMARY = ("Nothing here is urgent. To act on an item, open an issue for it; this summary "
+                "is only a list.")
+HOW = f"[how the watcher works]({HOW_IT_WORKS})"
 
 # What a fix must not forget, from Kitden's CONTRIBUTING.md, by the type of the finding.
 CHECKS = {
@@ -90,24 +92,36 @@ def _versions(item: dict, inp: dict) -> str:
     return f"Checked on Kitden {kitden}{on}"
 
 
-def _foot(item: dict, inp: dict) -> str:
-    """The small print: what was checked, the source and how the watcher works."""
-    source = f" · [source]({item['url']})" if item.get("url") else ""
-    return (f"<sub>{_versions(item, inp)}{source} · "
-            f"[how the watcher works]({HOW_IT_WORKS})</sub>")
+def _foot(item: dict, inp: dict, how: bool = False) -> str:
+    """The small print: what was checked and the source."""
+    source = f"[source]({item['url']})" if item.get("url") else ""
+    return style.small(_versions(item, inp), source, HOW if how else "")
+
+
+def _badges(item: dict) -> str:
+    """The first line: the client and its version, the risk, and whether the watcher is sure."""
+    _, severity = _kind(item)
+    client = (style.version(client_name(item), _version(item)) if _version(item)
+              else style.info("client", client_name(item)))
+    return style.row(client, style.risk(RISK.get(severity, "low").lower()),
+                     style.sure(bool(item.get("sure"))))
+
+
+def _flat(text) -> str:
+    """The model's text on one line, so it cannot start a heading, a list or a box."""
+    return " ".join(str(text or "").split())
 
 
 def _lead(item: dict) -> str:
-    """The one line on top: the risk, how sure, and what the Kitden user gets."""
-    effect, severity = _kind(item)
-    gets = item.get("user_gets", "")
+    """One plain sentence: what the Kitden user gets."""
+    effect, _ = _kind(item)
+    gets = _flat(item.get("user_gets"))
     gets = "" if gets.strip(" .").lower() in ("", "not checked") else " " + gets
-    sure = "sure" if item.get("sure") else "not sure"
-    return f"**{RISK.get(severity, severity)} risk · {sure}.** {WHAT.get(effect, effect)}{gets}"
+    return f"{WHAT.get(effect, effect)}{gets}"
 
 
 def _problem(item: dict) -> str:
-    return " ".join(x for x in (item.get("changed", ""), item.get("why", "")) if x)
+    return " ".join(x for x in (_flat(item.get("changed")), _flat(item.get("why"))) if x)
 
 
 def _files(item: dict) -> str:
@@ -116,29 +130,31 @@ def _files(item: dict) -> str:
 
 
 def _item(item: dict, inp: dict) -> str:
-    """One item of the summary: the lead line, then the problem, the fix and the files."""
-    lines = [_lead(item), ""]
+    """One item of the summary: the badges, the lead line, the problem, the fix, the files."""
+    lines = [_badges(item), "", _lead(item), ""]
     if _problem(item):
         lines.append(f"**Problem:** {_problem(item)}")
-    if item.get("fix"):
-        lines.append(f"**Fix:** {item['fix']}")
+    if _flat(item.get("fix")):
+        lines.append(f"**Fix:** {_flat(item['fix'])}")
     if _files(item):
         lines.append(_files(item))
     return "\n".join([*lines, "", _foot(item, inp)])  # GitHub keeps each line on its own
 
 
 def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
-    """An issue of its own: the lead line, then Problem, Fix and Checklist."""
+    """An issue of its own: the badges, the lead line, Problem, Fix, Checklist, what to do."""
     # The title form is what the router matches known issues by: keep it.
     title = f"{client_name(finding)}: {finding['title']}"
-    parts = [_lead(finding), f"### Problem\n**{_who(finding)}:** {_problem(finding)}"]
-    fix = "\n".join(x for x in (finding.get("fix", ""), _files(finding)) if x)
+    parts = [_badges(finding), _lead(finding)]
+    if _problem(finding):
+        parts.append(f"### Problem\n{_problem(finding)}")
+    fix = "\n".join(x for x in (_flat(finding.get("fix")), _files(finding)) if x)
     if fix:
         parts.append(f"### Fix\n{fix}")
     todo = dont_forget([_kind(finding)[0]])
     if todo:
         parts.append(f"### Checklist\n{todo}")
-    parts += [_foot(finding, inp), NEXT]
+    parts += [style.box("IMPORTANT", NEXT), _foot(finding, inp, how=True)]
     return title, "\n\n".join(parts) + "\n"
 
 
@@ -166,7 +182,7 @@ def render_summary(items: list[dict], today: date,
         body += "\n\n| # | Change | Risk | Sure |\n|---|---|---|---|\n" + "\n".join(rows)
     rest = []
     for n, i in enumerate(real, 1):
-        block = f"### {n}. {_who(i)}: {i['title']}\n\n{_item(i, inp)}"
+        block = f"### {n}. {_flat(i['title'])}\n\n{_item(i, inp)}"
         if len(body) + len(block) + 400 > SUMMARY_MAX:
             body += f"\n\n…and {len(real) - n + 1} more items in the next summary"
             rest = real[n - 1:]
@@ -176,8 +192,8 @@ def render_summary(items: list[dict], today: date,
         body += "\n\n" + _hints(hints)
     todo = dont_forget([_kind(i)[0] for i in real if i not in rest], boxes=False)
     if todo:
-        body += f"\n\n**When you fix one, don't forget:**\n{todo}"
-    body += "\n\n" + NEXT_SUMMARY
+        body += f"\n\n**When you fix one:**\n{todo}"
+    body += f"\n\n{style.box('NOTE', NEXT_SUMMARY)}\n\n{style.small(HOW)}"
     return f"Client changes, week of {monday}", body.strip() + "\n", rest
 
 

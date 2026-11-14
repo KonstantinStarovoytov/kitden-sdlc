@@ -16,6 +16,32 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time | `AGENTS_ENABLED`, in Kitden |
 | publish | a `vX.Y.Z` tag in Kitden, after PyPI | none | move the `release` branch, publish to the MCP Registry, open the Homebrew pull request, write a summary | no model; each job writes to one place with its own short-lived token | none |
 
+## One look
+
+Everything a bot posts is built the same way, by [bot_style.py](../scripts/bot_style.py): the
+watcher's issues, the review comment, the release pull request, the release watch's issues and
+the desk.
+
+| You see | It means |
+|---|---|
+| A row of badges, first | The facts at a glance |
+| A name and a number on orange | A version: a client's or Kitden's |
+| `risk` with three bars, one to three filled | The risk for a Kitden user: low, medium, high |
+| `sure` with a check or a question mark | Whether the bot is sure |
+| Green with a check, red with a cross, amber with a question mark | A check passed, failed, or needs a look |
+| A grey badge | A plain count or fact |
+| One plain line under the badges | What happened |
+| Problem, Fix, Checklist, Checked by scripts | The parts, by the same names everywhere |
+| A purple "Important" box | You must do something; it says what |
+| A blue "Note" box | Nothing is needed from you |
+| An amber "Warning" box | Something is wrong |
+| Small grey text, last | Who wrote it, the sources, how it works |
+
+A badge is a picture from shields.io, light or dark by the reader's theme, in Kitden's own
+colors. Its text is plain letters and digits, cut at 40, whatever it was given; when the
+picture does not load, the reader sees that text. A model's text never draws a box or a
+heading of its own: it is put on one line, or inside a quote.
+
 ## The desk
 
 Once a day a job without a model reads facts from GitHub and files and works out five lights and
@@ -89,15 +115,15 @@ The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WAT
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
-An issue is short and in plain words. GitHub shows Lantern as its author and the label
-`automated` says a bot opened it, so the body says neither; the run log names the model. The
-first line gives the risk (High, Medium, Low), whether the watcher is sure and what the Kitden
-user gets. Then three parts: Problem (what changed and why it matters for Kitden), Fix (the
-model's words: the file and the change, then the files) and Checklist. The checklist depends
-only on the type and follows Kitden's CONTRIBUTING.md: a sandbox home for tests; preview, Apply
-with a backup, verify and Undo for a change to client settings; the row in `docs/clients.md`
-and its date; `ROADMAP.md`, `docs/guide.md` and `PRIVACY.md` when they apply. In small print:
-which Kitden versions were checked, the source and a link here. Last, what to do: put
+An issue is short and in plain words, in the bots' [one look](#one-look). GitHub shows
+Lantern as its author and the label `automated` says a bot opened it, so the body says neither;
+the run log names the model. The badges give the client and its version, the risk and whether
+the watcher is sure; one line says what the Kitden user gets. Then three parts: Problem (what
+changed and why it matters for Kitden), Fix (the model's words: the file and the change, then
+the files) and Checklist. The checklist depends only on the type and follows Kitden's
+CONTRIBUTING.md: a sandbox home for tests; preview, Apply with a backup, verify and Undo for a
+change to client settings; the row in `docs/clients.md` and its date; `ROADMAP.md`,
+`docs/guide.md` and `PRIVACY.md` when they apply. The "Important" box says what to do: put
 `confirmed` on it if it is right (it stays open until it is fixed), or close it with
 `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
 contributor works on a false alarm. Only a sure major break or wrong data gets an issue of its
@@ -176,9 +202,10 @@ workflows live here, and Kitden calls them. The design is
   counts only after 48 hours, because its bottles take time. An issue closes itself when it
   no longer holds. It knows its issues by author, the label `automated` and title, so it never
   touches one a person opened; remove `automated` from one and it may open a new issue. Both
-  carry the labels `automated` and `release` and open with one line saying who opened them,
-  that no model wrote them and that a maintainer confirms them, then three parts:
-  what happened, what it means, what to do.
+  carry the labels `automated` and `release` and have the bots' [one look](#one-look): the
+  badges (how old the last release is and how many changes wait, or each store with a check or
+  a cross), one line, the list or Problem and Fix, a box that says what to do, and in the small
+  print that release-watch opened it and no model wrote it.
 
 Identities: three GitHub Apps, each with its own name and icon, so nobody mistakes one
 for another. Lantern (a lantern on deep teal) comments and opens issues. Kitden Beacon (a

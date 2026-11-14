@@ -198,6 +198,18 @@ def test_first_line_is_only_the_title():
     assert body_of(report(), report()).splitlines()[0] == "**Agent review**"
 
 
+def test_the_badges_say_who_answered_how_much_to_check_and_the_commit():
+    """The bots' one look (bot_style.py): the badges come right under the title."""
+    row = body_of(report([finding("a.py", 1)]), None).splitlines()[2]
+    assert row.startswith("<picture>") and 'alt="Claude: answered"' in row
+    assert 'alt="Luna: no answer"' in row and 'alt="to check: 1"' in row
+    clean = body_of(report(), report()).splitlines()[2]
+    assert 'alt="Luna: answered"' in clean and 'alt="new problems: none"' in clean
+    silent = body_of(None, None)
+    assert 'alt="to check' not in silent and 'alt="new problems' not in silent
+    assert "> [!WARNING]\n> Neither reviewer gave a usable answer" in silent
+
+
 def test_summary_comes_from_claude_else_luna():
     both = body_of(report(summary="From Claude."), report(summary="From Luna."))
     assert "From Claude." in both and "From Luna." not in both
@@ -215,7 +227,7 @@ def test_findings_are_counted_and_tagged_with_who_found_them():
     claude = report([finding("a.py", 1, text="Shared."), finding("b.py", 1, text="Mine.")])
     luna = report([finding("a.py", 2), finding("c.py", 1, text="Hers.")])
     body = body_of(claude, luna)
-    assert "**To check (3)**" in body
+    assert "### To check (3)" in body
     assert "Shared. *(both)*" in body
     assert "Mine. *(Claude)*" in body
     assert "Hers. *(Luna)*" in body
@@ -433,7 +445,7 @@ def test_main_posts_with_the_api(tmp_path, monkeypatch):
     monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
     assert main(argv_for(FIXTURE, FIXTURE, "--pr", "7", "--repo", "o/r")) == 0
     assert [call[0] for call in api.calls] == ["create"]
-    assert "**To check (2)**" in api.comments[0]["body"]
+    assert "### To check (2)" in api.comments[0]["body"]
 
 
 def test_main_needs_pr_without_dry_run():
@@ -749,7 +761,7 @@ def test_a_finding_the_next_review_does_not_repeat_stays():
     body = run(api, report(), report(), head=NEXT)
     assert ("compare", SHA, NEXT) in api.calls
     assert "No new problems found." in body and "No problems found." not in body
-    assert "**Not repeated by the latest review (1)**" in body
+    assert "### Not repeated by the latest review (1)" in body
     assert f"(https://github.com/o/r/blob/{NEXT}/AGENTS.md#L12)" in body
     assert "ROADMAP.md&#59;" not in body and "*(Claude, found in abcdef1)*" in body
     assert read_marker(body) == {"claude": 1, "luna": 0, "both": 0}
@@ -761,7 +773,7 @@ def test_a_finding_whose_lines_changed_is_fixed():
     run(api, report([finding("a.py", 11, text="Off by one.")]), report())
     api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
     body = run(api, report(), report(), head=NEXT)
-    assert "**Fixed (1)**" in body and "Not repeated" not in body
+    assert "### Fixed (1)" in body and "Not repeated" not in body
     assert "Off by one. *(Claude, fixed in 1556615)*" in body
     # The link shows the line where it was found.
     assert f"(https://github.com/o/r/blob/{SHA}/a.py#L11)" in body
@@ -774,7 +786,7 @@ def test_a_change_a_few_lines_away_does_not_fix_it():
     run(api, report([finding("a.py", 20)]), report())
     api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
     body = run(api, report(), report(), head=NEXT)
-    assert "Fixed" not in body and "**Not repeated by the latest review (1)**" in body
+    assert "Fixed" not in body and "### Not repeated by the latest review (1)" in body
 
 
 def test_an_earlier_finding_follows_lines_added_above_it():
@@ -790,7 +802,7 @@ def test_a_finding_made_again_is_one_item_by_everyone_who_made_it():
     run(api, report([finding("a.py", 20, text="Claude's words.")]), report())
     api.compared = compared(diff("a.py", "@@ -1,0 +2,3 @@\n+x\n+y\n+z"))
     body = run(api, report(), report([finding("a.py", 24, text="Luna's words.")]), head=NEXT)
-    assert "**To check (1)**" in body and "Not repeated" not in body
+    assert "### To check (1)" in body and "Not repeated" not in body
     assert "Luna's words. *(both)*" in body
     assert read_marker(body) == {"claude": 0, "luna": 0, "both": 1}
 
@@ -800,7 +812,7 @@ def test_without_a_compare_nothing_is_fixed_and_the_old_link_stays(capsys):
     run(api, report([finding("a.py", 11)]), report())
     api.compared = None  # say, the old head is gone after a force push
     body = run(api, report(), report(), head=NEXT)
-    assert "Fixed" not in body and "**Not repeated by the latest review (1)**" in body
+    assert "Fixed" not in body and "### Not repeated by the latest review (1)" in body
     assert f"(https://github.com/o/r/blob/{SHA}/a.py#L11)" in body
     assert "Cannot tell what changed since abcdef1" in capsys.readouterr().out
 
@@ -833,7 +845,7 @@ def test_a_removed_file_fixes_its_findings():
     api = FakeApi()
     run(api, report([finding("old.py", 3)]), report())
     api.compared = compared(diff("old.py", "@@ -1,5 +0,0 @@\n-a", status="removed"))
-    assert "**Fixed (1)**" in run(api, report(), report(), head=NEXT)
+    assert "### Fixed (1)" in run(api, report(), report(), head=NEXT)
 
 
 def test_a_renamed_file_takes_its_findings_along():
@@ -849,7 +861,7 @@ def test_a_rerun_on_the_same_commit_compares_nothing():
     run(api, report([finding("a.py", 11)]), report())
     body = run(api, report(), report())
     assert not [c for c in api.calls if c[0] == "compare"]
-    assert "**Not repeated by the latest review (1)**" in body
+    assert "### Not repeated by the latest review (1)" in body
     assert f"/blob/{SHA}/a.py#L11)" in body
 
 
@@ -860,8 +872,8 @@ def test_fixed_stays_fixed_and_counted_on_later_runs():
     run(api, report(), report(), head=NEXT)
     api.compared = compared()
     body = run(api, report([finding("b.py", 1)]), report(), head=LAST)
-    assert "**Fixed (1)**" in body and "fixed in 1556615" in body
-    assert "**To check (1)**" in body
+    assert "### Fixed (1)" in body and "fixed in 1556615" in body
+    assert "### To check (1)" in body
     assert read_marker(body) == {"claude": 2, "luna": 0, "both": 0}
 
 
@@ -872,7 +884,7 @@ def test_a_fixed_finding_reported_again_is_open_again():
     run(api, report(), report(), head=NEXT)
     api.compared = compared()
     body = run(api, report([finding("a.py", 12)]), report(), head=LAST)
-    assert "**To check (1)**" in body and "Fixed" not in body
+    assert "### To check (1)" in body and "Fixed" not in body
 
 
 def test_a_reviewer_silent_now_keeps_its_earlier_findings_and_counts():
@@ -880,7 +892,7 @@ def test_a_reviewer_silent_now_keeps_its_earlier_findings_and_counts():
     run(api, report(), report([finding("a.py", 1)]))
     body = run(api, report(), None, head=NEXT)
     assert "Luna gave no usable answer this time." in body
-    assert "**Not repeated by the latest review (1)**" in body
+    assert "### Not repeated by the latest review (1)" in body
     assert read_marker(body) == {"claude": 0, "luna": 1, "both": 0}
 
 
@@ -896,7 +908,7 @@ def test_no_answer_keeps_the_earlier_findings_and_marks_none_fixed(tmp_path, mon
     body = api.comments[0]["body"]
     assert [call[0] for call in api.calls if call[0] != "compare"] == ["create", "update"]
     assert "Neither reviewer gave a usable answer for 1556615." in body
-    assert "**Not repeated by the latest review (2)**" in body and "Fixed" not in body
+    assert "### Not repeated by the latest review (2)" in body and "Fixed" not in body
     assert read_marker(body) == read_marker(before) == {"claude": 2, "luna": 0, "both": 0}
     # The hidden line is the earlier one: the next review compares from the last reviewed
     # commit, so it can still mark a.py:11 fixed.
@@ -912,7 +924,7 @@ def test_a_long_history_is_cut_but_still_counted():
     earlier = Earlier(SHA, ["claude"], fixed, {"claude": 0, "luna": 0, "both": 0})
     claude = report([finding("x.py", 1), finding("y.py", 1)])
     body = review_body({"claude": claude, "luna": None}, "o/r", NEXT, earlier, {})
-    assert "**To check (2)**" in body and "**Fixed (28)**" in body
+    assert "### To check (2)" in body and "### Fixed (28)" in body
     assert "2 older findings are left out" in body
     assert "f0.py" not in visible(body) and "f29.py" in body
     assert read_marker(body) == {"claude": 32, "luna": None, "both": 0}
@@ -1100,5 +1112,5 @@ def test_main_keeps_an_earlier_finding(tmp_path, monkeypatch):
     assert main(argv) == 0
     assert made == [{"read_token": "read"}]
     body = api.comments[0]["body"]
-    assert "**Not repeated by the latest review (1)**" in body
+    assert "### Not repeated by the latest review (1)" in body
     assert read_marker(body) == {"claude": 1, "luna": 0, "both": 0}

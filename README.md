@@ -45,6 +45,10 @@ All the automation posts as one of three GitHub Apps, so you always see which on
 Bots never write `@name`. Every issue a bot opens has the label `automated` and one label that
 says where it comes from: `client-change`, `release` or `desk`.
 
+Everything a bot posts has one look: badges first (a version on orange, the risk as bars, a
+check or a question mark), one plain line, a box that says what you do, the small print last.
+[What each mark means](docs/agents.md#one-look).
+
 ### Review
 
 <picture>
@@ -101,9 +105,10 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
    sandbox without network, and it can read more than the checkout.
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
    never share a job.
-8. An agent's comment starts with one line saying it is automated and which model wrote it
-   (today the "Agent review" title). An issue a bot opens has the bot as its author and the
-   label `automated`; the run log names the model.
+8. A text an agent wrote says that it is automated and which model wrote it: the review
+   comment by its "Agent review" title, the release pull request in its small print. An issue
+   a bot opens has the bot as its author and the label `automated`; the run log names the
+   model.
 9. A job that runs a model starts with Harden-Runner, which for now only records the hosts it
    reaches.
 10. A model step never prints its full output or debug logs.

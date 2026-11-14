@@ -75,9 +75,9 @@ def test_drift_body_lists_table_and_what_to_rerun():
     late = [rows[1], rows[2], rows[3]]
     body = drift_body("v0.8.0", rows, late)
     assert "| MCP Registry | 0.8.0 | latest 0.7.2 | behind |" in body
-    assert "MCP Registry" in body.split("## What to do")[1]
-    assert "Homebrew formula" in body.split("## What to do")[1]
-    assert "Glama" not in body.split("## What to do")[1]
+    assert "MCP Registry" in body.split("### Fix")[1]
+    assert "Homebrew formula" in body.split("### Fix")[1]
+    assert "Glama" not in body.split("### Fix")[1]
     # kitden-sdlc's publish jobs run inside the tag's "Checks and release" run.
     assert "`Publish` run" not in body
     assert "`stores / registry` job of the tag's `Checks and release` run" in body
@@ -102,23 +102,33 @@ def test_homebrew_desc_only_says_fix_the_tap():
         False,
     )
     old = Row("Homebrew formula", "0.8.0", "0.7.2, bottles kitden-0.7.2", False)
-    body = drift_body("v0.8.0", [desc], [desc]).split("## What to do")[1]
+    body = drift_body("v0.8.0", [desc], [desc]).split("### Fix")[1]
     assert "small PR" in body and "re-running `stores / homebrew` changes nothing" in body
-    body = drift_body("v0.8.0", [old], [old]).split("## What to do")[1]
+    body = drift_body("v0.8.0", [old], [old]).split("### Fix")[1]
     assert "re-run the `stores / homebrew` job" in body and "small PR" not in body
     assert release_watch.drift_title("v0.8.0") == "Release v0.8.0 is not everywhere"
 
 
-def test_bodies_say_who_opened_them_and_have_three_parts():
-    """The owner's format for issues opened by automation (shared with the watcher)."""
-    rows = [Row("MCP Registry", "0.8.0", "latest 0.7.2", False)]
-    for body in (proposal_body([7]), drift_body("v0.8.0", rows, rows)):
-        first = body.splitlines()[0]
-        assert "release-watch" in first and "no AI model" in first
-        assert "maintainer confirms" in first
-        assert f"https://github.com/{OWNER}/kitden/blob/main/AI_POLICY.md" in first
-        heads = [line for line in body.splitlines() if line.startswith("## ")]
-        assert heads == ["## What happened", "## What it means", "## What to do"]
+def test_bodies_have_the_bots_one_look():
+    """Badges first, a box that says what to do or what is wrong, the small print last
+    (bot_style.py, shared with the watcher)."""
+    rows = [Row("MCP Registry", "0.8.0", "latest 0.7.2", False),
+            Row("PyPI", "0.8.0", "0.8.0", True), Row("Glama", "0.8.0", "?", None)]
+    proposal, drift = proposal_body([7, 12], 9.5), drift_body("v0.8.0", rows, rows[:1])
+    for body in (proposal, drift):
+        assert body.splitlines()[0].startswith("<picture>")
+        last = body.splitlines()[-1]
+        assert last.startswith("<sub>Opened by release-watch") and "no AI model" in last
+        assert f"https://github.com/{OWNER}/kitden/blob/main/AI_POLICY.md" in last
+    first = proposal.splitlines()[0]
+    assert 'alt="last release: 9 days ago"' in first and 'alt="waiting: 2 changes"' in first
+    assert [x for x in proposal.splitlines() if x.startswith("#")] == ["### Not released yet"]
+    assert "> [!IMPORTANT]\n> Run [Release prep](" in proposal
+    first = drift.splitlines()[0]
+    assert 'alt="Kitden: 0.8.0"' in first and 'alt="MCP Registry: behind"' in first
+    assert 'alt="PyPI: ok"' in first and 'alt="Glama: by hand"' in first
+    assert [x for x in drift.splitlines() if x.startswith("#")] == ["### Problem", "### Fix"]
+    assert "> [!WARNING]\n> People who install Kitden from these places do not get v0.8.0" in drift
 
 
 # gather, with a fake fetch
@@ -225,7 +235,9 @@ def test_run_opens_proposal_and_closes_green_drift(monkeypatch):
     monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: [Row("PyPI", "1", "1", True)])
     fetch = make_fetch(prs={11: []}, files={11: ["src/a.py"]})
     run(fetch, gh, NOW)
-    assert gh.created == [(release_watch.PROPOSAL_TITLE, proposal_body([11]), list(RELEASE))]
+    (title, body, labels), = gh.created
+    assert (title, labels) == (release_watch.PROPOSAL_TITLE, list(RELEASE))
+    assert body.endswith(proposal_body([11]).split("</picture>")[-1]) and "pull/11" in body
     assert gh.closed == [9]
 
 
@@ -244,7 +256,8 @@ def test_run_gives_both_issues_the_labels_automated_and_release(monkeypatch):
     monkeypatch.setattr(release_watch, "read_all", lambda tag, fetch: rows)
     gh = FakeIssues([issue(2, release_watch.PROPOSAL_TITLE)])  # opened before `release` existed
     run(make_fetch(prs={11: []}, files={11: ["src/a.py"]}), gh, NOW)
-    assert gh.edited == [(2, proposal_body([11]), ["automated", "release"])]
+    (number, body, labels), = gh.edited
+    assert (number, labels) == (2, ["automated", "release"]) and "pull/11" in body
     assert [labels for *_, labels in gh.created] == [["automated", "release"]]
     assert "release" in {name for name, *_ in gh.created_labels}
 

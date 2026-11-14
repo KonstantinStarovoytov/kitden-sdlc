@@ -60,7 +60,9 @@ def test_urgent_issue_has_first_line_labels_and_scale(tmp_path, capsys):
     assert "paused" not in capsys.readouterr().out
     title, body, labels = gh.created[0]
     assert title == "Claude Code: skillOverrides renamed"
-    assert body.startswith("**High risk · sure.** A Kitden action fails.")
+    first = body.splitlines()[0]
+    assert first.startswith("<picture>") and 'alt="Claude Code: 2.1.320"' in first
+    assert 'alt="risk: high"' in first and 'alt="sure: yes"' in first
     assert labels == ["automated", "client-change", "claude-code", "breaks", "major"]
     assert "main and v0.7.2" in body
     assert {"claude-code", "breaks"} <= {name for name, *_ in gh.created_labels}
@@ -92,7 +94,8 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
     assert len(gh.created) == 1 and gh.created[0][2] == ["automated", "client-change", "summary"]
     title, body, _ = gh.created[0]
     assert title == "Client changes, week of 2026-11-09"
-    assert body.count("\n### ") == 2 and "Low risk" in body
+    assert body.count("\n### ") == 2 and body.startswith("| # |")
+    assert body.count('alt="risk: low"') == 2
 
 
 def test_release_not_checked_when_a_file_differs():
@@ -103,7 +106,7 @@ def test_release_not_checked_when_a_file_differs():
 def test_summary_item_without_piece_url_or_version():
     item = {"title": "t", "effect": "minor", "client": "codex", "sure": True}
     _, body, _ = render_summary([item], MON)
-    assert "### 1. Codex: t" in body and "Low risk" in body
+    assert "### 1. t" in body and 'alt="client: Codex"' in body and 'alt="risk: low"' in body
 
 
 def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
@@ -150,20 +153,19 @@ def test_the_issue_names_no_model_and_no_author(monkeypatch):
     assert "Lantern" not in body and "Urgent" not in body  # GitHub shows the author
 
 
-def test_an_issue_is_one_lead_line_then_problem_fix_and_checklist():
+def test_an_issue_is_badges_a_lead_line_then_problem_fix_checklist_and_a_box():
     _, body = render_urgent(finding(), inp())
     lines = body.splitlines()
-    assert lines[0] == "**High risk · sure.** A Kitden action fails. Skills fail to load."
+    assert lines[2] == "A Kitden action fails. Skills fail to load."
     heads = [line for line in lines if line.startswith("#")]
     assert heads == ["### Problem", "### Fix", "### Checklist"]
-    assert ("### Problem\n**Claude Code 2.1.320:** The key was renamed. Read in the notes."
-            in body)
+    assert "### Problem\nThe key was renamed. Read in the notes." in body
     assert "### Fix\nRead the new key in skills.py.\n**Files:** `src/kitden/skills.py`" in body
     assert "### Checklist\n- [ ] Test with a sandbox home" in body
     assert "preview → Apply with a backup → verify → Undo" in body  # a break: settings rule
-    assert lines[-3].startswith("<sub>Checked on Kitden main and v0.7.2 · ")
-    assert "[source](" in lines[-3]
-    assert lines[-1].startswith("**Next:** ")
+    assert "> [!IMPORTANT]\n> Add `confirmed` if this is right" in body
+    assert lines[-1].startswith("<sub>Checked on Kitden main and v0.7.2 · ")
+    assert "[source](" in lines[-1] and "[how the watcher works](" in lines[-1]
 
 
 def test_the_checklist_follows_the_type():
@@ -177,13 +179,14 @@ def test_the_checklist_follows_the_type():
 def test_a_summary_names_the_checks_once_at_the_end():
     items = [finding(n) for n in range(3)]
     _, body, _ = render_summary(items, MON, inp())
-    assert body.count("When you fix one, don't forget:") == 1
+    assert body.count("**When you fix one:**") == 1
     assert body.count("sandbox home") == 1 and "- [ ]" not in body
+    assert "> [!NOTE]\n> Nothing here is urgent." in body
 
 
 def test_an_issue_says_confirmed_keeps_it_open():
     _, body = render_urgent(finding(), inp(1))
-    assert "add `confirmed` if this is right (it stays open until it is fixed)" in body
+    assert "Add `confirmed` if this is right (it stays open until it is fixed)" in body
     assert "close it with `false-alarm`" in body
 
 
@@ -212,13 +215,14 @@ def test_items_cut_from_the_summary_are_kept_for_the_next_one(tmp_path):
 
 def test_no_stray_space_when_the_version_is_empty():
     _, body = render_urgent(finding(version=""), inp())
-    assert "**Claude Code:** The key was renamed." in body
+    assert 'alt="client: Claude Code"' in body and "### Problem\nThe key was renamed." in body
 
 
 def test_version_is_quiet_and_cut():
     version = "@bob" + "9" * 200
     _, body = render_urgent(finding(version=version), inp())
-    assert "@\u2060bob" in body and "@bob" not in body and "9" * 101 not in body
+    assert 'alt="Claude Code: bob999' in body  # a badge shows plain text only, cut short
+    assert "@bob" not in body and "9" * 41 not in body
 
 
 def test_a_word_the_model_passed_over_is_one_line_not_an_item():
@@ -282,7 +286,7 @@ def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path, capsys)
     assert len(lifted.created) == 1
     title, body, labels = lifted.created[0]
     assert labels == ["automated", "client-change", "summary"]
-    assert all(f": {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
+    assert all(f". {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
 
 
 def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):

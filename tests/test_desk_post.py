@@ -59,12 +59,15 @@ def test_render_has_the_six_parts_in_order():
     body = render(DESK)
     places = [body.index(f"## {part}") for part in
               ("Health", "Waiting for you", "Links", "This week", "Budget", "How to")]
-    assert places == sorted(places) and "no model" in body.splitlines()[0]
+    assert places == sorted(places) and "no model" in body.splitlines()[-1]
+    first = body.splitlines()[0]  # the bots' one look: a badge for each light
+    assert first.startswith("<picture>") and 'alt="Clients: look"' in first
+    assert 'alt="Works: not measured"' in first
     assert "🟡 Clients" in body and "⚪ Works: not measured yet" in body
 
 
-def test_the_first_line_says_who_wrote_it_when_and_from_which_file():
-    first = render(DESK).splitlines()[0]
+def test_the_small_print_says_who_wrote_it_when_and_from_which_file():
+    first = render(DESK).splitlines()[-1]
     assert "script" in first and "no model" in first and "2026-11-16 06:41 UTC" in first
     assert "(https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json)" in first
 
@@ -381,10 +384,10 @@ def test_all_green_says_all_five_lights_are_green():
 
 def test_health_and_waiting_stay_the_first_lines_of_the_page():
     lines = render(DESK).splitlines()
-    assert lines[1:5] == ["", "## Health", "", "**🟡 Something needs a look.**"]
+    assert lines[1:5] == ["", "### Health", "", "**🟡 Something needs a look.**"]
     assert [line[:4] for line in lines[6:11]] == ["- ⚪ ", "- 🟡 ", "- 🟢 ", "- 🟢 ", "- 🟢 "]
     assert lines[11] == "" and lines[12].startswith("Use: ")
-    assert lines[13:17] == ["", "## Waiting for you", "", lines[16]]
+    assert lines[13:17] == ["", "### Waiting for you", "", lines[16]]
     assert lines[16].startswith("- Verdict: ")
 
 
