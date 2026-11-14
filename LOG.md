@@ -6,8 +6,8 @@ Problems found while building the reviewers, and what changed because of each.
 
 - **A pull request could plant a `.review/` link.** In the first Claude workflow, the link could
   overwrite the reviewer's skill or forge its findings. Now the folder is wiped first.
-  Kept by: `prepare_review.sh` wipes `.review` first, in the step "Collect the files to
-  review" of review.yml. No test checks it yet.
+  Kept by: `tests/test_workflows.py::test_the_review_folder_is_wiped_before_anything_is_written_to_it`
+  (`prepare_review.sh` must remove `.review` and make it new before it writes anything).
 - **Bare `Read` reached too much.** The model could open `.git/config` (it holds the job
   token) and maybe `/proc`. Now reads stay inside the checkout, `.git`, home dotfiles and
   `/proc` are denied, and the poster refuses any text that looks like a token.
@@ -25,18 +25,18 @@ Problems found while building the reviewers, and what changed because of each.
 - **The plan's Codex setting was unsafe.** `safety-strategy: read-only` would let the model
   read the OpenAI key from memory, by the action's own docs. Now the default drop-sudo is used,
   with a read-only sandbox and no network.
-  Kept by: rule 6 and `permission-profile: ":read-only"` of the `luna` job in review.yml.
-  No test checks it yet.
+  Kept by: `tests/test_workflows.py::test_no_codex_step_names_a_safety_strategy_but_drop_sudo`.
 - **Codex would obey the pull request's own `AGENTS.md` and `.agents/`.** Those files are now
   deleted before Codex runs, and project docs are capped at 0 bytes.
-  Kept by: the step "Remove the pull request's agent instructions" and
-  `project_doc_max_bytes=0` in review.yml. No test checks them; the evals' own copy of the
-  deletion is covered by `tests/test_run.py::test_luna_does_not_see_the_changes_agent_files`.
+  Kept by: `tests/test_workflows.py::test_codex_never_sees_the_pull_requests_agent_files_or_project_docs`;
+  the evals' own copy of the deletion is covered by
+  `tests/test_run.py::test_luna_does_not_see_the_changes_agent_files`.
 - **A pull request could switch off zizmor or actionlint** with its own config files. Both now
   use only this repository's config.
-  Kept by: the "zizmor" and "actionlint" steps of check.yml and checks.yml, which read only
-  `config/zizmor.yml` and `config/actionlint.yaml` and pass `--no-ignores`. No test checks
-  them yet.
+  Kept by: `tests/test_workflows.py::test_a_pull_request_cannot_switch_off_zizmor_or_actionlint`:
+  the "zizmor" and "actionlint" steps of check.yml, which checks a caller's pull request,
+  read only our config files and pass `--no-ignores`; checks.yml, which checks this
+  repository, runs zizmor with `--no-config`.
 - **actionlint does not know GitHub's `job.workflow_*` contexts yet.** A narrow ignore sits in
   our own config.
   Kept by: the ignore itself, in `config/actionlint.yaml`; the "actionlint" step goes red
@@ -57,8 +57,8 @@ Problems found while building the reviewers, and what changed because of each.
   `tests/test_post_findings.py::test_a_silent_reviewer_is_named` and
   `tests/test_post_findings.py::test_long_summary_and_text_are_cut`.
 - **The same finding came back on every push.** When lines moved, the finding got a new key
-  and was posted again. Now a finding within 5 lines of one already posted, in the same file
-  and of the same kind, is skipped.
+  and was posted again. Now a finding within 5 lines of one already posted, in the same file,
+  is skipped.
   Kept by: `tests/test_post_findings.py::test_a_finding_made_again_is_one_item_by_everyone_who_made_it`.
 - **Model text could ping real people.** `@pytest.fixture` in a finding would notify a GitHub
   user named `pytest`. Now an `@` that starts a word gets an invisible joiner after it.
@@ -66,12 +66,11 @@ Problems found while building the reviewers, and what changed because of each.
 - **Claude would read instruction files the pull request adds.** A `CLAUDE.md` or `.claude`
   folder in a subfolder was loaded as instructions. They are now deleted before Claude runs;
   the root ones come from the base branch.
-  Kept by: the step "Remove the pull request's nested Claude files" in review.yml. No test
-  checks it yet.
+  Kept by: `tests/test_workflows.py::test_claude_never_reads_a_claude_file_the_pull_request_adds`.
 - **The daily cap counted the wrong runs.** Cancelled and skipped runs used up the cap, and
   whether the run doing the counting counted itself was left to chance. Now only runs that did
   work count, the counting run leaves itself out, and a cap of 10 means 10.
-  Kept by: the `cap` job of review.yml. No test checks it yet.
+  Kept by: `tests/test_workflows.py::test_the_daily_cap_counts_only_runs_that_did_work_and_not_itself`.
 
 ## 2026-11-11
 
@@ -86,7 +85,9 @@ Problems found while building the reviewers, and what changed because of each.
 - **Two runs of the same judge gave different answers.** The eval now runs three times and
   passes only when every run passes; the judge checks each row of the list and trusts only
   changes it can quote from the note.
-  Kept by: `tests/test_watch_score.py::test_several_runs_pass_only_when_each_run_passes`,
+  Kept by: `tests/test_watch_score.py::test_several_runs_pass_only_when_each_run_passes` (the table
+  passes only when every run passes; that the eval runs three times is the default of the watch
+  workflow's `runs` input, which no test reads),
   `tests/test_watch_judge.py::test_a_change_whose_quote_is_not_in_the_piece_is_dropped` and
   `tests/test_watch_judge.py::test_the_model_checks_rows_by_id_and_only_touched_ones_become_changes`.
 
