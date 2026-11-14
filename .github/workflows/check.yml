@@ -1,7 +1,10 @@
+# What: checks the calling repository's workflow files with zizmor, actionlint and the
+# agent-workflow rules (RULES.md).
+# Why: a workflow that runs an agent is where a mistake leaks a secret. This shows an unsafe
+# change as a red check before it is merged.
+#
+# Reusable workflow. Needs no inputs or secrets.
 name: Check agent workflows
-
-# Reusable workflow: checks the calling repository's workflow files with zizmor,
-# actionlint and the agent-workflow rules. Needs no inputs or secrets.
 
 on:
   workflow_call:

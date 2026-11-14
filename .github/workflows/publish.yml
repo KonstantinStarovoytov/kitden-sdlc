@@ -1,5 +1,7 @@
-name: Publish
-
+# What: after a new Kitden version is on PyPI, moves the `release` branch, publishes to the MCP
+# Registry and opens the Homebrew pull request.
+# Why: one tag updates every store, so no store is forgotten or updated by hand.
+#
 # Reusable workflow: after PyPI has a new Kitden version, put it everywhere else. Kitden's
 # release.yml calls it on a tag, after its own PyPI and GitHub release jobs. No job here runs a
 # model. Each job writes to one place with its own short-lived token:
@@ -9,6 +11,7 @@ name: Publish
 #   summary:        writes every store's version to the job summary (read only)
 # The release app's key lives only in Kitden's `release` environment; the jobs that use it
 # name that environment. The design is docs/superpowers/specs/2026-11-12-release-flow-design.md.
+name: Publish
 
 on:
   workflow_call:

@@ -1,5 +1,8 @@
-name: desk
-
+# What: every day, with no model, counts the facts about Kitden and its agents and shows them
+# as one issue in Kitden, "Kitden desk".
+# Why: the owner sees in one place whether everything is healthy and what waits for a decision,
+# without opening each workflow.
+#
 # Every day, no model: work out whether Kitden is healthy and what waits for the owner.
 # `measure` reads the facts, the reviews among them, and commits numbers.md, numbers.json and
 # desk.json to the `numbers` branch, because `main` takes pull requests only. `post` shows
@@ -7,6 +10,7 @@ name: desk
 # repository never holds the review app's key (RULES.md, rule 1). With AGENTS_ENABLED off
 # the numbers still update, and the issue stays as it was, with its date. This workflow
 # never runs a pull request's code.
+name: Kitden desk
 
 on:
   schedule:

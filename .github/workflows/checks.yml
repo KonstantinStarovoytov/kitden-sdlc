@@ -1,4 +1,8 @@
-name: checks
+# What: on every push and pull request in this repository, runs the tests, ruff, the rule
+# checker, zizmor and actionlint.
+# Why: Kitden calls these workflows at `main`, so a broken or unsafe change here would reach
+# Kitden at once.
+name: Tests and checks
 
 on: [push, pull_request]
 
