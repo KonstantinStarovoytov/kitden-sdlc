@@ -11,6 +11,8 @@ Other rules:
 - Whoever edits a workflow also runs the `agentic-actions-auditor` skill locally.
 - Pin every action by its full SHA, with the tag in a comment.
 - Keep RULES.md and the README in step with the workflows.
+- Every workflow file, and every caller in `examples/`, starts with a `# What:` and a
+  `# Why:` comment, and its `name:` says what it does and starts with a capital letter.
 - A change to a prompt, a skill or a model comes with its eval table, before and after, in the
   same pull request.
 

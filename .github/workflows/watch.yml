@@ -1,5 +1,8 @@
-name: watch
-
+# What: once a day, reads what Claude Code, Codex and Cursor changed and opens an issue in
+# Kitden when a change touches what Kitden reads or shows.
+# Why: Kitden depends on these clients' files and settings. A change there breaks Kitden
+# quietly unless something watches for it.
+#
 # Once a day: read what Claude Code, Codex and Cursor changed, ask a model whether it touches
 # what Kitden shows, open issues in Kitden as the review app, and keep the memory on the
 # `watch` branch. The design is in docs/watcher-design.md. Three jobs, so that no job holds
@@ -9,6 +12,7 @@ name: watch
 # A fourth job, eval, runs by hand only (workflow_dispatch with `eval` on): it measures the
 # judge on evals/watch and posts nothing; the three jobs above then skip. It needs
 # AGENTS_ENABLED alone, so the eval can run while the daily watcher stays off.
+name: Client watcher
 
 on:
   schedule:

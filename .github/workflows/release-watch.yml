@@ -1,5 +1,8 @@
-name: Release watch
-
+# What: once a day, with no model, opens or updates an issue in Kitden when a release is due or
+# a store is behind.
+# Why: so that merged work does not sit unreleased, and a release that reached only some stores
+# is noticed.
+#
 # Reusable workflow: once a day, two facts become issues in Kitden. No model runs here.
 #   "Time for a release?"          while merged changes to src/, plugins/ or install.* wait
 #   "Release vX.Y.Z is not everywhere"  while a store is behind or different
@@ -7,6 +10,7 @@ name: Release watch
 # by the Lantern app, with a token that can write issues in Kitden and nothing else.
 # The decisions are in scripts/release_watch.py; the design is
 # docs/superpowers/specs/2026-11-12-release-flow-design.md (A7).
+name: Release watch
 
 on:
   workflow_call:

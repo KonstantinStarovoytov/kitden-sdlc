@@ -1,5 +1,7 @@
-name: Release prep
-
+# What: prepares a Kitden release: Claude drafts the notes, the README and the policy edits,
+# scripts check them, and one pull request, `Kitden X.Y.Z`, is opened.
+# Why: the owner only reviews and merges. No step of a release is done by hand or forgotten.
+#
 # Reusable workflow: Kitden's owner presses "Prepare release" and gets one pull request,
 # `Kitden X.Y.Z`, to review and merge. Two jobs run a model (the agent and its one fix pass),
 # each with read-only tools and a folder to write in; every job that writes to Kitden runs no
@@ -16,6 +18,7 @@ name: Release prep
 #                app); a draft when a problem or a failed picture is left
 # The designs are docs/superpowers/specs/2026-11-12-release-flow-design.md (B1, B2) and
 # docs/superpowers/specs/2026-11-13-release-prep-tune-design.md (Parts 3 and 4).
+name: Release prep
 
 on:
   workflow_call:

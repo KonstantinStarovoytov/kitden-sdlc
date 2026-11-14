@@ -1,9 +1,13 @@
-name: Agent review
-
+# What: Claude and GPT-6 Luna each read a pull request, and one "Agent review" comment with
+# their findings is posted.
+# Why: a second look at every change before the owner merges. It only comments; it never
+# approves or blocks.
+#
 # Reusable workflow: a pull request in the calling repository gets one review comment.
 # Claude and GPT-6 Luna (through OpenAI's Codex action) each read the change, and a job
 # without a model puts their findings into that one comment. The caller decides when
 # it runs (see the `if` it must carry) and passes Claude's model.
+name: Agent review
 
 on:
   workflow_call:
