@@ -105,7 +105,7 @@ def _wide(name: str, spaces: int) -> str:
     return "&nbsp;" * spaces + name + "&nbsp;" * spaces
 
 
-TABLE_HEAD = (f"| # | {_wide('Client', 14)} | Change | {_wide('Risk', 10)} | {_wide('Sure', 6)} |"
+TABLE_HEAD = (f"| # | {_wide('Client', 20)} | Change | {_wide('Risk', 16)} | {_wide('Sure', 10)} |"
               "\n|---|---|---|---|---|\n")
 
 
