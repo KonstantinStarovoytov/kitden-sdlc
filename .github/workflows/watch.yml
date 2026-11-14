@@ -7,7 +7,7 @@
 # what Kitden shows, open issues in Kitden as the review app, and keep the memory on the
 # `watch` branch. The design is in docs/watcher-design.md. Three jobs, so that no job holds
 # untrusted text, a secret and write permission together (RULES.md, rule 1):
-# fetch reads (no secret), judge holds the OpenAI key (read only), post writes (no model).
+# fetch reads (no secret), judge holds the model's key (read only), post writes (no model).
 # The three jobs run only when both variables are on: AGENTS_ENABLED and WATCH_LIVE.
 # A fourth job, eval, runs by hand only (workflow_dispatch with `eval` on): it measures the
 # judge on evals/watch and posts nothing; the three jobs above then skip. It needs
@@ -134,11 +134,18 @@ jobs:
         with:
           version: "0.10.10"
       # The model's only step: text in, a findings file out. No tools, no write permission.
+      # With the Langfuse keys each piece is one trace there, in one session a run, under the
+      # environment `daily`; the log then links each trace. Without them it is off.
       - name: Judge
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           WATCH_EFFORT: medium
           MAX_MODEL_CALLS: "60"
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
+          LANGFUSE_TRACING_ENVIRONMENT: daily
+          LANGFUSE_RELEASE: ${{ github.sha }}
         run: >-
           uv run --locked --only-group watch python scripts/watch_judge.py
           --input input.json --out findings.json
@@ -271,6 +278,8 @@ jobs:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
+          LANGFUSE_TRACING_ENVIRONMENT: eval
+          LANGFUSE_RELEASE: ${{ github.sha }}
         run: >-
           uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py
           --kitden kitden --tasks evals/watch/tasks --out eval-out

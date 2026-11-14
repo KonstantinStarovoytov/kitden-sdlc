@@ -119,9 +119,11 @@ class _Failed(Exception):
     pass
 
 
-def _call(piece_id: str, fn, *args):
+def _call(piece: dict, fn, *args):
+    """One model call for a piece; `piece` may be a finding, which names its piece."""
+    piece_id = piece.get("id") or piece["piece"]
     try:
-        with watch_trace.piece(piece_id):
+        with watch_trace.piece(piece_id, piece["client"], piece["version"]):
             return fn(*args)
     except Exception as e:  # noqa: BLE001 - a failed call skips its piece, the run goes on
         print(f"model call failed for {piece_id}: {type(e).__name__}", file=sys.stderr)
@@ -169,7 +171,7 @@ def build_graph(model: Model, late=lambda: False):
         part = {**piece, "text": parts[state["part"]]}
         current, to_assess = [*state["current"]], [*state["to_assess"]]
         titles = inp["known_titles"] + [f["title"] for f in state["findings"] + current]
-        for change in _call(piece["id"], model.screen, part, inp["list"], titles):
+        for change in _call(piece, model.screen, part, inp["list"], titles):
             label = change.get("row", "none")
             if not quoted(change.get("quote", ""), part["text"]):
                 continue
@@ -194,7 +196,7 @@ def build_graph(model: Model, late=lambda: False):
         piece = inp["pieces"][state["i"]]
         change, *rest = state["to_assess"]
         row = _rows(inp["list"])[(piece["client"], change["row"])]
-        got = _call(piece["id"], model.assess, change, row, _files(row, inp))
+        got = _call(piece, model.assess, change, row, _files(row, inp))
         effect, sure = got.get("effect", ""), got.get("sure", False)
         severity = _severity(got.get("severity"))
         if effect in GRAVE and got.get("shown_wrong", "").strip(" .").lower() in NOTHING:
@@ -218,7 +220,7 @@ def build_graph(model: Model, late=lambda: False):
         inp = state["inp"]
         f, *rest = state["to_refute"]
         row = _rows(inp["list"])[(f["client"], f["row"])]
-        if _call(f["piece"], model.refute, f, row, _files(row, inp)):
+        if _call(f, model.refute, f, row, _files(row, inp)):
             f = {**f, "sure": False, "why": f["why"] + DISAGREED}
         return settle(state, {"to_refute": rest, "current": [*state["current"], f]})
 
@@ -390,6 +392,7 @@ def main():
     print(f"Judge: {name}, at most {max_calls} model calls")  # the issues do not name the model
     try:
         out = judge(inp, chat_model(name), max_calls)
+        watch_trace.report(out)
     finally:
         watch_trace.flush()
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")

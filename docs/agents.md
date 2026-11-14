@@ -113,7 +113,7 @@ It also needs the secrets `ANTHROPIC_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in ki
 Before it is switched on, the `eval` job (run by hand) measures the model on [the watch tasks](../evals/watch/README.md).
 The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
-Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
+Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment, and the daily run sends each piece as one trace, in one session a run ([where to look](watcher-design.md)). Without them it is off.
 
 An issue is short and in plain words, in the bots' [one look](#one-look). GitHub shows
 Lantern as its author and the label `automated` says a bot opened it, so the body says neither;
