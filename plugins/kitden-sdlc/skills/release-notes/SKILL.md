@@ -52,6 +52,9 @@ and write it to `out/version.txt`. Kitden is before 1.0. From the last tag `vA.B
 
 - If the notes have any item under New, the version is the next minor: `A.(B+1).0`.
 - Otherwise it is the next patch: `A.B.(C+1)`.
+- When you cannot tell whether an item is New or Better, it is Better and the version is the
+  patch. Say in the findings which item it was and that the owner can run the release again
+  with `minor`.
 - A breaking change is a minor too, while Kitden is before 1.0. Say what breaks and what to do
   in "Upgrade and limits".
 
@@ -99,8 +102,12 @@ Your job is editing, not copying the log.
   the user's words: what they can now do. Then the rest in one sentence.
 - **Sections.** New, Better, Fixed, Documentation, in this order. Leave out a section with no
   items.
-  - New: something a user can do that they could not do before.
+  - New: something a user can do that they could not do before: a new command, a new page or
+    part of the page, a new agent Kitden supports, a new kind of thing it shows or changes.
   - Better: something that worked and now works better, reads clearer or behaves differently.
+    A command or page that now also shows what Kitden already showed somewhere else is
+    Better, not New: the user could already see it. So is a new line, column or option on a
+    command or page that was there.
   - Fixed: something that was wrong. Say what went wrong before, then what happens now.
   - Documentation: pages users read, such as the guide, privacy or security. Not plans.
 - **Items.** One line each in the file, in this form:
