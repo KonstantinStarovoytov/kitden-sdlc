@@ -189,15 +189,18 @@ def _badges(desk: dict) -> str:
 
 
 def _light(light: dict) -> str:
+    """Why a light is not green, or "" for a green one: its badge on top says it all."""
     state = light.get("state")
     name = one_line(str(light.get("name") or light.get("id") or "?"))
     why = one_line(str(light.get("why") or ""))
+    if state == "green":
+        return ""
     if state not in MARKS or state == "grey":
         why = re.sub(rf"^{NOT_MEASURED_YET}:?\s*", "", why, flags=re.I)
-        return f"- ⚪ {name}: {NOT_MEASURED_YET}" + (f": {why}" if why else ".")
-    if state == "green" or not why:
-        return f"- {MARKS[state]} {name}"
-    return f"- {MARKS[state]} {name}: {_link(why, light.get('url'))}"
+        return f"- **{name}:** {NOT_MEASURED_YET}" + (f": {why}" if why else ".")
+    if not why:
+        return f"- **{name}:** " + ("needs a look." if state == "amber" else "is wrong.")
+    return f"- **{name}:** {_link(why, light.get('url'))}"
 
 
 def _use(use: dict) -> str:
@@ -219,13 +222,17 @@ def _use(use: dict) -> str:
     return "Use: " + "; ".join(parts) + "."
 
 
-def _health(desk: dict) -> list[str]:
+def _lead(desk: dict) -> str:
+    """The one line under the badges: how the five lights stand."""
     state = desk.get("overall")
-    state = state if state in MARKS else "grey"
-    lights = desk.get("lights") or []
-    lines = [f"**{MARKS[state]} {OVERALL[state]}**", ""]
-    lines += [_light(light) for light in lights if isinstance(light, dict)] or ["- ⚪ No light."]
-    return [*lines, "", _use(desk.get("use") or {})]
+    return OVERALL[state if state in MARKS else "grey"]
+
+
+def _health(desk: dict) -> list[str]:
+    """The lights that are not green, each with its reason, then how Kitden is used."""
+    lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
+    lines = [line for line in map(_light, lights) if line] if lights else ["- No light."]
+    return [*lines, *([""] if lines else []), _use(desk.get("use") or {})]
 
 
 def _wait(item: dict) -> str:
@@ -361,6 +368,7 @@ def _budget(desk: dict) -> list[str]:
 def _page(desk: dict, shown: dict[str, int]) -> str:
     parts = [
         [_badges(desk)],
+        [_lead(desk)],
         ["### Health", "", *_health(desk)],
         ["### Waiting for you", "", *_waiting(_list(desk, "waiting"), shown["waiting"])],
         ["### Links", "", *_links(desk)],

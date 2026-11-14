@@ -21,6 +21,7 @@ from watch_route import (
 )
 
 SUMMARY_MAX = 60000
+ROOM = 3000  # kept for what follows the items: the mentions, the checklist, the box
 AGENT = "The client watcher"  # its pause issue is "The client watcher is paused"
 PAUSED_MEANS = ("That includes its weekly summary: what it finds is kept for its first summary "
                 "after this issue is closed.")
@@ -98,13 +99,27 @@ def _foot(item: dict, inp: dict, how: bool = False) -> str:
     return style.small(_versions(item, inp), source, HOW if how else "")
 
 
-def _badges(item: dict) -> str:
-    """The first line: the client and its version, the risk, and whether the watcher is sure."""
+def _wide(name: str, spaces: int) -> str:
+    """A column name with hard spaces on both sides. GitHub shrinks a picture in a table to
+    the width of its column; the spaces keep the column as wide as its badge."""
+    return "&nbsp;" * spaces + name + "&nbsp;" * spaces
+
+
+TABLE_HEAD = (f"| # | {_wide('Client', 14)} | Change | {_wide('Risk', 10)} | {_wide('Sure', 6)} |"
+              "\n|---|---|---|---|---|\n")
+
+
+def _marks(item: dict) -> tuple[str, str, str]:
+    """Three badges: the client and its version, the risk, whether the watcher is sure."""
     _, severity = _kind(item)
     client = (style.version(client_name(item), _version(item)) if _version(item)
               else style.info("client", client_name(item)))
-    return style.row(client, style.risk(RISK.get(severity, "low").lower()),
-                     style.sure(bool(item.get("sure"))))
+    return (client, style.risk(RISK.get(severity, "low").lower()),
+            style.sure(bool(item.get("sure"))))
+
+
+def _badges(item: dict) -> str:
+    return style.row(*_marks(item))
 
 
 def _flat(text) -> str:
@@ -129,9 +144,10 @@ def _files(item: dict) -> str:
     return "**Files:** " + ", ".join(f"`{f}`" for f in files) if files else ""
 
 
-def _item(item: dict, inp: dict) -> str:
-    """One item of the summary: the badges, the lead line, the problem, the fix, the files."""
-    lines = [_badges(item), "", _lead(item), ""]
+def _item(item: dict, inp: dict, badges: bool = True) -> str:
+    """One item of the summary: the badges (unless a table above has them), the lead line,
+    the problem, the fix, the files."""
+    lines = [*([_badges(item), ""] if badges else []), _lead(item), ""]
     if _problem(item):
         lines.append(f"**Problem:** {_problem(item)}")
     if _flat(item.get("fix")):
@@ -175,19 +191,31 @@ def render_summary(items: list[dict], today: date,
     monday = today - timedelta(days=today.weekday())
     real = [i for i in items if not _hint(i)]
     hints = [i for i in items if _hint(i)]
-    body = ""
-    if len(real) > 1:
-        rows = [f"| {n} | {_who(i)}: {_quiet(i['title'], 80)} | {RISK.get(_kind(i)[1], '')} | "
-                f"{'yes' if i.get('sure') else 'no'} |" for n, i in enumerate(real, 1)]
-        body += "\n\n| # | Change | Risk | Sure |\n|---|---|---|---|\n" + "\n".join(rows)
-    rest = []
+    # With several items a table on top holds the badges of each; one item has its own.
+    table = len(real) > 1
+    rows, blocks, rest, size = [], [], [], 0
     for n, i in enumerate(real, 1):
-        block = f"### {n}. {_flat(i['title'])}\n\n{_item(i, inp)}"
-        if len(body) + len(block) + 400 > SUMMARY_MAX:
-            body += f"\n\n…and {len(real) - n + 1} more items in the next summary"
+        title = _flat(i["title"])
+        row = ""
+        if table:
+            client, risk, sure = _marks(i)
+            change = _quiet(title, 80).replace("|", "\\|")
+            row = f"| {n} | {client} | {change} | {risk} | {sure} |"
+        head = f"### {n}. {_who(i)}: {title}" if table else f"### {n}. {title}"
+        block = f"{head}\n\n{_item(i, inp, badges=not table)}"
+        if size + len(row) + len(block) + ROOM > SUMMARY_MAX:
             rest = real[n - 1:]
             break
-        body += "\n\n" + block
+        rows.append(row)
+        blocks.append(block)
+        size += len(row) + len(block) + 4
+    parts = []
+    if table and rows:
+        parts.append(TABLE_HEAD + "\n".join(rows))
+    parts += blocks
+    if rest:
+        parts.append(f"…and {len(rest)} more items in the next summary")
+    body = "\n\n".join(parts)
     if hints:
         body += "\n\n" + _hints(hints)
     todo = dont_forget([_kind(i)[0] for i in real if i not in rest], boxes=False)

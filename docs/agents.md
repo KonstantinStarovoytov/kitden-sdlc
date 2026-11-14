@@ -128,8 +128,8 @@ change to client settings; the row in `docs/clients.md` and its date; `ROADMAP.m
 `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
 contributor works on a false alarm. Only a sure major break or wrong data gets an issue of its
 own at once, two a week at most; the rest waits for Monday's summary. The summary lists its
-items the same way in short, with a table on top when there are several and one checklist at
-the end; words of a row that the note mentions but the model found nothing for go into one line at the end.
+items the same way in short and one checklist at the end. With several items a table on top
+holds each one's badges, so the items under it do not repeat them; words of a row that the note mentions but the model found nothing for go into one line at the end.
 
 | Label | Meaning |
 |---|---|

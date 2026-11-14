@@ -94,8 +94,14 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
     assert len(gh.created) == 1 and gh.created[0][2] == ["automated", "client-change", "summary"]
     title, body, _ = gh.created[0]
     assert title == "Client changes, week of 2026-11-09"
-    assert body.count("\n### ") == 2 and body.startswith("| # |")
-    assert body.count('alt="risk: low"') == 2
+    assert body.count("\n### ") == 2
+    head = body.splitlines()[0].replace("&nbsp;", "")  # hard spaces keep the columns wide
+    assert head == "| # | Client | Change | Risk | Sure |"
+    # The table holds each item's badges, so the items under it do not repeat them.
+    assert body.count('alt="risk: low"') == 2 and body.count('alt="client: Codex"') == 2
+    row = body.splitlines()[2]
+    assert row.startswith("| 1 | <picture>") and row.count("<picture>") == 3 and "| t0 |" in row
+    assert "### 1. Codex: t0\n\nOnly Kitden's own notes are out of date. u\n" in body
 
 
 def test_release_not_checked_when_a_file_differs():
@@ -286,7 +292,7 @@ def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path, capsys)
     assert len(lifted.created) == 1
     title, body, labels = lifted.created[0]
     assert labels == ["automated", "client-change", "summary"]
-    assert all(f". {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
+    assert all(f": {t}\n" in body for t in ("skillOverrides renamed", "t0", "t1"))
 
 
 def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):
