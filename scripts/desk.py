@@ -10,8 +10,9 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from bot_issues import BOT, VERDICTS, names, paused_title
+from bot_issues import BOT, names, paused_title, verdict
 from count_reviews import MAINTAINER, REPO, Review, summary
+from watch_route import URGENT_PER_WEEK
 
 ORDER = ("red", "amber", "grey", "green")  # the first one any light has is the overall light
 RED_ENDINGS = ("failure", "timed_out", "cancelled", "action_required", "startup_failure")
@@ -345,10 +346,10 @@ def _required_agents(required: list[str]) -> dict | None:
 def _watcher_over_cap(issues: list[dict], now: datetime) -> dict | None:
     monday = _monday(now)
     this_week = [item for item in _findings(issues) if _at(item["created_at"]) >= monday]
-    if len(this_week) <= 2:
+    if len(this_week) <= URGENT_PER_WEEK:
         return None
-    return _light("agents", "red",
-                  f"The watcher opened {len(this_week)} issues this week, more than 2.")
+    return _light("agents", "red", f"The watcher opened {len(this_week)} issues this week, "
+                                   f"more than {URGENT_PER_WEEK}.")
 
 
 def _paused_agent(issues: list[dict]) -> dict | None:
@@ -493,8 +494,7 @@ def _waits(issues: list[dict] | None, pulls: list[dict] | None,
            reviews: list[Review] | None, now: datetime) -> list[dict]:
     """Every waiting item the facts that were read give; the Queue light reads this."""
     verdictless = [
-        item for item in _findings(issues or [], open_only=True)
-        if not names(item) & set(VERDICTS)
+        item for item in _findings(issues or [], open_only=True) if verdict(item) is None
     ]
     return [
         *_issue_waits("pull", _agent_pulls(pulls or []), now),
@@ -547,8 +547,8 @@ def _watcher_week(issues: list[dict] | None, now: datetime) -> dict:
     found = _findings(issues)
     month = [item for item in found if _age(item["created_at"], now) <= 30]
     return {"did": sum(1 for item in found if _age(item["created_at"], now) <= 7),
-            "agreed": sum("confirmed" in names(item) for item in month),
-            "disagreed": sum("false-alarm" in names(item) for item in month)}
+            "agreed": sum(verdict(item) == "confirmed" for item in month),
+            "disagreed": sum(verdict(item) == "false-alarm" for item in month)}
 
 
 def _release_week(pulls: list[dict] | None, now: datetime) -> dict:
@@ -593,7 +593,8 @@ def _found_in(month: str, reviews: list[Review] | None, issues: list[dict] | Non
     if issues is not None:
         opened = [item for item in issues if _month(_at(item["created_at"])) == month]
         bugs = [item for item in opened if "bug" in names(item)]
-        row["watcher"] = len(_bots(opened, "client-change", "confirmed", open_only=False))
+        row["watcher"] = sum(verdict(item) == "confirmed"
+                             for item in _bots(opened, "client-change", open_only=False))
         row["owner"] = sum(1 for item in bugs if _login(item).lower() == MAINTAINER.lower())
         row["others"] = sum(1 for item in bugs if _by_a_person_not_the_owner(item))
     return row

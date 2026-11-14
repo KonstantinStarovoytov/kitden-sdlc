@@ -5,9 +5,11 @@ import pytest
 
 import desk_post
 from bot_issues import BOT
+from desk import Facts, build
 from desk_post import LIMIT, TITLE, main, post, render, week_note
 from post_findings import one_line
 from tests.fakes import FakeIssues, issue
+from tests.test_desk import FACTS, NOW, ROSTER
 
 URL = "https://github.com/KonstantinStarovoytov/kitden/issues/12"
 SPOT = "https://github.com/KonstantinStarovoytov/kitden/pull/70"
@@ -400,3 +402,26 @@ def test_a_lights_address_is_linked_when_it_is_on_github():
     for url in ("http://evil.example/x", "https://github.com/x) [y](http://evil"):
         body = render({**DESK, "lights": [{**light, "url": url}], "waiting": [], "misses": []})
         assert "evil" not in body and "- 🔴 Clients: Issue &#35;12" in body
+
+
+# --- What build writes, rendered ---
+
+
+def test_the_page_of_what_build_writes_from_every_fact():
+    body = render(build(FACTS, ROSTER, NOW))
+    assert "**🟢 All five lights are green.**" in body
+    assert "None" not in body and "null" not in body
+    assert "not measured" not in body.lower().replace("not measured yet: nightly, tester.", "")
+    assert "| Claude reviewer | 12 | 1 | 1 | 0 | 0 | 0 |" in body
+    assert "| Release prep | 1 | 0 | 1 | — | — | — |" in body
+    assert "- Pull request: [p](https://github.com/KonstantinStarovoytov/kitden/pull/79)" in body
+    assert "merge it with a merge commit." in body
+
+
+def test_the_page_of_what_build_writes_from_no_fact():
+    body = render(build(Facts(), ROSTER, NOW))
+    assert "None" not in body and "null" not in body and "| |" not in body
+    assert "**⚪ Some lights are not measured yet; none is amber or red.**" in body
+    assert body.count("- ⚪ ") == 5 and "## Waiting for you\n\nNot measured." in body
+    assert "The agents' week: not measured yet." in body
+    assert "Reviews: not measured yet." in body and "Misses: not measured yet." in body

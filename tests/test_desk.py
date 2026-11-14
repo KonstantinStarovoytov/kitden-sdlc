@@ -825,3 +825,42 @@ def test_a_release_pull_request_says_how_to_accept_it_and_whether_it_is_a_draft(
     release = ("Review it; if it is a draft, fix what \"Fix before merge\" names and press "
                "Ready for review; merge it with a merge commit.")
     assert [w["do"] for w in found] == [release, release, "Review it and merge, or close it."]
+
+
+# --- Small tidying: one cap, one verdict ---
+
+
+def test_the_watchers_cap_is_watch_routes_own():
+    import desk
+    import watch_route
+    assert desk.URGENT_PER_WEEK is watch_route.URGENT_PER_WEEK
+    labels = ("automated", "client-change", "major")
+    over = [bot(n, labels=labels, created=ago(0.1)) for n in range(watch_route.URGENT_PER_WEEK + 1)]
+    red = light_agents(over, [], NOW)
+    assert red["state"] == "red" and f"more than {watch_route.URGENT_PER_WEEK}" in red["why"]
+
+
+def test_the_desk_imports_only_the_standard_library_and_the_scripts():
+    import subprocess
+    import sys
+    code = ("import sys, pathlib; before = set(sys.modules); sys.path.insert(0, 'scripts'); "
+            "import desk, desk_gather, desk_post; "
+            "own = {p.stem for p in pathlib.Path('scripts').glob('*.py')}; "
+            "print(sorted({m.split('.')[0] for m in set(sys.modules) - before}"
+            " - set(sys.stdlib_module_names) - own))")
+    done = subprocess.run([sys.executable, "-I", "-c", code], cwd=ROOT, capture_output=True,
+                          text=True, check=True)
+    assert done.stdout.strip() == "[]"
+
+
+def test_an_issue_with_both_verdicts_is_read_as_having_none():
+    both = bot(1, labels=("automated", "client-change", "major", "confirmed", "false-alarm"),
+               created=ago(2))
+    assert [w["kind"] for w in waiting([both], [], [], NOW)] == ["verdict"]
+    row = week(ROSTER, [], [both], [], {}, NOW)[2]
+    assert (row["agreed"], row["disagreed"]) == (0, 0)
+    one = bot(2, labels=("automated", "client-change", "major", "confirmed"), created=ago(2))
+    assert waiting([one], [], [], NOW) == []
+    assert week(ROSTER, [], [one], [], {}, NOW)[2]["agreed"] == 1
+    assert found_by([], [both], NOW)[0]["watcher"] == 0
+    assert found_by([], [one], NOW)[0]["watcher"] == 1
