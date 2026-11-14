@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/KonstantinStarovoytov/kitden"><img src="docs/images/kitden-logo.svg" width="72" alt="Kitden"></a>
+  <img src="docs/images/logo-animated.svg" width="72" alt="kitden-sdlc: Kitden's house cut by a dashed line, an outline on the reading side and solid on the writing side">
 </p>
 
 # kitden-sdlc
