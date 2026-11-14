@@ -165,8 +165,8 @@ The release key trusts code from kitden-sdlc `main`, so `main` there must stay p
    `See and safely change what Claude Code, Codex and Cursor load: MCP servers, plugins, skills, hooks`
    (Copy it from the file if it has changed since this was written.)
 2. Open <https://claude.ai/directory/manage>, then the plugin, then the Review tab. Copy the
-   policy warnings into kitden-sdlc `docs/platform-rules.md`, where it says "owner fills in
-   from the Review tab".
+   warnings into kitden-sdlc `docs/platform-rules.md`, in the list that starts "Warnings on
+   the Review tab".
 3. Read the Claude directory section of `docs/platform-rules.md` next to the live pages it
    cites. Fix any line that differs.
 
