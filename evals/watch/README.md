@@ -144,7 +144,8 @@ with `run <n>` after it when there are several runs.
 In Langfuse open Datasets, then `watch-eval`, then the run: each task has its trace (every
 `screen`, `assess` and `refute` call with its time and tokens) and the scores `found`,
 `false_alarm`, `severity_right`, `injection_obeyed` and `judge_failed` (1 or 0), and
-`other_findings` (a count). Without the
+`other_findings` (a count). The eval's traces have the environment `eval`; the daily run's
+have `daily` (docs/watcher-design.md says where to look for those). Without the
 keys nothing is sent. Langfuse keeps it 30 days; the table here is the record.
 
 ## Growing the set

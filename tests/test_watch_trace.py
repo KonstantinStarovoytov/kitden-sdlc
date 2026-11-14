@@ -16,8 +16,10 @@ ROW = "the `skillOverrides` key"
 @pytest.fixture(autouse=True)
 def fresh():
     watch_trace._handler.cache_clear()
+    watch_trace._traces.clear()
     yield
     watch_trace._handler.cache_clear()
+    watch_trace._traces.clear()
 
 
 def keys(monkeypatch):
@@ -106,9 +108,12 @@ def test_on_with_keys_the_handler_goes_to_every_model_call(monkeypatch):
     assert len(handlers) == 1 and isinstance(configs[0]["callbacks"][0], Handler)
     for step, c in zip(steps, configs, strict=True):
         assert c["run_name"] == step
-        assert c["metadata"]["langfuse_tags"] == [PID, "gpt-test", "abc1234def"]
+        assert c["metadata"]["langfuse_tags"] == ["claude-code", "gpt-test"]
         assert c["metadata"]["langfuse_session_id"] == f"{PID} gpt-test abc1234"
         assert c["metadata"]["step"] == step
+        assert c["metadata"]["piece"] == PID
+        assert c["metadata"]["client"] == "claude-code"
+        assert c["metadata"]["version"] == "2.1.320"
         assert c["metadata"]["commit"] == "abc1234def"
 
 
@@ -214,7 +219,9 @@ class Observation:
         self.log.append(("update", details))
 
 
-def span_langfuse(monkeypatch, log):
+def span_langfuse(monkeypatch, log, inside=None):
+    """A stand-in SDK that keeps what it is asked. `inside` is the trace the call is already
+    in, as in an experiment."""
     lf = types.ModuleType("langfuse")
 
     def start(**kw):
@@ -225,8 +232,12 @@ def span_langfuse(monkeypatch, log):
         log.append(("attrs", kw))
         return Observation(log)
 
-    lf.get_client = lambda: types.SimpleNamespace(start_as_current_observation=start,
-                                                  flush=lambda: None)
+    lf.get_client = lambda: types.SimpleNamespace(
+        start_as_current_observation=start, flush=lambda: None,
+        get_current_trace_id=lambda: inside,
+        create_trace_id=lambda seed: f"trace of {seed.split(' ', 1)[1]}",
+        create_score=lambda **kw: log.append(("score", kw)),
+        get_trace_url=lambda trace_id: f"https://langfuse.test/{trace_id}")
     lf.propagate_attributes = propagate
     monkeypatch.setitem(sys.modules, "langfuse", lf)
 
@@ -236,13 +247,82 @@ def test_a_direct_call_is_a_span_with_the_same_session_and_tags(monkeypatch):
     monkeypatch.setenv("GITHUB_SHA", "abc1234def")
     log = []
     span_langfuse(monkeypatch, log)
-    with watch_trace.piece(PID), watch_trace.call("screen", "claude-x medium", ["m"]) as rec:
+    with watch_trace.piece(PID, "claude-code", "2.1.320"), \
+            watch_trace.call("screen", "claude-x medium", ["m"]) as rec:
         rec(output={"a": 1})
     (_, attrs), (_, start), (_, update) = log
     assert attrs["session_id"] == f"{PID} claude-x medium abc1234"
-    assert attrs["tags"] == [PID, "claude-x medium", "abc1234def"]
+    assert attrs["tags"] == ["claude-code", "claude-x medium"]
+    assert attrs["metadata"] == {"step": "screen", "piece": PID, "client": "claude-code",
+                                 "version": "2.1.320", "model": "claude-x medium",
+                                 "commit": "abc1234def"}
     assert start["as_type"] == "span" and start["name"] == "screen"
     assert update == {"output": {"a": 1}}
+
+
+def daily(monkeypatch):
+    keys(monkeypatch)
+    monkeypatch.setenv("LANGFUSE_TRACING_ENVIRONMENT", "daily")
+    monkeypatch.setenv("GITHUB_RUN_NUMBER", "57")
+    monkeypatch.setenv("GITHUB_RUN_ID", "900")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/kitden-sdlc")
+    monkeypatch.setattr(watch_trace, "_day", lambda: "2026-11-14")
+
+
+def test_a_daily_run_is_one_session_and_each_piece_is_one_trace_named_by_it(monkeypatch):
+    daily(monkeypatch)
+    log = []
+    span_langfuse(monkeypatch, log)
+    for piece_id, step in ((PID, "screen"), (PID, "assess"), ("codex#0.168.0", "screen")):
+        with watch_trace.piece(piece_id, piece_id.split("-ch")[0].split("#")[0], "1"), \
+                watch_trace.call(step, "claude-x medium", ["m"]):
+            pass
+    attrs = [kw for what, kw in log if what == "attrs"]
+    starts = [kw for what, kw in log if what == "start"]
+    assert {a["session_id"] for a in attrs} == {"daily 2026-11-14 #57"}
+    assert [a["trace_name"] for a in attrs] == [PID, PID, "codex#0.168.0"]
+    assert attrs[0]["tags"] == ["daily", "claude-code", "claude-x medium"]
+    assert attrs[2]["tags"] == ["daily", "codex", "claude-x medium"]
+    assert attrs[0]["metadata"]["run"] == "https://github.com/o/kitden-sdlc/actions/runs/900"
+    traces = [s["trace_context"]["trace_id"] for s in starts]
+    assert traces[0] == traces[1] == f"trace of {PID}" and traces[2] == "trace of codex#0.168.0"
+
+
+def test_inside_an_experiment_the_call_stays_in_the_experiments_trace(monkeypatch):
+    daily(monkeypatch)
+    log = []
+    span_langfuse(monkeypatch, log, inside="experiment-trace")
+    with watch_trace.piece(PID, "claude-code", "1"), watch_trace.call("screen", "m", ["m"]):
+        pass
+    (_, attrs), (_, start) = log
+    assert "trace_name" not in attrs and "trace_context" not in start
+    assert watch_trace._traces == {}
+
+
+def test_the_report_scores_each_piece_and_prints_its_link(monkeypatch, capsys):
+    daily(monkeypatch)
+    log = []
+    span_langfuse(monkeypatch, log)
+    for piece_id in (PID, "codex#0.168.0"):
+        with watch_trace.piece(piece_id, "c", "1"), watch_trace.call("screen", "m", ["m"]):
+            pass
+    watch_trace.report({"judged": [PID], "findings": [{"piece": PID}, {"piece": PID}]})
+    scores = {(kw["trace_id"], kw["name"]): kw["value"] for what, kw in log if what == "score"}
+    assert scores == {(f"trace of {PID}", "judged"): 1, (f"trace of {PID}", "findings"): 2,
+                      ("trace of codex#0.168.0", "judged"): 0,
+                      ("trace of codex#0.168.0", "findings"): 0}
+    assert capsys.readouterr().out.splitlines() == [
+        f"Trace of {PID}: https://langfuse.test/trace of {PID}",
+        "Trace of codex#0.168.0: https://langfuse.test/trace of codex#0.168.0"]
+
+
+def test_the_report_does_nothing_without_keys_or_without_its_own_traces(monkeypatch, capsys):
+    no_langfuse(monkeypatch)
+    watch_trace.report({"judged": [PID], "findings": []})
+    keys(monkeypatch)
+    watch_trace.report({"judged": [PID], "findings": []})
+    out = capsys.readouterr()
+    assert out.out == "" and out.err == ""
 
 
 def test_a_direct_call_without_keys_imports_nothing_and_a_failure_does_not_stop_it(

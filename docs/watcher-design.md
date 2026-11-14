@@ -245,10 +245,26 @@ closed, into new tasks, and they come to `evals/` as a pull request. Summary ite
 collected this way yet: one issue holds many of them (call).
 
 Traces and experiments go to Langfuse (cloud, free plan), only when its keys are set: each
-model call with its time and tokens, and each eval run with the scores of each task. Only the
-`eval` job gets the keys, so the daily run is not traced. Langfuse
+model call with its time and tokens, and each eval run with the scores of each task. The
+`judge` and the `eval` job get the keys. Langfuse
 keeps them 30 days; the long record stays in the repo and on the `watch` branch. The prompts
 stay in git. What is sent there is public release notes and Kitden's public code.
+
+Where to look in Langfuse (`scripts/watch_trace.py` sets all of it):
+
+| To find | Look at |
+|---|---|
+| the daily runs, apart from the evals | the environment filter: `daily` or `eval` |
+| one day's run, every piece in order | Sessions: `daily <date> #<run number>` |
+| what the judge did with one piece | the trace named by the piece, such as `claude-code-changelog#2.1.320`; its spans are the `screen`, `assess` and `refute` calls |
+| one client or one model setting | the tags: the kind of run, the client, the model with its effort |
+| the pieces that found something | the score `findings` above 0; `judged` is 0 when the piece failed |
+| the GitHub run of a trace | the metadata `run` (a link); `piece`, `client`, `version` and `commit` are there too |
+| the trace of a GitHub run | the `Judge` step's log: one `Trace of <piece>: <link>` line a piece |
+| the code that ran | the release: the commit of kitden-sdlc |
+
+In an eval the experiment owns the traces, one a task, so they are found under Datasets,
+`watch-eval`; the tags, the metadata and the environment are the same.
 
 ### 10. What only the owner does
 
