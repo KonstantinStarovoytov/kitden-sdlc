@@ -44,7 +44,8 @@ def finding(n=0, **kw):
          "row": "the `skillOverrides` key", "files": ["src/kitden/skills.py"],
          "effect": "breaks", "severity": "major", "sure": True,
          "user_gets": "Skills fail to load.",
-         "systems": "all", "why": "Read in the notes."}
+         "systems": "all", "why": "Read in the notes.",
+         "fix": "Read the new key in skills.py."}
     return {**f, **kw}
 
 
@@ -85,7 +86,7 @@ def test_quiet_day_opens_nothing_but_saves_state(tmp_path):
 def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
     kept = [{"title": f"t{n}", "effect": "minor", "client": "codex", "sure": True,
              "changed": "c", "row": "", "files": [], "user_gets": "u", "systems": "",
-             "why": "w"} for n in range(2)]
+             "why": "w", "fix": ""} for n in range(2)]
     state = {**STATE, "kept": kept}
     gh = FakeIssues()
     run(inp(0, state=state), None, gh, tmp_path, MON)
@@ -140,27 +141,44 @@ def test_every_missing_label_is_created_on_each_run(tmp_path):
 def test_what_it_touches_shows_where_the_user_sees_it():
     _, body = render_urgent(finding(), inp())
     assert "**Where:** `src/kitden/skills.py`" in body
-    assert "docs/clients.md" not in body  # the list's row is for the judge, not the reader
+    assert "the `skillOverrides` key" not in body  # the list's row is for the judge
 
 
-def test_first_line_names_the_model_of_the_run(monkeypatch):
-    monkeypatch.delenv("WATCH_MODEL", raising=False)
-    assert "wrote this with a model." in first_line()
+def test_first_line_names_the_bot_not_the_model(monkeypatch):
     monkeypatch.setenv("WATCH_MODEL", "gpt-7")
     _, body = render_urgent(finding(), inp())
-    assert body.splitlines()[0] == first_line()
-    assert "wrote this with gpt-7. A maintainer checks it." in body.splitlines()[0]
+    line = body.splitlines()[0]
+    assert line == first_line() and "Opened by **Lantern**" in line and "lantern.svg" in line
+    assert "gpt-7" not in body and "Automated" not in body  # the label says it
 
 
-def test_an_issue_says_risk_and_urgency_first_then_the_rest_in_plain_lines():
-    _, body = render_urgent(finding(), inp(), "o/kitden")
+def test_an_issue_says_risk_and_urgency_first_then_how_to_fix_and_what_to_check():
+    _, body = render_urgent(finding(), inp())
     lines = body.splitlines()
-    assert "https://github.com/o/kitden/blob/main/AI_POLICY.md" in lines[0]
-    assert lines[2] == "**Urgent: yes** · **Risk: High** · **Sure: yes**"
-    for label in ("What changed", "What it means", "Why", "Where", "Kitden", "Source", "Next"):
+    assert lines[2] == "**Urgent** · **Risk: High** · **Sure: yes**"
+    for label in ("What changed", "What it means", "Why", "How to fix", "Where", "Next"):
         assert f"\n**{label}:** " in body
-    assert "A Kitden action fails." in body
+    assert "**How to fix:** Read the new key in skills.py." in body
+    assert lines[-3].startswith("<sub>Checked on Kitden main and v0.7.2 · ")
+    assert "[source](" in lines[-3]
+    assert "\n**Don't forget:**\n- [ ] Test with a sandbox home" in body
+    assert "preview → Apply with a backup → verify → Undo" in body  # a break: settings rule
     assert "##" not in body  # no headings, no repeated labels
+
+
+def test_the_checklist_follows_the_type():
+    _, gap = render_urgent(finding(effect="gap", fix=""), inp())
+    assert "add a row to `docs/clients.md`" in gap and "PRIVACY.md" in gap
+    assert "**How to fix:**" not in gap  # nothing to say: no empty line
+    _, old = render_urgent(finding(effect="outdated"), inp())
+    assert old.count("- [ ] ") == 1 and "checked date" in old
+
+
+def test_a_summary_names_the_checks_once_at_the_end():
+    items = [finding(n) for n in range(3)]
+    _, body, _ = render_summary(items, MON, inp())
+    assert body.count("When you fix one, don't forget:") == 1
+    assert body.count("sandbox home") == 1 and "- [ ]" not in body
 
 
 def test_an_issue_says_confirmed_keeps_it_open():
@@ -172,7 +190,7 @@ def test_an_issue_says_confirmed_keeps_it_open():
 def long_items(n):
     return [{"title": f"t{i}", "effect": "minor", "client": "codex", "sure": True,
              "why": "w" * 600, "changed": "c" * 600, "user_gets": "u" * 600, "row": "",
-             "files": [], "systems": ""} for i in range(n)]
+             "files": [], "systems": "", "fix": ""} for i in range(n)]
 
 
 def test_long_summary_is_cut_with_a_count_of_the_rest():
@@ -247,7 +265,7 @@ def test_a_paused_day_writes_the_log_and_archive_with_nothing_posted(tmp_path, c
 def test_a_paused_monday_keeps_the_summary_for_after_the_pause(tmp_path, capsys):
     kept = [{"title": f"t{n}", "effect": "minor", "client": "codex", "sure": True,
              "changed": "c", "row": "", "files": [], "user_gets": "u", "systems": "",
-             "why": "w"} for n in range(2)]
+             "why": "w", "fix": ""} for n in range(2)]
     gh = FakeIssues([paused()])
     run(inp(1, state={**STATE, "kept": kept, "summary_week": "2026-W45"}), one(), gh,
         tmp_path, MON)

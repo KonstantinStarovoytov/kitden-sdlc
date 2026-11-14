@@ -51,7 +51,8 @@ it. One more value, spelling, file name or sub-folder of what a row already cove
 that row: it is not a gap.
 
 For each gap give `quote` (the sentence, copied exactly), `title`, `changed`, `user_gets`
-(what a Kitden user does not see), `why` (why no row covers it), `severity` and `sure` (true
+(what a Kitden user does not see), `why` (why no row covers it), `fix` (what Kitden would
+need to read to show it, in one plain sentence), `severity` and `sure` (true
 only when the piece states the place, kind or setting plainly). `severity` is `major` when
 items there load and Kitden does not show them, or Kitden shows items the setting stops;
 `minor` when the setting changes only something Kitden does not show. One missing thing is

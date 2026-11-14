@@ -26,7 +26,7 @@ class Client:
             Assessed: Assessed(kitden_reads="k", client_now="c", shown_wrong="s",
                                effect="breaks", severity="major", sure=True,
                                user_gets="u", systems="s",
-                               why="w", title="t"),
+                               why="w", fix="f", title="t"),
             Refuted: Refuted(reason="r", holds=False),
         }[schema]
         usage = types.SimpleNamespace(input_tokens=1000, cache_creation_input_tokens=2000,

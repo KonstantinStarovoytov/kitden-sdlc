@@ -19,8 +19,8 @@ VERSION_MAX = 100
 EFFECTS = ("breaks", "wrong-data", "unknown", "outdated", "gap")
 SEVERITIES = ("major", "medium", "minor")
 STRINGS = ("piece", "client", "title", "changed", "version", "url", "row", "effect",
-           "severity", "user_gets", "systems", "why")
-CUT = ("title", "changed", "user_gets", "systems", "why")
+           "severity", "user_gets", "systems", "why", "fix")
+CUT = ("title", "changed", "user_gets", "systems", "why", "fix")
 KEYS = {*STRINGS, "files", "sure"}
 TOP_KEYS = {"judged", "findings", "failed"}
 NAMES = {v: k for k, v in CLIENTS.items()}

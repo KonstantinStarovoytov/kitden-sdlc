@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import os
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -36,18 +35,46 @@ WHAT = {
 }
 RISK = {"major": "High", "medium": "Medium", "minor": "Low"}
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
+LANTERN = ("https://raw.githubusercontent.com/KonstantinStarovoytov/kitden-sdlc/main/"
+           "docs/images/apps/lantern.svg")
 NEXT = ("**Next:** add `confirmed` if this is right (it stays open until it is fixed), or close "
         "it with `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`.")
 NEXT_SUMMARY = ("**Next:** nothing here is urgent. To act on an item, open an issue for it; this "
                 "summary is only a list.")
 
+# What a fix must not forget, from Kitden's CONTRIBUTING.md, by the type of the finding.
+CHECKS = {
+    "docs": "Read the client's own docs first: the note may not say enough.",
+    "new-row": "If Kitden should show it, add a row to `docs/clients.md`.",
+    "test": "Test with a sandbox home, never your own settings.",
+    "apply": "A change to a client's settings goes through preview → Apply with a backup → "
+             "verify → Undo.",
+    "privacy": "Update `PRIVACY.md` if Kitden now reads a new file or folder.",
+    "row": "Update the row in `docs/clients.md` and its checked date.",
+    "roadmap": 'Add a line to `ROADMAP.md` under "Not yet released".',
+    "guide": "Update `docs/guide.md` if what the user sees changes.",
+}
+TODO = {
+    "breaks": ("test", "apply", "row", "roadmap", "guide"),
+    "wrong-data": ("test", "row", "roadmap", "guide"),
+    "gap": ("new-row", "test", "privacy", "roadmap", "guide"),
+    "unknown": ("docs", "row"),
+    "outdated": ("row",),
+}
 
-def first_line(repo: str = "") -> str:
-    """One line: an automated check wrote this, with which model, and a person checks it."""
-    model = os.environ.get("WATCH_MODEL") or "a model"
-    policy = f" [AI policy](https://github.com/{repo}/blob/main/AI_POLICY.md)." if repo else ""
-    return (f"_Automated: Kitden's [client watcher]({HOW_IT_WORKS}) wrote this with {model}. "
-            f"A maintainer checks it.{policy}_")
+
+def first_line() -> str:
+    """Which bot opened it. The label `automated` says it is automated; the run log names the
+    model."""
+    return (f'<img src="{LANTERN}" width="18" height="18" align="top" alt=""> '
+            f"Opened by **Lantern**, Kitden's [client watcher]({HOW_IT_WORKS})")
+
+
+def dont_forget(effects: list[str], boxes: bool = True) -> str:
+    """The checks a fix needs, once each, in the order of CHECKS."""
+    keys = {k for e in effects for k in TODO.get(e, ())}
+    mark = "- [ ] " if boxes else "- "
+    return "\n".join(mark + text for k, text in CHECKS.items() if k in keys)
 
 
 def _version(item: dict) -> str:
@@ -68,13 +95,20 @@ def _versions(item: dict, inp: dict) -> str:
     same = bool(files) and all(inp["files"].get(f, {}).get("same_in_release") for f in files)
     kitden = f"main and {inp['release']}" if same else f"main ({inp['release']} not checked)"
     systems = item.get("systems") or ""
-    on = f"; systems: {systems}" if systems and systems != "not checked" else ""
-    return f"checked on Kitden {kitden}{on}"
+    on = f" · systems: {systems}" if systems and systems != "not checked" else ""
+    return f"Checked on Kitden {kitden}{on}"
+
+
+def _foot(item: dict, inp: dict) -> str:
+    """The small print: what was checked and the source."""
+    source = f" · [source]({item['url']})" if item.get("url") else ""
+    return f"<sub>{_versions(item, inp)}{source}</sub>"
 
 
 def _item(item: dict, inp: dict, who: bool = False) -> str:
-    """One finding: risk first, then what changed, what it means, why, where. `who` puts the
-    client and its version before the change, where no heading says them."""
+    """One finding: risk first, then what changed, what it means, why, how to fix, where.
+    `who` is for an issue of its own: the client and its version go before the change, where
+    no heading says them, and the issue puts the small print at its end."""
     effect, severity = _kind(item)
     gets = item.get("user_gets", "")
     gets = "" if gets.strip(" .").lower() in ("", "not checked") else " " + gets
@@ -88,18 +122,23 @@ def _item(item: dict, inp: dict, who: bool = False) -> str:
     ]
     if item.get("why"):
         lines.append(f"**Why:** {item['why']}")
+    if item.get("fix"):
+        lines.append(f"**How to fix:** {item['fix']}")
     if files:
         lines.append("**Where:** " + ", ".join(f"`{f}`" for f in files))
-    lines.append(f"**Kitden:** {_versions(item, inp)}")
-    if item.get("url"):
-        lines.append(f"**Source:** {item['url']}")
+    if not who:
+        lines += ["", _foot(item, inp)]
     return "\n".join(lines)  # GitHub shows each line of an issue on its own line
 
 
-def render_urgent(finding: dict, inp: dict, repo: str = "") -> tuple[str, str]:
+def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
     # The title form is what the router matches known issues by: keep it.
     title = f"{client_name(finding)}: {finding['title']}"
-    body = f"{first_line(repo)}\n\n**Urgent: yes** · {_item(finding, inp, who=True)}"
+    body = f"{first_line()}\n\n**Urgent** · {_item(finding, inp, who=True)}"
+    todo = dont_forget([_kind(finding)[0]])
+    if todo:
+        body += f"\n\n**Don't forget:**\n{todo}"
+    body += f"\n\n{_foot(finding, inp)}"
     return title, f"{body}\n\n{NEXT}\n"
 
 
@@ -113,14 +152,14 @@ def _hints(items: list[dict]) -> str:
             "rows and saw no change; look only if you want to.")
 
 
-def render_summary(items: list[dict], today: date, inp: dict | None = None,
-                   repo: str = "") -> tuple[str, str, list[dict]]:
+def render_summary(items: list[dict], today: date,
+                   inp: dict | None = None) -> tuple[str, str, list[dict]]:
     """Return the title, the body and the items that did not fit, for the next summary."""
     inp = inp or {"files": {}, "release": "the latest release"}
     monday = today - timedelta(days=today.weekday())
     real = [i for i in items if not _hint(i)]
     hints = [i for i in items if _hint(i)]
-    body = first_line(repo)
+    body = first_line()
     if len(real) > 1:
         rows = [f"| {n} | {_who(i)}: {_quiet(i['title'], 80)} | {RISK.get(_kind(i)[1], '')} | "
                 f"{'yes' if i.get('sure') else 'no'} |" for n, i in enumerate(real, 1)]
@@ -135,6 +174,9 @@ def render_summary(items: list[dict], today: date, inp: dict | None = None,
         body += "\n\n" + block
     if hints:
         body += "\n\n" + _hints(hints)
+    todo = dont_forget([_kind(i)[0] for i in real if i not in rest], boxes=False)
+    if todo:
+        body += f"\n\n**When you fix one, don't forget:**\n{todo}"
     body += "\n\n" + NEXT_SUMMARY
     return f"Client changes, week of {monday}", body + "\n", rest
 
@@ -172,10 +214,9 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
         print(f"{AGENT} is paused: nothing posted, {kept} finding{'' if kept == 1 else 's'} "
               "kept for its first summary after the pause.")
 
-    repo = gh.repo
-    posts = [(*render_urgent(f, inp, repo), labels(f)) for f in plan.urgent]
+    posts = [(*render_urgent(f, inp), labels(f)) for f in plan.urgent]
     if plan.summary:
-        title, body, rest = render_summary(plan.summary, today, inp, repo)
+        title, body, rest = render_summary(plan.summary, today, inp)
         posts.append((title, body, ["automated", "client-change", "summary"]))
         plan.state["kept"] = rest + plan.state["kept"]
     addresses = [gh.create(*post) for post in posts]

@@ -275,7 +275,8 @@ def test_the_model_checks_rows_by_id_and_only_touched_ones_become_changes():
     ids = row_ids(LIST_TEXT)
     assert ids == {"CC-01": ("claude-code", "the `skillOverrides` key"),
                    "CX-01": ("codex", "the `codexOnly` key")}
-    gap = Gap(quote="q", title="g", changed="c", user_gets="u", why="w", severity="major",
+    gap = Gap(quote="q", title="g", changed="c", user_gets="u", why="w", fix="f",
+              severity="major",
               sure=True)
     got = named(Screened(rows=[_check(" CC-01 "), _check("CC-01", touched=False)], gaps=[gap]),
                 "claude-code", LIST_TEXT)

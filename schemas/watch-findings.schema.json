@@ -13,7 +13,7 @@
         "type": "object",
         "additionalProperties": false,
         "required": ["piece", "client", "title", "changed", "version", "url", "row", "files",
-                     "effect", "severity", "sure", "user_gets", "systems", "why"],
+                     "effect", "severity", "sure", "user_gets", "systems", "why", "fix"],
         "properties": {
           "piece": {"type": "string"},
           "client": {"type": "string"},
@@ -29,7 +29,8 @@
           "sure": {"type": "boolean"},
           "user_gets": {"type": "string"},
           "systems": {"type": "string"},
-          "why": {"type": "string"}
+          "why": {"type": "string"},
+          "fix": {"type": "string"}
         }
       }
     }

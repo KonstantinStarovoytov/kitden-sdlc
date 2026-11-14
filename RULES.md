@@ -31,6 +31,8 @@ Every workflow that runs an AI agent must follow these eleven rules.
 7. A secret reaches a job as a named input and is never printed. The Claude token and the
    OpenAI key are never in the same job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it.
+   An issue a bot opens starts with the bot's name and has the label `automated`; the run
+   log names the model.
 9. A job that runs a model reaches only the hosts on its written list. Its first step is
    Harden-Runner. This is not in force yet: for the first week the step only records the
    hosts; the list is written after that, and then it is a limit.

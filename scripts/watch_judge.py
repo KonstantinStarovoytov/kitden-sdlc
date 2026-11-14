@@ -65,8 +65,8 @@ def _finding(inp: dict, piece: dict, label: str, row: Row | None, **kw) -> dict:
     return {"piece": piece["id"], "client": piece["client"], "version": piece["version"],
             "url": piece["url"], "row": label,
             "files": [f for f in row.files if f in inp["files"]] if row else [],
-            **{k: str(kw[k]) for k in ("title", "changed", "effect", "severity", "user_gets",
-                                       "systems", "why")},
+            **{k: str(kw.get(k, "")) for k in ("title", "changed", "effect", "severity",
+                                               "user_gets", "systems", "why", "fix")},
             "sure": bool(kw["sure"])}
 
 
@@ -178,7 +178,7 @@ def build_graph(model: Model, late=lambda: False):
                                         severity=_severity(change.get("severity")),
                                         systems="not checked", **{
                                             k: change.get(k, "") for k in
-                                            ("title", "changed", "user_gets", "why")},
+                                            ("title", "changed", "user_gets", "why", "fix")},
                                         sure=change.get("sure", False)))
             elif (piece["client"], label) in rows:
                 line = lines_of(change.get("quote", ""), part["text"])
@@ -203,7 +203,8 @@ def build_graph(model: Model, late=lambda: False):
             severity = "minor"  # Kitden stays right: no user does anything else
         f = _finding(inp, piece, change["row"], row, changed=change.get("changed", ""),
                      effect=effect, severity=severity, sure=sure,
-                     **{k: got.get(k, "") for k in ("title", "user_gets", "systems", "why")})
+                     **{k: got.get(k, "") for k in ("title", "user_gets", "systems", "why",
+                                                    "fix")})
         update = {"to_assess": rest}
         if f["effect"] == "none":  # the code shows Kitden is not touched: no finding
             pass
@@ -292,6 +293,7 @@ class Gap(BaseModel):
     changed: str
     user_gets: str
     why: str
+    fix: str
     severity: Literal["major", "medium", "minor"]
     sure: bool
 
@@ -311,6 +313,7 @@ class Assessed(BaseModel):
     user_gets: str
     systems: str
     why: str
+    fix: str
     title: str
 
 
@@ -329,7 +332,8 @@ def named(screened: Screened, client: str, list_text: str) -> list[dict]:
         row_client, label = ids.get(check.row.strip(), ("", ""))
         if check.touched and row_client == client:
             out.append({"row": label, "quote": check.quote, "title": check.title,
-                        "changed": check.changed, "user_gets": "", "why": "", "sure": False})
+                        "changed": check.changed, "user_gets": "", "why": "", "fix": "",
+                        "sure": False})
     return out + [{"row": "gap", **gap.model_dump()} for gap in screened.gaps]
 
 
@@ -383,6 +387,7 @@ def main():
         print("WATCH_MODEL is not set", file=sys.stderr)
         raise SystemExit(1)
     max_calls = int(os.environ.get("MAX_MODEL_CALLS") or MAX_MODEL_CALLS)
+    print(f"Judge: {name}, at most {max_calls} model calls")  # the issues do not name the model
     try:
         out = judge(inp, chat_model(name), max_calls)
     finally:
