@@ -9,3 +9,9 @@
 - Agents never add what Kitden's PRINCIPLES.md calls new.
 - Release prep is started by hand and is outside the cap of 2 a day. It does not start while
   3 bot pull requests wait.
+
+## Fork review rollout
+
+The [planned fork review](docs/fork-review-design.md) remains advisory. Maintainer admission
+authorizes a review of an exact revision, not a merge. Missing, partial or stale AI review
+is not an approval. Required deterministic checks and human merge ownership stay unchanged.

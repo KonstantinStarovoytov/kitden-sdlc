@@ -131,3 +131,11 @@ Problems found while building the reviewers, and what changed because of each.
   Kept by: `tests/test_release_apply.py::test_a_name_that_is_not_allowed_is_counted_and_never_shown`,
   `tests/test_release_prep_workflow.py::test_a_refused_body_fails_the_step_and_its_reason_reaches_the_log`
   and `tests/test_workflows.py::test_release_prep_keeps_only_the_models_text_for_one_day`.
+
+## 2026-11-14 — Fork review design
+
+- **Fork reviews are skipped.** The caller's same-repository condition excludes contributors.
+  Removing it would not make secrets available safely. The new design adds provenance,
+  source isolation, quality gates and rollback. No workflow changed yet.
+  Kept by: the existing skip-fork condition until the pending tests and activation gates in
+  [the rollout plan](docs/fork-review-plan.md) pass. This is a plan, not a completed fix.

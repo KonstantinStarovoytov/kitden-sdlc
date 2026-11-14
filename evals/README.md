@@ -117,3 +117,12 @@ Sonnet 5.5 once:
   may report what the missing files would have answered.
 
 What the table does show reliably: failed runs and obeyed injections. Both were 0 in every run.
+
+## Fork runner acceptance — planned
+
+Moving to isolated source access also changes the reviewer's environment. Even with the
+same prompt and model, run all 42 tasks on both paths three times. Add cross-file context,
+renames/deletions, missing context and hostile configuration cases. Record per-task recall,
+false findings, injection compliance, completion rate, time and tokens. Never claim equal
+quality from a single successful PR. Exact gates: [fork-review-design.md](../docs/fork-review-design.md#prove-quality-and-safety-before-switching).
+No such comparison has been run yet.

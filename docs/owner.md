@@ -59,3 +59,12 @@ The Variables pages:
 
 - Kitden: <https://github.com/KonstantinStarovoytov/kitden/settings/variables/actions>
 - kitden-sdlc: <https://github.com/KonstantinStarovoytov/kitden-sdlc/settings/variables/actions>
+
+## Fork reviews — planned
+
+Today, review fork PRs manually; re-running the existing workflow still skips them.
+The [planned flow](fork-review-design.md) asks a maintainer to admit an exact head/base pair
+through a trusted Run workflow form. A new commit needs new admission. This form does not
+exist yet. It authorizes model spending, never execution of fork code. The existing
+`REVIEW_LIVE`, `AGENTS_ENABLED` and `no-agent-review` controls remain. Rollout and rollback:
+[fork-review-plan.md](fork-review-plan.md).

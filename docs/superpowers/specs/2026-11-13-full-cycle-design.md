@@ -542,3 +542,10 @@ Read by the research on 2026-11-12, mostly from the projects' own files.
 - Measuring: [Atlassian, arXiv 2601.01129](https://arxiv.org/html/2601.01129v2),
   [arXiv 2607.21997](https://arxiv.org/html/2607.21997v1)
 - Kubernetes Prow (labels as commands) was summarised by the research, not re-read here.
+
+## Review extension planned 2026-11-14
+
+Fork review is specified in [fork-review-design.md](../../fork-review-design.md), with
+[rollout gates](../../fork-review-plan.md). It keeps stage 0's advisory reviewers and
+does not expand agent merge rights. Current fork skips remain until isolation, quality and
+canary checks pass.
