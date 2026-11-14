@@ -483,12 +483,14 @@ def pr_body(
     texts = (findings, *problems, *errors.values(), *(fixed or ()))
     for text in texts:
         if SECRET_LIKE.search(text):
-            raise ValueError("the findings, a problem or an error look like they hold a secret")
+            raise ValueError(
+                "the findings, a problem, an error or a fixed path look like they hold a secret"
+            )
     unknown = unknown_runs(texts, known or in_text())
     if unknown:
         raise ValueError(
-            f"the findings, a problem or an error hold long random strings that are not in "
-            f"what the agent was given ({len(unknown)}): not posted"
+            f"the findings, a problem, an error or a fixed path hold long random strings that "
+            f"are not in what the agent was given ({len(unknown)}): not posted"
         )
     findings = findings.strip()
     if len(findings) > FINDINGS_MAX:

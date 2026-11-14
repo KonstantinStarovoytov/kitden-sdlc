@@ -61,13 +61,17 @@ def test_a_file_it_does_not_know_is_refused_and_nothing_changes(tmp_path):
     assert (after / "version.txt").read_text() == "1.0.0"
 
 
-def test_a_link_is_refused(tmp_path):
+@pytest.mark.parametrize("name", ["guide.md", f"{KEY_TAIL}.md"], ids=["allowed", "unknown"])
+def test_a_link_is_refused(tmp_path, name):
+    # A link is refused under a name release_apply knows as well as under one it does not,
+    # and the message never shows the name.
     before = make(tmp_path / "before", {})
     after = make(tmp_path / "after", {"README.md": "a"})
-    (after / f"{KEY_TAIL}.md").symlink_to(after / "README.md")
+    (after / name).symlink_to(after / "README.md")
     with pytest.raises(ValueError, match=r"links or other files that are not plain \(1\)") as e:
         settle(before, after, "0.9.0")
-    assert not shows_key(str(e.value))
+    assert not shows_key(str(e.value)) and "guide" not in str(e.value)
+    assert (after / name).is_symlink() and not (after / "version.txt").exists()
 
 
 def test_the_command_writes_one_path_per_line(tmp_path, capsys):

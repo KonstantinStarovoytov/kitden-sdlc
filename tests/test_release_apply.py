@@ -1054,7 +1054,7 @@ def test_cli_apply_knows_the_problems_the_fix_pass_was_given(tmp_path, capsys):
     ids=["fix-before-merge", "picture-error", "fixed-list"],
 )
 def test_the_body_checks_every_text_it_shows_for_random_strings(parts):
-    with pytest.raises(ValueError, match="random") as refused:
+    with pytest.raises(ValueError, match="an error or a fixed path hold long random") as refused:
         pr_body("", [], **parts)
     assert not shows_key(str(refused.value))
     assert KEY_TAIL in pr_body("", [], known=in_text(KEY_TAIL), **parts)
