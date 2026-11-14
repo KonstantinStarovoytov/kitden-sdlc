@@ -5,6 +5,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIGZvciAzMiBweCBhbmQgc21hbGxlcjogbm8gZGFzaGVzLCB0aGUgcmVhZGluZyBoYWxmIGlzIGEgdGludC4gLS0+CiAgPGRlZnM+CiAgICA8Y2xpcFBhdGggaWQ9InJlYWRzIj48cmVjdCB3aWR0aD0iMzYiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjQwIiB3aWR0aD0iMjQiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogIDwvZGVmcz4KICA8cGF0aCBjbGlwLXBhdGg9InVybCgjcmVhZHMpIiBmaWxsPSIjQzg1ODM1IiBmaWxsLW9wYWNpdHk9Ii40IiBkPSJNNiA1OEMzLjggNTggMiA1Ni4yIDIgNTRWMzIuNUMyIDMwLjUgMi45IDI4LjggNC41IDI3LjZMMTUuNSAxOS42QzE2LjYgMTguOCAxNy4zIDE3LjcgMTcuNiAxNi40TDE5LjMgOS4yQzIwLjEgNS44IDIzLjYgNC41IDI2LjYgNi4yTDU5IDI1LjRDNjEgMjYuNiA2MiAyOC41IDYyIDMwLjhWNTRDNjIgNTYuMiA2MC4yIDU4IDU4IDU4SDI4VjQ0QzI4IDM5LjYgMjQuNCAzNiAyMCAzNlMxMiAzOS42IDEyIDQ0VjU4WiIvPgogIDxwYXRoIGNsaXAtcGF0aD0idXJsKCN3cml0ZXMpIiBmaWxsPSIjQzg1ODM1IiBkPSJNNiA1OEMzLjggNTggMiA1Ni4yIDIgNTRWMzIuNUMyIDMwLjUgMi45IDI4LjggNC41IDI3LjZMMTUuNSAxOS42QzE2LjYgMTguOCAxNy4zIDE3LjcgMTcuNiAxNi40TDE5LjMgOS4yQzIwLjEgNS44IDIzLjYgNC41IDI2LjYgNi4yTDU5IDI1LjRDNjEgMjYuNiA2MiAyOC41IDYyIDMwLjhWNTRDNjIgNTYuMiA2MC4yIDU4IDU4IDU4SDI4VjQ0QzI4IDM5LjYgMjQuNCAzNiAyMCAzNlMxMiAzOS42IDEyIDQ0VjU4WiIvPgo8L3N2Zz4K">
 <style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -61,6 +62,9 @@ code{font-family:var(--mono);font-size:.9em;background:var(--inset);padding:1px 
 .rail nav button:hover{background:var(--inset)}
 .rail nav button[aria-current="true"]{background:var(--route-soft);color:var(--route);font-weight:500}
 .rail nav button[aria-current="true"]::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--brand)}
+.rail .back{display:flex;white-space:nowrap;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;transition:background .18s,color .18s}
+.rail .back:hover{background:var(--inset);color:var(--ink)}
+.rail .back svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
 .main{padding:26px 28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0}
 .view{display:flex;flex-direction:column;gap:18px;min-width:0}
@@ -299,6 +303,7 @@ table.hold tr:last-child td{border-bottom:0}
       <button type="button" id="n-rules" data-v="rules" aria-current="false"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Rules</button>
       <button type="button" id="n-tools" data-v="tools" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Tools</button>
     </nav>
+    <a class="back" href="https://github.com/KonstantinStarovoytov/kitden-sdlc"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to the repo</a>
     <div class="foot">From main<br>14 Nov 2026</div>
   </aside>
 
