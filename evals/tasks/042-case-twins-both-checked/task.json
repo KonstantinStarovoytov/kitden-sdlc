@@ -1,0 +1,13 @@
+{
+  "id": "042-case-twins-both-checked",
+  "base": "fa54f2c0f9aa2c9965563dedb7ba79e0aed8fb79",
+  "source": "commit:5d02a22",
+  "kind": "defect",
+  "title": "Add missing: start an add that makes a duplicate unchecked",
+  "defect": {
+    "path": "src/kitden/changes/align.py",
+    "line": 199,
+    "text": "Only names the client already has count as alike; two adds from different clients whose names differ only in case (neon and Neon) both start checked, so Apply with the defaults still makes a duplicate."
+  },
+  "fix": "455a7483ecb2f5aeca5c4b298b4fdb0ce2aba1e8"
+}

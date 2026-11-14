@@ -1,0 +1,13 @@
+{
+  "id": "041-obot-key-on-redirect",
+  "base": "c3b0d8e2af7c736e8ceeaf9a2dab843a41f9bd09",
+  "source": "commit:5276e06",
+  "kind": "defect",
+  "title": "Gateway: an Obot client",
+  "defect": {
+    "path": "src/kitden/gateway_api.py",
+    "line": 243,
+    "text": "urlopen follows redirects and the proxy settings, and urllib copies the Authorization header to the redirected request, so the Obot key can be sent to another address than the gateway's."
+  },
+  "fix": "72e5124e85e2a02be5882becff355fa42778b455"
+}

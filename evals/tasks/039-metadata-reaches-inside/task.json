@@ -1,0 +1,13 @@
+{
+  "id": "039-metadata-reaches-inside",
+  "base": "7c143ed670c7f3e3aaa4982dbf2bce3825c6fa27",
+  "source": "commit:34befe4",
+  "kind": "defect",
+  "title": "Say up front when Kitden cannot sign in to a server",
+  "defect": {
+    "path": "src/kitden/changes/actions.py",
+    "line": 718,
+    "text": "_can_register fetches addresses a remote server names (resource_metadata in its 401, then authorization_servers) without the local-address check, so any server, even one only opened in the catalog, can make Kitden send requests to this computer or a private network."
+  },
+  "fix": "5cc6180cb2214f876ee7a880e256c45499e83e7c"
+}

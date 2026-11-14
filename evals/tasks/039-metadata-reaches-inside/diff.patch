@@ -1,0 +1,195 @@
+diff --git a/docs/design.md b/docs/design.md
+index b46a95b..2480022 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -240,7 +240,7 @@ The Gateway page shows the clients, the Kitden gateway, any registered gateway (
+ | Drag a server from the panel | A free row of the Add a server panel drags onto the map with the same engine (`DRAGS.add` in gateway-drag.js, add-notes §4): the row takes the pointer, and once it moves 5 px (less is a click) the row stays in the list at .4 while a copy of it, the ghost, follows the pointer over the page (fixed, `--shadow`, no pointer events, the spot of the press under the pointer). A greyed row and one in preview do not drag; there is no tip. While the pointer is in the zone (from 16 px left of the Gateway column to 194 px right of the Servers column, from 20 px over the map's top to 4 px over the Outside caption; the mockup's 180 to 760) and not over the panel or the dock, the ghost takes the drop look (accent edge, selection fill, 180 ms), the Kitden gateway lights and the slot "Drop to add" opens at the end of the row's own group, Remote or Local, wherever the pointer is: it grows out of the gateway in 220 ms OUT3 as for a server dragged in. A drop there adds the same row as a click and the ghost flies onto the slot, taking its size (200 ms `--calm`), then goes; the slot stays while the row is asked, and its answer turns it into the preview block on the same spot (not grown out of the gateway, as after a click), whose dashed link fades in (300 ms). A drop anywhere else, over the panel or the dock, Escape, a lost pointer or the window losing focus flies the ghost back onto its row (180 ms `--calm`) and leaves the tray and the map as they were; a drop the tray does not take does too. Either way the row is back at full strength when the ghost goes, and the click that ends a drag adds nothing. Reduced motion lands every flight at once. |
+ | Pick several servers | On the Gateway map, a press on empty map space that moves 5 px draws a band (`gateway-pick.js`): a solid 1 px `--route` edge at 40% on `--route-soft` (not dashed: dashed means preview), sized as it goes and following the pointer with no easing. Every server outside the gateway with a grip that the band meets is picked, added to what was picked before; nothing else can be picked. Shift- or Cmd-click picks or unpicks one, and opens no Details. Picked servers take the selected look, several at once (`chosen` in map-view.js). Once a band starts, the single selection lets go. A let go or Escape fades the band out (120 ms ease-in); the click that ends it clears nothing. Escape, or a click on empty map, clears the pick. The hint says "3 servers picked · drag one onto the gateway · Esc clears". A read that drops a picked server drops it from the pick. Under reduced motion the band goes at once. |
+ | Drag a pick | A press on a picked server, while two or more are picked, drags them all (`DRAGS.group` in gateway-drag.js); a grip press on any other server clears the pick and drags that one alone. The picked blocks fade to .4 (`.lifting` on the map) and stay where they are. One ghost of the pressed block follows the pointer, stacked as three cards 4 px apart (back cards fainter), with an action-color count pill ("3 servers", fades in over 120 ms). The ghost rides in a page-wide map of its own (`div.map.ghost-host`) so it keeps the block look. Only the gateway lights, the one target; no slot opens. Over the gateway's room (as a panel row: `inAddZone`) the ghost takes the drop look and the gateway lights. A drop there flies the ghost onto the gateway box (200 ms `--calm`, fading) and adds one move per picked server to the tray, one after another, in pick order (each the same body as one drag): one the tray refuses stays outside and the dock says why, the rest go in, and each preview grows in its own group as its row answers. The pick clears. A drop elsewhere, Escape, a lost pointer, or a busy tray flies the ghost back (180 ms `--calm`) and keeps the pick. |
+-| Needs access | A server that needs a token or sign-in before it can join the preview (tray.js `waits`, from the preview's `needs` answer; the server works out the kind: actions.py `access_needed`) still joins it, as a row that waits. It is left out of the change, so Apply writes the others ("Apply 2"), and it stays in the tray after. On the map it is drawn where its preview goes: dashed (still a preview), with the amber lamp (`--lamp-warn`, fading 400 ms) and "Needs token" or "Needs sign-in" in amber; a press opens its access panel, never takes it out. In the dock it is a list row with the amber lamp, "Needs token" or "Needs sign-in", and "Add token" or "Sign in" (fades in 200 ms) in place of its review; its × takes it out. The bar's line says "neon waits for a token. It stays in preview." ("neon waits for sign-in. …"; "2 wait for access." for more); when every row waits, the head says "neon needs access" and Apply waits. A server that offers sign-in but does not let Kitden register as its client says "neon does not let Kitden sign in yet. It may take an API key; see its docs." under Sign in and takes a token. A server in the gateway whose sign-in ended and could not be refreshed is amber on the map, "Needs sign-in"; its Details say "neon needs sign-in again." first and lead with Sign in. |
++| Needs access | A server that needs a token or sign-in before it can join the preview (tray.js `waits`, from the preview's `needs` answer; the server works out the kind: actions.py `access_needed`) still joins it, as a row that waits. It is left out of the change, so Apply writes the others ("Apply 2"), and it stays in the tray after. On the map it is drawn where its preview goes: dashed (still a preview), with the amber lamp (`--lamp-warn`, fading 400 ms) and "Needs token" or "Needs sign-in" in amber; a press opens its access panel, never takes it out. In the dock it is a list row with the amber lamp, "Needs token" or "Needs sign-in", and "Add token" or "Sign in" (fades in 200 ms) in place of its review; its × takes it out. The bar's line says "neon waits for a token. It stays in preview." ("neon waits for sign-in. …"; "2 wait for access." for more); when every row waits, the head says "neon needs access" and Apply waits. A server that offers sign-in but does not let Kitden register as its client (its authorization server lists no `registration_endpoint`, as Zoom, checked 2026-11-02) is found out before anything is pressed: it says "Needs token" and "zoom does not let Kitden sign in yet. It may take an API key; see its docs.", and its panel has the token field and no Sign in. A server in the gateway whose sign-in ended and could not be refreshed is amber on the map, "Needs sign-in"; its Details say "neon needs sign-in again." first and lead with Sign in. |
+ | Access block | A held server's Details list its secrets first, under "Access" (`accessBlock` in `gateway-details.js`, from `access_rows` in the details answer): each header or env value kept in the Keychain or whose name says secret, and its sign-in, by name, with only its start and end ("Bearer sk-a…1234"; a short value shows "••••"; the server never sends more). A missing Keychain item says "Not in the Keychain". A sign-in also says when its token ends ("ends in 50 min", "ended") and "refreshes by itself" when it can. Each value has Replace… (the access form for that one value, checked against the server as when it was added; a local value is checked when the gateway starts it) and Remove; a sign-in has Sign in again and Sign out. Each is one tray change (`gateway.access`): preview, Apply, Undo. A removed value's Keychain item stays, so Undo brings the server back; a replaced value overwrites its item, so Undo keeps the new one. |
+ | Sign in | For a server that signs in through the browser (`signInForm` in `access-form.js`), in the panel its waiting block, its dock row or its catalog details open. Sign in opens the server's own sign-in page in the default browser (Kitden opens it; MCP authorization, OAuth 2.1 with PKCE, `local_gateway/oauth.py`) and says "Waiting for browser…" at once, the busy ring after 150 ms, with a Cancel beside it. The browser comes back to Kitden's own page (`/sign-in/done`: "Signed in. You can close this tab."). The tokens wait in memory and join the preview, which checks them against the server. Signed in: the green lamp and "Signed in" with a check drawn in 320 ms; the panel closes after 600 ms. Cancelled or failed: the amber reason ("Sign-in was cancelled.", "neon did not finish sign-in.", "neon did not accept this sign-in.") rises 4 px in 200 ms and stays, the row shakes once, and the button says "Try again". On Apply the tokens go to one Keychain item, `<server>/sign-in`; the gateway refreshes them and writes the new ones back. Reduced motion: no rise, no shake. |
+ | Access form | One form (`access-form.js`) in the catalog details and in the panel that "Add token" opens: one password field per value the server declares, labelled with its own words ("Access token" when it declares none); optional values fold under "More values"; the header or variable name shows only under Details ("Sent as the Authorization header"). A plain token is the token alone: Kitden adds "Bearer " once and drops a pasted one. A local value says "Checked when the gateway starts it". Add token says "Checking…" at once, the busy ring after 150 ms, and asks the preview again with the values, which is the check. Token works: the green lamp and "Token works" with a check drawn in 320 ms; the panel closes after 600 ms. Refused: amber `triangle-alert` and the server's words ("neon did not accept this token.", `role="alert"`) rise 4 px in 200 ms and stay, focus goes back to the field, and the fields shake once. Values go to macOS Keychain on Apply and are never shown again. Reduced motion: no rise, no shake. |
+diff --git a/src/kitden/changes/actions.py b/src/kitden/changes/actions.py
+index f1afef7..aa23ba7 100644
+--- a/src/kitden/changes/actions.py
++++ b/src/kitden/changes/actions.py
+@@ -649,6 +649,10 @@ def check_access(
+         kind = (sign_in or access_needed)(server["url"], headers)
+     except OSError:
+         raise ValueError(f"Kitden could not reach {name}.") from None
++    if kind == "sign-in-later":
++        # Sign-in Kitden cannot do: a token, said so up front (no Sign in to press first).
++        later = None if refused else SIGN_IN_LATER.format(name=name)
++        raise NeedsAccess(name, "token", fields, refused=refused, url=server["url"], reason=later)
+     if kind != "open":
+         reason = f"{name} did not accept this sign-in." if signed_in is not None else None
+         raise NeedsAccess(
+@@ -671,18 +675,66 @@ def signed_in_server(
+ 
+ 
+ def access_needed(url: str, headers: dict) -> str:
+-    """What a remote server needs: "open" (nothing), "token" or "sign-in". A 401 or 403 means
+-    it needs access; sign-in is possible when the 401 names its metadata in WWW-Authenticate
+-    (`resource_metadata`: MCP authorization spec 2025-06-18, checked 2026-11-01) or its origin
+-    serves that metadata. Raises OSError as `_initialize` does."""
++    """What a remote server needs: "open" (nothing), "token", "sign-in", or "sign-in-later"
++    (it offers sign-in, but Kitden cannot register as its client, so it takes a token). A 401
++    or 403 means it needs access; sign-in is possible when the 401 names its metadata in
++    WWW-Authenticate (`resource_metadata`: MCP authorization spec 2025-06-18, checked
++    2026-11-01) or its origin serves that metadata. Raises OSError as `_initialize` does."""
+     status, challenge = _initialize(url, headers)
+     if status not in (401, 403):
+         return "open"
+     if "resource_metadata" in challenge or _has_sign_in_metadata(url):
+-        return "sign-in"
++        return "sign-in-later" if _can_register(url, challenge) is False else "sign-in"
+     return "token"
+ 
+ 
++def _get_json(url: str) -> dict | None:
++    """One GET of a JSON document, with no header of the entry, within 5 seconds; None when
++    there is no such document."""
++    if urlsplit(url).scheme not in ("http", "https"):
++        return None
++    request = urllib.request.Request(url, headers={"User-Agent": "kitden"})  # noqa: S310
++    try:
++        with _opener().open(request, timeout=SIGN_IN_SECONDS) as answer:
++            data = json.loads(answer.read(1_000_000))
++    except (OSError, ValueError, http.client.HTTPException):
++        return None
++    return data if isinstance(data, dict) else None
++
++
++def _can_register(url: str, challenge: str) -> bool | None:
++    """Whether Kitden can register as the client of a server that offers sign-in: its
++    authorization server lists a `registration_endpoint` (dynamic registration, the one way
++    Kitden can: it has no public address for a client metadata document). None when Kitden
++    could not read the metadata; the sign-in then tries.
++
++    The metadata comes from the server's protected resource metadata (named by the 401, else
++    at its well-known path) and its first authorization server's metadata (RFC 8414, else
++    OpenID Connect discovery), as the MCP authorization spec says (2026-07-28, checked
++    2026-11-02). Zoom, for one, lists none: it takes only apps registered with it."""
++    parts = urlsplit(url)
++    origin = f"{parts.scheme}://{parts.netloc}"
++    named = re.search(r'resource_metadata="([^"]+)"', challenge)
++    places = [named.group(1)] if named else []
++    path = parts.path.rstrip("/")
++    places += [f"{origin}{SIGN_IN_METADATA}{path}", f"{origin}{SIGN_IN_METADATA}"]
++    resource = next((m for m in map(_get_json, dict.fromkeys(places)) if m), None)
++    servers = resource.get("authorization_servers") if resource else None
++    if not isinstance(servers, list) or not servers or not isinstance(servers[0], str):
++        return None
++    issuer = urlsplit(servers[0])
++    root, tail = f"{issuer.scheme}://{issuer.netloc}", issuer.path.rstrip("/")
++    for place in (
++        f"{root}/.well-known/oauth-authorization-server{tail}",
++        f"{root}/.well-known/openid-configuration{tail}",
++        f"{root}{tail}/.well-known/openid-configuration",
++    ):
++        metadata = _get_json(place)
++        if metadata:
++            return bool(metadata.get("registration_endpoint"))
++    return None
++
++
+ def _codex_layers(name: str, known_projects: list[str], user_file: str) -> bool:
+     """A known project's `.codex/config.toml` has its own `[mcp_servers.<name>]` table, which
+     changes Codex's user entry there."""
+diff --git a/src/kitden/discovery.py b/src/kitden/discovery.py
+index f5cab9f..484df2d 100644
+--- a/src/kitden/discovery.py
++++ b/src/kitden/discovery.py
+@@ -579,11 +579,13 @@ class Discovery:
+         elif row["kind"] == "mcp":
+             out["content"] = json.dumps(redact(row.get("entry") or {})[0], indent=2)
+             if out["remote"] and not row.get("setup"):
+-                from kitden.changes.actions import access_needed
++                from kitden.changes.actions import SIGN_IN_LATER, access_needed
+ 
+                 try:
+                     out["access_kind"] = access_needed(row["entry"]["url"], {})
+                     out["access_required"] = out["access_kind"] != "open"
++                    if out["access_kind"] == "sign-in-later":  # a token, said so up front
++                        out["access_note"] = SIGN_IN_LATER.format(name=out["short"])
+                 except OSError:
+                     out["access_note"] = "Could not reach this server. Preview will check again."
+         else:
+diff --git a/tests/unit/test_api_sign_in.py b/tests/unit/test_api_sign_in.py
+index 5943389..4165ce2 100644
+--- a/tests/unit/test_api_sign_in.py
++++ b/tests/unit/test_api_sign_in.py
+@@ -134,22 +134,35 @@ def test_refused_sign_in(home, fake):
+     assert answer.json()["detail"] == "signer did not accept this sign-in."
+ 
+ 
+-def test_cannot_sign_in_offers_the_token_field(home):
++def test_a_server_kitden_cannot_register_with_asks_for_a_token_at_once(home):
++    """It offers sign-in, but takes no client Kitden can register (as Zoom, checked
++    2026-11-02): the preview says so up front and asks for a token, with no Sign in."""
+     fake = FakeOAuth(no_registration=True)
+     try:
+         add_claude(home, "signer", {"type": "http", "url": fake.url})
+-        opened = Opened()
+-        with page_for(home, opened) as page:
+-            needs = batch_move(page, home, "signer").json()["needs"]
+-            started = page.post("/api/sign-in/start", json={"id": needs["sign_in"]}, headers=POST)
+-        assert started.status_code == 422
+-        assert started.json() == {"detail": SIGN_IN_LATER.format(name="signer"), "cannot": True}
++        with page_for(home, Opened()) as page:
++            answer = batch_move(page, home, "signer")
++        assert answer.status_code == 422
++        needs = answer.json()["needs"]
++        assert needs["kind"] == "token"
++        assert needs["reason"] == SIGN_IN_LATER.format(name="signer")
++        assert "sign_in" not in needs
+         assert needs["fields"][0]["name"] == "Authorization"
+-        assert opened == []
+     finally:
+         fake.stop()
+ 
+ 
++def test_access_needed_tells_sign_in_from_sign_in_kitden_cannot_do(fake):
++    from kitden.changes.actions import access_needed
++
++    assert access_needed(fake.url, {}) == "sign-in"
++    other = FakeOAuth(no_registration=True)
++    try:
++        assert access_needed(other.url, {}) == "sign-in-later"
++    finally:
++        other.stop()
++
++
+ def test_cancel_and_unknown_ids(home, fake):
+     add_claude(home, "signer", {"type": "http", "url": fake.url})
+     opened = Opened()
+diff --git a/tests/unit/test_discovery.py b/tests/unit/test_discovery.py
+index 0baf2f2..2b8fcee 100644
+--- a/tests/unit/test_discovery.py
++++ b/tests/unit/test_discovery.py
+@@ -582,3 +582,23 @@ def test_a_local_value_is_checked_when_the_gateway_starts_it():
+             "later": True,
+         }
+     ]
++
++
++def test_details_say_up_front_when_kitden_cannot_sign_in(tmp_path):
++    """A remote that offers sign-in Kitden cannot do (no client registration) asks for a token
++    in its details, with the reason, before anything is pressed."""
++    from kitden.discovery import Discovery
++    from tests.unit.fake_oauth import FakeOAuth
++
++    fake = FakeOAuth(no_registration=True)
++    try:
++        found = Discovery(tmp_path)
++        row = {"id": "a" * 24, "kind": "mcp", "name": "io.x/zoom", "entry": {"url": fake.url}}
++        found.results[row["id"]] = row
++        out = found.details(row["id"], set())
++    finally:
++        fake.stop()
++    assert out["access_kind"] == "sign-in-later" and out["access_required"] is True
++    assert out["access_note"] == (
++        "zoom does not let Kitden sign in yet. It may take an API key; see its docs."
++    )

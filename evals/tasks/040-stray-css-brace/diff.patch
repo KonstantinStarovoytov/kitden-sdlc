@@ -1,0 +1,287 @@
+diff --git a/ROADMAP.md b/ROADMAP.md
+index 59afd79..d07eb39 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -11,7 +11,8 @@ What Kitden does today and what comes next. Ideas and bugs:
+ 
+ - **The mockup's look:** Inter and JetBrains Mono come with Kitden, line icons in every place,
+   the mockup's colours in both themes, a new side rail and top bar, and calm motion with one
+-  shared timing.
++  shared timing. Under the pointer a grid of dots shows on the page, and a map block or an
++  Overview card takes a soft glow; both are off under reduced motion.
+ - **Gateway map:** blocks glide and unfold in place, links take the pointer (× to remove, by
+   keyboard too), and a selected block dims everything off its path. Blocks look like the mockup:
+   lamps, ports, the gateway's counts that roll, and on each tool how many projects have a rule of
+diff --git a/docs/design.md b/docs/design.md
+index 49d596a..594d058 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -158,7 +158,9 @@ has verified it. Calm beats bouncy: a tool that edits files must feel steady.
+    only after the server says `verified`. A control whose change waits in the tray shows a
+    pending state, not the new state.
+ 2. **No fake activity.** Nothing loops to suggest traffic, scanning or progress Kitden cannot
+-   observe. A link on a map moves only when it comes, goes or changes look, then rests.
++   observe. A link on a map moves only when it comes, goes or changes look, then rests. The dot grid
++   under the page draws a frame only while the pointer moves or the dots ease in or out, and none at
++   rest, so it loops nothing.
+ 3. **Point, don't move.** To show where something is, light it (row glow, socket ping, lit
+    rows). Layout moves only when the thing itself moves (a tile flying to its column).
+ 4. **Errors stay.** An error is a callout that stays until the next action; focus goes back to
+@@ -170,6 +172,7 @@ has verified it. Calm beats bouncy: a tool that edits files must feel steady.
+    stroke, a map link redrawn as its blocks move, the `filter` that dims a map block off the lit path,
+    the `stroke`, `stroke-width` and `stroke-opacity` of a map link as its look changes, the width and height
+    of the tray bar as rows join or leave, the color of a lamp on the map), all on small elements.
++   The dot grid is a canvas drawn with its 2D context, not animated CSS.
+ 
+ ### Tokens
+ 
+@@ -224,6 +227,7 @@ All helpers live in `src/kitden/web/static/js/motion.js`.
+ | Map draw | `mapView().draw` (map-view.js): nodes stay; a block's place is its `translate` property and its scale the `transform`, so the `scale` of a press turns about the block's own middle; a block that moves glides 260 ms OUT3, a new one fades in at its place in 260 ms, one that goes fades out in 180 ms IN3; an opened block's links draw in 170 ms, then its children fade in 120 ms, 15 ms apart; a folded block's children shrink back to its right side in 180 ms; a group's page turn folds its five into the caption the same way and unfolds the next five as an opened block's children; a dotted or dashed link of an unfold comes in with its block, not drawn; links follow their blocks every frame; a new width shows the map at once, though its numbers still roll and its lamps still fade and pop (Map block); a new project changes it in place (Project switch); reduced motion and a hidden page land at once | Gateway map |
+ | Map block | `blockParts` and `liven` (map-view.js): a block's parts are drawn again only when its words change; then a number that changed rolls from its old value (bigger up, smaller down), and a lamp that changed fades from its old color in 400 ms ease and, turning on or off (not into or out of a preview), pops from `--pop` times its size in 200 ms `--calm`, as Web Animations, so a redraw of the page that takes the map off and puts it back cuts nothing short. A tool's tag of projects whose rules wait in the tray pops in, from opacity 0 and .7 of its size in 180 ms `--calm`, when it comes or names more projects; fewer, or the usual tag again, just change. Opening a block draws none of its parts again: its count badge and right port follow its `aria-expanded` in CSS. A block that leaves the map has the leaving look (`.leaving`) and no Tab stop while it fades; the tools of a server that folds only shrink back, with no Tab stop and no leaving look. A leaving block with keyboard focus keeps its ring at full strength. Nothing moves on a block's first draw; reduced motion and a hidden page show the end at once | Gateway map |
+ | Focus | `draw(…, { selected, lit })` and `glance` of `mapView` (map-view.js): while a path is lit the box takes `.focus` and every block and link off it dims over 300 ms ease (blocks to 40 % with less colour, links to 16 %). A selected server also lights its tools and the gateway its servers; a press that opens a server shows its tools first, and the path lights when they are in (`lightLater` in gateway.js); a block that is dragged or has keyboard focus is never dimmed (its focus ring keeps 3:1). A selected block lays a 2.1 px accent line over each lit link that is not a bypass line or a link a change in preview adds or takes out: it fades in over 180 ms `--calm` (after the link has drawn, for one that draws in), fades out over 160 ms ease-in when the selection goes, and is removed by time. A selected link is picked and has no line. Pointing at a client or at a server outside the gateway, while nothing is selected, lights its paths with no line; a selection or a drag ends that. Reduced motion and a hidden page show the end at once | Gateway map |
++| Pointer glow | `startGlow` (glow.js), the one effect taken from the mockup's Rich mode, calmer than it. Dots: a canvas (`#dots`) as big as the page column below the top bar, held there while the page scrolls, under the page, taking no pointer and hidden from a screen reader. While the pointer moves over the column, dots on a 22 px grid within 130 px of it show (radius .8 + 1.5 f, pushed out up to 5 px, `--glow` at f² × .55, f = 1 − distance / 130) and ease in or out by 16 % a frame; no frame is drawn while the pointer rests or is away. A theme switch repaints them, and the canvas follows the column's size. Spotlight: under the pointer a map block or an Overview card takes a soft glow on its edge (130 px circle of `--glow` at .35; the mockup has .85) and a faint one in its fill (200 px at .04; the mockup .08), fading in 250 ms on hover and out on leave; one passive `pointermove` sets `--mx` and `--my` on the block. `--glow` is R G B numbers (dark `240 154 124`, light `196 84 50`), never a text colour. Both are off under reduced motion. Not built from Rich mode: beams, marching dashes, the draw-in, ripples, sparks, sheen, blur, any link motion | Every place; map blocks and Overview cards |
+ | Link pointer | `links` hooks of `mapView` (map-view.js): a link the page acts on has a 14 px hit stroke, off while the link is under half opacity. Pointer or keyboard focus gives the link the hover look (2.4 px, accent) and puts a 16 px × at half its length: it fades in over 120 ms `--calm`, follows the link, and jumps to another link with no motion. A link with keyboard focus gets the look back when the pointer leaves another link. Leaving waits 240 ms, a plain timer that does not scale and also runs under reduced motion; the pointer on the × cancels it | Gateway map |
+ | Link motion | `draw` of `mapView` (map-view.js), for a link between two blocks that stay: a new solid link draws in over 260 ms `--calm`; a new dashed one (a preview) fades in over 300 ms; a dashed one that goes fades out over 240 ms ease-out and a solid one draws back to its start over 380 ms; a link that changes look blends its dashes and opacity over 300 ms, a solid line counting as dashes "8 0". A link that goes takes no pointer and is removed by time; one that comes back meanwhile shows whole at once. A link to a block that comes or goes shows as much as the fainter of its two blocks. Reduced motion and a hidden page show the end at once | Gateway map |
+ | Map preview | The tray on the map (`trayChanged` in gateway.js): each change of the tray draws the map again in place, with no entrance, so a preview block fades in with its dashed link, a link a change takes out blends to grey dashes, and a row taken out goes back the same way (Map draw and Link motion): a connect's link fades in over 300 ms `--calm` and out over 240 ms ease-out, a disconnect's link and a removed entry's line blend to grey dashes over 300 ms and back, a server that moves out turns into its preview where it shows (a drop's spot too), which glides to its place in the Outside list in 260 ms OUT3 while its two links fade in (the blocks between glide), and back the same way when the row is taken out, and a client's lamp fades into and out of the dashed ring with no pop. While its change is applied the map waits: the page's redraw after the read shows the servers where they are now. The map holds a dragged block (`hold` in map-view.js): it follows the pointer at once and, dropped, flies onto the slot (200 ms OUT3) while its move is asked; let go anywhere else, or when its row is refused (`homeIn`), it glides home in 220 ms OUT3. A new block that takes the place of one that goes (`from`: a move's preview block and its server outside the gateway, and a move out's preview block and its server in the gateway, both ways) starts where that one shows and glides to its place (260 ms OUT3), the old one leaves at once, its links fade out (240 ms ease-out) and its focus goes to the new block. A block that grows out of another (`growsFrom`: the slot, out of the gateway) starts at .4 of its size, unseen, centred on that block's right side, and grows in 220 ms OUT3, and every move of that draw takes 220 ms; going, it shrinks back there in 180 ms IN3. A held block let go onto another (`onto`) hides that one at once. The drop target's look (`lightTarget`), the wire of a drag (`wire`, from a client's right port to the held block's left port, or to the pointer or the gateway's left port for a client's wire, following it; `unwire` fades it out in 240 ms ease-out, a client's wire that misses in 180 ms `--calm`) and the drag tip (`tip`, an 11 px pill 6 px right of and 28 px over the held block, or 12 px right of and 30 px over the pointer, in the accent where a drop works; its words change at once) come from map-view.js too. Reduced motion moves nothing by itself: the drop and the way home land at once | Gateway map |
+diff --git a/src/kitden/web/static/index.html b/src/kitden/web/static/index.html
+index fc3a580..95a3edc 100644
+--- a/src/kitden/web/static/index.html
++++ b/src/kitden/web/static/index.html
+@@ -38,6 +38,7 @@
+         </label>
+         <span class="scan-status" id="scan-status" role="status"></span>
+       </div>
++      <canvas class="dots" id="dots" aria-hidden="true"></canvas>
+       <main id="main" class="page" tabindex="-1"></main>
+       <div class="hint-dock"><div class="dock" id="dock"></div><p class="hint-line" id="hint" hidden></p></div>
+     </div>
+diff --git a/src/kitden/web/static/js/app.js b/src/kitden/web/static/js/app.js
+index ba5d3ad..227267b 100644
+--- a/src/kitden/web/static/js/app.js
++++ b/src/kitden/web/static/js/app.js
+@@ -6,6 +6,7 @@ import { renderAgents } from "./agents.js";
+ import { renderChanges } from "./changes.js";
+ import { drawTray, initDock } from "./dock.js";
+ import { drawChip, renderGateway } from "./gateway.js";
++import { startGlow } from "./glow.js";
+ import { loadLibrary, loadLibraryFor, morphOnNextRender, raceSlow, renderLibrary, settleRows, showSources, snapshotRows } from "./library.js";
+ import { renderOverview } from "./overview.js";
+ import { closeForProject, closePanel, holdPanel, initPanel, isPanelOpen } from "./panel.js";
+@@ -374,6 +375,7 @@ function start() {
+   $("#rescan").addEventListener("click", () => rescan().catch(reportError));
+   initPanel();
+   initDock();
++  startGlow($("#content"));
+ 
+   // Markers measured before a font arrived sit on the old widths; a resize re-seats them.
+   document.fonts?.addEventListener("loadingdone", () => dispatchEvent(new Event("resize")));
+diff --git a/src/kitden/web/static/js/glow.js b/src/kitden/web/static/js/glow.js
+new file mode 100644
+index 0000000..d17ae9c
+--- /dev/null
++++ b/src/kitden/web/static/js/glow.js
+@@ -0,0 +1,123 @@
++// Two quiet effects under the pointer: a grid of dots on the page column, and a glow on the map
++// block or Overview card the pointer is on. Nothing runs by itself: a frame is drawn only while
++// the pointer moves or the dots are still easing in or out, and none at rest. Both are off under
++// reduced motion. The colour is the page's --glow (R G B numbers, one per theme).
++import { reducedMotion } from "./motion.js";
++
++const REACH = 130; // dots show this far from the pointer
++const GRID = 22; // the dots' pitch
++const EASE = 0.16; // the share of the way to the goal that a frame takes
++// Map blocks and Overview cards only. The glow itself is drawn by style.css from --mx and --my.
++const SPOTLIGHT = 'div.map .block, #main[data-place="overview"] :is(.card, .issue)';
++
++// The dots near (x, y): the nearer one is bigger, stronger, and pushed a little away from the pointer.
++function drawDots(ctx, { x, y, level, colour }) {
++  const first = (point) => Math.max(0, Math.floor((point - REACH) / GRID));
++  const last = (point) => Math.ceil((point + REACH) / GRID);
++  for (let column = first(x); column <= last(x); column += 1) {
++    for (let row = first(y); row <= last(y); row += 1) {
++      const dotX = column * GRID + GRID / 2;
++      const dotY = row * GRID + GRID / 2;
++      const away = Math.hypot(dotX - x, dotY - y);
++      if (away > REACH) continue;
++      const near = 1 - away / REACH;
++      const push = away ? (near * near * 5) / away : 0;
++      ctx.beginPath();
++      ctx.arc(dotX + (dotX - x) * push, dotY + (dotY - y) * push, 0.8 + near * 1.5, 0, Math.PI * 2);
++      ctx.fillStyle = `rgb(${colour} / ${(near * near * 0.55 * level).toFixed(3)})`;
++      ctx.fill();
++    }
++  }
++}
++
++// `column` holds the top bar and the canvas (#dots). Called once.
++export function startGlow(column) {
++  const canvas = column.querySelector("#dots");
++  const topbar = column.querySelector(".topbar");
++  let ctx = null;
++  let width = 0;
++  let height = 0;
++  const dots = { x: 0, y: 0, level: 0, goal: 0, moved: false, running: false, colour: "" };
++
++  const paint = () => {
++    if (!ctx) return;
++    ctx.clearRect(0, 0, width, height);
++    if (dots.level >= 0.01) drawDots(ctx, dots);
++  };
++  const readColour = () => {
++    dots.colour = getComputedStyle(document.documentElement).getPropertyValue("--glow").trim();
++    paint();
++  };
++  // The canvas covers the column below the top bar; CSS pins it there (--glow-top, --glow-h).
++  const size = () => {
++    const top = topbar.offsetHeight;
++    const scale = devicePixelRatio || 1;
++    width = column.clientWidth;
++    height = Math.max(0, column.clientHeight - top);
++    canvas.style.setProperty("--glow-top", `${top}px`);
++    canvas.style.setProperty("--glow-h", `${height}px`);
++    canvas.width = Math.round(width * scale);
++    canvas.height = Math.round(height * scale);
++    ctx = canvas.getContext("2d");
++    ctx.setTransform(scale, 0, 0, scale, 0, 0);
++    paint();
++  };
++
++  const frame = () => {
++    if (reducedMotion.matches) {
++      dots.level = 0;
++      dots.goal = 0;
++      dots.moved = false;
++    } else dots.level += (dots.goal - dots.level) * EASE;
++    paint();
++    if (Math.abs(dots.goal - dots.level) > 0.01 || (dots.goal > 0 && dots.moved)) {
++      dots.moved = false;
++      requestAnimationFrame(frame);
++    } else dots.running = false;
++  };
++  const kick = () => {
++    if (dots.running) return;
++    dots.running = true;
++    requestAnimationFrame(frame);
++  };
++
++  // The glow of the block or card under the pointer: its --mx and --my are the pointer's place in it.
++  const spotlight = (target, clientX, clientY) => {
++    const node = target && target.closest && target.closest(SPOTLIGHT);
++    if (!node) return;
++    const box = node.getBoundingClientRect();
++    node.style.setProperty("--mx", `${clientX - box.left}px`);
++    node.style.setProperty("--my", `${clientY - box.top}px`);
++  };
++
++  column.addEventListener(
++    "pointermove",
++    (event) => {
++      if (reducedMotion.matches) return;
++      spotlight(event.target, event.clientX, event.clientY);
++      const box = canvas.getBoundingClientRect();
++      dots.x = event.clientX - box.left;
++      dots.y = event.clientY - box.top;
++      dots.goal = 1;
++      dots.moved = true;
++      kick();
++    },
++    { passive: true },
++  );
++  column.addEventListener("pointerleave", () => {
++    dots.goal = 0;
++    if (dots.level >= 0.01) kick();
++  });
++  // A setting turned on while the dots show: the next frame clears them.
++  reducedMotion.addEventListener("change", () => {
++    if (reducedMotion.matches) kick();
++  });
++  // A theme switch (or the system's, while the page follows it) paints the dots in the new colour.
++  new MutationObserver(readColour).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
++  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColour);
++  const watch = new ResizeObserver(size);
++  watch.observe(column);
++  watch.observe(topbar);
++  readColour();
++  size();
++}
+diff --git a/src/kitden/web/static/style.css b/src/kitden/web/static/style.css
+index eefdd67..80d1d82 100644
+--- a/src/kitden/web/static/style.css
++++ b/src/kitden/web/static/style.css
+@@ -85,6 +85,8 @@
+   --preview-line: #a4422680;
+   --shadow: 0 18px 44px -18px rgb(26 31 42 / .28);
+   --shadow-pop: 0 0 0 1px var(--wire), 0 8px 24px rgba(16, 24, 40, 0.10);
++  /* The pointer glow (dots and spotlight, glow.js): R G B numbers, so it takes an alpha. Not a text colour. */
++  --glow: 196 84 50;
+   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+@@ -112,6 +114,7 @@
+     --danger: #f07070; --focus: #f09a7c;
+     --diff-add: #47c27a; --diff-del: #f07070;
+     --dim: #1b1f26; --preview-fill: #f09a7c10; --preview-line: #f09a7c80;
++    --glow: 240 154 124;
+     --shadow: 0 18px 44px -14px rgb(0 0 0 / .7);
+     --shadow-pop: 0 0 0 1px var(--wire-strong), 0 12px 32px rgba(0, 0, 0, 0.45);
+   }
+@@ -127,6 +130,7 @@
+   --danger: #f07070; --focus: #f09a7c;
+   --diff-add: #47c27a; --diff-del: #f07070;
+   --dim: #1b1f26; --preview-fill: #f09a7c10; --preview-line: #f09a7c80;
++  --glow: 240 154 124;
+   --shadow: 0 18px 44px -14px rgb(0 0 0 / .7);
+   --shadow-pop: 0 0 0 1px var(--wire-strong), 0 12px 32px rgba(0, 0, 0, 0.45);
+ }
+@@ -185,8 +189,9 @@ a { color: var(--route); }
+ .roll > span { grid-area: 1 / 1; }
+ 
+ /* The page frame makes no stacking context of its own, so the dock inside it (.hint-dock) can stand
+-   above the scrim and the drawer. What the page holds has z-index 5 or less (and the project menu
+-   sits in the top bar's own context), so all of it stays under both. */
++   above the scrim and the drawer. The page (.page) is one context at z-index 1, so the dots lie
++   under all it holds; the top bar (z-index 5) and the project menu in it stay above, and the page
++   stays under the scrim and the drawer. */
+ .content { overflow: auto; position: relative; display: flex; flex-direction: column; }
+ .topbar { position: sticky; top: 0; z-index: 5; flex: none; height: 66px; background: var(--panel); border-bottom: 1px solid var(--wire); display: flex; align-items: center; gap: 18px; padding: 0 18px 0 22px; min-width: 0; }
+ /* The scan line shows only when a scan takes a while: a quick scan (after each Apply) is over
+@@ -200,9 +205,13 @@ a { color: var(--route); }
+ .scan-status { position: absolute; top: calc(100% + 6px); right: 18px; max-width: calc(100% - 40px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 6px; background: var(--canvas); color: var(--ink-3); font-size: 12px; opacity: 0; pointer-events: none; transition: opacity 200ms ease; }
+ .topbar.progress .scan-status { opacity: 1; }
+ @keyframes sweep { to { transform: translateX(100%); } }
++/* The dot grid (glow.js): a canvas as big as the column below the top bar, held there while the page
++   scrolls, under the page, taking no pointer. It takes no room: its height is taken back below.
++   glow.js sets --glow-top and --glow-h to the top bar's and the canvas's heights. */
++.dots { display: block; position: sticky; top: var(--glow-top, 66px); z-index: 0; flex: none; width: 100%; height: var(--glow-h, 0px); margin-bottom: calc(var(--glow-h, 0px) * -1); pointer-events: none; }
+ /* The bottom keeps the end of the page clear of the hint line, and of whatever the dock shows, the
+    tray's bar or a toast (--dock-room, set on the root by toast.js: its height and the dock's 46 px). */
+-.page { flex: 1 0 auto; padding: 26px 22px 64px; padding-bottom: max(64px, var(--dock-room, 0px)); max-width: 1180px; outline: none; transition: opacity var(--t-fast) ease; }
++.page { position: relative; z-index: 1; flex: 1 0 auto; padding: 26px 22px 64px; padding-bottom: max(64px, var(--dock-room, 0px)); max-width: 1180px; outline: none; transition: opacity var(--t-fast) ease; }
+ .page.pending { opacity: 0.5; pointer-events: none; }
+ /* The Gateway changes in place as another project is read (gateway.js): it does not fade, and the
+    progress cursor says why a press waits. Details take no press meanwhile (panel.js holdPanel). */
+@@ -666,6 +675,7 @@ div.map .block:hover { border-color: color-mix(in srgb, var(--route) 38%, var(--
+ div.map .block:active { scale: 0.98; transition-duration: var(--t-fast), var(--t-fast), 300ms, 300ms, 80ms; }
+ div.map .block:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+ div.map .block:has(> .block-count) { padding-right: 16px; }
++}
+ div.map .block-tile { flex: none; display: grid; place-items: center; }
+ div.map .block-tile .client-mark, div.map .block-tile .mono-mark { --tile: 28px; border-radius: 6px; }
+ div.map .block-tile .client-mark[data-icon="claude"] img { padding: 4px; }
+@@ -788,6 +798,16 @@ div.map .block:hover > .block-x, div.map .block:focus-visible > .block-x { opaci
+ div.map .block.leaving { filter: opacity(0.45); border-style: dashed; }
+ div.map .block.leaving:focus-visible { filter: none; }
+ 
++/* Spotlight (glow.js): under the pointer a map block or an Overview card takes a soft glow on its edge
++   and a fainter one in its fill, set from --mx and --my (the pointer's place in it) and faded in on
++   hover. Calmer than the mockup's Rich mode, and off under reduced motion (glow.js sets nothing). */
++@media (prefers-reduced-motion: no-preference) {
++  /* Spotlight: map blocks and Overview cards */
++  #main[data-place="overview"] :is(.card, .issue) { position: relative; }
++  div.map .block::before, #main[data-place="overview"] :is(.card, .issue)::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; background: radial-gradient(130px circle at var(--mx, -300px) var(--my, -300px), rgb(var(--glow) / .35), transparent 70%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); opacity: 0; transition: opacity 250ms ease; pointer-events: none; }
++  div.map .block::after, #main[data-place="overview"] :is(.card, .issue)::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(200px circle at var(--mx, -300px) var(--my, -300px), rgb(var(--glow) / .04), transparent 65%); opacity: 0; transition: opacity 250ms ease; pointer-events: none; }
++  div.map .block:hover::before, div.map .block:hover::after, #main[data-place="overview"] :is(.card, .issue):hover::before, #main[data-place="overview"] :is(.card, .issue):hover::after { opacity: 1; }
++
+ /* The preview tray's bar (docs/design.md, Preview tray). The dock sits at the bottom left of the page,
+    above the hint line, over the map; the band it sits in takes no clicks, the dock does. One change
+    is a row of words and buttons; two or more are a list. */
