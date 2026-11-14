@@ -89,20 +89,21 @@ The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WAT
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment. Without them it is off.
 
-An issue is short and in plain words. Its first line is Lantern's icon and "Opened by
-Lantern"; the label `automated` says a bot opened it, and the run log names the model. Then the
-risk (High, Medium, Low), whether it is urgent and whether the watcher is sure; then one line
-each for what changed, what it means, why, how to fix it (the model's words: the file and the
-change) and where in Kitden; then a "Don't forget" checklist that depends only on the type and
-follows Kitden's CONTRIBUTING.md (a sandbox home for tests; preview, Apply with a backup,
-verify and Undo for a change to client settings; the row in `docs/clients.md` and its date;
-`ROADMAP.md`, `docs/guide.md`, `PRIVACY.md` when they apply); then, in small print, which
-Kitden versions were checked and the source. Last, what to do: put `confirmed` on it if it is
-right (it stays open until it is fixed), or close it with `false-alarm`. Add `good first issue`
-or `help wanted` only after `confirmed`, so no contributor works on a false alarm. The weekly
-summary lists its items the same way, with a table on top when there are several and one
-plain "don't forget" list at the end; words of a row that the note mentions
-but the model found nothing for go into one line at the end.
+An issue is short and in plain words. GitHub shows Lantern as its author and the label
+`automated` says a bot opened it, so the body says neither; the run log names the model. The
+first line gives the risk (High, Medium, Low), whether the watcher is sure and what the Kitden
+user gets. Then three parts: Problem (what changed and why it matters for Kitden), Fix (the
+model's words: the file and the change, then the files) and Checklist. The checklist depends
+only on the type and follows Kitden's CONTRIBUTING.md: a sandbox home for tests; preview, Apply
+with a backup, verify and Undo for a change to client settings; the row in `docs/clients.md`
+and its date; `ROADMAP.md`, `docs/guide.md` and `PRIVACY.md` when they apply. In small print:
+which Kitden versions were checked, the source and a link here. Last, what to do: put
+`confirmed` on it if it is right (it stays open until it is fixed), or close it with
+`false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`, so no
+contributor works on a false alarm. Only a sure major break or wrong data gets an issue of its
+own at once, two a week at most; the rest waits for Monday's summary. The summary lists its
+items the same way in short, with a table on top when there are several and one checklist at
+the end; words of a row that the note mentions but the model found nothing for go into one line at the end.
 
 | Label | Meaning |
 |---|---|

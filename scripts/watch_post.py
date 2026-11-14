@@ -35,8 +35,6 @@ WHAT = {
 }
 RISK = {"major": "High", "medium": "Medium", "minor": "Low"}
 HOW_IT_WORKS = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/agents.md"
-LANTERN = ("https://raw.githubusercontent.com/KonstantinStarovoytov/kitden-sdlc/main/"
-           "docs/images/apps/lantern.svg")
 NEXT = ("**Next:** add `confirmed` if this is right (it stays open until it is fixed), or close "
         "it with `false-alarm`. Add `good first issue` or `help wanted` only after `confirmed`.")
 NEXT_SUMMARY = ("**Next:** nothing here is urgent. To act on an item, open an issue for it; this "
@@ -61,13 +59,6 @@ TODO = {
     "unknown": ("docs", "row"),
     "outdated": ("row",),
 }
-
-
-def first_line() -> str:
-    """Which bot opened it. The label `automated` says it is automated; the run log names the
-    model."""
-    return (f'<img src="{LANTERN}" width="18" height="18" align="top" alt=""> '
-            f"Opened by **Lantern**, Kitden's [client watcher]({HOW_IT_WORKS})")
 
 
 def dont_forget(effects: list[str], boxes: bool = True) -> str:
@@ -100,46 +91,55 @@ def _versions(item: dict, inp: dict) -> str:
 
 
 def _foot(item: dict, inp: dict) -> str:
-    """The small print: what was checked and the source."""
+    """The small print: what was checked, the source and how the watcher works."""
     source = f" · [source]({item['url']})" if item.get("url") else ""
-    return f"<sub>{_versions(item, inp)}{source}</sub>"
+    return (f"<sub>{_versions(item, inp)}{source} · "
+            f"[how the watcher works]({HOW_IT_WORKS})</sub>")
 
 
-def _item(item: dict, inp: dict, who: bool = False) -> str:
-    """One finding: risk first, then what changed, what it means, why, how to fix, where.
-    `who` is for an issue of its own: the client and its version go before the change, where
-    no heading says them, and the issue puts the small print at its end."""
+def _lead(item: dict) -> str:
+    """The one line on top: the risk, how sure, and what the Kitden user gets."""
     effect, severity = _kind(item)
     gets = item.get("user_gets", "")
     gets = "" if gets.strip(" .").lower() in ("", "not checked") else " " + gets
+    sure = "sure" if item.get("sure") else "not sure"
+    return f"**{RISK.get(severity, severity)} risk · {sure}.** {WHAT.get(effect, effect)}{gets}"
+
+
+def _problem(item: dict) -> str:
+    return " ".join(x for x in (item.get("changed", ""), item.get("why", "")) if x)
+
+
+def _files(item: dict) -> str:
     files = item.get("files") or []
-    lines = [
-        f"**Risk: {RISK.get(severity, severity)}** · "
-        f"**Sure: {'yes' if item.get('sure') else 'no'}**",
-        "",
-        f"**What changed:** {_who(item) + ': ' if who else ''}{item.get('changed', '')}",
-        f"**What it means:** {WHAT.get(effect, effect)}{gets}",
-    ]
-    if item.get("why"):
-        lines.append(f"**Why:** {item['why']}")
+    return "**Files:** " + ", ".join(f"`{f}`" for f in files) if files else ""
+
+
+def _item(item: dict, inp: dict) -> str:
+    """One item of the summary: the lead line, then the problem, the fix and the files."""
+    lines = [_lead(item), ""]
+    if _problem(item):
+        lines.append(f"**Problem:** {_problem(item)}")
     if item.get("fix"):
-        lines.append(f"**How to fix:** {item['fix']}")
-    if files:
-        lines.append("**Where:** " + ", ".join(f"`{f}`" for f in files))
-    if not who:
-        lines += ["", _foot(item, inp)]
-    return "\n".join(lines)  # GitHub shows each line of an issue on its own line
+        lines.append(f"**Fix:** {item['fix']}")
+    if _files(item):
+        lines.append(_files(item))
+    return "\n".join([*lines, "", _foot(item, inp)])  # GitHub keeps each line on its own
 
 
 def render_urgent(finding: dict, inp: dict) -> tuple[str, str]:
+    """An issue of its own: the lead line, then Problem, Fix and Checklist."""
     # The title form is what the router matches known issues by: keep it.
     title = f"{client_name(finding)}: {finding['title']}"
-    body = f"{first_line()}\n\n**Urgent** · {_item(finding, inp, who=True)}"
+    parts = [_lead(finding), f"### Problem\n**{_who(finding)}:** {_problem(finding)}"]
+    fix = "\n".join(x for x in (finding.get("fix", ""), _files(finding)) if x)
+    if fix:
+        parts.append(f"### Fix\n{fix}")
     todo = dont_forget([_kind(finding)[0]])
     if todo:
-        body += f"\n\n**Don't forget:**\n{todo}"
-    body += f"\n\n{_foot(finding, inp)}"
-    return title, f"{body}\n\n{NEXT}\n"
+        parts.append(f"### Checklist\n{todo}")
+    parts += [_foot(finding, inp), NEXT]
+    return title, "\n\n".join(parts) + "\n"
 
 
 def _hints(items: list[dict]) -> str:
@@ -159,7 +159,7 @@ def render_summary(items: list[dict], today: date,
     monday = today - timedelta(days=today.weekday())
     real = [i for i in items if not _hint(i)]
     hints = [i for i in items if _hint(i)]
-    body = first_line()
+    body = ""
     if len(real) > 1:
         rows = [f"| {n} | {_who(i)}: {_quiet(i['title'], 80)} | {RISK.get(_kind(i)[1], '')} | "
                 f"{'yes' if i.get('sure') else 'no'} |" for n, i in enumerate(real, 1)]
@@ -178,7 +178,7 @@ def render_summary(items: list[dict], today: date,
     if todo:
         body += f"\n\n**When you fix one, don't forget:**\n{todo}"
     body += "\n\n" + NEXT_SUMMARY
-    return f"Client changes, week of {monday}", body + "\n", rest
+    return f"Client changes, week of {monday}", body.strip() + "\n", rest
 
 
 def _append(path: Path, lines: list[dict]) -> None:

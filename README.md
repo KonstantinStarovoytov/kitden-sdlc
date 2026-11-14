@@ -102,8 +102,8 @@ Every workflow that runs an agent must follow [RULES.md](RULES.md). A script che
 7. Secrets arrive as named inputs and are never printed; the Claude token and the OpenAI key
    never share a job.
 8. An agent's comment starts with one line saying it is automated and which model wrote it
-   (today the "Agent review" title). An issue a bot opens starts with the bot's name and has
-   the label `automated`; the run log names the model.
+   (today the "Agent review" title). An issue a bot opens has the bot as its author and the
+   label `automated`; the run log names the model.
 9. A job that runs a model starts with Harden-Runner, which for now only records the hosts it
    reaches.
 10. A model step never prints its full output or debug logs.

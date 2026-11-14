@@ -9,7 +9,6 @@ from watch_post import (
     AGENT,
     PAUSED_MEANS,
     SUMMARY_MAX,
-    first_line,
     render_summary,
     render_urgent,
     run,
@@ -61,7 +60,7 @@ def test_urgent_issue_has_first_line_labels_and_scale(tmp_path, capsys):
     assert "paused" not in capsys.readouterr().out
     title, body, labels = gh.created[0]
     assert title == "Claude Code: skillOverrides renamed"
-    assert body.splitlines()[0] == first_line()
+    assert body.startswith("**High risk · sure.** A Kitden action fails.")
     assert labels == ["automated", "client-change", "claude-code", "breaks", "major"]
     assert "main and v0.7.2" in body
     assert {"claude-code", "breaks"} <= {name for name, *_ in gh.created_labels}
@@ -93,7 +92,7 @@ def test_monday_summary_is_one_issue_with_two_labels(tmp_path):
     assert len(gh.created) == 1 and gh.created[0][2] == ["automated", "client-change", "summary"]
     title, body, _ = gh.created[0]
     assert title == "Client changes, week of 2026-11-09"
-    assert body.count("\n### ") == 2 and "Risk: Low" in body
+    assert body.count("\n### ") == 2 and "Low risk" in body
 
 
 def test_release_not_checked_when_a_file_differs():
@@ -104,7 +103,7 @@ def test_release_not_checked_when_a_file_differs():
 def test_summary_item_without_piece_url_or_version():
     item = {"title": "t", "effect": "minor", "client": "codex", "sure": True}
     _, body, _ = render_summary([item], MON)
-    assert "### 1. Codex: t" in body and "Risk: Low" in body
+    assert "### 1. Codex: t" in body and "Low risk" in body
 
 
 def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
@@ -140,36 +139,37 @@ def test_every_missing_label_is_created_on_each_run(tmp_path):
 
 def test_what_it_touches_shows_where_the_user_sees_it():
     _, body = render_urgent(finding(), inp())
-    assert "**Where:** `src/kitden/skills.py`" in body
+    assert "**Files:** `src/kitden/skills.py`" in body
     assert "the `skillOverrides` key" not in body  # the list's row is for the judge
 
 
-def test_first_line_names_the_bot_not_the_model(monkeypatch):
+def test_the_issue_names_no_model_and_no_author(monkeypatch):
     monkeypatch.setenv("WATCH_MODEL", "gpt-7")
     _, body = render_urgent(finding(), inp())
-    line = body.splitlines()[0]
-    assert line == first_line() and "Opened by **Lantern**" in line and "lantern.svg" in line
     assert "gpt-7" not in body and "Automated" not in body  # the label says it
+    assert "Lantern" not in body and "Urgent" not in body  # GitHub shows the author
 
 
-def test_an_issue_says_risk_and_urgency_first_then_how_to_fix_and_what_to_check():
+def test_an_issue_is_one_lead_line_then_problem_fix_and_checklist():
     _, body = render_urgent(finding(), inp())
     lines = body.splitlines()
-    assert lines[2] == "**Urgent** · **Risk: High** · **Sure: yes**"
-    for label in ("What changed", "What it means", "Why", "How to fix", "Where", "Next"):
-        assert f"\n**{label}:** " in body
-    assert "**How to fix:** Read the new key in skills.py." in body
+    assert lines[0] == "**High risk · sure.** A Kitden action fails. Skills fail to load."
+    heads = [line for line in lines if line.startswith("#")]
+    assert heads == ["### Problem", "### Fix", "### Checklist"]
+    assert ("### Problem\n**Claude Code 2.1.320:** The key was renamed. Read in the notes."
+            in body)
+    assert "### Fix\nRead the new key in skills.py.\n**Files:** `src/kitden/skills.py`" in body
+    assert "### Checklist\n- [ ] Test with a sandbox home" in body
+    assert "preview → Apply with a backup → verify → Undo" in body  # a break: settings rule
     assert lines[-3].startswith("<sub>Checked on Kitden main and v0.7.2 · ")
     assert "[source](" in lines[-3]
-    assert "\n**Don't forget:**\n- [ ] Test with a sandbox home" in body
-    assert "preview → Apply with a backup → verify → Undo" in body  # a break: settings rule
-    assert "##" not in body  # no headings, no repeated labels
+    assert lines[-1].startswith("**Next:** ")
 
 
 def test_the_checklist_follows_the_type():
     _, gap = render_urgent(finding(effect="gap", fix=""), inp())
     assert "add a row to `docs/clients.md`" in gap and "PRIVACY.md" in gap
-    assert "**How to fix:**" not in gap  # nothing to say: no empty line
+    assert "### Fix\n**Files:**" in gap  # no fix written: only the files
     _, old = render_urgent(finding(effect="outdated"), inp())
     assert old.count("- [ ] ") == 1 and "checked date" in old
 
@@ -212,7 +212,7 @@ def test_items_cut_from_the_summary_are_kept_for_the_next_one(tmp_path):
 
 def test_no_stray_space_when_the_version_is_empty():
     _, body = render_urgent(finding(version=""), inp())
-    assert "Claude Code: The key was renamed." in body
+    assert "**Claude Code:** The key was renamed." in body
 
 
 def test_version_is_quiet_and_cut():
