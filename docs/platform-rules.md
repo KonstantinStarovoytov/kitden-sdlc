@@ -64,7 +64,24 @@ checked 2026-11-12):
   and `title` (§5E); tool names are at most 64 characters (§5C).
 - Tell Anthropic about material changes; they may trigger a new review (§3H).
 
-Directory policy warnings: owner fills in from the Review tab.
+Warnings on the Review tab for v0.9.0 (commit 39f8440), read 2026-11-14. The check said
+"Validation has warnings", "Directory policy has warnings" and "Security scan passed". None
+of them stopped the version: it passed and waits for a reviewer.
+
+- **Unrecognized field in plugin.json** (warning, 2 findings). The page says to check the
+  spelling against the plugins reference, or remove the field, unless it is a listing field
+  that only the directory reads, such as `privacyPolicyUrl`. The two fields were not opened
+  when this was read.
+- **Field from another tool's manifest** (warning, `.claude-plugin/plugin.json`, `icon`). The
+  directory reads `icon` for the listing and Claude Code ignores it at load time. The page
+  says no action is needed.
+- **agent-plugins manifest detected** (note, `plugin.json`, `$schema`). The root
+  `plugins/kitden/plugin.json` is in the agent-plugins.org format. Claude reads only
+  `.claude-plugin/plugin.json` and ignores the other one.
+- **Images and fonts passed without a code check** (note). `icon.png` was let through
+  without being read as code; its printable text was still screened.
+
+Read the tab again after each release and change this list when it differs.
 
 ## Official MCP Registry (`server.json`)
 
