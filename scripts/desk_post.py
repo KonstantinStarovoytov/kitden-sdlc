@@ -182,25 +182,23 @@ def _badge(light: dict) -> str:
     return style.info(name, "not measured")
 
 
-def _badges(desk: dict) -> str:
-    """The first line, in the bots' one look (bot_style.py): a badge for each light."""
-    lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
-    return style.row(*(_badge(light) for light in lights)) or style.info("lights", "none")
-
-
-def _light(light: dict) -> str:
-    """Why a light is not green, or "" for a green one: its badge on top says it all."""
+def _why(light: dict) -> str:
+    """Why a light is not green, in words; "" when its badge says it all."""
     state = light.get("state")
-    name = one_line(str(light.get("name") or light.get("id") or "?"))
     why = one_line(str(light.get("why") or ""))
-    if state == "green":
+    if state == "green" or not why:
         return ""
     if state not in MARKS or state == "grey":
-        why = re.sub(rf"^{NOT_MEASURED_YET}:?\s*", "", why, flags=re.I)
-        return f"- **{name}:** {NOT_MEASURED_YET}" + (f": {why}" if why else ".")
-    if not why:
-        return f"- **{name}:** " + ("needs a look." if state == "amber" else "is wrong.")
-    return f"- **{name}:** {_link(why, light.get('url'))}"
+        return re.sub(rf"^{NOT_MEASURED_YET}:?\s*", "", why, flags=re.I)
+    return _link(why, light.get("url"))
+
+
+def _badges(desk: dict) -> str:
+    """The first lines, in the bots' one look (bot_style.py): a badge for each light on a line
+    of its own, with the reason beside one that is not green."""
+    lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
+    lines = [f"{_badge(light)} {_why(light)}".rstrip() for light in lights]
+    return "\n".join(lines) or style.info("lights", "none")  # an issue keeps each line apart
 
 
 def _use(use: dict) -> str:
@@ -229,10 +227,8 @@ def _lead(desk: dict) -> str:
 
 
 def _health(desk: dict) -> list[str]:
-    """The lights that are not green, each with its reason, then how Kitden is used."""
-    lights = [light for light in desk.get("lights") or [] if isinstance(light, dict)]
-    lines = [line for line in map(_light, lights) if line] if lights else ["- No light."]
-    return [*lines, *([""] if lines else []), _use(desk.get("use") or {})]
+    """How Kitden is used. The lights are the badges on top."""
+    return [_use(desk.get("use") or {})]
 
 
 def _wait(item: dict) -> str:

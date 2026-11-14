@@ -55,15 +55,25 @@ def wait(title="t", url=URL, kind="verdict", days=1.0):
 # --- The page ---
 
 
+def lead(body):
+    """The one line under the lights: the first paragraph after the badges."""
+    return body.split("\n\n")[1]
+
+
+def light_line(body, name):
+    """The line of one light: its badge, then its reason when it is not green."""
+    line, = [x for x in body.split("\n\n")[0].splitlines() if f'alt="{name}: ' in x]
+    return line
+
+
 def test_render_has_the_six_parts_in_order():
     body = render(DESK)
     places = [body.index(f"## {part}") for part in
               ("Health", "Waiting for you", "Links", "This week", "Budget", "How to")]
     assert places == sorted(places) and "no model" in body.splitlines()[-1]
-    first = body.splitlines()[0]  # the bots' one look: a badge for each light
-    assert first.startswith("<picture>") and 'alt="Clients: look"' in first
-    assert 'alt="Works: not measured"' in first
-    assert "- **Clients:** " in body and "- **Works:** not measured yet" in body
+    lights = body.split("\n\n")[0].splitlines()  # the bots' one look: a badge for each light
+    assert len(lights) == 5 and all(line.startswith("<picture>") for line in lights)
+    assert 'alt="Works: not measured"' in lights[0] and 'alt="Clients: look"' in lights[1]
     assert "🟡" not in body and "🟢" not in body  # the badges say it: no second set of marks
 
 
@@ -75,14 +85,12 @@ def test_the_small_print_says_who_wrote_it_when_and_from_which_file():
 
 def test_a_light_that_is_not_green_says_why_and_a_green_one_is_only_a_badge():
     body = render(DESK)
-    assert "- **Works:** not measured yet: no check run of main was read." in body
-    assert "- **Clients:** Issue &#35;12" in body
-    assert 'alt="Bugs: ok"' in body and "**Bugs" not in body
-    assert body.splitlines()[2] == "Something needs a look."  # the one line under the badges
+    assert light_line(body, "Works").endswith("</picture> no check run of main was read.")
+    assert "</picture> Issue &#35;12" in light_line(body, "Clients")
+    assert light_line(body, "Bugs").endswith("</picture>")  # green: the badge says it all
+    assert lead(body) == "Something needs a look."
     grey = {**DESK, "lights": [{"id": "works", "name": "Works", "state": "grey", "why": ""}]}
-    assert "- **Works:** not measured yet." in render(grey)
-    bare = {**DESK, "lights": [{"id": "queue", "name": "Queue", "state": "amber", "why": ""}]}
-    assert "- **Queue:** needs a look." in render(bare)
+    assert light_line(render(grey), "Works").endswith('alt="Works: not measured"></picture>')
 
 
 def test_the_use_line_counts_and_says_what_was_not_measured():
@@ -383,18 +391,17 @@ def test_all_green_says_all_five_lights_are_green():
     lights = [{"id": i, "name": i.capitalize(), "state": "green", "why": ""}
               for i in ("works", "clients", "bugs", "agents", "queue")]
     body = render({**DESK, "overall": "green", "lights": lights})
-    lines = body.splitlines()
-    assert lines[2] == "All five lights are green." and "is well" not in body
-    assert lines[4:7] == ["### Health", "", lines[6]] and lines[6].startswith("Use: ")
+    assert lead(body) == "All five lights are green." and "is well" not in body
+    parts = body.split("\n\n")
+    assert parts[2] == "### Health" and parts[3].startswith("Use: ")
 
 
 def test_health_and_waiting_stay_the_first_lines_of_the_page():
-    lines = render(DESK).splitlines()
-    assert lines[1:6] == ["", "Something needs a look.", "", "### Health", ""]
-    assert [line[:11] for line in lines[6:8]] == ["- **Works:*", "- **Clients"]
-    assert lines[8] == "" and lines[9].startswith("Use: ")
-    assert lines[10:14] == ["", "### Waiting for you", "", lines[13]]
-    assert lines[13].startswith("- Verdict: ")
+    parts = render(DESK).split("\n\n")
+    assert len(parts[0].splitlines()) == 5  # the five lights, one on each line
+    assert parts[1:3] == ["Something needs a look.", "### Health"]
+    assert parts[3].startswith("Use: ") and parts[4] == "### Waiting for you"
+    assert parts[5].startswith("- Verdict: ")
 
 
 def test_all_grey_does_not_say_all_is_well():
@@ -407,10 +414,10 @@ def test_a_lights_address_is_linked_when_it_is_on_github():
     light = {"id": "clients", "name": "Clients", "state": "red", "url": URL,
              "why": "Issue #12 (a confirmed major client change) has been open 8.0 days."}
     body = render({**DESK, "lights": [light]})
-    assert f"- **Clients:** [{one_line(light['why'])}]({URL})" in body
+    assert light_line(body, "Clients").endswith(f"</picture> [{one_line(light['why'])}]({URL})")
     for url in ("http://evil.example/x", "https://github.com/x) [y](http://evil"):
         body = render({**DESK, "lights": [{**light, "url": url}], "waiting": [], "misses": []})
-        assert "evil" not in body and "- **Clients:** Issue &#35;12" in body
+        assert "evil" not in body and "</picture> Issue &#35;12" in light_line(body, "Clients")
 
 
 # --- What build writes, rendered ---
@@ -418,7 +425,7 @@ def test_a_lights_address_is_linked_when_it_is_on_github():
 
 def test_the_page_of_what_build_writes_from_every_fact():
     body = render(build(FACTS, ROSTER, NOW))
-    assert body.splitlines()[2] == "All five lights are green."
+    assert lead(body) == "All five lights are green."
     assert "None" not in body and "null" not in body
     assert "not measured" not in body.lower().replace("not measured yet: nightly, tester.", "")
     assert "| Claude reviewer | 12 | 1 | 1 | 0 | 0 | 0 |" in body
@@ -430,7 +437,8 @@ def test_the_page_of_what_build_writes_from_every_fact():
 def test_the_page_of_what_build_writes_from_no_fact():
     body = render(build(Facts(), ROSTER, NOW))
     assert "None" not in body and "null" not in body and "| |" not in body
-    assert body.splitlines()[2] == "Some lights are not measured yet; none is amber or red."
-    assert body.count(":** not measured yet") == 5 and "## Waiting for you\n\nNot measured." in body
+    assert lead(body) == "Some lights are not measured yet; none is amber or red."
+    assert body.count(': not measured"></picture>') == 5
+    assert "## Waiting for you\n\nNot measured." in body
     assert "The agents' week: not measured yet." in body
     assert "Reviews: not measured yet." in body and "Misses: not measured yet." in body
