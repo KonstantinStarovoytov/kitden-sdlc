@@ -59,3 +59,12 @@ The Variables pages:
 
 - Kitden: <https://github.com/KonstantinStarovoytov/kitden/settings/variables/actions>
 - kitden-sdlc: <https://github.com/KonstantinStarovoytov/kitden-sdlc/settings/variables/actions>
+
+## Agent Docs in a session
+
+Agent Docs, your own index of the clients' docs, reaches your sessions through Kitden. To set
+it up again:
+
+- Run `kitden open` and add Agent Docs as a server on Kitden's local page.
+- Its key or token stays in the local settings on your machine.
+- Nothing about it is committed to any repository.
