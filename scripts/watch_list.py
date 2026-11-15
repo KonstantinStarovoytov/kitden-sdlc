@@ -86,14 +86,27 @@ def terms(text: str) -> dict[tuple[str, str], list[str]]:
     return result
 
 
+PROSE_MARKS = "(),;:"
+
+
+def _bare_word(word: str) -> str:
+    """`word` without the prose marks around it: `(file:` is `file`, `path).` is `path`."""
+    before = None
+    while word != before:
+        before = word
+        word = word.strip(PROSE_MARKS).removesuffix(".")
+    return word
+
+
 def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     """Every word in backticks of each row's What, in order and without repeats.
 
     Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out.
-    Quotes (' and ") around a word are taken off. Then a word with `*` in it becomes
-    its longest part without one, and is left out if that part is shorter than 3
-    characters. A word with no letter or digit in it, such as `=` or `-`, is left out: it
-    would be found on any page.
+    Quotes (' and ") around a word are taken off, then the marks of the list's prose: `(`,
+    `)`, `,`, `;` and `:` at either end, and `.` at the end (a leading `.` stays, as in
+    `.claude`). Then a word with `*` in it becomes its longest part without one, and is left
+    out if that part is shorter than 3 characters. A word with no letter or digit in it, such
+    as `=` or `-`, is left out: it would be found on any page.
     """
     result = {}
     for client, cells in _table_rows(text):
@@ -102,7 +115,7 @@ def row_words(text: str) -> dict[tuple[str, str], list[str]]:
             for word in part.split():
                 if "<" in word or ">" in word:
                     continue
-                word = word.strip("'\"")
+                word = _bare_word(word.strip("'\""))
                 if not word:
                     continue
                 if "*" in word:

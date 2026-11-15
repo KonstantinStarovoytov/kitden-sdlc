@@ -51,6 +51,7 @@ WORDS = """## Claude Code
 | `<project>/.mcp.json` and `cmd '<json>' -s` | path | `src/g.py` | servers | same | guess |
 | `'rules/*.md'` and `"enabled"` and `'x*'` and `''` | key | `src/h.py` | rules | same | guess |
 | `key = value` and `-` and `--` and `...` and `-s` | key | `src/i.py` | rules | same | guess |
+| `(file: path)` and `cursor.plugins.installedIds.` and `.claude` and `rules/` and `x).` and `'(y;)'` | key | `src/j.py` | rules | same | guess |
 | rollout log lines | path | `src/f.py` | skill list | same | install |
 """
 
@@ -130,3 +131,11 @@ def test_held_finds_a_word_only_where_it_stands_alone(word, body, found):
 
 def test_held_finds_a_word_that_stands_alone_once_among_other_uses():
     assert held(["-s"], "Use --scope or -s.") == []
+
+
+def test_row_words_strips_the_prose_marks_around_a_word():
+    got = row_words(WORDS)
+    key = ("claude-code", "(file: path) and cursor.plugins.installedIds. and .claude and rules/ "
+           "and x). and '(y;)'")
+    assert got[key] == ["file", "path", "cursor.plugins.installedIds", ".claude", "rules/", "x",
+                        "y"]
