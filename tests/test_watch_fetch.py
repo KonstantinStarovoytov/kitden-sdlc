@@ -188,3 +188,12 @@ def test_a_doc_page_is_read_through_get_doc_with_the_given_hosts(monkeypatch):
     got = watch_fetch._read_doc("https://docs.example.com/a/b", hosts)
     assert [s.key for s in got] == ["Install"]
     assert seen == [("https://docs.example.com/a/b", hosts)]
+
+
+def test_a_failed_doc_read_counts_as_an_unread_source(monkeypatch):
+    def fake_get_doc(address, hosts):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(watch_fetch, "get_doc", fake_get_doc)
+    address = "https://docs.example.com/a/b"
+    assert watch_fetch._fetch(address, lambda u: watch_fetch._read_doc(u, []), address) is None

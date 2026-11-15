@@ -143,6 +143,88 @@ def test_get_doc_reads_the_plain_address_when_md_is_html():
     assert get_doc(DOC, HOSTS, opener)[2] == DOC
 
 
+@pytest.mark.parametrize("status", [404, 410])
+def test_get_doc_reads_the_plain_address_when_md_is_gone(status):
+    fake, opener = web({DOC + ".md": (status, {}, b"gone"), DOC: HTML})
+    assert get_doc(DOC, HOSTS, opener)[2] == DOC
+    assert [r.full_url for r in fake.asked] == [DOC + ".md", DOC]
+
+
+def test_get_doc_reads_the_plain_address_when_md_has_another_type():
+    json_answer = (200, {"Content-Type": "application/json"}, b"{}")
+    fake, opener = web({DOC + ".md": json_answer, DOC: HTML})
+    assert get_doc(DOC, HOSTS, opener)[1] == "text/html"
+    assert [r.full_url for r in fake.asked] == [DOC + ".md", DOC]
+
+
+@pytest.mark.parametrize("status", [500, 429])
+def test_get_doc_lets_a_failed_md_read_out(status):
+    fake, opener = web({DOC + ".md": (status, {}, b"busy"), DOC: HTML})
+    with pytest.raises(OSError):
+        get_doc(DOC, HOSTS, opener)
+    assert [r.full_url for r in fake.asked] == [DOC + ".md"]
+
+
+def test_get_doc_lets_a_refused_md_redirect_out():
+    off = (302, {"Location": "https://example.com/docs/en/mcp.md"}, b"")
+    fake, opener = web({DOC + ".md": off, DOC: HTML})
+    with pytest.raises(ValueError):
+        get_doc(DOC, HOSTS, opener)
+    assert [r.full_url for r in fake.asked] == [DOC + ".md"]
+
+
+class SlowMd(FakeWeb):
+    """Times out on every `.md` address and answers the rest from `pages`."""
+
+    def https_open(self, req):
+        if req.full_url.endswith(".md"):
+            self.asked.append(req)
+            raise TimeoutError("timed out")
+        return super().https_open(req)
+
+
+def test_get_doc_lets_a_md_timeout_out():
+    fake = SlowMd({DOC: HTML})
+    with pytest.raises(OSError):
+        get_doc(DOC, HOSTS, make_opener(HOSTS, True, fake))
+    assert [r.full_url for r in fake.asked] == [DOC + ".md"]
+
+
+OLD = "https://cursor.com/docs/context/skills"
+NEW = "https://cursor.com/docs/skills"
+MOVED = (308, {"Location": "/docs/skills"}, b"")
+
+
+def test_get_doc_reads_the_md_of_the_address_it_was_redirected_to():
+    fake, opener = web({OLD: MOVED, NEW: HTML, NEW + ".md": MD})
+    body, kind, read_from = get_doc(OLD, HOSTS, opener)
+    assert "markdown body" in body and kind == "text/markdown" and read_from == NEW + ".md"
+    assert [r.full_url for r in fake.asked] == [OLD + ".md", OLD, NEW, NEW + ".md"]
+
+
+@pytest.mark.parametrize("md_answer", [None, (410, {}, b"gone"), HTML])
+def test_get_doc_keeps_the_redirected_html_when_it_has_no_md(md_answer):
+    pages = {OLD: MOVED, NEW: HTML}
+    if md_answer:
+        pages[NEW + ".md"] = md_answer
+    fake, opener = web(pages)
+    body, kind, read_from = get_doc(OLD, HOSTS, opener)
+    assert "html body" in body and kind == "text/html" and read_from == NEW
+    assert [r.full_url for r in fake.asked] == [OLD + ".md", OLD, NEW, NEW + ".md"]
+
+
+def test_get_doc_lets_a_failed_md_read_after_a_redirect_out():
+    fake, opener = web({OLD: MOVED, NEW: HTML, NEW + ".md": (500, {}, b"busy")})
+    with pytest.raises(OSError):
+        get_doc(OLD, HOSTS, opener)
+
+
+def test_get_doc_asks_for_md_only_once_without_a_redirect():
+    fake, opener = web({DOC: HTML})
+    get_doc(DOC, HOSTS, opener)
+    assert [r.full_url for r in fake.asked] == [DOC + ".md", DOC]
+
+
 def test_get_doc_reads_an_md_address_once():
     fake, opener = web({DOC + ".md": MD})
     assert get_doc(DOC + ".md", HOSTS, opener)[2] == DOC + ".md"
