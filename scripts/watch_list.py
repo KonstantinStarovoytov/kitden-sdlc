@@ -20,15 +20,27 @@ class Row:
     source: str
 
 
-def _table_rows(text: str) -> Iterator[tuple[str, list[str]]]:
+def _numbered_rows(text: str) -> Iterator[tuple[int, str, list[str]]]:
+    """Each row as (its line number in the file, client, cells).
+
+    Lines are numbered from 1 as git counts them: only "\n" ends one. A row is still read
+    from text.splitlines(), so a form feed or U+2028 cuts a row as before.
+    """
     client = None
-    for line in text.splitlines():
+    number = 1
+    for line, piece in zip(text.splitlines(), text.splitlines(keepends=True), strict=True):
         if line.startswith("## "):
             client = CLIENTS.get(line[3:].strip())
         elif client and line.startswith("|"):
             cells = [c.strip() for c in line.strip().strip("|").split(" | ")]
             if len(cells) == 6 and cells[0] != "What" and not re.fullmatch(r"[-:]+", cells[0]):
-                yield client, cells
+                yield number, client, cells
+        number += piece.count("\n")
+
+
+def _table_rows(text: str) -> Iterator[tuple[str, list[str]]]:
+    for _, client, cells in _numbered_rows(text):
+        yield client, cells
 
 
 def parse_list(text: str) -> list[Row]:
@@ -44,14 +56,23 @@ def row_labels(text: str) -> dict[tuple[str, str], str]:
     return {(client, cells[0].replace("`", "")): cells[0] for client, cells in _table_rows(text)}
 
 
+def _rows_with_ids(text: str) -> Iterator[tuple[str, int, str, list[str]]]:
+    count: dict[str, int] = {}
+    for number, client, cells in _numbered_rows(text):
+        count[client] = count.get(client, 0) + 1
+        yield f"{PREFIX[client]}-{count[client]:02d}", number, client, cells
+
+
 def row_ids(text: str) -> dict[str, tuple[str, str]]:
     """A short id for each row, by its place in its client's table: id -> (client, label)."""
-    ids: dict[str, tuple[str, str]] = {}
-    count: dict[str, int] = {}
-    for client, cells in _table_rows(text):
-        count[client] = count.get(client, 0) + 1
-        ids[f"{PREFIX[client]}-{count[client]:02d}"] = (client, cells[0])
-    return ids
+    return {row_id: (client, cells[0]) for row_id, _, client, cells in _rows_with_ids(text)}
+
+
+def row_places(text: str) -> dict[str, tuple[int, str, tuple[str, ...]]]:
+    """For each row id, the row's line number in the file (from 1, as git counts), its client
+    and its cells."""
+    return {row_id: (number, client, tuple(cells))
+            for row_id, number, client, cells in _rows_with_ids(text)}
 
 
 def short_list(text: str) -> str:

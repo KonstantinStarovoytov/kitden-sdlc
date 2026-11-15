@@ -1,7 +1,7 @@
 # ruff: noqa: E501
 import pytest
 
-from watch_list import Row, doc_pages, held, parse_list, row_words, terms
+from watch_list import Row, doc_pages, held, parse_list, row_ids, row_places, row_words, terms
 
 TEXT = """## Codex
 | What | Kind | Files | Seen in | macOS and Linux | Source |
@@ -147,3 +147,20 @@ def test_row_words_strips_the_prose_marks_around_a_word():
            "and x). and '(y;)'")
     assert got[key] == ["file", "path", "cursor.plugins.installedIds", ".claude", "rules/", "x",
                         "y"]
+
+
+def test_row_places_gives_each_row_its_line_client_and_cells():
+    places = row_places("# Title\n\n" + TEXT)
+    assert places == {
+        "CX-01": (6, "codex", ("`codex plugin list --json`", "command", "`src/a.py`, `src/b.py`",
+                               "plugins", "same", "https://learn.chatgpt.com/docs/plugins")),
+        "CX-02": (7, "codex", ("rollout log lines", "path", "`src/c.py`", "skill list", "same",
+                               "install")),
+    }
+    assert places.keys() == row_ids(TEXT).keys()
+
+
+def test_row_places_counts_lines_as_git_does():
+    # Only "\n" ends a line in the file; a form feed or U+2028 in a line does not.
+    text = "# Title\x0c more title\r\n" + TEXT
+    assert [line for line, _, _ in row_places(text).values()] == [5, 6]
