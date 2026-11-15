@@ -8,12 +8,16 @@ import subprocess  # noqa: S404
 import sys
 from pathlib import Path
 
+from doc_address import load_hosts
 from watch_list import doc_pages, parse_list
-from watch_pages import get, load_sources, releases, sections
+from watch_pages import get, get_doc, load_sources, releases, sections
 
 PIECES_MAX = 20
 PIECE_CHARS = 12000
 FAIL_DAYS = 3
+# 2: doc pages are read as markdown. A memory with a lower number holds hashes of HTML
+# sections, so its doc pages are filled again, quietly, as if new.
+DOC_FORMAT = 2
 
 
 def _unreadable(meta: dict, source: str) -> dict:
@@ -36,6 +40,13 @@ def plan_run(state, fetched, meta):
     new.setdefault("summary_week", "")
     new.setdefault("tries", {})
     known = state["sources"] if state else {}
+    if state and state.get("doc_format", 0) < DOC_FORMAT:
+        # Keep only the sources read this run that are not doc pages: a doc page that has
+        # left the list loses its HTML hashes too.
+        keep = {sid for sid in meta if meta[sid]["kind"] != "doc"}
+        known = {sid: h for sid, h in known.items() if sid in keep}
+        new["sources"] = copy.deepcopy(known)
+    new["doc_format"] = DOC_FORMAT
     pieces = []
     for sid in sorted(meta, key=lambda s: meta[s]["kind"] != "release"):
         found = fetched.get(sid)
@@ -86,6 +97,11 @@ def _read(source):
     return sections(body, ctype, source.get("level", 3), source.get("split"))
 
 
+def _read_doc(address, hosts):
+    body, ctype, _ = get_doc(address, hosts)
+    return sections(body, ctype)
+
+
 def _fetch(sid, reader, address):
     try:
         return reader(address)
@@ -103,13 +119,14 @@ def main():
     list_text = (Path(a.kitden) / "docs/clients.md").read_text(encoding="utf-8")
     rows = parse_list(list_text)
     fetched, meta = {}, {}
+    hosts = load_hosts()
     for src in load_sources(a.sources):
         meta[src["id"]] = {"client": src["client"], "kind": "release",
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
         fetched[src["id"]] = _fetch(src["id"], _read, src)
     for address, client in doc_pages(rows).items():
         meta[address] = {"client": client, "kind": "doc", "url": address}
-        fetched[address] = _fetch(address, lambda u: sections(*get(u)), address)
+        fetched[address] = _fetch(address, lambda u: _read_doc(u, hosts), address)
     pieces, new_state = plan_run(state, fetched, meta)
     release = _git(a.kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
     names = sorted({f for r in rows for f in r.files})

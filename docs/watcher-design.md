@@ -102,6 +102,10 @@ Codex pre-releases come several a day with empty notes (checked 2026-11-11), so 
 reads stable releases only. The price: a change the ChatGPT app ships early is seen at the
 stable release. Reading commits between tags is not in this step.
 
+The watcher reads a doc page as `<address>.md` first and as the address itself only when
+that fails, because the markdown holds the page's text without the site's menu, which would
+otherwise be hashed with it and look like a doc change.
+
 A doc page is cut into sections by its headings. The watcher keeps one hash per section and
 gives the model the new text of a section whose hash changed. It does not keep the pages
 themselves: they are other companies' text, and the memory is public (call).
