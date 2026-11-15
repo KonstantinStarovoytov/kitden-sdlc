@@ -33,7 +33,7 @@ next thing starts; a dot on a job means a model runs in it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/map-pull-request-dark.png">
-  <img src="docs/images/map-pull-request-light.png" width="820" alt="You open a pull request in Kitden. Always: release.yml runs the checks. To main: agents-review.yml uses review.yml, where Claude and Luna read the change and Lantern posts one review comment that never blocks. If a workflow changed: agents-check.yml uses check.yml. If the page changed: scenes.yml records the README pictures.">
+  <img src="docs/images/map-pull-request-light.png" width="820" alt="You open a pull request in Kitden. Always: release.yml runs the checks. To main: agents-review.yml uses review.yml, where Claude and Luna read the change and Lantern posts one review comment that never blocks. If a workflow changed: agents-check.yml uses check.yml. If the list of client facts changed: list-check.yml uses list-check.yml, a script, not an agent, which warns when a changed row's words are not on its doc page and never turns red for that. If the page changed: scenes.yml records the README pictures.">
 </picture>
 
 ### A release

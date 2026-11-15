@@ -1,0 +1,86 @@
+# What: when a Kitden pull request changes docs/clients.md, checks each row it adds or changes
+# against the row's doc page, and warns when a word of the row is not on that page.
+# Why: the list says what Kitden relies on in each client. A row that no page backs should be
+# seen while the pull request is open, not after the release.
+#
+# Reusable workflow. Needs no inputs and no secret. A script, not an agent: no model runs.
+# It only warns: a page that fails or a missing word never turns the check red.
+name: Check the list against the docs
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # the script stops reading pages after 180 seconds
+    permissions:
+      contents: read # check out the code
+    steps:
+      # No model runs here, but the script reads pages on outside hosts: record them.
+      - name: Watch where this job connects
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      # Without these two the checkout below would fall back to the pull request's code.
+      - name: Make sure this workflow knows its own commit
+        env:
+          WORKFLOW_REPO: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$WORKFLOW_REPO" ] || [ -z "$WORKFLOW_SHA" ]; then
+            echo "::error::job.workflow_repository or job.workflow_sha is empty"
+            exit 1
+          fi
+      # The pull request's files are untrusted, a fork's too: only git and the kitden-sdlc
+      # script read them, and nothing the pull request brings runs.
+      - name: Check out the pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The pull request could commit .kitden-sdlc as a link; checkout would follow it.
+      - name: Clear the tools folder
+        run: rm -rf .kitden-sdlc
+      # This workflow's own repository, at the commit this workflow file comes from.
+      # `job.workflow_*` names the called workflow, not the caller.
+      - name: Check out kitden-sdlc
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .kitden-sdlc
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.10.10"
+          enable-cache: false
+      # Both lists come from git, not from the files on disk: docs/clients.md could be a link
+      # to another file on the runner. They go to the temp folder, outside the checkout.
+      # A side with no list gets an empty file: on the base, every row then counts as added.
+      # Kitden is public, so the fetch needs no token; a private caller would need one.
+      - name: Get the list before and after the pull request
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          git rev-parse --verify --quiet "origin/$BASE_REF" > /dev/null
+          list() { # commit, file to write
+            if git cat-file -e "$1:docs/clients.md" 2> /dev/null; then
+              git show "$1:docs/clients.md" > "$2"
+            else
+              : > "$2"
+            fi
+          }
+          list "origin/$BASE_REF" "$RUNNER_TEMP/base.md"
+          list HEAD "$RUNNER_TEMP/head.md"
+      # From the temp folder: uv runs a .venv/bin/python it finds in its folder or any folder
+      # above it, even with --no-project, and the pull request could bring one. --no-config:
+      # no uv.toml may change where uv installs from.
+      - name: Check the changed rows against their pages
+        working-directory: ${{ runner.temp }}
+        run: >-
+          uv run --no-project --no-config --with pyyaml
+          python "$GITHUB_WORKSPACE/.kitden-sdlc/scripts/list_sources.py"
+          --base base.md --head head.md
