@@ -50,13 +50,19 @@ jobs:
         with:
           version: "0.10.10"
           enable-cache: false
-      # The first --no-config: a uv.toml in the pull request must not change where uv
-      # installs from. Our settings file and --no-ignores: .github/zizmor.yml and ignore
-      # comments in the pull request must not hide findings.
+      # uv and python run from the temp folder, with absolute paths, never inside the pull
+      # request's checkout: uv runs a .venv/bin/python it finds in its folder or any folder
+      # above it, even with --no-project --no-config, and the pull request could commit one.
+      # uvx 0.10.10 did not use one, but the next uv might.
+      # The first --no-config: a uv.toml must not change where uv installs from. Our settings
+      # file and --no-ignores: .github/zizmor.yml and ignore comments in the pull request must
+      # not hide findings.
       - name: zizmor
+        working-directory: ${{ runner.temp }}
         run: >-
-          uvx --no-config zizmor==1.32.0 --config .kitden-sdlc/config/zizmor.yml
-          --no-ignores .github/workflows
+          uvx --no-config zizmor==1.32.0
+          --config "$GITHUB_WORKSPACE/.kitden-sdlc/config/zizmor.yml"
+          --no-ignores "$GITHUB_WORKSPACE/.github/workflows"
       # Our empty settings file, because .github/actionlint.yaml in the pull request
       # could ignore errors. It sits in the folder mounted below.
       - name: actionlint
@@ -64,7 +70,11 @@ jobs:
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
           -config-file .kitden-sdlc/config/actionlint.yaml
+      # From the temp folder, as zizmor: a planted .venv/bin/python would run instead of
+      # the script and could report no problems.
       - name: Agent workflow rules
+        working-directory: ${{ runner.temp }}
         run: >-
           uv run --no-project --no-config --with pyyaml
-          python .kitden-sdlc/scripts/check_agent_workflows.py .github/workflows
+          python "$GITHUB_WORKSPACE/.kitden-sdlc/scripts/check_agent_workflows.py"
+          "$GITHUB_WORKSPACE/.github/workflows"

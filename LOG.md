@@ -140,3 +140,14 @@ Problems found while building the reviewers, and what changed because of each.
   and the doc hashes in its memory are filled again once, quietly.
   Kept by: `tests/test_watch_pages.py::test_get_doc_sends_the_watcher_user_agent` and
   `tests/test_watch_fetch.py::test_doc_pages_fill_again_quietly_after_the_switch_to_markdown`.
+- **A pull request could replace the rule check with its own program.** check.yml ran uv from
+  the pull request's checkout, and uv 0.10.10 runs a `.venv/bin/python` it finds in its folder
+  or any folder above it, even with `--no-project --no-config`. A committed fake ran three
+  times, twice as uv asked it what it was and once in place of the rule script, and the check
+  passed a workflow it should refuse eight times. uvx did not use it, nor a `.python-version`.
+  Now zizmor and the rule check run from the runner's temp folder, with absolute paths, as
+  list-check does.
+  Kept by: `tests/test_workflows.py::test_uv_and_python_never_run_inside_a_checkout_someone_else_controls`
+  (in every job with someone else's checkout on top, uv and python run from the temp folder)
+  and `tests/test_workflows.py::test_a_planted_python_is_looked_for_in_every_job_that_could_hold_one`
+  (the jobs let off still need it, and release prep's only because guard keeps it on Kitden's main).
