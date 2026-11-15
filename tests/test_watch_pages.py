@@ -1,6 +1,21 @@
+import email.message
+
 import pytest
 
-from watch_pages import get, releases, sections
+import watch_pages
+from doc_address import USER_AGENT, load_hosts, make_opener
+from tests.test_doc_address import FakeWeb
+from watch_pages import get, get_doc, releases, sections
+
+HOSTS = load_hosts()
+DOC = "https://code.claude.com/docs/en/mcp"
+MD = (200, {"Content-Type": "text/markdown; charset=utf-8"}, b"# Title\nmarkdown body\n")
+HTML = (200, {"Content-Type": "text/html; charset=utf-8"}, b"<h1>Title</h1><p>html body</p>")
+
+
+def web(pages):
+    fake = FakeWeb(pages)
+    return fake, make_opener(HOSTS, True, fake)
 
 
 def test_markdown_sections_by_level():
@@ -100,3 +115,86 @@ def test_a_repeated_section_with_the_same_text_is_dropped():
     assert [s.key for s in out] == ["", "A", "A (2)"]
     assert "Nov 7" in out[2].text
     assert [s.key for s in sections("## A\n1\n## A\n1\n", "text/markdown")] == ["A"]
+
+
+def test_get_doc_reads_the_md_address_first():
+    fake, opener = web({DOC + ".md": MD, DOC: HTML})
+    body, kind, read_from = get_doc(DOC, HOSTS, opener)
+    assert "markdown body" in body and kind == "text/markdown"
+    assert read_from == DOC + ".md"
+    assert [r.full_url for r in fake.asked] == [DOC + ".md"]
+
+
+def test_get_doc_takes_plain_text_from_the_md_address():
+    plain = (200, {"Content-Type": "text/plain"}, b"# Title\nplain body\n")
+    fake, opener = web({DOC + ".md": plain, DOC: HTML})
+    assert get_doc(DOC, HOSTS, opener) == ("# Title\nplain body\n", "text/plain", DOC + ".md")
+
+
+def test_get_doc_reads_the_plain_address_when_md_is_missing():
+    fake, opener = web({DOC: HTML})
+    body, kind, read_from = get_doc(DOC, HOSTS, opener)
+    assert "html body" in body and kind == "text/html" and read_from == DOC
+    assert [r.full_url for r in fake.asked] == [DOC + ".md", DOC]
+
+
+def test_get_doc_reads_the_plain_address_when_md_is_html():
+    fake, opener = web({DOC + ".md": HTML, DOC: HTML})
+    assert get_doc(DOC, HOSTS, opener)[2] == DOC
+
+
+def test_get_doc_reads_an_md_address_once():
+    fake, opener = web({DOC + ".md": MD})
+    assert get_doc(DOC + ".md", HOSTS, opener)[2] == DOC + ".md"
+    assert [r.full_url for r in fake.asked] == [DOC + ".md"]
+
+
+def test_get_doc_lets_the_plain_error_out():
+    fake, opener = web({})
+    with pytest.raises(OSError):
+        get_doc(DOC, HOSTS, opener)
+
+
+def test_get_doc_refuses_an_address_not_allowed():
+    fake, opener = web({})
+    with pytest.raises(ValueError):
+        get_doc("https://example.com/docs/a", HOSTS, opener)
+    assert fake.asked == []
+
+
+def test_get_doc_sends_the_watcher_user_agent():
+    fake, opener = web({DOC + ".md": MD})
+    get_doc(DOC, HOSTS, opener)
+    assert fake.asked[0].get_header("User-agent") == USER_AGENT
+
+
+class Answer:
+    """What `get` needs from a urlopen answer."""
+
+    url = "https://example.com/changes"
+
+    def __init__(self):
+        self.headers = email.message.Message()
+        self.headers["Content-Type"] = "text/plain; charset=utf-8"
+
+    def read(self):
+        return b"changes"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_get_sends_the_watcher_user_agent(monkeypatch):
+    asked = []
+
+    def urlopen(request, timeout):
+        asked.append(request)
+        return Answer()
+
+    monkeypatch.setattr(watch_pages.urllib.request, "urlopen", urlopen)
+    assert get("https://example.com/changes") == ("changes", "text/plain")
+    assert asked[0].full_url == "https://example.com/changes"
+    assert asked[0].get_header("User-agent") == USER_AGENT

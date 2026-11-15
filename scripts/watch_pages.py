@@ -8,6 +8,8 @@ from html.parser import HTMLParser
 
 import yaml
 
+import doc_address
+
 DROPPED = {"script", "style", "nav", "header", "footer"}
 HEADINGS = {f"h{i}" for i in range(1, 7)}
 BLOCKS = {"p", "div", "li", "br", "tr", "td", "th", "dt", "dd", "blockquote", "pre", "table",
@@ -131,11 +133,33 @@ def releases(payload: list[dict]) -> list[Section]:
 def get(url: str) -> tuple[str, str]:
     if not url.startswith("https://"):
         raise ValueError(f"only https URLs are allowed: {url}")
-    with urllib.request.urlopen(url, timeout=20) as resp:  # noqa: S310
+    # The check above has just made sure the address is https.
+    request = urllib.request.Request(url, headers={"User-Agent": doc_address.USER_AGENT})  # noqa: S310
+    with urllib.request.urlopen(request, timeout=20) as resp:  # noqa: S310
         if not resp.url.startswith("https://"):
             raise ValueError(f"redirected to a non-https URL: {resp.url}")
         charset = resp.headers.get_content_charset() or "utf-8"
         return resp.read().decode(charset, errors="replace"), resp.headers.get_content_type()
+
+
+MARKDOWN = ("text/markdown", "text/plain")
+
+
+def get_doc(address: str, hosts, opener=None) -> tuple[str, str, str]:
+    """Read a doc page as `<address>.md` first, and as the plain address when that fails.
+
+    Gives the body, the content type and the address read from. The `.md` answer counts only
+    when its type is text/markdown or text/plain. An error from the plain read goes out.
+    """
+    if not address.endswith(".md"):
+        try:
+            body, kind, read_from = doc_address.read(address + ".md", hosts, opener)
+        except (OSError, ValueError):
+            pass
+        else:
+            if kind in MARKDOWN:
+                return body, kind, read_from
+    return doc_address.read(address, hosts, opener)
 
 
 def load_sources(path) -> list[dict]:
