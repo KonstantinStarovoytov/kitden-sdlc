@@ -497,7 +497,7 @@ def test_a_planted_python_is_looked_for_in_every_job_that_could_hold_one():
         doc = yaml.safe_load((WORKFLOWS / file).read_text())
         return _someone_elses_checkout_on_top(doc, doc["jobs"][job])
 
-    assert held("check.yml", "check")
+    assert held("check.yml", "check") and held("list-check.yml", "check")
     assert held("review.yml", "claude") and held("review.yml", "luna")
     assert not held("review.yml", "post")
     assert not held("desk.yml", "measure") and not held("watch.yml", "fetch")
@@ -580,11 +580,9 @@ def _list_check_problems(text: str) -> list[str]:
         problems.append("the script is not run with --no-project --no-config")
     if "--base base.md --head head.md" not in run or "docs/clients.md" in run:
         problems.append("the script reads a list other than the two written by git show")
-    # uv runs a .venv/bin/python it finds in its folder or any folder above it, and the pull
-    # request can bring one: the script runs from the runner's temp folder instead.
-    if step.get("working-directory") != "${{ runner.temp }}":
-        problems.append("the script runs inside the pull request's checkout")
-    return problems
+    # uv and python run from the temp folder: the same rule as every job with someone else's
+    # checkout on top.
+    return problems + _outside_folder_problems(text, "list-check.yml")
 
 
 LISTS_STEP = "Get the list before and after the pull request"
