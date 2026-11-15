@@ -6,11 +6,11 @@ from watch_fetch import (
     FAIL_DAYS,
     PIECE_CHARS,
     PIECES_MAX,
-    _fetch,
     _moved_item,
     build_input,
     plan_moved,
     plan_run,
+    read_or_none,
 )
 from watch_pages import Section
 
@@ -112,7 +112,7 @@ def test_failed_source_says_its_id_and_error_type_only(capsys):
     def reader(address):
         raise TimeoutError("secret detail")
 
-    assert _fetch("https://d", reader, "https://d") is None
+    assert read_or_none("https://d", reader, "https://d") is None
     err = capsys.readouterr().err
     assert "https://d" in err and "TimeoutError" in err and "secret detail" not in err
 
@@ -198,7 +198,11 @@ def test_a_failed_doc_read_counts_as_an_unread_source(monkeypatch):
 
     monkeypatch.setattr(watch_fetch, "get_doc", fake_get_doc)
     address = "https://docs.example.com/a/b"
-    assert watch_fetch._fetch(address, lambda u: watch_fetch._read_doc(u, []), address) is None
+
+    def reader(u):
+        return watch_fetch._read_doc(u, [])
+
+    assert watch_fetch.read_or_none(address, reader, address) is None
 
 
 MANIFEST_META = {
@@ -359,7 +363,7 @@ def test_the_manifest_is_read_with_get_and_gives_its_addresses(monkeypatch):
 
     monkeypatch.setattr(watch_fetch, "get", fake_get)
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
-    assert watch_fetch._read_manifest(src) == {"https://docs.example.com/a/b.md"}
+    assert watch_fetch.read_manifest(src) == {"https://docs.example.com/a/b.md"}
     assert seen == [("https://raw.example.com/m.json", watch_fetch.MANIFEST_MAX)]
     assert watch_fetch.MANIFEST_MAX == 5 * 1024 * 1024
 
@@ -367,7 +371,7 @@ def test_the_manifest_is_read_with_get_and_gives_its_addresses(monkeypatch):
 def test_a_manifest_of_the_wrong_shape_counts_as_unread(monkeypatch):
     monkeypatch.setattr(watch_fetch, "get", lambda url, limit=None: ("[]", "text/plain"))
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
-    assert _fetch("m", watch_fetch._read_manifest, src) is None
+    assert read_or_none("m", watch_fetch.read_manifest, src) is None
 
 
 def test_the_config_has_the_manifest_with_no_client():
@@ -388,4 +392,4 @@ def test_a_manifest_over_the_cap_counts_as_unread(monkeypatch):
 
     monkeypatch.setattr(watch_fetch, "get", too_big)
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
-    assert _fetch("m", watch_fetch._read_manifest, src) is None
+    assert read_or_none("m", watch_fetch.read_manifest, src) is None

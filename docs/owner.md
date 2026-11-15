@@ -71,14 +71,17 @@ uv run --only-group watch-io python scripts/watch_sources.py --kitden <your Kitd
 ```
 
 - It needs `COHERE_API_KEY` in your shell. A trial key works, slowly.
-- It waits 7 seconds between searches, so a run takes about 7 minutes. With a paid key add
+- It waits 7 seconds between searches: about 7 minutes for 60 rows. With a paid key add
   `--pause 2`.
+- If the first 3 searches all fail, it stops and prints what it did: check the key, the
+  per-minute limit, or the server.
 - Agent Docs' `/search` must take `product` first. Until that is deployed the script stops
   and says so.
 - `--client codex` checks one client, `--all` also the rows that have a page, and
   `--rows CC-04,CX-12` only those rows, for example the ones whose search failed.
 - "states it" means one passage holds every word the row has in backticks; "near: n of m"
-  means the best passage holds n of them; "search failed" says nothing about the docs.
+  means the best passage holds n of them, at least one; "no page" means no passage, or none
+  that holds a word of the row; "search failed" says nothing about the docs.
 - Read the table and change `Source` in `docs/clients.md` in a pull request in Kitden.
 
 ## Agent Docs in a session

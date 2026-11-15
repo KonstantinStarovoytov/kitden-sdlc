@@ -4,10 +4,15 @@ For each row whose `Source` is `help`, `install` or `guess` (or every row, with 
 Agent Docs for the row's What, within the row's client, and says whether a passage states it:
 
 - states it: one passage holds every exact word of the row (watch_list.row_words).
-- near: n of m: no passage holds them all; the one that holds the most holds n of the m.
+- near: n of m: no passage holds them all; the one that holds the most holds n of the m,
+  and n is at least 1.
 - cannot check: no exact word: the row has no word in backticks; the top passage is shown.
-- no page: the search answered with no passage.
+- no page: the search answered with no passage, or with passages that hold none of the words.
 - search failed: the search got no answer. Never counted as "no page".
+
+The question is the row's What without its dates and versions in brackets. If the first three
+searches of a run all fail, the run stops there (exit 5): the key, the limit or the server is
+wrong, and the rest would fail too.
 
 A row that has its own page and is stated by another page is flagged "other page". Under the
 table come the list's doc pages that are not in Agent Docs (watch_moved).
@@ -28,7 +33,7 @@ from pathlib import Path
 
 from agent_docs import Search
 from doc_address import allowed, load_hosts, location
-from watch_fetch import MOVED_TEXT, _fetch, _read_manifest
+from watch_fetch import MOVED_TEXT, read_manifest, read_or_none
 from watch_list import CLIENTS, doc_pages, held, parse_list, row_ids, row_words
 from watch_moved import moved
 from watch_pages import load_sources
@@ -46,6 +51,11 @@ NEAR = "near"
 CANNOT = "cannot check: no exact word"
 NO_PAGE = "no page"
 FAILED = "search failed"
+NONE_HELD = "the top passage holds none of its words"
+STOP_AFTER = 3  # failed searches at the start of a run that stop it
+# A group in brackets that starts with a date, such as "(2026-10-19, version 2.1.283)", or
+# names a version, such as "(version 0.169.0)": the list's notes, not words of the docs.
+DATED = re.compile(r"\(\d{4}-\d{2}-\d{2}[^()]*\)|\(version [^()]*\)")
 
 
 @dataclass
@@ -73,6 +83,12 @@ class Result:
     found: int = 0
     missing: list[str] = field(default_factory=list)
     other_page: bool = False
+    note: str = ""
+
+
+def question(what: str) -> str:
+    """The row's What as a question: without its dates and versions in brackets."""
+    return " ".join(DATED.sub(" ", what).split())
 
 
 def pick_rows(text: str, client: str | None = None, all_rows: bool = False,
@@ -145,25 +161,32 @@ def judge(item: Item, passages, hosts) -> Result:
                       other_page=item.has_page and not own)
     # The passage that holds the most words; on a tie, the higher one.
     pick = min(range(len(usable)), key=lambda i: len(missing[i]))
+    if len(missing[pick]) == len(item.words):
+        return Result(item, NO_PAGE, note=NONE_HELD)
     page, heading, _ = usable[pick]
     return Result(item, NEAR, page, clean_heading(heading),
                   len(item.words) - len(missing[pick]), missing[pick])
 
 
-def check(items: list[Item], search, sleep, pause: float, hosts) -> list[Result]:
+def check(items: list[Item], search, sleep, pause: float, hosts) -> tuple[list[Result], bool]:
     """One search a row, `pause` seconds apart. A search that raised `search.failed` is
-    "search failed"."""
+    "search failed". Stops when the first three searches all failed: the results so far, and
+    whether it stopped."""
     results = []
     for n, item in enumerate(items):
         if n:
             sleep(pause)
         before = search.failed
-        passages = search.search(item.what, item.client)
+        passages = search.search(question(item.what), item.client)
         failed = search.failed != before
         result = Result(item, FAILED) if failed else judge(item, passages, hosts)
         print(f"[{n + 1}/{len(items)}] {item.id}: {result.verdict}", file=sys.stderr)
         results.append(result)
-    return results
+        if len(results) == STOP_AFTER and all(r.verdict == FAILED for r in results):
+            print(f"The first {STOP_AFTER} searches failed, so the searches fail: check the "
+                  "key, the per-minute limit, or the server. Stopped.", file=sys.stderr)
+            return results, True
+    return results, False
 
 
 def cell(text: str) -> str:
@@ -177,7 +200,7 @@ def _verdict(result: Result) -> str:
     if result.verdict == NEAR:
         missing = ", ".join(f"`{cell(w)}`" for w in result.missing)
         return f"near: {result.found} of {len(result.item.words)}; missing {missing}"
-    return result.verdict
+    return result.verdict + (f": {result.note}" if result.note else "")
 
 
 def _where(result: Result) -> str:
@@ -186,7 +209,9 @@ def _where(result: Result) -> str:
     return f"`{result.page}`" + (f", `{result.heading}`" if result.heading else "")
 
 
-def table(results: list[Result]) -> str:
+def table(results: list[Result], left: int | None = None) -> str:
+    """The first line, the table and what to do next. `left`: the rows not searched because
+    the run stopped, or None when it did not stop."""
     count = {v: sum(r.verdict == v for r in results) for v in (STATES, NEAR, CANNOT, NO_PAGE,
                                                                  FAILED)}
     first = (f"Rows checked: {len(results)}. States it: {count[STATES]}. Near: {count[NEAR]}. "
@@ -204,6 +229,9 @@ def table(results: list[Result]) -> str:
     if failed:
         lines += ["", f"The search failed for {', '.join(failed)}: run again with "
                       f"`--rows {','.join(failed)}`."]
+    if left is not None:
+        lines += ["", f"Stopped after {STOP_AFTER} failed searches: {left} rows were not "
+                      "searched."]
     return "\n".join(lines) + "\n"
 
 
@@ -226,7 +254,7 @@ def moved_part(records, hosts) -> str:
 def moved_pages(pages: dict[str, str], hosts, sources=SOURCES, locate=None):
     """watch_moved.moved for `pages`, with the manifest read the way watch_fetch reads it.
     None when there is no manifest source or one cannot be read."""
-    manifests = [_fetch(src["id"], _read_manifest, src)
+    manifests = [read_or_none(src["id"], read_manifest, src)
                  for src in load_sources(sources) if src["kind"] == "manifest"]
     if not manifests or None in manifests:
         return None
@@ -293,11 +321,12 @@ def main(argv=None, env=None, make_search=Search, sleep=time.sleep, find_moved=N
             print("Agent Docs' /search does not take `product` yet: deploy that first. "
                   "Nothing was searched.", file=sys.stderr)
             return 3
-    results = check(items, search, sleep, a.pause, hosts)
+    results, stopped = check(items, search, sleep, a.pause, hosts)
     pages = doc_pages(parse_list(text))
     records = find_moved(pages) if find_moved else moved_pages(pages, hosts)
-    print(table(results) + "\n" + moved_part(records, hosts), end="")
-    return 0
+    left = len(items) - len(results) if stopped else None
+    print(table(results, left) + "\n" + moved_part(records, hosts), end="")
+    return 5 if stopped else 0
 
 
 if __name__ == "__main__":

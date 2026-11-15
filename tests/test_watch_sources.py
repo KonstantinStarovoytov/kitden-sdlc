@@ -2,6 +2,7 @@
 """The table of doc pages for rows that have none. Every search here is a fake: no network."""
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -168,6 +169,40 @@ def test_one_search_a_row_with_the_what_as_question_and_the_client_as_product(ru
                                       (CC3, "claude-code"), (CX1, "codex"), (CU1, "cursor")]
 
 
+DATED = LIST.replace(
+    "| `zork --frob` turns the frob on |",
+    "| `zork --frob` turns the frob on (2026-10-21) |").replace(
+    "under `gizmos` |", "under `gizmos` (2026-10-19, version 2.1.283) |").replace(
+    "| Gadgets are slow on rainy days |", "| Gadgets (version 2.1.4) are slow (on rainy days) |")
+
+
+def test_the_question_leaves_out_dates_and_versions_in_brackets(run):
+    result = run(text=DATED)
+    assert result.search.searched[:3] == [
+        ("zork --frob turns the frob on", "claude-code"),
+        ("Widgets live in ~/.zork/widgets.toml under gizmos", "claude-code"),
+        ("Gadgets are slow (on rainy days)", "claude-code"),
+    ]
+
+
+def test_the_exact_words_keep_what_the_question_leaves_out():
+    items = pick_rows(DATED)
+    assert items[0].words == ["zork", "--frob"]
+    assert items[0].what == "zork --frob turns the frob on (2026-10-21)"
+
+
+@pytest.mark.parametrize(("what", "question"), [
+    ("a (2026-10-21) b", "a b"),
+    ("a (2026-11-15, version 2.1.325, Linux)", "a"),
+    ("a (version 0.169.0) b (2026-10-27)", "a b"),
+    ("a (the gateway speaks only http) b", "a (the gateway speaks only http) b"),
+    ("a (2026) b", "a (2026) b"),
+])
+def test_question_drops_only_dated_and_version_groups(what, question):
+    from watch_sources import question as ask
+    assert ask(what) == question
+
+
 def test_client_limits_the_run_to_that_client(run):
     result = run("--client", "codex")
     assert result.search.searched == [(CX1, "codex")]
@@ -245,9 +280,18 @@ def test_near_on_a_tie_shows_the_higher_passage(run):
     assert "`First`" in result.line("CC-02")
 
 
-def test_no_word_found_is_near_0(run):
-    result = run(answers={CC2: [passage("nothing here")]})
-    assert "near: 0 of 2; missing `~/.zork/widgets.toml`, `gizmos`" in result.line("CC-02")
+def test_a_passage_holding_none_of_the_words_is_no_page_with_a_note(run):
+    result = run(answers={CC2: [passage("nothing here"), passage("still nothing")]})
+    assert result.line("CC-02") == (
+        "| CC-02 Widgets live in `~/.zork/widgets.toml` under `gizmos` | install "
+        "|  | no page: the top passage holds none of its words |")
+    assert result.first == ("Rows checked: 5. States it: 0. Near: 0. Cannot check: 0. "
+                            "No page: 5. Search failed: 0.")
+
+
+def test_near_needs_at_least_one_word(run):
+    result = run(answers={CC2: [passage("gizmos")]})
+    assert "near: 1 of 2" in result.line("CC-02")
 
 
 def test_states_it_uses_a_lower_passage_that_holds_every_word(run):
@@ -364,11 +408,54 @@ def test_the_first_line_counts_other_page_when_rows_with_an_address_are_checked(
 
 
 def test_a_run_where_every_search_failed_says_so_in_the_first_line(run):
-    answers = {q: FAIL for q in (CC1, CC2, CC3, CX1, CU1)}
-    result = run(answers=answers)
+    result = run("--rows", "CC-01,CC-02", answers={CC1: FAIL, CC2: FAIL})
     assert result.first.startswith("Every search failed")
-    assert "Search failed: 5." in result.first
+    assert "Search failed: 2." in result.first
     assert result.code == 0
+
+
+ALL_FAIL = {q: FAIL for q in (CC1, CC2, CC3, CX1, CU1)}
+
+
+def test_three_failed_searches_first_stop_the_run_with_exit_5(run):
+    result = run(answers=ALL_FAIL)
+    assert result.code == 5
+    assert result.search.searched == [(CC1, "claude-code"), (CC2, "claude-code"),
+                                      (CC3, "claude-code")]
+    assert result.sleeps == [7, 7]
+    stop = [ln for ln in result.err.splitlines() if "searches fail" in ln]
+    assert len(stop) == 1
+    assert "key" in stop[0] and "limit" in stop[0] and "server" in stop[0]
+
+
+def test_a_stopped_run_prints_the_table_of_what_was_done(run):
+    result = run(answers=ALL_FAIL, moved=[])
+    assert result.first.startswith("Every search failed")
+    assert "Rows checked: 3." in result.first
+    assert [result.line(r).endswith("| search failed |") for r in ("CC-01", "CC-02", "CC-03")] \
+        == [True, True, True]
+    assert "| CX-01 " not in result.out
+    assert "Stopped after 3 failed searches: 2 rows were not searched." in result.out
+    assert "Every doc page of the list is in Agent Docs." in result.out
+
+
+def test_three_rows_that_all_fail_also_exit_5(run):
+    result = run("--rows", "CC-01,CC-02,CC-03", answers=ALL_FAIL)
+    assert result.code == 5
+    assert "Stopped after 3 failed searches: 0 rows were not searched." in result.out
+
+
+def test_a_failure_after_a_success_does_not_stop_the_run(run):
+    result = run(answers={**ALL_FAIL, CC1: [passage("zork --frob")]})
+    assert result.code == 0
+    assert len(result.search.searched) == 5
+    assert "Stopped" not in result.out
+
+
+def test_a_success_among_the_first_three_does_not_stop_the_run(run):
+    result = run(answers={**ALL_FAIL, CC2: []})
+    assert result.code == 0
+    assert len(result.search.searched) == 5
 
 
 def test_failed_rows_are_named_under_the_table_with_the_command_to_redo_them(run):
@@ -697,7 +784,7 @@ def test_moved_pages_reads_the_manifest_as_fetch_does(tmp_path, monkeypatch):
         read.append(source["id"])
         return {"https://cursor.com/docs/a.md"}
 
-    monkeypatch.setattr(watch_sources, "_read_manifest", fake_read)
+    monkeypatch.setattr(watch_sources, "read_manifest", fake_read)
     pages = {"https://cursor.com/docs/a": "cursor", "https://cursor.com/docs/gone": "cursor"}
     records = watch_sources.moved_pages(pages, HOSTS, sources, locate=lambda address: None)
     assert read == ["agent-docs-manifest"]
@@ -713,7 +800,7 @@ def test_moved_pages_gives_none_when_the_manifest_cannot_be_read(tmp_path, monke
     def fail(source):
         raise ValueError("too big")
 
-    monkeypatch.setattr(watch_sources, "_read_manifest", fail)
+    monkeypatch.setattr(watch_sources, "read_manifest", fail)
     assert watch_sources.moved_pages({}, HOSTS, sources, locate=lambda a: None) is None
     assert "cannot read agent-docs-manifest: ValueError" in capsys.readouterr().err
 
@@ -727,3 +814,11 @@ def test_moved_pages_gives_none_without_a_manifest_source(tmp_path):
 def test_the_default_sources_file_has_the_manifest():
     sources = watch_sources.load_sources(watch_sources.SOURCES)
     assert [s["id"] for s in sources if s["kind"] == "manifest"] == ["agent-docs-manifest"]
+
+
+def test_no_private_name_is_imported_from_another_module():
+    import ast
+    tree = ast.parse(Path(watch_sources.__file__).read_text())
+    names = [a.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+             for a in node.names]
+    assert not [n for n in names if n.startswith("_")]

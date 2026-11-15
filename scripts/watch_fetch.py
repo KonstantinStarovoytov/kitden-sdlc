@@ -165,7 +165,8 @@ def _read(source):
     return sections(body, ctype, source.get("level", 3), source.get("split"))
 
 
-def _read_manifest(source):
+def read_manifest(source):
+    """The addresses in Agent Docs' manifest, read with the 5 MB limit."""
     body, _ = get(source["url"], limit=MANIFEST_MAX)
     return manifest_addresses(body)
 
@@ -175,7 +176,8 @@ def _read_doc(address, hosts):
     return sections(body, ctype)
 
 
-def _fetch(sid, reader, address):
+def read_or_none(sid, reader, address):
+    """`reader(address)`, or None with one line on stderr when it fails."""
     try:
         return reader(address)
     except Exception as e:  # noqa: BLE001 - one unreadable source must not stop the run
@@ -197,16 +199,16 @@ def main():
     for src in load_sources(a.sources):
         if src["kind"] == "manifest":
             meta[src["id"]] = {"kind": "manifest", "url": src["url"]}
-            fetched[src["id"]] = _fetch(src["id"], _read_manifest, src)
+            fetched[src["id"]] = read_or_none(src["id"], read_manifest, src)
             manifests.append(fetched[src["id"]])
             continue
         meta[src["id"]] = {"client": src["client"], "kind": "release",
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
-        fetched[src["id"]] = _fetch(src["id"], _read, src)
+        fetched[src["id"]] = read_or_none(src["id"], _read, src)
     pages = doc_pages(rows)
     for address, client in pages.items():
         meta[address] = {"client": client, "kind": "doc", "url": address}
-        fetched[address] = _fetch(address, lambda u: _read_doc(u, hosts), address)
+        fetched[address] = read_or_none(address, lambda u: _read_doc(u, hosts), address)
     pieces, new_state = plan_run(state, fetched, meta)
     if manifests:
         read = None if None in manifests else set().union(*manifests)
