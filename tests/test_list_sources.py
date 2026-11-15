@@ -19,6 +19,8 @@ from list_sources import (
     NOT_ADDRESS,
     NOT_CHECKED,
     PAGES_MAX,
+    SLOW,
+    TIME_MAX,
     UNREAD,
     Line,
     changed_rows,
@@ -211,6 +213,71 @@ def test_at_most_twenty_pages_are_read():
     summary = render(lines)[1]
     assert "- CC-21, line 27: not checked: more than 20 pages in one pull request" in summary
     assert "Not checked: 2." in summary
+
+
+class FakeClock:
+    """A monotonic clock that moves on `step` seconds during each page read."""
+
+    def __init__(self, step: float):
+        self.now = 1000.0
+        self.step = step
+
+    def __call__(self):
+        return self.now
+
+    def reader(self, pages):
+        inner = FakeReader(pages)
+
+        def read(address):
+            self.now += self.step
+            return inner(address)
+
+        read.calls = inner.calls
+        return read
+
+
+def test_page_reads_stop_once_they_took_too_long():
+    assert TIME_MAX == 180
+    clock = FakeClock(50)
+    rows = [(f"`zork{n}` fact", doc(f"p{n}")) for n in range(1, 7)]
+    rows += [("`zork1` again", doc("p1")), ("`zork` guessed", "guess")]
+    read = clock.reader({doc(f"p{n}"): f"zork{n}\n" for n in range(1, 7)})
+    lines = check(make_list(rows), [f"CC-{n:02d}" for n in range(1, 9)], HOSTS, read, clock)
+    # 50, 100, 150 seconds: a fourth read starts, and after it 200 seconds are spent.
+    assert read.calls == [doc(f"p{n}") for n in range(1, 5)]
+    assert [line.verdict for line in lines] == [HELD] * 4 + [SLOW] * 2 + [HELD, GUESS]
+    warned, summary = render(lines)
+    assert [w.split("::")[2] for w in warned] == [
+        "CC-08: no page named; scripts/watch_sources.py can look for one"]
+    assert "- CC-05, line 11: not checked: the pages took too long" in summary
+    assert "Not checked: 2." in summary
+
+
+def test_the_time_counts_page_reads_only():
+    clock = FakeClock(0)
+    rows = [("`zork` one", doc("a")), ("`zork` two", doc("b"))]
+    read = clock.reader({doc("a"): "zork\n", doc("b"): "zork\n"})
+    clock.now += 10_000  # time before the reads does not count
+    lines = check(make_list(rows), ["CC-01", "CC-02"], HOSTS, read, clock)
+    assert [line.verdict for line in lines] == [HELD, HELD]
+
+
+def test_a_failed_read_counts_toward_the_time():
+    clock = FakeClock(200)
+    rows = [("`zork` one", doc("a")), ("`zork` two", doc("b"))]
+    read = clock.reader({doc("a"): OSError("slow and failed")})
+    lines = check(make_list(rows), ["CC-01", "CC-02"], HOSTS, read, clock)
+    assert [line.verdict for line in lines] == [UNREAD, SLOW]
+
+
+def test_main_passes_its_clock_to_check(tmp_path, capsys):
+    clock = FakeClock(500)
+    head = make_list([("`zork` one", doc("a")), ("`zork` two", doc("b"))])
+    read = clock.reader({doc("a"): "zork\n", doc("b"): "zork\n"})
+    summary = tmp_path / "summary.md"
+    assert main(files(tmp_path, "", head), {"GITHUB_STEP_SUMMARY": str(summary)}, read,
+                clock) == 0
+    assert "CC-02, line 8: not checked: the pages took too long" in summary.read_text()
 
 
 def test_an_html_page_is_read_as_its_text():
