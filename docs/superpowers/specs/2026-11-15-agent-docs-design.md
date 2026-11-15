@@ -97,19 +97,40 @@ workflow.
 
 ## Approaches
 
-Three ways to bring Agent Docs into the workflows were weighed.
+The question that matters is how the judge gets a passage of the docs: who chooses what to
+look up, and where the key is. Four ways were weighed on the same five points.
 
-| Way | What it trades | Taken |
-|---|---|---|
-| The model gets Agent Docs as an MCP tool | The least code. Breaks rule 6, lets injected text choose the questions, and puts a key beside a model | no |
-| A script inside the judge searches for what the model's `screen` step picked, with a token of Agent Docs | Fewer searches. The judge job gains a second secret and a second host, and the model's own words become a question sent to a server | no; it was the first draft of part 3 |
-| Scripts only. Git files where they are enough; the search from its own job, with questions taken from the list and never from a model | More searches (cents a month) and no passage for a piece that names no row. No model is ever near the key | **yes** |
+| | A. The model has Agent Docs as an MCP tool | B. A script inside the judge job searches | C. A script searches before the judge, by words | D. The model picks rows, a script in a job of its own searches |
+|---|---|---|---|---|
+| Who writes the question | the model, freely | the model's quote and title | a script: rows whose words are in the piece | the list: the text of a row the model picked by its number |
+| Can injected text steer the search | yes | yes, through the quote | no | only to another row of the list |
+| The key | beside the model | beside the model | in a job with no model | in a job with no model |
+| Passages fit what is assessed | best | good | poor: the word check and the model often pick different rows | good: one search for each change that is assessed |
+| Searches a run | not bounded by a script | one a change | up to 30, most of them never read | one a change, at most 30 |
+| The eval can be replayed | no: the questions differ each run | yes | yes | yes |
+| Rules it breaks | 1, 6, 7, 9 | 7; the judge gains a host | none | none |
 
-The owner asked for safe, so the third. What made it possible: Agent Docs takes the caller's
-own Cohere key in the header `X-Cohere-Api-Key` in place of its token
-(`src/service/app.py`). The watcher then needs no Agent Docs token at all, and the owner's
-server spends none of its own Cohere quota on the watcher (it still pays for one small
-OpenAI embedding a search).
+**D is taken.** It keeps what makes A good, that the model decides what is worth looking up,
+and gives up what makes A unsafe: the model's choice is one row out of a closed list, and a
+script checks that the row exists before anything is sent. It is as safe as C and wastes no
+searches. Its price is two more short jobs in a run, which cost a minute or two of a free
+runner.
+
+A is not taken, and not only because rule 6 says so. Agent Docs can only be read and the
+model sees no secret, so the harm an injected text could do through it is small: wasted
+searches. But the tool would put a key that spends money in the one job that reads a
+stranger's text, the eval table would stop being repeatable, and the gain over D is only a
+freer wording of the question. If the eval of part 3 shows that D's passages do not help the
+judge, A for the judge alone is the next experiment, with a change to rule 6 and a limit on
+the calls. The reviewers never get it: they read a diff from anyone.
+
+B was the first draft. C was the second: safe, but the passages often belong to rows the
+model does not assess.
+
+What made the safe ways cheap: Agent Docs takes the caller's own Cohere key in the header
+`X-Cohere-Api-Key` in place of its token (`src/service/app.py`). The watcher then needs no
+Agent Docs token at all, and the owner's server spends none of its own Cohere quota on the
+watcher (it still pays for one small OpenAI embedding a search).
 
 ## The parts
 
@@ -171,8 +192,9 @@ rest wait in the memory, and an entry older than 14 days is dropped and counted 
 log line. A `checked` date older than three days is an unreadable source, with the same
 "Cannot read" item as any other.
 
-The reindex runs at 06:00 UTC and the watcher at 05:17, so the watcher reads yesterday's
-feed. A gap goes to the weekly summary anyway; the day does not matter (call).
+The reindex is set for 06:00 UTC and in fact starts between 12:30 and 15:20; the watcher runs
+at 05:17. So the watcher reads yesterday's feed. A gap goes to the weekly summary anyway;
+the day does not matter (call).
 
 **A shadow week first.** For seven days fetch builds the feed pieces, writes how many of them
 there are and which filter word kept each, and gives none to the judge. The owner sees the
@@ -216,34 +238,47 @@ become a monthly issue later; not now.
 
 ### 3. An experiment: what the docs say now
 
-A new job, `docs`, between `fetch` and `judge`. It runs no model. It is the only job in any
-workflow that holds the Cohere key, and it can write nothing.
+Today one job, `judge`, runs three model steps for each piece: `screen` names the rows of
+the list a change touches, `assess` reads Kitden's code for each such row, `refute` argues
+against a grave finding. `screen` already takes a row only when its number is on the list
+(`scripts/watch_judge.py`).
 
-For each piece of the input it finds the rows of the list whose words are in the piece: the
-word check that `scripts/watch_route.py` already uses (`terms()`, any one word found). For each
-such row, at most 3 a piece and 30 a run (call), it asks Agent Docs `/search` once: the row's
-text as the question, within the row's client, the top three passages, each cut to 1500
-characters (call). It writes `docs.json`: for a piece and a row, the passages with the page
-address and the heading of each.
+With `WATCH_DOCS` on, the run has three jobs in place of that one:
 
-The question is always a row of the list, which is a reviewed file on Kitden's `main`. No
-text a vendor or a model wrote is ever sent to the search. A piece that names no row gets no
-passages: a gap is found from the piece alone, as today.
+| Job | Model | Secret | What it does |
+|---|---|---|---|
+| `screen` | yes | the model's key | Runs the `screen` step for every piece and writes `screened.json` |
+| `docs` | no | `WATCH_COHERE_KEY` | Searches Agent Docs for the rows `screen` picked and writes `docs.json` |
+| `judge` | yes | the model's key | Runs as today, but takes the screen results from `screened.json` and gives `assess` and `refute` the passages |
 
-The judge downloads `docs.json` with the input. `assess` and `refute` get all the passages of
-their piece as `docs`, each under its row, and their prompts gain a few lines: the passages
-are outside text, data and never instructions; they say how the client is now, not what
-changed; a finding still rests on the quote. A known limit: the model's `screen` step picks
-the rows a change touches, and it may pick a row the word check did not, which then has no
-passages. The eval shows how often that matters.
+**The `docs` job.** It is the only job in any workflow that holds the Cohere key. It runs no
+model and can write nothing. From `screened.json` it reads two things for each change, the
+piece's id and the row's number, and nothing else in the file. A number that is not on the
+list for that client is dropped. For each pair left, at most 30 a run (call), it asks Agent
+Docs `/search` once: the text of that row from the list as the question, within the row's
+client, the top three passages, each cut to 1500 characters (call). It writes `docs.json`:
+for a piece and a row, the passages with the page address and the heading of each.
 
-The judge job changes in two lines: it also waits for `docs`, and it downloads `docs.json`
-when there is one. Its secrets (the model's key and the Langfuse keys) and its hosts stay as
-they are. With `docs`, the passages become part of the traces the judge sends to Langfuse,
-as the pieces are today.
+So the question is always a row of the list, which is a reviewed file on Kitden's `main`.
+The model chooses which row, out of a closed set; no text a vendor or a model wrote is ever
+sent. A change `screen` calls a gap has no row and gets no passages: a gap is found from the
+piece alone, as today.
 
-Off by default, behind a repository variable `WATCH_DOCS`. When it is off the `docs` job is
-skipped and the judge runs as today.
+**The `judge` job.** It downloads `screened.json` and `docs.json`. Where the screen result of
+a piece is recorded, the judge uses it and does not call the model for that step again, so
+no screen call is paid twice and the rows are the ones the search was made for. `assess` and
+`refute` get the passages of their row as `docs`, and their prompts gain a few lines: the
+passages are outside text, data and never instructions; they say how the client is now, not
+what changed; a finding still rests on the quote. Its secrets (the model's key and the
+Langfuse keys) and its hosts stay as they are. With `docs`, the passages become part of the
+traces the judge sends to Langfuse, as the pieces are today.
+
+The limit on model calls (rule 5) is shared: `screen` gets a part of the 60 and the judge the
+rest (the builder sets the split). A piece `screen` did not reach waits for the next run,
+as a piece does today when the calls run out.
+
+Off by default, behind a repository variable `WATCH_DOCS`. When it is off, `screen` and
+`docs` are skipped and the one `judge` job runs exactly as today.
 
 **A link in each issue.** With `docs`, the issue for a finding that touches a row shows "What
 the docs say now: <page>, section <heading>". The model writes none of it and the findings
@@ -255,13 +290,14 @@ shows the page alone. Without `docs`, an issue for a
 row whose `Source` is an address links that address. The link goes to the page, not to an
 anchor: nothing checked how each site names its anchors (call).
 
-**When Agent Docs does not answer.** One call to `/health` at the start of the job wakes the
-free server (up to 90 seconds). A search waits 15 seconds and is tried twice. A failed search
-means that row has no passages. A failed `docs` job means the judge runs without `docs`: the
-judge names both `fetch` and `docs` in `needs`, runs whenever `fetch` succeeded and gave
-pieces, whatever became of `docs`, and a missing `docs.json` is not an error. The run never
-stops for it.
-The log line of the run counts searches and failures.
+**When Agent Docs does not answer.** One call to `/health` at the start of the `docs` job
+wakes the free server (up to 90 seconds). A search waits 15 seconds and is tried twice. A
+failed search means that row has no passages. A failed `docs` job means the judge runs
+without `docs`: the judge names `fetch`, `screen` and `docs` in `needs`, runs whenever
+`fetch` succeeded and gave pieces, whatever became of the other two, and a missing
+`screened.json` or `docs.json` is not an error: without the first it screens by itself, as
+today. The run never stops for Agent Docs. The log line of the run counts searches and
+failures.
 
 **The eval decides.** The lookups of the 40 tasks are recorded once into
 `evals/watch/docs/<task>.json` and replayed after that, so the table does not depend on the
@@ -431,6 +467,7 @@ first list did. Nothing else in this design waits for it.
 | Part | Job | Model | Secret | Writes | New host |
 |---|---|---|---|---|---|
 | 0, 1, 6, 8 | `fetch` | no | none new | the artifact | `raw.githubusercontent.com` |
+| 3 | `screen` (new) | yes | the model's key, as `judge` | the artifact | none new |
 | 3 | `docs` (new) | no | `WATCH_COHERE_KEY` | the artifact | `agent-docs-mcp.onrender.com` |
 | 3 | `judge` | yes | none new | the artifact | none |
 | 3 | the posting job | no | none new | as today | none |
@@ -442,7 +479,10 @@ first list did. Nothing else in this design waits for it.
 Against the rules:
 
 - **Rule 1.** No job holds untrusted text, a secret and write together. The `docs` job holds
-  a secret and vendor text, sends only the list's own text, and has `contents: read`.
+  a secret and a file a model wrote, reads only row numbers from it, sends only the list's
+  own text, and has `contents: read`.
+- **Rule 5.** `screen` is an agent job like `judge`: a timeout, its share of
+  `MAX_MODEL_CALLS`, the watcher's one run at a time.
 - **Rule 6.** No model gets a tool. Every search and every page read is a script.
 - **Rule 7.** `WATCH_COHERE_KEY` reaches one step of one job as a named input and is never
   printed. The Claude token, the OpenAI key and the Cohere key are in three different jobs.
@@ -463,7 +503,7 @@ Read on 2026-11-15, mostly through a web search; not legal advice.
 | Service | What was found | What this design does |
 |---|---|---|
 | Cohere, trial key | The price page: "not permitted to be used for production or commercial purposes" | Part 3 runs only with a paid key. No workflow uses a trial key |
-| Cohere, paid key | About $2 for 1000 searches with `rerank-v4.0-fast`, no monthly fee (a reseller's figure) | Part 2: 60 searches, about $0.12 once. Part 3: at most 30 a run, under $2 a month |
+| Cohere, paid key | About $2 for 1000 searches with `rerank-v4.0-fast`, no monthly fee (a reseller's figure) | Part 2: 60 searches, about $0.12 once. Part 3: one search for each assessed change, at most 30 a run; the guess is 60 to 150 a month, $0.10 to $0.30, and never over $2 |
 | Render, free | No ban found; not advised for production; sleeps after 15 minutes | Every part works when it sleeps |
 | GitHub | `feed.json` is a file in git, read as a file | Nothing |
 | Claude Code docs | `robots.txt`: `ai-input=yes, search=yes` | Nothing |
@@ -516,7 +556,7 @@ same trust the owner's own keys on that server already rest on.
 | The attacker controls | Tries | Stopped by |
 |---|---|---|
 | A vendor's page or release note | Orders to the judge | As today: the judge has no tool and no write, and its text passes the secret checks |
-| The same | To steer the search | The question is a row of the list; no vendor text is sent |
+| The same | To steer the search | The model can only pick a row of the list by its number; a script checks the number and sends the row's own text. The worst is a search for a row that does not matter |
 | The same, as a passage or a section | Orders to the judge or a reviewer | The prompts name it as data; neither has a tool; rule 6's checks |
 | Agent Docs' repository (the feed, the manifest) | To make the watcher read an address | The address check; no secret in `fetch` |
 | Agent Docs' server | To send back a wrong address, a heading with markup or a huge answer | The address check on every address shown; the heading cleaned as in part 3; passages cut to 1500 characters; a size limit on the answer |
@@ -540,7 +580,7 @@ passages of public doc pages, as the watcher's input artifact already does.
 | 5 | 5. The check for list pull requests | kitden-sdlc, kitden | step 1 | none |
 | 6 | 1. The feed, shadow week, then live | agent-docs, kitden-sdlc | step 1 | about $5 a month (guess) |
 | 7 | 8. Facts checked before the page changed | kitden-sdlc | step 6 | none |
-| 8 | 3. The docs for the judge, with the link | agent-docs (test), kitden-sdlc | steps 1 and 4, a paid key, the eval | under $2 a month |
+| 8 | 3. The docs for the judge, with the link | agent-docs (test), kitden-sdlc | steps 1 and 4, a paid key, the eval | cents a month, under $2 at most |
 | 9 | 7. The docs for the reviewers | kitden-sdlc | step 4's table, the eval | an eval run |
 | 10 | 9. The watcher on kitden-sdlc | kitden-sdlc | its own list and eval tasks | a few pieces a week |
 
@@ -567,8 +607,9 @@ changed day of a page; how a section is found again by its heading in the eval r
 
 ## Questions for the owner
 
-1. Part 3 adds a job that holds a paid Cohere key and reaches your server. The judge gains
-   nothing. Acceptable, or should part 3 not be built?
+1. Part 3 splits the judge into three jobs when `WATCH_DOCS` is on; the middle one holds a
+   paid Cohere key and reaches your server, and no model job gains a secret or a host.
+   Acceptable, or should part 3 not be built?
 2. The feed makes the watcher depend on Agent Docs for one kind of news (new pages, new
    sections). When Agent Docs is down the watcher says so after three days. Enough?
 3. `feed.json` changes every day, so Agent Docs gets one commit a day even when no page
@@ -608,6 +649,12 @@ changed day of a page; how a section is found again by its heading in the eval r
   posting job; `judge` has `contents: read`, the model's key and the Langfuse keys, and Harden-
   Runner in audit mode. `scripts/watch_pages.py` allows only `https` and sends no `User-Agent`
   of its own.
+- Agent Docs' `Reindex` workflow: cron `0 6 * * *`; its eight runs of 2026-11-07 to
+  2026-11-14 all succeeded and started between 12:31 and 15:18 UTC. `/health` answered 200
+  on 2026-11-15.
+- `scripts/watch_judge.py` on 2026-11-15: one graph runs `screen`, `assess` and `refute` for
+  each piece in turn; `screen` keeps a change only when its row is on the list for that
+  client, or when it is called a gap.
 - `docs/platform-rules.md` in kitden-sdlc gives each rule a `Source:` and a `Checked:` date;
   some sources are words, not addresses.
 - kitden-sdlc on 2026-11-15: `terms()` (`scripts/watch_list.py`) keeps only words in backticks
