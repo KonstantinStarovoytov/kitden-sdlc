@@ -99,7 +99,12 @@ def read(address: str, hosts, opener=None) -> tuple[str, str, str]:
         if len(body) > LIMIT:
             raise OSError(f"page is over {LIMIT} bytes: {final}")
         charset = resp.headers.get_content_charset() or "utf-8"
-        return body.decode(charset, errors="replace"), resp.headers.get_content_type(), final
+        try:
+            text = body.decode(charset, errors="replace")
+        except LookupError:
+            # The server named a charset Python does not know: read it as utf-8.
+            text = body.decode("utf-8", errors="replace")
+        return text, resp.headers.get_content_type(), final
 
 
 def location(address: str, hosts, opener=None) -> str | None:

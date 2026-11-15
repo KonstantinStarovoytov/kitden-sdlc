@@ -102,6 +102,12 @@ def test_read_gives_body_type_and_address():
     assert read(PAGE, HOSTS, opener) == ("# MCP\nhello é\n", "text/markdown", PAGE)
 
 
+def test_unknown_charset_falls_back_to_utf8():
+    fake, opener = web({PAGE: (200, {"Content-Type": "text/plain; charset=bogus"},
+                               "hello é".encode())})
+    assert read(PAGE, HOSTS, opener) == ("hello é", "text/plain", PAGE)
+
+
 def test_read_sends_our_user_agent_and_timeout():
     fake, opener = web({PAGE: (200, {"Content-Type": "text/plain"}, b"x")})
     read(PAGE, HOSTS, opener)
