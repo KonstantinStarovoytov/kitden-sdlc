@@ -38,6 +38,7 @@ def test_manifest_addresses_returns_the_keys():
     "{}",
     '{"documents": []}',
     '{"documents": "x"}',
+    '{"documents": {}}',
     "[1, 2]",
     "not json",
 ])
@@ -101,6 +102,21 @@ def test_maybe_takes_the_first_match_in_sorted_order():
     manifest = {"https://cursor.com/docs/z/skills.md", "https://cursor.com/docs/a/skills.md"}
     result = moved(pages, manifest, HOSTS, Locate())
     assert result[0]["to"] == "https://cursor.com/docs/a/skills"
+
+
+def test_maybe_needs_the_same_path_start():
+    pages = {"https://cursor.com/help/customization/rules": "cursor"}
+    manifest = {"https://cursor.com/docs/rules.md"}
+    result = moved(pages, manifest, HOSTS, Locate())
+    assert (result[0]["verdict"], result[0]["to"]) == ("absent", "")
+
+
+def test_maybe_takes_the_shortest_path():
+    pages = {"https://cursor.com/docs/context/skills": "cursor"}
+    manifest = {"https://cursor.com/docs/agent-sdk/reference/skills.md",
+                "https://cursor.com/docs/skills.md"}
+    result = moved(pages, manifest, HOSTS, Locate())
+    assert result[0]["to"] == "https://cursor.com/docs/skills"
 
 
 def test_maybe_needs_the_same_host():

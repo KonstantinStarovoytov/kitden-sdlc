@@ -17,6 +17,7 @@ from watch_route import TEXT_MAX, TITLE_MAX, _quiet, week_of
 
 PIECES_MAX = 20
 PIECE_CHARS = 12000
+MANIFEST_MAX = 5 * 1024 * 1024  # bytes; a larger manifest is a failed read
 FAIL_DAYS = 3
 # 2: doc pages are read as markdown. A memory with a lower number holds hashes of HTML
 # sections, so its doc pages are filled again, quietly, as if new.
@@ -80,26 +81,28 @@ def plan_run(state, fetched, meta):
 
 
 # What the summary says of each verdict of watch_moved.moved: the title, what changed, the fix.
+# The title is short and has only the old address, so the summary does not cut it mid-address.
 MOVED_TEXT = {
-    "moved": ("{address} moved to {to}",
-              "The address in the list now redirects to {to}.",
+    "moved": ("{address} moved",
+              "{address} is not in Agent Docs, and it now redirects to {to}.",
               "Change the address in docs/clients.md to {to}."),
-    "maybe": ("{address} may now be at {to}",
-              "Agent Docs has no page at the address in the list, but it has {to}: a page "
-              "on the same site with the same last part.",
+    "maybe": ("{address} may have moved",
+              "{address} is not in Agent Docs, and it does not redirect. Agent Docs has {to}: "
+              "a page on the same site, under the same path, with the same last part.",
               "Check that {to} is the same page; if it is, change the address in "
-              "docs/clients.md."),
-    "absent": ("{address} is not in Agent Docs",
-               "Agent Docs has no page at the address in the list, and the address does not "
-               "redirect.",
+              "docs/clients.md to it."),
+    "absent": ("{address} was not found",
+               "{address} is not in Agent Docs, and it does not redirect.",
                "Find the page's new address, or take it out of docs/clients.md."),
 }
+# Said once each: an address with this verdict is said again only when its `to` changes.
+TOLD_ONCE = ("maybe", "absent")
 
 
 def _moved_item(record: dict) -> dict:
     title, changed, fix = (t.format(**record) for t in MOVED_TEXT[record["verdict"]])
     return {
-        "effect": "unknown", "severity": "minor", "sure": record["verdict"] != "maybe",
+        "effect": "outdated", "severity": "minor", "sure": record["verdict"] != "maybe",
         "title": _quiet(title, TITLE_MAX), "client": record["client"],
         "changed": _quiet(changed, TEXT_MAX), "fix": _quiet(fix, TEXT_MAX),
         "why": "Agent Docs keeps every doc page it holds; a page of the list that is not "
@@ -113,26 +116,29 @@ def plan_moved(state, manifest, pages, hosts, locate, week):
     """Once a week, put into `kept` the doc pages of the list that are not in the manifest.
 
     `manifest` is the set of its addresses, or None when it could not be read today: then
-    nothing is checked and the week stays open for the next run. An `absent` address is said
-    once (`told`); `moved` and `maybe` are said again each week until the list is fixed.
+    nothing is checked and the week stays open for the next run. A `maybe` or `absent`
+    address is said once, and again only when its `to` changes (`told`: address -> to);
+    `moved` is said again each week until the list is fixed.
     """
     new = copy.deepcopy(state)
     if manifest is None or new.get("moved", {}).get("week") == week:
         return new
-    told = set(new.get("moved", {}).get("told", []))
+    old = new.get("moved", {}).get("told", {})
+    told = {}
     titles = {k["title"] for k in new["kept"]}
-    absent = []
     for record in moved(pages, manifest, hosts, locate):
-        if record["verdict"] == "absent":
-            absent.append(record["address"])
-            if record["address"] in told:
+        address, to = record["address"], record["to"]
+        if record["verdict"] in TOLD_ONCE:
+            told[address] = to
+            if address in old and old[address] == to:
                 continue
         item = _moved_item(record)
         if item["title"] not in titles:
             titles.add(item["title"])
             new["kept"].append(item)
-    # Only the addresses absent today: one that is fixed, or left the list, is forgotten.
-    new["moved"] = {"week": week, "told": sorted(absent)}
+    # Only the addresses absent or maybe today: one that is fixed, or left the list, is
+    # forgotten.
+    new["moved"] = {"week": week, "told": told}
     return new
 
 
@@ -160,7 +166,7 @@ def _read(source):
 
 
 def _read_manifest(source):
-    body, _ = get(source["url"])
+    body, _ = get(source["url"], limit=MANIFEST_MAX)
     return manifest_addresses(body)
 
 

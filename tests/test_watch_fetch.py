@@ -7,6 +7,7 @@ from watch_fetch import (
     PIECE_CHARS,
     PIECES_MAX,
     _fetch,
+    _moved_item,
     build_input,
     plan_moved,
     plan_run,
@@ -226,13 +227,15 @@ WEEK = "2026-W46"
 GONE = "https://docs.example.com/a/gone"
 LOST = "https://docs.example.com/a/lost"
 NEAR = "https://docs.example.com/a/old/near"
+HERE = "https://docs.example.com/a/here"
+NEW_NEAR = "https://docs.example.com/a/new/near"
 PAGES = {GONE: "codex", LOST: "cursor", NEAR: "claude-code",
          "https://docs.example.com/a/kept": "codex"}
-MANIFEST = {"https://docs.example.com/a/kept.md", "https://docs.example.com/a/new/near.md"}
+MANIFEST = {"https://docs.example.com/a/kept.md", NEW_NEAR + ".md"}
 
 
 def locate(address):
-    return "https://docs.example.com/a/here" if address == GONE else None
+    return HERE if address == GONE else None
 
 
 def week_state(**extra):
@@ -242,30 +245,54 @@ def week_state(**extra):
 def test_a_new_week_puts_each_verdict_into_kept_once():
     state = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, locate, WEEK)
     titles = [k["title"] for k in state["kept"]]
-    assert titles == [
-        f"{GONE} moved to https://docs.example.com/a/here",
-        f"{LOST} is not in Agent Docs",
-        f"{NEAR} may now be at https://docs.example.com/a/new/near",
-    ]
+    assert titles == [f"{GONE} moved", f"{LOST} was not found", f"{NEAR} may have moved"]
     for item, client in zip(state["kept"], ["codex", "cursor", "claude-code"], strict=True):
-        assert (item["effect"], item["severity"]) == ("unknown", "minor")
+        assert (item["effect"], item["severity"]) == ("outdated", "minor")
         assert item["client"] == client and item["version"] == "" and item["files"] == []
         assert item["url"] in PAGES
-    assert state["moved"] == {"week": WEEK, "told": [LOST]}
+        assert "not in Agent Docs" in item["changed"]
+    gone, lost, near = state["kept"]
+    assert HERE in gone["changed"] and HERE in gone["fix"]
+    assert NEW_NEAR in near["changed"] and NEW_NEAR in near["fix"]
+    assert state["moved"] == {"week": WEEK, "told": {LOST: "", NEAR: NEW_NEAR}}
 
 
-def test_an_absent_address_already_told_is_not_said_again():
-    state = plan_moved(week_state(moved={"week": "2026-W45", "told": [LOST]}),
+def test_each_title_is_under_80_characters_for_a_60_character_address():
+    address = "https://docs.example.com/a/" + "x" * 33
+    assert len(address) == 60
+    for verdict, to in (("moved", HERE), ("maybe", NEW_NEAR), ("absent", "")):
+        item = _moved_item({"address": address, "client": "codex", "verdict": verdict,
+                            "to": to})
+        assert len(item["title"]) < 80 and item["title"].startswith(address)
+
+
+def test_absent_and_maybe_already_told_are_not_said_again():
+    told = {LOST: "", NEAR: NEW_NEAR}
+    state = plan_moved(week_state(moved={"week": "2026-W45", "told": told}),
                        MANIFEST, PAGES, HOSTS, locate, WEEK)
-    titles = [k["title"] for k in state["kept"]]
-    assert len(titles) == 2 and not any(LOST in t for t in titles)
-    assert state["moved"] == {"week": WEEK, "told": [LOST]}
+    assert [k["title"] for k in state["kept"]] == [f"{GONE} moved"]
+    assert state["moved"] == {"week": WEEK, "told": told}
 
 
-def test_moved_and_maybe_are_said_again_in_a_new_week():
+def test_a_maybe_is_said_again_when_its_new_address_differs():
+    told = {LOST: "", NEAR: "https://docs.example.com/a/other/near"}
+    state = plan_moved(week_state(moved={"week": "2026-W45", "told": told}),
+                       MANIFEST, PAGES, HOSTS, locate, WEEK)
+    assert [k["url"] for k in state["kept"]] == [GONE, NEAR]
+    assert state["moved"]["told"] == {LOST: "", NEAR: NEW_NEAR}
+
+
+def test_moved_is_said_again_in_a_new_week():
     first = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, locate, "2026-W45")
     again = plan_moved({**first, "kept": []}, MANIFEST, PAGES, HOSTS, locate, WEEK)
-    assert [k["url"] for k in again["kept"]] == [GONE, NEAR]
+    assert [k["url"] for k in again["kept"]] == [GONE]
+
+
+def test_an_address_that_left_the_list_is_forgotten():
+    told = {LOST: "", "https://docs.example.com/a/left": ""}
+    state = plan_moved(week_state(moved={"week": "2026-W45", "told": told}),
+                       MANIFEST, PAGES, HOSTS, locate, WEEK)
+    assert state["moved"]["told"] == {LOST: "", NEAR: NEW_NEAR}
 
 
 def test_the_same_week_twice_makes_nothing_and_asks_nothing():
@@ -275,22 +302,22 @@ def test_the_same_week_twice_makes_nothing_and_asks_nothing():
         calls.append(address)
         return locate(address)
 
-    state = plan_moved(week_state(moved={"week": WEEK, "told": []}),
+    state = plan_moved(week_state(moved={"week": WEEK, "told": {}}),
                        MANIFEST, PAGES, HOSTS, counting, WEEK)
     assert state["kept"] == [] and calls == []
-    assert state["moved"] == {"week": WEEK, "told": []}
+    assert state["moved"] == {"week": WEEK, "told": {}}
 
 
 def test_a_title_already_kept_is_not_added_again():
-    title = f"{GONE} moved to https://docs.example.com/a/here"
+    title = f"{GONE} moved"
     state = plan_moved(week_state(kept=[{"title": title}]), MANIFEST, PAGES, HOSTS, locate, WEEK)
     assert [k["title"] for k in state["kept"]].count(title) == 1
 
 
 def test_an_unread_manifest_makes_no_moved_items_and_leaves_the_week_open():
-    state = plan_moved(week_state(moved={"week": "2026-W45", "told": [LOST]}),
-                       None, PAGES, HOSTS, locate, WEEK)
-    assert state["kept"] == [] and state["moved"] == {"week": "2026-W45", "told": [LOST]}
+    before = {"week": "2026-W45", "told": {LOST: ""}}
+    state = plan_moved(week_state(moved=before), None, PAGES, HOSTS, locate, WEEK)
+    assert state["kept"] == [] and state["moved"] == before
 
 
 def test_one_failed_locate_does_not_stop_the_check():
@@ -301,7 +328,7 @@ def test_one_failed_locate_does_not_stop_the_check():
 
     state = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, broken, WEEK)
     assert len(state["kept"]) == 3
-    assert f"{GONE} is not in Agent Docs" in [k["title"] for k in state["kept"]]
+    assert f"{GONE} was not found" in [k["title"] for k in state["kept"]]
 
 
 def test_plan_moved_does_not_change_its_input():
@@ -310,21 +337,35 @@ def test_plan_moved_does_not_change_its_input():
     assert before == week_state()
 
 
+def test_an_item_of_each_verdict_renders_in_the_summary():
+    from datetime import date
+
+    from watch_post import WHAT, render_summary
+
+    state = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, locate, WEEK)
+    _, body, rest = render_summary(state["kept"], date(2026, 11, 16))
+    assert rest == [] and body.count(WHAT["outdated"]) == 3
+    for item in state["kept"]:
+        assert item["title"] in body
+    assert "Update the row in `docs/clients.md`" in body
+
+
 def test_the_manifest_is_read_with_get_and_gives_its_addresses(monkeypatch):
     seen = []
 
-    def fake_get(url):
-        seen.append(url)
+    def fake_get(url, limit=None):
+        seen.append((url, limit))
         return '{"documents": {"https://docs.example.com/a/b.md": {}}}', "text/plain"
 
     monkeypatch.setattr(watch_fetch, "get", fake_get)
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
     assert watch_fetch._read_manifest(src) == {"https://docs.example.com/a/b.md"}
-    assert seen == ["https://raw.example.com/m.json"]
+    assert seen == [("https://raw.example.com/m.json", watch_fetch.MANIFEST_MAX)]
+    assert watch_fetch.MANIFEST_MAX == 5 * 1024 * 1024
 
 
 def test_a_manifest_of_the_wrong_shape_counts_as_unread(monkeypatch):
-    monkeypatch.setattr(watch_fetch, "get", lambda url: ("[]", "text/plain"))
+    monkeypatch.setattr(watch_fetch, "get", lambda url, limit=None: ("[]", "text/plain"))
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
     assert _fetch("m", watch_fetch._read_manifest, src) is None
 
@@ -339,3 +380,12 @@ def test_the_config_has_the_manifest_with_no_client():
     assert src == {"id": "agent-docs-manifest", "kind": "manifest", "url": (
         "https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/"
         "data/manifests/agent_docs_hybrid_v1.json")}
+
+
+def test_a_manifest_over_the_cap_counts_as_unread(monkeypatch):
+    def too_big(url, limit=None):
+        raise ValueError(f"the body is over {limit} bytes")
+
+    monkeypatch.setattr(watch_fetch, "get", too_big)
+    src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
+    assert _fetch("m", watch_fetch._read_manifest, src) is None
