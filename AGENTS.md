@@ -15,6 +15,10 @@ Other rules:
   `# Why:` comment, and its `name:` says what it does and starts with a capital letter.
 - A change to a prompt, a skill or a model comes with its eval table, before and after, in the
   same pull request.
+- In a design, each fact about a client under 'Checked facts' names the page and the day it
+  was read. A plan carries, in its Global Constraints, the line: a fact about a client comes
+  from Agent Docs or the vendor's page, with the address and the date; a subagent that cannot
+  reach them writes `not checked`.
 
 Several sessions at once:
 
