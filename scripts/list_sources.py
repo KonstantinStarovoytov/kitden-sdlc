@@ -27,10 +27,13 @@ address is printed.
     python scripts/list_sources.py --base base.md --head head.md
 
 Warnings go to stdout as workflow commands; the summary goes to $GITHUB_STEP_SUMMARY, or to
-stdout when that is not set.
+stdout when that is not set. When the check itself fails (bad arguments, a list it cannot read,
+a bug), it still exits 0, but not silently: one warning names only the exception's class, and
+the summary says so in one line.
 """
 
 import argparse
+import contextlib
 import http.client
 import os
 import re
@@ -42,7 +45,7 @@ from typing import NamedTuple
 from doc_address import allowed, load_hosts
 from watch_list import held, row_places, unknown_tables
 from watch_pages import get_doc, sections
-from watch_sources import pick_rows
+from watch_sources import pick_rows, question
 
 FILE = "docs/clients.md"
 PAGES_MAX = 20
@@ -51,6 +54,7 @@ WORD_MAX = 60  # characters of a missing word shown in the summary
 WORDS_SHOWN = 10  # missing words shown for one row
 ROWS_SHOWN = 100  # rows listed in the summary; GitHub takes 1 MiB of summary a step
 HEADINGS_SHOWN = 10  # skipped tables named in the summary
+TITLE = "### The list's changed rows against their doc pages"
 ROW_ID = re.compile(r"[A-Z]{2}-\d{2,}")
 NO_SOURCE = ("help", "install")
 
@@ -98,10 +102,12 @@ def changed_rows(base: str, head: str) -> list[str]:
 
     A row is compared by its text, not by its place: a row added above others leaves them
     unchanged. Only the cells the check reads count: an edit of Kind, Files, Seen in or the
-    systems column alone, as a refactor of Kitden's code makes, is not checked again.
+    systems column alone, as a refactor of Kitden's code makes, is not checked again. Nor is a
+    new date or version note in What: What is compared without the bracket groups the by-hand
+    table's search question drops (watch_sources.question).
     """
     def key(client, cells):
-        return client, cells[0], cells[5]
+        return client, question(cells[0]), cells[5]
 
     old = {key(client, cells) for _, client, cells in row_places(base).values()}
     return [row_id for row_id, (_, client, cells) in row_places(head).items()
@@ -109,14 +115,14 @@ def changed_rows(base: str, head: str) -> list[str]:
 
 
 def _page_text(address: str, read: Callable) -> str | None:
-    """The text of the page to search in, or None when it could not be read."""
+    """The text of the page to search in, or None when it could not be read or parsed."""
     try:
         body, kind, _ = read(address)
+        if "html" in kind:
+            return "\n".join(section.text for section in sections(body, kind))
+        return body
     except READ_ERRORS:
         return None
-    if "html" in kind:
-        return "\n".join(section.text for section in sections(body, kind))
-    return body
 
 
 def check(head_text: str, ids: list[str], hosts, read: Callable,
@@ -203,7 +209,7 @@ def render(lines: list[Line], skipped: list[str] = ()) -> tuple[list[str], str]:
             raise ValueError("a row id is not of the form CC-01")
     warnings = [f"::warning file={FILE},line={line.line:d}::{line.row_id}: {text(line)}"
                 for line in lines if line.verdict in WARNED]
-    out = ["### The list's changed rows against their doc pages", ""]
+    out = [TITLE, ""]
     if skipped:
         out += [_skipped(heading) for heading in skipped[:HEADINGS_SHOWN]]
         if len(skipped) > HEADINGS_SHOWN:
@@ -213,9 +219,9 @@ def render(lines: list[Line], skipped: list[str] = ()) -> tuple[list[str], str]:
         none = ("No row was added or changed in the tables of the known clients." if skipped
                 else "No row was added or changed.")
         return warnings, "\n".join(out + [none, ""])
-    counts = " ".join(f"{name}: {sum(line.verdict in verdicts for line in lines):d}."
-                      for name, verdicts in COUNTS)
-    out += [f"Rows added or changed: {len(lines):d}. {counts}", ""]
+    counts = [(name, sum(line.verdict in verdicts for line in lines)) for name, verdicts in COUNTS]
+    shown = "".join(f" {name}: {count:d}." for name, count in counts if count)
+    out += [f"Rows added or changed: {len(lines):d}.{shown}", ""]
     listed = [line for line in lines if line.verdict not in (HELD, NO_CHECK)]
     out += [_item(line) for line in listed[:ROWS_SHOWN]]
     if len(listed) > ROWS_SHOWN:
@@ -235,12 +241,17 @@ def _summary(summary: str, env) -> None:
         print(summary, end="")
 
 
-def _read(path: str) -> str | None:
-    try:
-        with open(path, encoding="utf-8") as f:
-            return f.read()
-    except (OSError, UnicodeError):
-        return None
+def _failed(err: BaseException, env, line: str) -> None:
+    """Say the check failed: a workflow warning that names only the exception's class, so the
+    check is not a silent green, and `line` in the summary."""
+    print(f"::warning::list check failed: {type(err).__name__}", flush=True)
+    with contextlib.suppress(OSError):  # the summary may be what failed; the warning is out
+        _summary(line, env)
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="utf-8") as f:
+        return f.read()
 
 
 def run(argv, env, read, clock) -> int:
@@ -250,14 +261,17 @@ def run(argv, env, read, clock) -> int:
     ap.add_argument("--head", required=True, help="the list in the pull request")
     try:
         a = ap.parse_args(argv)
-    except SystemExit:
+    except SystemExit as err:
+        if err.code:  # not --help
+            _failed(err, env, "The list check could not start: bad arguments.\n")
         return 0
-    texts = {"base": _read(a.base), "head": _read(a.head)}
-    for name, value in texts.items():
-        if value is None:
-            print(f"the {name} list could not be read", file=sys.stderr)
-            title = "### The list's changed rows against their doc pages\n\n"
-            _summary(f"{title}The {name} list could not be read: nothing was checked.\n", env)
+    texts = {}
+    for name, path in (("base", a.base), ("head", a.head)):
+        try:
+            texts[name] = _read(path)
+        except (OSError, UnicodeError) as err:
+            said = f"The {name} list could not be read: nothing was checked."
+            _failed(err, env, f"{TITLE}\n\n{said}\n")
             return 0
     head = texts["head"]
     hosts = load_hosts()
@@ -274,12 +288,14 @@ def run(argv, env, read, clock) -> int:
 
 
 def main(argv=None, env=None, read=None, clock=time.monotonic) -> int:
-    """Always 0. A bug prints one line naming its exception's class, and nothing else."""
+    """Always 0. A bug gives one warning naming its exception's class, and nothing else of it,
+    and one summary line."""
     env = os.environ if env is None else env
     try:
         return run(argv, env, read, clock)
     except Exception as err:  # this check must never block a pull request
-        print(f"list check failed: {type(err).__name__}", file=sys.stderr)
+        _failed(err, env,
+                f"The list check failed: {type(err).__name__}. Nothing more was checked.\n")
         return 0
 
 

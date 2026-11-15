@@ -150,8 +150,12 @@ def words_by_row(text: str) -> dict[str, list[str]]:
 def _exact_words(what: str) -> list[str]:
     """The words of row_words for one row's What, as the list writes it."""
     words: list[str] = []
+    seen: set[str] = set()
     for match in TICKS.finditer(what):
-        if ABSENT.search(what, 0, match.start()):
+        # Only the 5 characters before the part: "not " and the one before it. A search from
+        # the row's start for every part made a long row take minutes.
+        start = match.start()
+        if ABSENT.search(what, max(0, start - 5), start):
             continue
         for word in match.group(1).split():
             if "<" in word or ">" in word or "kitden" in word.lower():
@@ -165,7 +169,8 @@ def _exact_words(what: str) -> list[str]:
                     continue
             if not any(c.isalnum() for c in word):
                 continue
-            if word not in words:
+            if word not in seen:
+                seen.add(word)
                 words.append(word)
     return words
 

@@ -131,6 +131,24 @@ def test_changed_rows_takes_an_edit_of_what_or_source():
     assert changed_rows(base, head) == ["CC-01", "CC-02"]
 
 
+@pytest.mark.parametrize(("old", "new"), [
+    ("`zork` one (2026-10-01)", "`zork` one (2026-11-15)"),
+    ("`zork` one (2026-10-19, version 2.1.283)", "`zork` one (2026-11-15, version 2.1.325)"),
+    ("`zork` one (version 0.169.0)", "`zork` one (version 0.170.0)"),
+    ("`zork` one", "`zork` one (2026-11-15)"),
+])
+def test_changed_rows_skips_a_new_date_or_version_note_in_what(old, new):
+    # The same bracket groups the by-hand table's search question drops (watch_sources).
+    base = make_list([(old, doc("a"))])
+    assert changed_rows(base, edit(base, old, new)) == []
+
+
+def test_changed_rows_takes_a_new_word_next_to_a_date():
+    base = make_list([("`zork` one (2026-10-01)", doc("a"))])
+    head = edit(base, "`zork` one (2026-10-01)", "`zork` `frob` one (2026-11-15)")
+    assert changed_rows(base, head) == ["CC-01"]
+
+
 def test_rows_whose_what_reads_the_same_without_backticks_keep_their_own_words():
     rows = [("`zork frob` x", doc("a")), ("`zork` frob x", doc("a"))]
     lines, _ = run(rows, ["CC-01", "CC-02"], {doc("a"): "zork\n"})
@@ -318,6 +336,16 @@ def test_an_html_page_is_read_as_its_text():
     assert lines == [Line("CC-01", 7, HELD, [], 3)]
 
 
+def test_a_page_that_cannot_be_parsed_is_a_page_not_read(monkeypatch):
+    def broken(body, kind):
+        raise ValueError("bad markup")
+
+    monkeypatch.setattr(list_sources, "sections", broken)
+    rows = [("`zork` one", doc("a"))]
+    lines, _ = run(rows, ["CC-01"], {doc("a"): "<p>zork</p>"}, kind="text/html")
+    assert [line.verdict for line in lines] == [UNREAD]
+
+
 def test_the_summary_counts_every_verdict():
     rows = [("`zork` one", doc("a")), ("`zork` two", doc("b")), ("`zork` three", "guess"),
             ("`zork` four", "help"), ("`zork` five", "https://example.com/docs/x"),
@@ -327,7 +355,12 @@ def test_the_summary_counts_every_verdict():
     summary = render(lines)[1]
     assert ("Rows added or changed: 7. Every word on the page: 1. Words missing: 1. "
             "Page not read: 1. Not a doc address: 1. No page named: 1. Cannot check: 1. "
-            "Not checked: 0. `help` or `install`: 1.") in summary
+            "`help` or `install`: 1.\n") in summary
+
+
+def test_the_summary_counts_only_what_happened():
+    lines, _ = run([("`zork` one", "guess")], ["CC-01"])
+    assert "Rows added or changed: 1. No page named: 1.\n" in render(lines)[1]
 
 
 def test_the_summary_shows_at_most_ten_missing_words_a_row():
@@ -589,8 +622,8 @@ def test_main_exits_0_when_a_file_cannot_be_read(tmp_path, capsys, which):
     reader = FakeReader()
     assert main(argv, {"GITHUB_STEP_SUMMARY": str(summary)}, reader) == 0
     out = capsys.readouterr()
-    assert out.out == ""
-    assert "could not be read: nothing was checked" in summary.read_text()
+    assert out.out == "::warning::list check failed: FileNotFoundError\n"
+    assert f"The {which} list could not be read: nothing was checked." in summary.read_text()
     assert reader.calls == []
 
 
@@ -598,11 +631,19 @@ def test_main_exits_0_when_a_file_is_not_utf8(tmp_path, capsys):
     argv = files(tmp_path, "", "")
     (tmp_path / "head.md").write_bytes(b"\xff\xfe\x00bad")
     assert main(argv, {}, FakeReader()) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("::warning::list check failed: UnicodeDecodeError\n")
+    assert "The head list could not be read: nothing was checked." in out
 
 
 def test_main_exits_0_on_bad_arguments(capsys):
     assert main(["--base"], {}, FakeReader()) == 0
     assert main([], {}, FakeReader()) == 0
+    said = ("::warning::list check failed: SystemExit\n"
+            "The list check could not start: bad arguments.\n")
+    assert capsys.readouterr().out == said * 2
+    assert main(["--help"], {}, FakeReader()) == 0  # asked for, so not a failure
+    assert "::warning::" not in capsys.readouterr().out
 
 
 def test_main_exits_0_on_a_bug_and_names_only_its_class(tmp_path, capsys):
@@ -611,10 +652,13 @@ def test_main_exits_0_on_a_bug_and_names_only_its_class(tmp_path, capsys):
     def broken(address):
         raise RuntimeError("Plinth secret detail")
 
-    assert main(files(tmp_path, "", head), {}, broken) == 0
+    summary = tmp_path / "summary.md"
+    assert main(files(tmp_path, "", head), {"GITHUB_STEP_SUMMARY": str(summary)}, broken) == 0
     out = capsys.readouterr()
-    assert out.err == "list check failed: RuntimeError\n"
-    assert "Plinth" not in out.out + out.err
+    # A bug must not leave a silent green check: a warning, and one line in the summary.
+    assert out.out == "::warning::list check failed: RuntimeError\n"
+    assert summary.read_text() == "The list check failed: RuntimeError. Nothing more was checked.\n"
+    assert "Plinth" not in out.out + out.err + summary.read_text()
 
 
 def test_main_exits_0_when_the_summary_file_cannot_be_written(tmp_path, capsys):
@@ -623,4 +667,4 @@ def test_main_exits_0_when_the_summary_file_cannot_be_written(tmp_path, capsys):
     assert main(files(tmp_path, "", head), {"GITHUB_STEP_SUMMARY": str(bad)}, FakeReader()) == 0
     out = capsys.readouterr()
     assert "CC-01: no page named" in out.out
-    assert out.err == "list check failed: FileNotFoundError\n"
+    assert out.out.endswith("::warning::list check failed: FileNotFoundError\n")

@@ -1,4 +1,6 @@
 # ruff: noqa: E501
+import time
+
 import pytest
 
 from watch_list import (
@@ -204,6 +206,15 @@ def test_row_words_drops_a_word_that_names_kitden():
 ])
 def test_row_words_drops_a_word_the_row_says_is_absent(what, words):
     assert one_row(what) == words
+
+
+def test_row_words_of_a_huge_row_take_little_time():
+    # A 350 KB row took 64 seconds when each part searched for "no " from the row's start.
+    what = " ".join(f"`w{n}x` and" for n in range(25_000))
+    started = time.monotonic()
+    words = one_row(what)
+    assert time.monotonic() - started < 2
+    assert len(words) == 25_000 and words[-1] == "w24999x"
 
 
 def test_words_by_row_keeps_rows_apart_whose_what_reads_the_same_without_backticks():
