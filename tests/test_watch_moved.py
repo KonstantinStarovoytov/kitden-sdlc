@@ -144,6 +144,34 @@ def test_locate_that_raises_is_no_redirect():
     assert result[0]["verdict"] == "maybe"
 
 
+@pytest.mark.parametrize("address", [
+    "https://[bad/docs/x",
+    "https://evil.example/docs/skills",
+    "http://cursor.com/docs/skills",
+    "https://cursor.com/docs/skills?x=1",
+    "https://cursor.com/blog/skills",
+])
+def test_list_address_that_is_not_allowed_is_skipped(address):
+    locate = Locate({address: "https://cursor.com/docs/skills"})
+    manifest = {"https://cursor.com/docs/skills.md"}
+    assert moved({address: "cursor"}, manifest, HOSTS, locate) == []
+    assert locate.asked == []
+
+
+def test_list_address_that_is_not_allowed_does_not_stop_the_rest():
+    pages = {"https://[bad/docs/x": "cursor", "https://cursor.com/docs/gone": "cursor"}
+    result = moved(pages, set(), HOSTS, Locate(fail=True))
+    assert [r["address"] for r in result] == ["https://cursor.com/docs/gone"]
+
+
+def test_list_address_with_an_empty_last_part_is_never_maybe():
+    pages = {"https://cursor.com/docs/skills/": "cursor"}
+    manifest = {"https://cursor.com/docs/skills.md", "https://cursor.com/docs/a/skills.md"}
+    result = moved(pages, manifest, HOSTS, Locate())
+    assert result == [{"address": "https://cursor.com/docs/skills/", "client": "cursor",
+                       "verdict": "absent", "to": ""}]
+
+
 def test_result_is_sorted_by_address():
     pages = {"https://cursor.com/docs/c": "cursor", "https://code.claude.com/docs/en/a": "claude",
              "https://cursor.com/docs/b": "cursor"}

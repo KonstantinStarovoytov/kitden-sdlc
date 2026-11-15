@@ -5,7 +5,7 @@ moved or is gone. Each such address is asked for once, without following a redir
 
 - moved: it redirects to an allowed address; `to` is that address.
 - maybe: no redirect, but the manifest has a page on the same host with the same last path
-  part; `to` is that page.
+  part; `to` is that page. An address whose path ends in "/" is never `maybe`.
 - absent: neither; `to` is "".
 
 Only the manifest's addresses are read, never what it says about a page.
@@ -33,7 +33,7 @@ def _bare(address: str) -> str:
 
 
 def _last_part(address: str) -> str:
-    return urllib.parse.urlsplit(address).path.rstrip("/").rsplit("/", 1)[-1]
+    return urllib.parse.urlsplit(address).path.rsplit("/", 1)[-1]
 
 
 def _maybe(address: str, manifest: list[str]) -> str:
@@ -50,6 +50,8 @@ def _maybe(address: str, manifest: list[str]) -> str:
 def moved(pages: dict[str, str], manifest: set[str], hosts, locate) -> list[dict]:
     """One record for each address in `pages` (address: client) that is not in `manifest`.
 
+    An address that `allowed` refuses is skipped: no record, and `locate` is not called.
+
     `locate(address)` gives the allowed address it redirects to, or None. If it raises, that
     counts as no redirect. The records are sorted by address.
     """
@@ -57,7 +59,7 @@ def moved(pages: dict[str, str], manifest: set[str], hosts, locate) -> list[dict
     found = set(known)
     result = []
     for address in sorted(pages):
-        if address + ".md" in found or address in found:
+        if not allowed(address, hosts) or address + ".md" in found or address in found:
             continue
         try:
             target = locate(address)
