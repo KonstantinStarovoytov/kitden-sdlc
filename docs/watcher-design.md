@@ -199,7 +199,8 @@ items show the same words in their text.
 A branch `watch` in `kitden-sdlc`, the same way the weekly numbers have theirs (call). It
 holds the last version seen per source, the section hashes of each doc page, the items kept for
 the next summary, the number of urgent issues this week, the week of the last summary, how
-many runs failed on each piece, and one log line per run. It also
+many runs failed on each piece, the format the doc page hashes were made in (`doc_format`), and
+one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.

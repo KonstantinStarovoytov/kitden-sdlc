@@ -63,6 +63,9 @@ REFUSED = [
     "https://cursor.com/docsx/a",
     "ftp://cursor.com/docs/a",
     "https:///docs/a",
+    "https://code.claude.com/docs/en/mcp\x7f",
+    "https://code.claude.com/docs/en/caf\u00e9",
+    "https://code.claude.com/docs/en/\u202egpj.md",
     "not an address",
     "",
 ]
@@ -229,3 +232,11 @@ def test_load_hosts_reads_a_given_file(tmp_path):
     path = tmp_path / "hosts.yml"
     path.write_text("- {host: Docs.Example.com, path: /a/}\n")
     assert load_hosts(path) == [("docs.example.com", "/a/")]
+
+
+@pytest.mark.parametrize("start", ["/a", "a/", "a"])
+def test_load_hosts_refuses_a_path_without_slashes_at_both_ends(tmp_path, start):
+    path = tmp_path / "hosts.yml"
+    path.write_text(f"- {{host: docs.example.com, path: {start}}}\n")
+    with pytest.raises(ValueError):
+        load_hosts(path)

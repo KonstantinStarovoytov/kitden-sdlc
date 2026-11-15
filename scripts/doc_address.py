@@ -19,15 +19,24 @@ REDIRECTS = (301, 302, 303, 307, 308)
 
 
 def load_hosts(path=CONFIG) -> list[tuple[str, str]]:
-    """The (host, path_start) pairs in the config, with the host in lower case."""
+    """The (host, path_start) pairs in the config, with the host in lower case.
+
+    Raises ValueError when a path does not start and end with "/": "/docs" would also allow
+    "/docsx".
+    """
     with open(path, encoding="utf-8") as f:
         entries = yaml.safe_load(f)
-    return [(str(e["host"]).lower(), str(e["path"])) for e in entries]
+    pairs = [(str(e["host"]).lower(), str(e["path"])) for e in entries]
+    for host, start in pairs:
+        if not (start.startswith("/") and start.endswith("/")):
+            raise ValueError(f"path for {host} must start and end with '/': {start}")
+    return pairs
 
 
 def allowed(address: str, hosts) -> bool:
     """Whether `address` is an https address on a listed host under that host's path."""
-    if not isinstance(address, str) or any(c <= " " or c == "\\" for c in address):
+    # Only printable ASCII: no space, no DEL, no control or non-ASCII character such as U+202E.
+    if not isinstance(address, str) or any(not "!" <= c <= "~" or c == "\\" for c in address):
         return False
     try:
         parts = urllib.parse.urlsplit(address)
@@ -89,6 +98,10 @@ def read(address: str, hosts, opener=None) -> tuple[str, str, str]:
 
     Raises ValueError for an address, or a redirect, that is not allowed, and OSError when
     the read fails: an HTTP error, a timeout, or a body over 2 MB.
+
+    The 20 second timeout is the limit for one socket operation (connecting, or one wait for
+    data), not for the whole read. A slow server can take longer in all; the 2 MB cap is what
+    bounds the rest.
     """
     opener = opener or make_opener(hosts, True)
     with _open(address, hosts, opener) as resp:
