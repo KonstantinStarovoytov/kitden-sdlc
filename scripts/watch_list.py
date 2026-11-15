@@ -84,3 +84,32 @@ def terms(text: str) -> dict[tuple[str, str], list[str]]:
             w for w in words if len(w) >= 6 and not re.fullmatch(r"[a-z]+", w)
         ]
     return result
+
+
+def row_words(text: str) -> dict[tuple[str, str], list[str]]:
+    """Every word in backticks of each row's What, in order and without repeats.
+
+    Keyed like terms(). A word with `*` in it becomes its longest part without one,
+    and is left out if that part is shorter than 3 characters.
+    """
+    result = {}
+    for client, cells in _table_rows(text):
+        words: list[str] = []
+        for part in TICKS.findall(cells[0]):
+            for word in part.split():
+                if "*" in word:
+                    word = max(word.split("*"), key=len)
+                    if len(word) < 3:
+                        continue
+                if word not in words:
+                    words.append(word)
+        result[(client, cells[0].replace("`", ""))] = words
+    return result
+
+
+def held(words: list[str], body: str) -> list[str]:
+    """Return the missing words: those not found in body, in the order given.
+
+    Each word is compared as written, case and all.
+    """
+    return [w for w in words if w not in body]
