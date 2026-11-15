@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "updated": "2026-11-14T10:37:34Z",
+  "updated": "2026-11-15T14:19:08Z",
   "repo": "KonstantinStarovoytov/kitden",
-  "overall": "amber",
+  "overall": "green",
   "lights": [
     {
       "id": "works",
@@ -25,8 +25,8 @@
     {
       "id": "agents",
       "name": "Agents",
-      "state": "amber",
-      "why": "In the last 7 days, Release prep failed 3 of its 5 runs."
+      "state": "green",
+      "why": ""
     },
     {
       "id": "queue",
@@ -37,36 +37,36 @@
   ],
   "use": {
     "issues_from_others": 0,
-    "pulls_from_others": 5,
+    "pulls_from_others": 7,
     "stars": 1,
-    "downloads": 1423
+    "downloads": 1690
   },
   "waiting": [],
   "week": [
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 73,
+      "runs": 87,
       "failed": 6,
-      "did": 31,
-      "agreed": 3,
+      "did": 44,
+      "agreed": 5,
       "disagreed": 0,
       "no_answer": 1
     },
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 73,
+      "runs": 87,
       "failed": 6,
-      "did": 30,
-      "agreed": 2,
+      "did": 43,
+      "agreed": 4,
       "disagreed": 0,
       "no_answer": 2
     },
     {
       "agent": "watcher",
       "name": "Client watcher",
-      "runs": 1,
+      "runs": 3,
       "failed": 0,
       "did": 0,
       "agreed": 0,
@@ -75,15 +75,15 @@
     {
       "agent": "release-prep",
       "name": "Release prep",
-      "runs": 5,
+      "runs": 8,
       "failed": 3,
-      "did": 2,
+      "did": 5,
       "agreed": null,
       "disagreed": null
     }
   ],
   "review": {
-    "clean": 25,
+    "clean": 36,
     "fixed": 1,
     "days_to_merge": 0.0
   },
@@ -121,22 +121,22 @@
     "agents": [
       {
         "agent": "claude",
-        "runs": 73,
+        "runs": 87,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 73,
+        "runs": 87,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "watcher",
-        "runs": 1,
+        "runs": 3,
         "cap": "60 model calls a run"
       },
       {
         "agent": "release-prep",
-        "runs": 5,
+        "runs": 8,
         "cap": "60 turns and 25 minutes, then one fix pass of 15 turns and 10 minutes"
       }
     ],
