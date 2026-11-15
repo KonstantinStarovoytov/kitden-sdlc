@@ -13,8 +13,10 @@ from watch_route import (
     WORD_HITS_MAX,
     BadFindings,
     check,
+    client_name,
     labels,
     route,
+    week_of,
     word_hits,
 )
 
@@ -400,3 +402,14 @@ def test_tries_forget_pieces_that_left_the_feed():
     state = base_state(tries={PID: 1, "gone#1": 2})
     plan = route([], state, [], INP, NOW, failed=JUDGED)
     assert plan.state["tries"] == {PID: 2}
+
+
+def test_an_item_with_no_client_is_named_agent_docs():
+    assert client_name({"client": ""}) == "Agent Docs"
+    assert client_name({}) == "Agent Docs"
+    assert client_name({"client": "codex"}) == "Codex"
+
+
+def test_the_week_is_named_by_its_iso_year_and_number():
+    assert week_of(date(2026, 11, 15)) == "2026-W46"
+    assert week_of(date(2027, 1, 1)) == "2026-W53"

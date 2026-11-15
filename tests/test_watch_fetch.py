@@ -8,6 +8,7 @@ from watch_fetch import (
     PIECES_MAX,
     _fetch,
     build_input,
+    plan_moved,
     plan_run,
 )
 from watch_pages import Section
@@ -197,3 +198,144 @@ def test_a_failed_doc_read_counts_as_an_unread_source(monkeypatch):
     monkeypatch.setattr(watch_fetch, "get_doc", fake_get_doc)
     address = "https://docs.example.com/a/b"
     assert watch_fetch._fetch(address, lambda u: watch_fetch._read_doc(u, []), address) is None
+
+
+MANIFEST_META = {
+    **META,
+    "m": {"kind": "manifest", "url": "https://raw.example.com/manifest.json"},
+}
+
+
+def test_a_read_manifest_makes_no_piece_and_no_sources_entry():
+    fetched = {"s": [Section("1.0", "t", "h")], "m": {"https://docs.example.com/a/b.md"}}
+    pieces, state = plan_run(old({"s": {"1.0": "h"}}, fails={"m": 2}), fetched, MANIFEST_META)
+    assert pieces == [] and "m" not in state["sources"]
+    assert state["fails"] == {"s": 0, "m": 0}
+
+
+def test_an_unread_manifest_counts_in_fails_and_its_third_day_has_no_client():
+    _, state = plan_run(old({"s": {}}, fails={"m": 2}), {"s": [], "m": None}, MANIFEST_META)
+    assert state["fails"]["m"] == FAIL_DAYS and "m" not in state["sources"]
+    [item] = state["kept"]
+    assert item["title"] == "Cannot read m for 3 days" and item["client"] == ""
+    assert item["url"] == "https://raw.example.com/manifest.json"
+
+
+HOSTS = [("docs.example.com", "/a/")]
+WEEK = "2026-W46"
+GONE = "https://docs.example.com/a/gone"
+LOST = "https://docs.example.com/a/lost"
+NEAR = "https://docs.example.com/a/old/near"
+PAGES = {GONE: "codex", LOST: "cursor", NEAR: "claude-code",
+         "https://docs.example.com/a/kept": "codex"}
+MANIFEST = {"https://docs.example.com/a/kept.md", "https://docs.example.com/a/new/near.md"}
+
+
+def locate(address):
+    return "https://docs.example.com/a/here" if address == GONE else None
+
+
+def week_state(**extra):
+    return {"kept": [], "fails": {}, "sources": {}, **extra}
+
+
+def test_a_new_week_puts_each_verdict_into_kept_once():
+    state = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, locate, WEEK)
+    titles = [k["title"] for k in state["kept"]]
+    assert titles == [
+        f"{GONE} moved to https://docs.example.com/a/here",
+        f"{LOST} is not in Agent Docs",
+        f"{NEAR} may now be at https://docs.example.com/a/new/near",
+    ]
+    for item, client in zip(state["kept"], ["codex", "cursor", "claude-code"], strict=True):
+        assert (item["effect"], item["severity"]) == ("unknown", "minor")
+        assert item["client"] == client and item["version"] == "" and item["files"] == []
+        assert item["url"] in PAGES
+    assert state["moved"] == {"week": WEEK, "told": [LOST]}
+
+
+def test_an_absent_address_already_told_is_not_said_again():
+    state = plan_moved(week_state(moved={"week": "2026-W45", "told": [LOST]}),
+                       MANIFEST, PAGES, HOSTS, locate, WEEK)
+    titles = [k["title"] for k in state["kept"]]
+    assert len(titles) == 2 and not any(LOST in t for t in titles)
+    assert state["moved"] == {"week": WEEK, "told": [LOST]}
+
+
+def test_moved_and_maybe_are_said_again_in_a_new_week():
+    first = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, locate, "2026-W45")
+    again = plan_moved({**first, "kept": []}, MANIFEST, PAGES, HOSTS, locate, WEEK)
+    assert [k["url"] for k in again["kept"]] == [GONE, NEAR]
+
+
+def test_the_same_week_twice_makes_nothing_and_asks_nothing():
+    calls = []
+
+    def counting(address):
+        calls.append(address)
+        return locate(address)
+
+    state = plan_moved(week_state(moved={"week": WEEK, "told": []}),
+                       MANIFEST, PAGES, HOSTS, counting, WEEK)
+    assert state["kept"] == [] and calls == []
+    assert state["moved"] == {"week": WEEK, "told": []}
+
+
+def test_a_title_already_kept_is_not_added_again():
+    title = f"{GONE} moved to https://docs.example.com/a/here"
+    state = plan_moved(week_state(kept=[{"title": title}]), MANIFEST, PAGES, HOSTS, locate, WEEK)
+    assert [k["title"] for k in state["kept"]].count(title) == 1
+
+
+def test_an_unread_manifest_makes_no_moved_items_and_leaves_the_week_open():
+    state = plan_moved(week_state(moved={"week": "2026-W45", "told": [LOST]}),
+                       None, PAGES, HOSTS, locate, WEEK)
+    assert state["kept"] == [] and state["moved"] == {"week": "2026-W45", "told": [LOST]}
+
+
+def test_one_failed_locate_does_not_stop_the_check():
+    def broken(address):
+        if address == GONE:
+            raise TimeoutError("timed out")
+        return None
+
+    state = plan_moved(week_state(), MANIFEST, PAGES, HOSTS, broken, WEEK)
+    assert len(state["kept"]) == 3
+    assert f"{GONE} is not in Agent Docs" in [k["title"] for k in state["kept"]]
+
+
+def test_plan_moved_does_not_change_its_input():
+    before = week_state()
+    plan_moved(before, MANIFEST, PAGES, HOSTS, locate, WEEK)
+    assert before == week_state()
+
+
+def test_the_manifest_is_read_with_get_and_gives_its_addresses(monkeypatch):
+    seen = []
+
+    def fake_get(url):
+        seen.append(url)
+        return '{"documents": {"https://docs.example.com/a/b.md": {}}}', "text/plain"
+
+    monkeypatch.setattr(watch_fetch, "get", fake_get)
+    src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
+    assert watch_fetch._read_manifest(src) == {"https://docs.example.com/a/b.md"}
+    assert seen == ["https://raw.example.com/m.json"]
+
+
+def test_a_manifest_of_the_wrong_shape_counts_as_unread(monkeypatch):
+    monkeypatch.setattr(watch_fetch, "get", lambda url: ("[]", "text/plain"))
+    src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
+    assert _fetch("m", watch_fetch._read_manifest, src) is None
+
+
+def test_the_config_has_the_manifest_with_no_client():
+    from pathlib import Path
+
+    from watch_pages import load_sources
+
+    config = Path(__file__).parents[1] / "config/watch-sources.yml"
+    [src] = [s for s in load_sources(config) if s["kind"] == "manifest"]
+    assert src == {"id": "agent-docs-manifest", "kind": "manifest", "url": (
+        "https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/"
+        "data/manifests/agent_docs_hybrid_v1.json")}

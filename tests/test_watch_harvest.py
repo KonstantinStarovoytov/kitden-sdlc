@@ -133,3 +133,10 @@ def test_only_issues_with_one_verdict_need_their_piece_fetched():
     assert watch_harvest._judged([both, open_and_undecided, confirmed, false_alarm]) == [
         confirmed, false_alarm]
     assert watch_harvest.verdict is bot_issues.verdict  # one predicate for the pause and here
+
+
+def test_fetch_pieces_skips_a_source_with_no_client(tmp_path, monkeypatch):
+    sources = tmp_path / "sources.yml"
+    sources.write_text("- id: m\n  kind: manifest\n  url: https://example.com/m.json\n")
+    monkeypatch.setattr(watch_harvest, "_read", lambda src: [Section("x", "text", "h")])
+    assert watch_harvest._fetch_pieces([{**LINE, "piece": "m#x"}], sources) == {}

@@ -117,7 +117,11 @@ Three jobs, in the shape the reviewers use.
 1. **Fetch**, no model, no secret. Reads the sources and the memory (part 6), keeps only what
    is new, cuts each piece to a fixed size, and takes the list and the files it names from
    `kitden`'s main branch. For each of those files it notes whether it differs between main
-   and the latest release tag; the model reads main only (call).
+   and the latest release tag; the model reads main only (call). Once a week it also reads
+   the Agent Docs manifest and puts each doc page of the list that is not in it into the
+   items kept for the summary: moved (with where to), maybe at a page of the same name, or
+   not in Agent Docs (`scripts/watch_moved.py`). A day the manifest cannot be read, the check
+   waits for the next run.
 2. **Judge**, the model. It holds the model's key and nothing else, and has no write permission
    and no tools: text in, a findings file out, in a fixed schema. A small LangGraph graph on
    Claude Sonnet 5.5 at effort medium (owner, 2026-11-12; GPT-6 Luna until then, which did not
@@ -199,8 +203,9 @@ items show the same words in their text.
 A branch `watch` in `kitden-sdlc`, the same way the weekly numbers have theirs (call). It
 holds the last version seen per source, the section hashes of each doc page, the items kept for
 the next summary, the number of urgent issues this week, the week of the last summary, how
-many runs failed on each piece, the format the doc page hashes were made in (`doc_format`), and
-one log line per run. It also
+many runs failed on each piece, the format the doc page hashes were made in (`doc_format`), the
+week of the last moved check with the addresses already said to be not in Agent Docs
+(`moved`), and one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.

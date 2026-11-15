@@ -6,11 +6,14 @@ import json
 import os
 import subprocess  # noqa: S404
 import sys
+from datetime import date
 from pathlib import Path
 
-from doc_address import load_hosts
+from doc_address import load_hosts, location
 from watch_list import doc_pages, parse_list
+from watch_moved import manifest_addresses, moved
 from watch_pages import get, get_doc, load_sources, releases, sections
+from watch_route import TEXT_MAX, TITLE_MAX, _quiet, week_of
 
 PIECES_MAX = 20
 PIECE_CHARS = 12000
@@ -24,7 +27,7 @@ def _unreadable(meta: dict, source: str) -> dict:
     return {
         "effect": "unknown", "severity": "medium", "sure": True,
         "title": f"Cannot read {source} for {FAIL_DAYS} days",
-        "client": meta["client"], "changed": f"{source} could not be read",
+        "client": meta.get("client", ""), "changed": f"{source} could not be read",
         "why": "The watcher cannot see new changes from this source.",
         "user_gets": "Nothing yet.", "systems": "", "row": "", "files": [],
         "version": "", "url": meta["url"],
@@ -59,6 +62,8 @@ def plan_run(state, fetched, meta):
                 new["kept"].append(item)
             continue
         new["fails"][sid] = 0
+        if meta[sid]["kind"] == "manifest":  # read for the weekly moved check only
+            continue
         if sid not in known:
             new["sources"][sid] = {s.key: s.hash for s in found}
             continue
@@ -72,6 +77,63 @@ def plan_run(state, fetched, meta):
                     "source": sid, "key": s.key, "hash": s.hash,
                 })
     return pieces[:PIECES_MAX], new
+
+
+# What the summary says of each verdict of watch_moved.moved: the title, what changed, the fix.
+MOVED_TEXT = {
+    "moved": ("{address} moved to {to}",
+              "The address in the list now redirects to {to}.",
+              "Change the address in docs/clients.md to {to}."),
+    "maybe": ("{address} may now be at {to}",
+              "Agent Docs has no page at the address in the list, but it has {to}: a page "
+              "on the same site with the same last part.",
+              "Check that {to} is the same page; if it is, change the address in "
+              "docs/clients.md."),
+    "absent": ("{address} is not in Agent Docs",
+               "Agent Docs has no page at the address in the list, and the address does not "
+               "redirect.",
+               "Find the page's new address, or take it out of docs/clients.md."),
+}
+
+
+def _moved_item(record: dict) -> dict:
+    title, changed, fix = (t.format(**record) for t in MOVED_TEXT[record["verdict"]])
+    return {
+        "effect": "unknown", "severity": "minor", "sure": record["verdict"] != "maybe",
+        "title": _quiet(title, TITLE_MAX), "client": record["client"],
+        "changed": _quiet(changed, TEXT_MAX), "fix": _quiet(fix, TEXT_MAX),
+        "why": "Agent Docs keeps every doc page it holds; a page of the list that is not "
+               "there may have moved, and the watcher may be reading an old page.",
+        "user_gets": "not checked", "systems": "", "row": "", "files": [],
+        "version": "", "url": record["address"],
+    }
+
+
+def plan_moved(state, manifest, pages, hosts, locate, week):
+    """Once a week, put into `kept` the doc pages of the list that are not in the manifest.
+
+    `manifest` is the set of its addresses, or None when it could not be read today: then
+    nothing is checked and the week stays open for the next run. An `absent` address is said
+    once (`told`); `moved` and `maybe` are said again each week until the list is fixed.
+    """
+    new = copy.deepcopy(state)
+    if manifest is None or new.get("moved", {}).get("week") == week:
+        return new
+    told = set(new.get("moved", {}).get("told", []))
+    titles = {k["title"] for k in new["kept"]}
+    absent = []
+    for record in moved(pages, manifest, hosts, locate):
+        if record["verdict"] == "absent":
+            absent.append(record["address"])
+            if record["address"] in told:
+                continue
+        item = _moved_item(record)
+        if item["title"] not in titles:
+            titles.add(item["title"])
+            new["kept"].append(item)
+    # Only the addresses absent today: one that is fixed, or left the list, is forgotten.
+    new["moved"] = {"week": week, "told": sorted(absent)}
+    return new
 
 
 def build_input(pieces, kitden, list_text, file_names, same, release, titles, new_state):
@@ -97,6 +159,11 @@ def _read(source):
     return sections(body, ctype, source.get("level", 3), source.get("split"))
 
 
+def _read_manifest(source):
+    body, _ = get(source["url"])
+    return manifest_addresses(body)
+
+
 def _read_doc(address, hosts):
     body, ctype, _ = get_doc(address, hosts)
     return sections(body, ctype)
@@ -120,14 +187,25 @@ def main():
     rows = parse_list(list_text)
     fetched, meta = {}, {}
     hosts = load_hosts()
+    manifests = []
     for src in load_sources(a.sources):
+        if src["kind"] == "manifest":
+            meta[src["id"]] = {"kind": "manifest", "url": src["url"]}
+            fetched[src["id"]] = _fetch(src["id"], _read_manifest, src)
+            manifests.append(fetched[src["id"]])
+            continue
         meta[src["id"]] = {"client": src["client"], "kind": "release",
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
         fetched[src["id"]] = _fetch(src["id"], _read, src)
-    for address, client in doc_pages(rows).items():
+    pages = doc_pages(rows)
+    for address, client in pages.items():
         meta[address] = {"client": client, "kind": "doc", "url": address}
         fetched[address] = _fetch(address, lambda u: _read_doc(u, hosts), address)
     pieces, new_state = plan_run(state, fetched, meta)
+    if manifests:
+        read = None if None in manifests else set().union(*manifests)
+        new_state = plan_moved(new_state, read, pages, hosts,
+                               lambda u: location(u, hosts), week_of(date.today()))
     release = _git(a.kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
     names = sorted({f for r in rows for f in r.files})
 

@@ -92,7 +92,8 @@ def _judged(issues: list[dict]) -> list[dict]:
 
 
 def _fetch_pieces(archive: list[dict], sources_file) -> dict[str, dict]:
-    sources = {s["id"]: s for s in load_sources(sources_file)}
+    # A source with no client, such as the Agent Docs manifest, never makes a piece.
+    sources = {s["id"]: s for s in load_sources(sources_file) if s.get("client")}
     read, pieces = {}, {}
     for line in archive:
         sid, _, key = line["piece"].partition("#")

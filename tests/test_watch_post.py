@@ -115,6 +115,15 @@ def test_summary_item_without_piece_url_or_version():
     assert "### 1. t" in body and 'alt="client: Codex"' in body and 'alt="risk: low"' in body
 
 
+def test_summary_item_with_no_client_says_agent_docs():
+    item = {"title": "Cannot read agent-docs-manifest for 3 days", "effect": "unknown",
+            "severity": "medium", "client": "", "sure": True}
+    other = {"title": "t", "effect": "minor", "client": "codex", "sure": True}
+    _, body, _ = render_summary([item, other], MON)
+    assert 'alt="client: Agent Docs"' in body and "Unknown" not in body
+    assert "### 1. Agent Docs: Cannot read agent-docs-manifest for 3 days" in body
+
+
 def test_archive_has_a_line_per_finding_and_per_quiet_piece(tmp_path):
     gh = FakeIssues()
     run(inp(2), one(judged=2), gh, tmp_path, WED)
