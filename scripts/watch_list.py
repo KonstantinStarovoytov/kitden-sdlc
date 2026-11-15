@@ -134,29 +134,55 @@ def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     `.claude`). Then a word with `*` in it becomes its longest part without one, and is left
     out if that part is shorter than 3 characters. A word with no letter or digit in it, such
     as `=` or `-`, is left out: it would be found on any page.
+
+    Two rows whose What reads the same without backticks share one key; words_by_row keeps
+    them apart.
     """
-    result = {}
-    for client, cells in _table_rows(text):
-        words: list[str] = []
-        for match in TICKS.finditer(cells[0]):
-            if ABSENT.search(cells[0], 0, match.start()):
+    return {(client, cells[0].replace("`", "")): _exact_words(cells[0])
+            for client, cells in _table_rows(text)}
+
+
+def words_by_row(text: str) -> dict[str, list[str]]:
+    """The words of row_words for each row id, so no two rows share a key."""
+    return {row_id: _exact_words(cells[0]) for row_id, _, _, cells in _rows_with_ids(text)}
+
+
+def _exact_words(what: str) -> list[str]:
+    """The words of row_words for one row's What, as the list writes it."""
+    words: list[str] = []
+    for match in TICKS.finditer(what):
+        if ABSENT.search(what, 0, match.start()):
+            continue
+        for word in match.group(1).split():
+            if "<" in word or ">" in word or "kitden" in word.lower():
                 continue
-            for word in match.group(1).split():
-                if "<" in word or ">" in word or "kitden" in word.lower():
+            word = _bare_word(word.strip("'\""))
+            if not word:
+                continue
+            if "*" in word:
+                word = max(word.split("*"), key=len)
+                if len(word) < 3:
                     continue
-                word = _bare_word(word.strip("'\""))
-                if not word:
-                    continue
-                if "*" in word:
-                    word = max(word.split("*"), key=len)
-                    if len(word) < 3:
-                        continue
-                if not any(c.isalnum() for c in word):
-                    continue
-                if word not in words:
-                    words.append(word)
-        result[(client, cells[0].replace("`", ""))] = words
-    return result
+            if not any(c.isalnum() for c in word):
+                continue
+            if word not in words:
+                words.append(word)
+    return words
+
+
+def unknown_tables(text: str) -> list[str]:
+    """The text of each `## ` heading that is not a client's and has a table line (one that
+    starts with `|`) under it, before the next `## ` heading. Its rows are not read."""
+    found: list[str] = []
+    heading = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            name = line[3:].strip()
+            heading = None if name in CLIENTS else name
+        elif heading is not None and line.startswith("|"):
+            found.append(heading)
+            heading = None
+    return found
 
 
 # A word is found only where it stands alone: on a side where the word ends in one of these

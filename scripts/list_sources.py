@@ -3,8 +3,8 @@
 A workflow runs it on every Kitden pull request that changes docs/clients.md. It has no model
 and no secret, and it never fails the pull request: it always exits 0.
 
-For each row that is new or whose text changed (watch_list rows, compared by their text, not
-their place):
+For each row that is new or whose client, What or Source changed (compared by their text,
+not their place; an edit of Kind, Files, Seen in or the systems column alone is not checked):
 
 - `Source` is a doc address: read the page (as `.md` first, watch_pages.get_doc) and warn
   when an exact word of the row (watch_list.row_words) does not stand alone on it
@@ -13,9 +13,11 @@ their place):
 - `help` or `install`: nothing.
 - any other `Source`, or an address that fails the address check: warn, and do not read it.
 
-A row with no exact word gets no warning; the summary counts it. Each page is read once, and
-at most 20 pages a run, and no new page once the reads took 180 seconds in all: rows on
-further pages are listed as not checked.
+A row with no exact word gets no warning; the summary counts it. A table under a `## `
+heading that is not a client's is not read; the summary names its heading.
+
+Each page is read once, and at most 20 pages a run, and no new page once the reads took 180
+seconds in all: rows on further pages are listed as not checked.
 
 The pull request is untrusted, so is every row's text. A warning holds a row id, digits and
 fixed words only, so no text can pass for a workflow command. The job summary may name the
@@ -38,7 +40,7 @@ from collections.abc import Callable
 from typing import NamedTuple
 
 from doc_address import allowed, load_hosts
-from watch_list import held, row_places
+from watch_list import held, row_places, unknown_tables
 from watch_pages import get_doc, sections
 from watch_sources import pick_rows
 
@@ -48,6 +50,7 @@ TIME_MAX = 180  # seconds for all page reads of a run
 WORD_MAX = 60  # characters of a missing word shown in the summary
 WORDS_SHOWN = 10  # missing words shown for one row
 ROWS_SHOWN = 100  # rows listed in the summary; GitHub takes 1 MiB of summary a step
+HEADINGS_SHOWN = 10  # skipped tables named in the summary
 ROW_ID = re.compile(r"[A-Z]{2}-\d{2,}")
 NO_SOURCE = ("help", "install")
 
@@ -90,14 +93,19 @@ class Line(NamedTuple):
 
 
 def changed_rows(base: str, head: str) -> list[str]:
-    """The ids, in the head list, of the rows that are not in the base list word for word.
+    """The ids, in the head list, of the rows whose client, What and Source are not those of
+    a row in the base list.
 
-    A row is compared by its client and its cells, not by its place: a row added above
-    others leaves them unchanged.
+    A row is compared by its text, not by its place: a row added above others leaves them
+    unchanged. Only the cells the check reads count: an edit of Kind, Files, Seen in or the
+    systems column alone, as a refactor of Kitden's code makes, is not checked again.
     """
-    old = {(client, cells) for _, client, cells in row_places(base).values()}
+    def key(client, cells):
+        return client, cells[0], cells[5]
+
+    old = {key(client, cells) for _, client, cells in row_places(base).values()}
     return [row_id for row_id, (_, client, cells) in row_places(head).items()
-            if (client, cells) not in old]
+            if key(client, cells) not in old]
 
 
 def _page_text(address: str, read: Callable) -> str | None:
@@ -180,8 +188,15 @@ def _item(line: Line) -> str:
     return item
 
 
-def render(lines: list[Line]) -> tuple[list[str], str]:
-    """The workflow warnings and the job summary's markdown."""
+def _skipped(heading: str) -> str:
+    name = shown_word(heading)
+    where = f"`{name}`" if name else "an empty heading"
+    return f"- the table under {where} was skipped: its heading is not a client's"
+
+
+def render(lines: list[Line], skipped: list[str] = ()) -> tuple[list[str], str]:
+    """The workflow warnings and the job summary's markdown. `skipped`: the headings of the
+    tables that are not a client's (watch_list.unknown_tables)."""
     for line in lines:
         # The ids come from watch_list.row_ids; this keeps a bug from printing other text.
         if not ROW_ID.fullmatch(line.row_id):
@@ -189,8 +204,15 @@ def render(lines: list[Line]) -> tuple[list[str], str]:
     warnings = [f"::warning file={FILE},line={line.line:d}::{line.row_id}: {text(line)}"
                 for line in lines if line.verdict in WARNED]
     out = ["### The list's changed rows against their doc pages", ""]
+    if skipped:
+        out += [_skipped(heading) for heading in skipped[:HEADINGS_SHOWN]]
+        if len(skipped) > HEADINGS_SHOWN:
+            out.append(f"- and {len(skipped) - HEADINGS_SHOWN:d} more skipped tables")
+        out.append("")
     if not lines:
-        return warnings, "\n".join(out + ["No row was added or changed.", ""])
+        none = ("No row was added or changed in the tables of the known clients." if skipped
+                else "No row was added or changed.")
+        return warnings, "\n".join(out + [none, ""])
     counts = " ".join(f"{name}: {sum(line.verdict in verdicts for line in lines):d}."
                       for name, verdicts in COUNTS)
     out += [f"Rows added or changed: {len(lines):d}. {counts}", ""]
@@ -243,7 +265,7 @@ def run(argv, env, read, clock) -> int:
         def read(address):
             return get_doc(address, hosts)
     lines = check(head, changed_rows(texts["base"], head), hosts, read, clock)
-    warnings, summary = render(lines)
+    warnings, summary = render(lines, unknown_tables(head))
     for warning in warnings:
         print(warning)
     sys.stdout.flush()

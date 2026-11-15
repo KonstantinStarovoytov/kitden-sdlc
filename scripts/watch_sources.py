@@ -36,7 +36,7 @@ from pathlib import Path
 from agent_docs import Search
 from doc_address import allowed, load_hosts, location
 from watch_fetch import MOVED_TEXT, read_manifest, read_or_none
-from watch_list import CLIENTS, doc_pages, held, parse_list, row_ids, row_words
+from watch_list import CLIENTS, doc_pages, held, parse_list, row_ids, words_by_row
 from watch_moved import moved
 from watch_pages import load_sources
 
@@ -57,7 +57,7 @@ NONE_HELD = "the top passage holds none of its words"
 CUT = 4000  # passage characters to search in; an Agent Docs chunk reaches 3000
 SHORT = 3  # a word this long or shorter is weak
 PLAIN = re.compile(r"[a-z]+")  # so is a word of plain lowercase letters, as terms() drops
-LIMITS = ("Limits: rows whose words are Kitden's own names or long strings cannot reach "
+LIMITS = ("Limits: rows whose words are long strings cannot reach "
           "\"states it\"; a word that starts or ends with a mark can match inside a longer "
           "name (`.mdc` in `my-rule.mdc`, `mcp.json` in `.mcp.json`); a word glued to a "
           "letter, digit, `_` or `-` reads as missing.")
@@ -115,10 +115,10 @@ def pick_rows(text: str, client: str | None = None, all_rows: bool = False,
     """
     rows = parse_list(text)
     names = row_ids(text)
-    words = row_words(text)
+    words = words_by_row(text)
     if len(rows) != len(names):
         raise ValueError("the list's rows and their ids do not match")
-    items = [Item(rid, row.client, label, row.what, row.source, words[(row.client, row.what)])
+    items = [Item(rid, row.client, label, row.what, row.source, words[rid])
              for (rid, (_, label)), row in zip(names.items(), rows, strict=True)]
     if ids is not None:
         unknown = [i for i in ids if i not in names]

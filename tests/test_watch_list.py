@@ -1,7 +1,18 @@
 # ruff: noqa: E501
 import pytest
 
-from watch_list import Row, doc_pages, held, parse_list, row_ids, row_places, row_words, terms
+from watch_list import (
+    Row,
+    doc_pages,
+    held,
+    parse_list,
+    row_ids,
+    row_places,
+    row_words,
+    terms,
+    unknown_tables,
+    words_by_row,
+)
 
 TEXT = """## Codex
 | What | Kind | Files | Seen in | macOS and Linux | Source |
@@ -193,3 +204,20 @@ def test_row_words_drops_a_word_that_names_kitden():
 ])
 def test_row_words_drops_a_word_the_row_says_is_absent(what, words):
     assert one_row(what) == words
+
+
+def test_words_by_row_keeps_rows_apart_whose_what_reads_the_same_without_backticks():
+    text = TEXT + "| `zork frob` x | key | `a` | s | same | guess |\n| `zork` frob x | key | `a` | s | same | guess |\n"
+    assert row_words(text)[("codex", "zork frob x")] == ["zork"]  # one key for two rows
+    got = words_by_row(text)
+    assert got["CX-03"] == ["zork", "frob"]
+    assert got["CX-04"] == ["zork"]
+    assert got.keys() == row_ids(text).keys()
+
+
+def test_unknown_tables_names_a_heading_over_a_table_that_is_not_a_client():
+    text = ("# Title\n\n## Notes\n\nNo table here.\n\n## Claude Code (CLI)\n\n"
+            "| What | Kind | Files | Seen in | macOS and Linux | Source |\n"
+            "| `x` | key | `a` | s | same | guess |\n" + TEXT + "## Zed\n| a | b |\n")
+    assert unknown_tables(text) == ["Claude Code (CLI)", "Zed"]
+    assert unknown_tables(TEXT) == []

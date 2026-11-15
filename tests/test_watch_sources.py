@@ -153,6 +153,15 @@ def test_pick_rows_gives_ids_labels_and_exact_words():
     assert items[2].words == []
 
 
+def test_pick_rows_takes_each_rows_own_words():
+    # Without backticks both Whats read "zork frob x": the words go by the row, not the What.
+    text = LIST.replace("| `zork --frob` turns the frob on |", "| `zork frob` x |").replace(
+        "| Widgets live in `~/.zork/widgets.toml` under `gizmos` |", "| `zork` frob x |")
+    items = pick_rows(text)
+    assert [(i.id, i.words) for i in items[:2]] == [("CC-01", ["zork", "frob"]),
+                                                   ("CC-02", ["zork"])]
+
+
 def test_rows_with_an_address_are_skipped(run):
     result = run()
     assert ("search", CC4, "claude-code") not in result.search.calls
@@ -530,7 +539,9 @@ def test_the_table_has_a_header_and_a_line_a_row(run):
 
 def test_the_limits_line_names_the_three_known_limits(run):
     limits = run().out.splitlines()[1]
-    assert "Kitden's own names or long strings" in limits
+    # Words that name Kitden are left out by row_words, so that limit is gone.
+    assert "Kitden" not in limits
+    assert "rows whose words are long strings cannot reach \"states it\"" in limits
     assert "`mcp.json` in `.mcp.json`" in limits
     assert "a letter, digit, `_` or `-`" in limits
 

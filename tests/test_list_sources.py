@@ -107,6 +107,36 @@ def test_changed_rows_counts_a_row_moved_to_another_client():
     assert changed_rows(base, head) == ["CX-01"]
 
 
+def edit(text: str, old: str, new: str) -> str:
+    assert old in text
+    return text.replace(old, new)
+
+
+def test_changed_rows_skips_an_edit_of_files_seen_in_or_systems_only():
+    base = make_list([("`zork` one", doc("a")), ("`zork` two", doc("b")),
+                      ("`zork` three", doc("c"))])
+    head = edit(base, "| `zork` one | key | `src/a.py` |",
+                "| `zork` one | key | `src/moved/a.py` |")
+    head = edit(head, "| `zork` two | key | `src/a.py` | scan |",
+                "| `zork` two | key | `src/a.py` | a scan |")
+    head = edit(head, "| scan | same | " + doc("c"), "| scan | macOS only | " + doc("c"))
+    head = edit(head, "| `zork` three | key |", "| `zork` three | path |")
+    assert changed_rows(base, head) == []
+
+
+def test_changed_rows_takes_an_edit_of_what_or_source():
+    base = make_list([("`zork` one", doc("a")), ("`zork` two", doc("b"))])
+    head = edit(base, "`zork` one", "`zork` uno")
+    head = edit(head, "| same | " + doc("b"), "| same | " + doc("bb"))
+    assert changed_rows(base, head) == ["CC-01", "CC-02"]
+
+
+def test_rows_whose_what_reads_the_same_without_backticks_keep_their_own_words():
+    rows = [("`zork frob` x", doc("a")), ("`zork` frob x", doc("a"))]
+    lines, _ = run(rows, ["CC-01", "CC-02"], {doc("a"): "zork\n"})
+    assert lines == [Line("CC-01", 7, MISSING, ["frob"], 2), Line("CC-02", 8, HELD, [], 1)]
+
+
 def test_changed_rows_is_empty_when_nothing_changed():
     text = make_list([("`zork` one", doc("a"))])
     assert changed_rows(text, text) == []
@@ -320,6 +350,35 @@ def test_the_summary_lists_at_most_a_hundred_rows():
 def test_render_refuses_a_row_id_it_did_not_make():
     with pytest.raises(ValueError):
         render([Line("CC-01::error::x", 7, GUESS, [], 1)])
+
+
+def test_the_summary_names_a_table_under_an_unknown_heading():
+    warned, summary = render([], ["Claude Code (CLI)", "Zed`|\x07" + "z" * 70])
+    assert warned == []
+    items = [line for line in summary.splitlines() if line.startswith("- ")]
+    assert items == [
+        "- the table under `Claude Code (CLI)` was skipped: its heading is not a client's",
+        "- the table under `Zed" + "z" * 57 + "` was skipped: its heading is not a client's",
+    ]
+    assert "No row was added or changed." not in summary
+    assert "No row was added or changed in the tables of the known clients." in summary
+
+
+def test_the_summary_names_at_most_ten_unknown_headings():
+    summary = render([], [f"H{n}" for n in range(12)])[1]
+    items = [line for line in summary.splitlines() if line.startswith("- ")]
+    assert len(items) == 11
+    assert items[-1] == "- and 2 more skipped tables"
+
+
+def test_main_names_a_renamed_heading(tmp_path, capsys):
+    base = make_list([("`zork` one", doc("a"))])
+    head = base.replace("## Claude Code", "## Claude  Code")
+    summary = tmp_path / "summary.md"
+    assert main(files(tmp_path, base, head), {"GITHUB_STEP_SUMMARY": str(summary)},
+                FakeReader()) == 0
+    assert "- the table under `Claude  Code` was skipped" in summary.read_text()
+    assert capsys.readouterr().out == ""
 
 
 def test_the_summary_says_when_no_row_changed():
