@@ -1,9 +1,10 @@
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
-from check_agent_workflows import HOSTS_ACTION, _is_model_step, check_workflow
+from check_agent_workflows import HOSTS_ACTION, PINNED, _is_model_step, check_workflow
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -496,7 +497,7 @@ def test_a_planted_python_is_looked_for_in_every_job_that_could_hold_one():
         doc = yaml.safe_load((WORKFLOWS / file).read_text())
         return _someone_elses_checkout_on_top(doc, doc["jobs"][job])
 
-    assert held("check.yml", "check")
+    assert held("check.yml", "check") and held("list-check.yml", "check")
     assert held("review.yml", "claude") and held("review.yml", "luna")
     assert not held("review.yml", "post")
     assert not held("desk.yml", "measure") and not held("watch.yml", "fetch")
@@ -515,3 +516,166 @@ def test_a_planted_python_is_looked_for_in_every_job_that_could_hold_one():
         if file == "release-prep.yml":
             needs = doc["jobs"][job]["needs"]
             assert "guard" in ([needs] if isinstance(needs, str) else needs), job
+
+
+# --- list-check.yml: Kitden calls it on every pull request that changes docs/clients.md, forks
+# --- included. The pull request's files are untrusted; no model runs and no secret is near.
+
+LIST_CHECK = WORKFLOWS / "list-check.yml"
+LIST_STEP = "Check the changed rows against their pages"
+
+
+def _uses(doc: dict) -> list[str]:
+    return [str(s["uses"]) for job in doc["jobs"].values() for s in job["steps"] if "uses" in s]
+
+
+def _list_check_problems(text: str) -> list[str]:
+    doc = yaml.safe_load(text)
+    problems = []
+    if doc.get("on", doc.get(True)) != {"workflow_call": None}:
+        problems.append("it runs on something other than workflow_call, or takes inputs")
+    if doc.get("permissions") != {}:
+        problems.append("the top permissions are not {}")
+    if "secrets" in text:
+        problems.append("the file names secrets")
+    (job,) = doc["jobs"].values()
+    if job.get("permissions") != {"contents": "read"}:
+        problems.append("the job may do more than read the code")
+    if job.get("timeout-minutes") != 10:
+        problems.append("the job's timeout is not 10 minutes")
+    if job.get("continue-on-error") is not None:
+        problems.append("the job hides its own failures")
+    steps = job["steps"]
+    first = steps[0]
+    if not str(first.get("uses", "")).startswith(HOSTS_ACTION + "@") or first.get("with") != {
+        "egress-policy": "audit"
+    }:
+        problems.append("the first step does not record the hosts")
+    if not all(PINNED.match(uses) for uses in _uses(doc)):
+        problems.append("an action is not pinned to a full SHA")
+    checkouts = [s for s in steps if "actions/checkout" in str(s.get("uses", ""))]
+    if len(checkouts) != 2 or any(
+        (s.get("with") or {}).get("persist-credentials") is not False for s in checkouts
+    ):
+        problems.append("a checkout keeps the token")
+    # The merge commit and its parents: the base list is the merge's first parent, the commit
+    # the head was made from, not the base branch's tip at the time of a re-run.
+    if checkouts and (checkouts[0].get("with") or {}).get("fetch-depth") != 2:
+        problems.append("the pull request's checkout does not bring the merge's parents")
+    if checkouts and (checkouts[-1].get("with") or {}).get("ref") != "${{ job.workflow_sha }}":
+        problems.append("kitden-sdlc is not checked out at this workflow's own commit")
+    if not _before(doc, "check", "Clear the tools folder", "Check out kitden-sdlc"):
+        problems.append("the tools folder is not cleared before kitden-sdlc is checked out")
+    runs = [str(s["run"]) for s in steps if "run" in s]
+    if any("${{" in run for run in runs):
+        problems.append("an expression sits inside run")
+    if any("git fetch" in run for run in runs):
+        problems.append("a step fetches: the base list comes from the merge's first parent")
+    problems += _list_files_problems(_step(doc, "check", LISTS_STEP))
+    step = _step(doc, "check", LIST_STEP)
+    if step is None:
+        return [*problems, "the script step is missing"]
+    run = " ".join(str(step["run"]).split())
+    if "uv run --no-project --no-config" not in run or "list_sources.py" not in run:
+        problems.append("the script is not run with --no-project --no-config")
+    if "--base base.md --head head.md" not in run or "docs/clients.md" in run:
+        problems.append("the script reads a list other than the two written by git show")
+    # uv and python run from the temp folder: the same rule as every job with someone else's
+    # checkout on top.
+    return problems + _outside_folder_problems(text, "list-check.yml")
+
+
+LISTS_STEP = "Get the list before and after the pull request"
+
+
+def _list_files_problems(step: dict | None) -> list[str]:
+    """Both lists are written by `git show` into $RUNNER_TEMP: a docs/clients.md that is a link
+    is read as its link text, and a base.md the pull request brings is never written through."""
+    if step is None:
+        return ["the step that writes the lists is missing"]
+    lines = [line.strip() for line in str(step["run"]).splitlines()]
+    problems = []
+    for line in lines:
+        if "docs/clients.md" in line and not line.startswith(("git show ", "if git cat-file -e ")):
+            problems.append(f"the list is read by something other than git: {line}")
+        writes = re.findall(r"(?<![0-9&])> *([^\s;]+)", line)
+        if any(w != "/dev/null" and not w.startswith('"$RUNNER_TEMP/') for w in writes):
+            problems.append(f"a file is written outside the temp folder: {line}")
+    for wanted in ('list "HEAD^1" base', "list HEAD head"):
+        if wanted not in lines:
+            problems.append(f"missing: {wanted}")
+    return problems
+
+
+def test_the_list_check_runs_kitden_sdlcs_script_and_nothing_the_pull_request_brings():
+    text = LIST_CHECK.read_text()
+    assert _list_check_problems(text) == []
+    for guard, swap in (
+        ("  workflow_call:\n", "  workflow_call:\n  pull_request_target:\n"),
+        ("permissions: {}\n", "permissions: write-all\n"),
+        ("      contents: read", "      contents: write"),
+        ("timeout-minutes: 10", "timeout-minutes: 30"),
+        ("egress-policy: audit", "egress-policy: none"),
+        ("persist-credentials: false", "persist-credentials: true"),
+        ("ref: ${{ job.workflow_sha }}", "ref: main"),
+        ("- name: Clear the tools folder", "- name: Something else"),
+        ("fetch-depth: 2", "fetch-depth: 1"),
+        ('list "HEAD^1" base', 'list "origin/main" base'),
+        ("--no-project", ""),
+        ("--no-config", ""),
+        ("working-directory: ${{ runner.temp }}", "working-directory: ."),
+    ):
+        # The flags are cut where the step names them, not in the comment above it.
+        cut = _cut_last(text, guard) if guard.startswith("--") else text.replace(guard, swap, 1)
+        assert cut != text, guard
+        assert _list_check_problems(cut) != [], guard
+    assert _list_check_problems(text + "# secrets.GITHUB_TOKEN\n") != []
+    unpinned = re.sub(r"(harden-runner@)[0-9a-f]{40}", r"\1v2", text)
+    assert unpinned != text and _list_check_problems(unpinned) != []
+    late = text.replace('list "HEAD^1" base', 'list "${{ github.base_ref }}" base', 1)
+    assert late != text and _list_check_problems(late) != []
+    fetch = 'git fetch origin main\n          list "HEAD^1" base'
+    fetched = text.replace('list "HEAD^1" base', fetch)
+    assert fetched != text and _list_check_problems(fetched) != []
+
+
+@pytest.mark.parametrize(("old", "new"), [
+    ('git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"',
+     'cp docs/clients.md "$RUNNER_TEMP/$2.md"'),
+    ('git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"',
+     'cat docs/clients.md > "$RUNNER_TEMP/$2.md"'),
+    ('git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"',
+     'git show "$1:docs/clients.md" > "$2.md"'),
+    ("list HEAD head", 'cp docs/clients.md "$RUNNER_TEMP/head.md"'),
+    ("--head head.md", '--head "$GITHUB_WORKSPACE/docs/clients.md"'),
+])
+def test_the_list_check_reads_both_lists_only_from_git_show_in_the_temp_folder(old, new):
+    text = LIST_CHECK.read_text()
+    assert _list_check_problems(text) == []
+    changed = text.replace(old, new, 1)
+    assert changed != text and _list_check_problems(changed) != []
+
+
+def test_the_list_check_stops_red_when_the_checkout_is_not_a_merge():
+    run = str(_step(yaml.safe_load(LIST_CHECK.read_text()), "check", LISTS_STEP)["run"])
+    assert 'git rev-parse --verify --quiet "HEAD^1"' in run
+    assert run.count("::error::") == 1 and "exit 1" in run
+
+
+def test_the_list_check_uses_the_same_pins_as_the_workflows_it_copies():
+    doc = yaml.safe_load(LIST_CHECK.read_text())
+    known = set(_uses(yaml.safe_load((WORKFLOWS / "check.yml").read_text())))
+    known |= set(_uses(yaml.safe_load((WORKFLOWS / "watch.yml").read_text())))
+    assert set(_uses(doc)) <= known
+    uv = next(s for s in doc["jobs"]["check"]["steps"] if "setup-uv" in str(s.get("uses")))
+    check = yaml.safe_load((WORKFLOWS / "check.yml").read_text())
+    uv_check = next(s for s in check["jobs"]["check"]["steps"] if "setup-uv" in str(s.get("uses")))
+    assert uv["with"] == uv_check["with"] == {"version": "0.10.10", "enable-cache": False}
+
+
+def test_the_list_check_cannot_turn_red_for_a_page():
+    # The script always exits 0; nothing in the workflow may make a warning a failure.
+    doc = yaml.safe_load(LIST_CHECK.read_text())
+    run = " ".join(str(_step(doc, "check", LIST_STEP)["run"]).split())
+    assert "||" not in run and "exit" not in run
+    assert check_workflow(doc, "list-check.yml") == []

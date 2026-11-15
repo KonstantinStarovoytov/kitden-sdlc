@@ -20,15 +20,27 @@ class Row:
     source: str
 
 
-def _table_rows(text: str) -> Iterator[tuple[str, list[str]]]:
+def _numbered_rows(text: str) -> Iterator[tuple[int, str, list[str]]]:
+    """Each row as (its line number in the file, client, cells).
+
+    Lines are numbered from 1 as git counts them: only "\n" ends one. A row is still read
+    from text.splitlines(), so a form feed or U+2028 cuts a row as before.
+    """
     client = None
-    for line in text.splitlines():
+    number = 1
+    for line, piece in zip(text.splitlines(), text.splitlines(keepends=True), strict=True):
         if line.startswith("## "):
             client = CLIENTS.get(line[3:].strip())
         elif client and line.startswith("|"):
             cells = [c.strip() for c in line.strip().strip("|").split(" | ")]
             if len(cells) == 6 and cells[0] != "What" and not re.fullmatch(r"[-:]+", cells[0]):
-                yield client, cells
+                yield number, client, cells
+        number += piece.count("\n")
+
+
+def _table_rows(text: str) -> Iterator[tuple[str, list[str]]]:
+    for _, client, cells in _numbered_rows(text):
+        yield client, cells
 
 
 def parse_list(text: str) -> list[Row]:
@@ -44,14 +56,23 @@ def row_labels(text: str) -> dict[tuple[str, str], str]:
     return {(client, cells[0].replace("`", "")): cells[0] for client, cells in _table_rows(text)}
 
 
+def _rows_with_ids(text: str) -> Iterator[tuple[str, int, str, list[str]]]:
+    count: dict[str, int] = {}
+    for number, client, cells in _numbered_rows(text):
+        count[client] = count.get(client, 0) + 1
+        yield f"{PREFIX[client]}-{count[client]:02d}", number, client, cells
+
+
 def row_ids(text: str) -> dict[str, tuple[str, str]]:
     """A short id for each row, by its place in its client's table: id -> (client, label)."""
-    ids: dict[str, tuple[str, str]] = {}
-    count: dict[str, int] = {}
-    for client, cells in _table_rows(text):
-        count[client] = count.get(client, 0) + 1
-        ids[f"{PREFIX[client]}-{count[client]:02d}"] = (client, cells[0])
-    return ids
+    return {row_id: (client, cells[0]) for row_id, _, client, cells in _rows_with_ids(text)}
+
+
+def row_places(text: str) -> dict[str, tuple[int, str, tuple[str, ...]]]:
+    """For each row id, the row's line number in the file (from 1, as git counts), its client
+    and its cells."""
+    return {row_id: (number, client, tuple(cells))
+            for row_id, number, client, cells in _rows_with_ids(text)}
 
 
 def short_list(text: str) -> str:
@@ -87,6 +108,8 @@ def terms(text: str) -> dict[tuple[str, str], list[str]]:
 
 
 PROSE_MARKS = "(),;:"
+# "no " or "not " as a whole word right before a part in backticks: the row says it is absent.
+ABSENT = re.compile(r"(?<![A-Za-z0-9_])(?:no|not) $", re.IGNORECASE)
 
 
 def _bare_word(word: str) -> str:
@@ -101,33 +124,70 @@ def _bare_word(word: str) -> str:
 def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     """Every word in backticks of each row's What, in order and without repeats.
 
-    Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out.
+    Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out, and so is a
+    word with `kitden` in it, in any case: no vendor page names Kitden. A part in backticks
+    that the row says is absent, right after `no ` or `not ` (any case, one space, the whole
+    word), is left out with all its words: "no `cwd`".
+
     Quotes (' and ") around a word are taken off, then the marks of the list's prose: `(`,
     `)`, `,`, `;` and `:` at either end, and `.` at the end (a leading `.` stays, as in
     `.claude`). Then a word with `*` in it becomes its longest part without one, and is left
     out if that part is shorter than 3 characters. A word with no letter or digit in it, such
     as `=` or `-`, is left out: it would be found on any page.
+
+    Two rows whose What reads the same without backticks share one key; words_by_row keeps
+    them apart.
     """
-    result = {}
-    for client, cells in _table_rows(text):
-        words: list[str] = []
-        for part in TICKS.findall(cells[0]):
-            for word in part.split():
-                if "<" in word or ">" in word:
+    return {(client, cells[0].replace("`", "")): _exact_words(cells[0])
+            for client, cells in _table_rows(text)}
+
+
+def words_by_row(text: str) -> dict[str, list[str]]:
+    """The words of row_words for each row id, so no two rows share a key."""
+    return {row_id: _exact_words(cells[0]) for row_id, _, _, cells in _rows_with_ids(text)}
+
+
+def _exact_words(what: str) -> list[str]:
+    """The words of row_words for one row's What, as the list writes it."""
+    words: list[str] = []
+    seen: set[str] = set()
+    for match in TICKS.finditer(what):
+        # Only the 5 characters before the part: "not " and the one before it. A search from
+        # the row's start for every part made a long row take minutes.
+        start = match.start()
+        if ABSENT.search(what, max(0, start - 5), start):
+            continue
+        for word in match.group(1).split():
+            if "<" in word or ">" in word or "kitden" in word.lower():
+                continue
+            word = _bare_word(word.strip("'\""))
+            if not word:
+                continue
+            if "*" in word:
+                word = max(word.split("*"), key=len)
+                if len(word) < 3:
                     continue
-                word = _bare_word(word.strip("'\""))
-                if not word:
-                    continue
-                if "*" in word:
-                    word = max(word.split("*"), key=len)
-                    if len(word) < 3:
-                        continue
-                if not any(c.isalnum() for c in word):
-                    continue
-                if word not in words:
-                    words.append(word)
-        result[(client, cells[0].replace("`", ""))] = words
-    return result
+            if not any(c.isalnum() for c in word):
+                continue
+            if word not in seen:
+                seen.add(word)
+                words.append(word)
+    return words
+
+
+def unknown_tables(text: str) -> list[str]:
+    """The text of each `## ` heading that is not a client's and has a table line (one that
+    starts with `|`) under it, before the next `## ` heading. Its rows are not read."""
+    found: list[str] = []
+    heading = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            name = line[3:].strip()
+            heading = None if name in CLIENTS else name
+        elif heading is not None and line.startswith("|"):
+            found.append(heading)
+            heading = None
+    return found
 
 
 # A word is found only where it stands alone: on a side where the word ends in one of these

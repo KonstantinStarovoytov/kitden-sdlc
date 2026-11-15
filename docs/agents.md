@@ -10,6 +10,7 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | `claude` reviewer | a pull request opens or changes | Claude Sonnet or Opus, picked by [the review tasks](../evals/README.md) | read the checkout, write findings | see below | `AGENTS_ENABLED` and `REVIEW_LIVE`, in Kitden |
 | `luna` reviewer | the same | GPT-6 Luna | read in a sandbox with no network, answer with findings | see below | the same |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only | none |
+| list check | a Kitden pull request changes `docs/clients.md` | none: a script, not an agent | read the doc page of each row it adds or changes, and warn | read only, no secret; 10 minutes; at most 20 pages, 40 exact words a row and 3 minutes of checking; never turns red for a page | none |
 | the desk | every day at 06:41 UTC, or by hand | none | count reviews, read Kitden's facts, commit `numbers.md`, `numbers.json` and `desk.json` to the `numbers` branch; a second job shows `desk.json` as the issue "Kitden desk" in Kitden, as Lantern | no model, no pull request code; 10 and 5 minutes, one run at a time | `AGENTS_ENABLED`, in kitden-sdlc, for the issue only: the numbers update without it |
 | client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time | `AGENTS_ENABLED` and `WATCH_LIVE`, in kitden-sdlc |
 | release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context; write the notes, the README, the guide, the policy files and the plugin README to one output folder; scripts check them, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs with the same read-only tools: 25 minutes and 60 turns, then 10 minutes and 15 turns; one run at a time; it does not start while a release pull request is open or three bot pull requests wait, and stops when the branch `prepare-vX.Y.Z` exists | `AGENTS_ENABLED`, in Kitden; started by hand |
@@ -101,6 +102,12 @@ request. The reviewers only comment: they never approve and never block
 On Kitden, `agents-review.yml` calls [review.yml](../.github/workflows/review.yml), and the
 Lantern app posts the "Agent review" comment. `agents-check.yml` calls
 [check.yml](../.github/workflows/check.yml).
+
+Kitden's `list-check.yml` calls [list-check.yml](../.github/workflows/list-check.yml) when a pull
+request changes `docs/clients.md`, forks too. It is a script, not an agent:
+[list_sources.py](../scripts/list_sources.py) reads the doc page of each row the pull request adds
+or changes, and warns when an exact word of the row is not on its page. It holds no secret and
+only reads; nothing from the pull request runs. A warning never turns the check red.
 
 ## The client watcher
 

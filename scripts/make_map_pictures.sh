@@ -11,6 +11,6 @@ shot() { # story, file name, height
       --screenshot="docs/images/map-$2-$theme.png" "$page?shot=$1&theme=$theme" > /dev/null 2>&1
   done
 }
-shot pr pull-request 715
+shot pr pull-request 845
 shot rel release 1195
 shot day every-day 770

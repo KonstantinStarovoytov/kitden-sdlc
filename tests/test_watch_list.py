@@ -1,7 +1,20 @@
 # ruff: noqa: E501
+import time
+
 import pytest
 
-from watch_list import Row, doc_pages, held, parse_list, row_words, terms
+from watch_list import (
+    Row,
+    doc_pages,
+    held,
+    parse_list,
+    row_ids,
+    row_places,
+    row_words,
+    terms,
+    unknown_tables,
+    words_by_row,
+)
 
 TEXT = """## Codex
 | What | Kind | Files | Seen in | macOS and Linux | Source |
@@ -147,3 +160,75 @@ def test_row_words_strips_the_prose_marks_around_a_word():
            "and x). and '(y;)'")
     assert got[key] == ["file", "path", "cursor.plugins.installedIds", ".claude", "rules/", "x",
                         "y"]
+
+
+def test_row_places_gives_each_row_its_line_client_and_cells():
+    places = row_places("# Title\n\n" + TEXT)
+    assert places == {
+        "CX-01": (6, "codex", ("`codex plugin list --json`", "command", "`src/a.py`, `src/b.py`",
+                               "plugins", "same", "https://learn.chatgpt.com/docs/plugins")),
+        "CX-02": (7, "codex", ("rollout log lines", "path", "`src/c.py`", "skill list", "same",
+                               "install")),
+    }
+    assert places.keys() == row_ids(TEXT).keys()
+
+
+def test_row_places_counts_lines_as_git_does():
+    # Only "\n" ends a line in the file; a form feed or U+2028 in a line does not.
+    text = "# Title\x0c more title\r\n" + TEXT
+    assert [line for line, _, _ in row_places(text).values()] == [5, 6]
+
+
+def one_row(what: str) -> list[str]:
+    text = "## Codex\n" + TEXT.splitlines()[1] + "\n|---|---|---|---|---|---|\n" \
+        f"| {what} | key | `src/a.py` | scan | same | guess |\n"
+    return next(iter(row_words(text).values()))
+
+
+def test_row_words_drops_a_word_that_names_kitden():
+    # No vendor page names Kitden, so such a word would always read as missing.
+    assert one_row("Update `command` of the `kitden` entry") == ["command"]
+    assert one_row("`[mcp_servers.kitden]` and `src/Kitden/x.py` and `MYKITDENX` and `kit`") == [
+        "kit"]
+
+
+@pytest.mark.parametrize(("what", "words"), [
+    ("Entries list `args`, no `cwd`", ["args"]),
+    ("No `x` here, `y` there", ["y"]),
+    ("it is not `y`; it is `z`", ["z"]),
+    ("NOT `y` but `z`", ["z"]),
+    ("you know `z`", ["z"]),
+    ("a piano `z`", ["z"]),
+    ("a cannot `z`", ["z"]),
+    ("no  `z` with two spaces", ["z"]),
+    ("no `two words` here, `z`", ["z"]),
+    ("`no` `z`", ["no", "z"]),
+])
+def test_row_words_drops_a_word_the_row_says_is_absent(what, words):
+    assert one_row(what) == words
+
+
+def test_row_words_of_a_huge_row_take_little_time():
+    # A 350 KB row took 64 seconds when each part searched for "no " from the row's start.
+    what = " ".join(f"`w{n}x` and" for n in range(25_000))
+    started = time.monotonic()
+    words = one_row(what)
+    assert time.monotonic() - started < 2
+    assert len(words) == 25_000 and words[-1] == "w24999x"
+
+
+def test_words_by_row_keeps_rows_apart_whose_what_reads_the_same_without_backticks():
+    text = TEXT + "| `zork frob` x | key | `a` | s | same | guess |\n| `zork` frob x | key | `a` | s | same | guess |\n"
+    assert row_words(text)[("codex", "zork frob x")] == ["zork"]  # one key for two rows
+    got = words_by_row(text)
+    assert got["CX-03"] == ["zork", "frob"]
+    assert got["CX-04"] == ["zork"]
+    assert got.keys() == row_ids(text).keys()
+
+
+def test_unknown_tables_names_a_heading_over_a_table_that_is_not_a_client():
+    text = ("# Title\n\n## Notes\n\nNo table here.\n\n## Claude Code (CLI)\n\n"
+            "| What | Kind | Files | Seen in | macOS and Linux | Source |\n"
+            "| `x` | key | `a` | s | same | guess |\n" + TEXT + "## Zed\n| a | b |\n")
+    assert unknown_tables(text) == ["Claude Code (CLI)", "Zed"]
+    assert unknown_tables(TEXT) == []
