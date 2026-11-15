@@ -23,6 +23,7 @@ daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for y
 | Stop one agent | set its switch variable to `false` |
 | Stop everything | set `AGENTS_ENABLED` to `false` in both repositories: every agent stops; the desk's count still runs |
 | Answer a person | write yourself; no bot answers people |
+| Find doc pages for the list | in kitden-sdlc, with `COHERE_API_KEY` set: `uv run --only-group watch-io python scripts/watch_sources.py --kitden <Kitden checkout>`; see [below](#find-doc-pages-for-the-list) |
 
 ## The five lights
 
@@ -62,27 +63,12 @@ The Variables pages:
 
 ## Find doc pages for the list
 
-For each row of Kitden's `docs/clients.md` whose `Source` is `help`, `install` or `guess`, a
-script asks Agent Docs for a doc page that states it and prints a table. Run it by hand in
-kitden-sdlc, with your Kitden checkout:
-
-```sh
-uv run --only-group watch-io python scripts/watch_sources.py --kitden <your Kitden checkout>
-```
-
-- It needs `COHERE_API_KEY` in your shell. A trial key works, slowly.
-- It waits 7 seconds between searches: about 7 minutes for 60 rows. With a paid key add
-  `--pause 2`.
-- If the first 3 searches all fail, it stops and prints what it did: check the key, the
-  per-minute limit, or the server.
-- Agent Docs' `/search` must take `product` first. Until that is deployed the script stops
-  and says so.
-- `--client codex` checks one client, `--all` also the rows that have a page, and
-  `--rows CC-04,CX-12` only those rows, for example the ones whose search failed.
-- "states it" means one passage holds every word the row has in backticks; "near: n of m"
-  means the best passage holds n of them, at least one; "no page" means no passage, or none
-  that holds a word of the row; "search failed" says nothing about the docs.
-- Read the table and change `Source` in `docs/clients.md` in a pull request in Kitden.
+For each row of Kitden's `docs/clients.md` whose `Source` is `help`, `install` or `guess`, the
+script asks Agent Docs for a page that states it. A trial key works, slowly: 7 seconds between
+searches, about 7 minutes for 60 rows (`--pause 2` with a paid key). Agent Docs' `/search` must
+take `product` first. If the first 3 searches fail, it stops: check the key, the limit, the
+server. `--client codex`, `--all` or `--rows CC-04,CX-12` change which rows. Change `Source` in
+`docs/clients.md` in a Kitden pull request.
 
 ## Agent Docs in a session
 

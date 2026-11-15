@@ -92,7 +92,8 @@ def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out.
     Quotes (' and ") around a word are taken off. Then a word with `*` in it becomes
     its longest part without one, and is left out if that part is shorter than 3
-    characters.
+    characters. A word with no letter or digit in it, such as `=` or `-`, is left out: it
+    would be found on any page.
     """
     result = {}
     for client, cells in _table_rows(text):
@@ -108,15 +109,26 @@ def row_words(text: str) -> dict[tuple[str, str], list[str]]:
                     word = max(word.split("*"), key=len)
                     if len(word) < 3:
                         continue
+                if not any(c.isalnum() for c in word):
+                    continue
                 if word not in words:
                     words.append(word)
         result[(client, cells[0].replace("`", ""))] = words
     return result
 
 
-def held(words: list[str], body: str) -> list[str]:
-    """Return the missing words: those not found in body, in the order given.
+# A word is found only where it stands alone: the character before it and the one after it
+# are not one of these (or are the start or the end of the text).
+WORD_CHARS = "A-Za-z0-9_-"
 
-    Each word is compared as written, case and all.
+
+def held(words: list[str], body: str) -> list[str]:
+    """Return the missing words: those not found standing alone in body, in the order given.
+
+    A word stands alone where the character before it and the character after it are not a
+    letter, a digit, `_` or `-`, or are the start or the end of body. So `-s` is not found in
+    `--scope`, `ws` not in `allows`, `enable` not in `enabledPlugins`; `rules/` is found in
+    `rules/*.md`. Each word is compared as written, case and all.
     """
-    return [w for w in words if w not in body]
+    return [w for w in words
+            if not re.search(rf"(?<![{WORD_CHARS}]){re.escape(w)}(?![{WORD_CHARS}])", body)]

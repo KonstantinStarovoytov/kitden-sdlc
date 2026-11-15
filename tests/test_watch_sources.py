@@ -285,8 +285,8 @@ def test_a_passage_holding_none_of_the_words_is_no_page_with_a_note(run):
     assert result.line("CC-02") == (
         "| CC-02 Widgets live in `~/.zork/widgets.toml` under `gizmos` | install "
         "|  | no page: the top passage holds none of its words |")
-    assert result.first == ("Rows checked: 5. States it: 0. Near: 0. Cannot check: 0. "
-                            "No page: 5. Search failed: 0.")
+    assert result.first == ("Rows checked: 5. States it: 0 (short words only: 0). Near: 0. "
+                            "Cannot check: 0. No page: 5. Search failed: 0.")
 
 
 def test_near_needs_at_least_one_word(run):
@@ -398,8 +398,29 @@ def test_the_first_line_counts_each_verdict(run):
         CX1: [],
         CU1: FAIL,
     })
-    assert result.first == ("Rows checked: 5. States it: 1. Near: 1. Cannot check: 1. "
-                            "No page: 1. Search failed: 1.")
+    assert result.first == ("Rows checked: 5. States it: 1 (short words only: 0). Near: 1. "
+                            "Cannot check: 1. No page: 1. Search failed: 1.")
+
+
+SHORT = LIST.replace("| `quux run` reads `quux.toml` |", "| `qx` reads `-r` and `a.b` |")
+
+
+def test_a_states_it_on_short_words_only_says_so(run):
+    result = run("--rows", "CX-01", text=SHORT, answers={"qx reads -r and a.b": [passage("qx -r a.b")]})
+    assert result.line("CX-01").endswith("| states it (short words only) |")
+    assert result.first.startswith("Rows checked: 1. States it: 1 (short words only: 1). ")
+
+
+def test_a_states_it_with_one_longer_word_has_no_note(run):
+    result = run("--rows", "CX-01", answers={CX1: [passage("quux run quux.toml")]})
+    assert result.line("CX-01").endswith("| states it |")
+    assert "(short words only: 0)" in result.first
+
+
+def test_a_short_word_inside_a_longer_one_is_not_found(run):
+    result = run("--rows", "CX-01", text=SHORT, answers={"qx reads -r and a.b": [
+        passage("qxz --r a.bc")]})
+    assert result.line("CX-01").endswith("| no page: the top passage holds none of its words |")
 
 
 def test_the_first_line_counts_other_page_when_rows_with_an_address_are_checked(run):
@@ -746,7 +767,10 @@ def test_moved_lines_are_printed_under_the_table(run):
     after = "\n".join(result.out.splitlines()[table_end + 1:])
     for record in records:
         _, changed, fix = MOVED_TEXT[record["verdict"]]
-        assert f"- {changed.format(**record)} {fix.format(**record)}" in after
+        shown = {**record, "address": f"`{record['address']}`", "to": f"`{record['to']}`"}
+        assert f"- {changed.format(**shown)} {fix.format(**shown)}" in after
+    assert "`https://cursor.com/docs/a` is not in Agent Docs" in after
+    assert "redirects to `https://cursor.com/docs/b`." in after
 
 
 def test_moved_is_asked_for_every_doc_page_of_the_list(run):

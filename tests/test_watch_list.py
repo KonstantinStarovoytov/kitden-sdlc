@@ -1,4 +1,6 @@
 # ruff: noqa: E501
+import pytest
+
 from watch_list import Row, doc_pages, held, parse_list, row_words, terms
 
 TEXT = """## Codex
@@ -48,6 +50,7 @@ WORDS = """## Claude Code
 | `hooks` and `hooks` again | key | `src/e.py` | hooks | same | guess |
 | `<project>/.mcp.json` and `cmd '<json>' -s` | path | `src/g.py` | servers | same | guess |
 | `'rules/*.md'` and `"enabled"` and `'x*'` and `''` | key | `src/h.py` | rules | same | guess |
+| `key = value` and `-` and `--` and `...` and `-s` | key | `src/i.py` | rules | same | guess |
 | rollout log lines | path | `src/f.py` | skill list | same | install |
 """
 
@@ -94,3 +97,36 @@ def test_row_words_strips_quotes_before_the_star_rule():
     got = row_words(WORDS)
     assert got[("claude-code", "'rules/*.md' and \"enabled\" and 'x*' and ''")] == [
         "rules/", "enabled"]
+
+
+def test_row_words_drops_a_word_with_no_letter_or_digit():
+    got = row_words(WORDS)
+    assert got[("claude-code", "key = value and - and -- and ... and -s")] == ["key", "value", "-s"]
+
+
+@pytest.mark.parametrize(("word", "body", "found"), [
+    ("-s", "Pass --scope user.", False),
+    ("-s", "Pass --settings here.", False),
+    ("-s", "Pass -s user.", True),
+    ("ws", "This allows it.", False),
+    ("ws", "Types: http, ws.", True),
+    ("enable", "Run disable first.", False),
+    ("enable", "Run enable first.", True),
+    ("enable", "Set enabledPlugins.", False),
+    ("id", "The provider is set.", False),
+    ("id", "The plugin id.", True),
+    ("id", "an id_token", False),
+    ("rules/", "Files in rules/*.md load.", True),
+    (".claude", "Look in .claude/settings.json now.", True),
+    ("hooks", "hooks are read.", True),
+    ("hooks", "Read the hooks", True),
+    ("hooks", "hooks", True),
+    ("Hooks", "hooks are read.", False),
+    ("add", "add-json", False),
+])
+def test_held_finds_a_word_only_where_it_stands_alone(word, body, found):
+    assert held([word], body) == ([] if found else [word])
+
+
+def test_held_finds_a_word_that_stands_alone_once_among_other_uses():
+    assert held(["-s"], "Use --scope or -s.") == []

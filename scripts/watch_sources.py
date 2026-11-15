@@ -3,7 +3,9 @@
 For each row whose `Source` is `help`, `install` or `guess` (or every row, with --all) it asks
 Agent Docs for the row's What, within the row's client, and says whether a passage states it:
 
-- states it: one passage holds every exact word of the row (watch_list.row_words).
+- states it: one passage holds every exact word of the row (watch_list.row_words), each
+  standing alone (watch_list.held). "(short words only)" when all of them have 3 characters
+  or fewer.
 - near: n of m: no passage holds them all; the one that holds the most holds n of the m,
   and n is at least 1.
 - cannot check: no exact word: the row has no word in backticks; the top passage is shown.
@@ -52,6 +54,7 @@ CANNOT = "cannot check: no exact word"
 NO_PAGE = "no page"
 FAILED = "search failed"
 NONE_HELD = "the top passage holds none of its words"
+SHORT = 3  # a "states it" whose words are all this long or shorter says so
 STOP_AFTER = 3  # failed searches at the start of a run that stop it
 # A group in brackets that starts with a date, such as "(2026-10-19, version 2.1.283)", or
 # names a version, such as "(version 0.169.0)": the list's notes, not words of the docs.
@@ -83,6 +86,7 @@ class Result:
     found: int = 0
     missing: list[str] = field(default_factory=list)
     other_page: bool = False
+    short: bool = False  # "states it" on words of 3 characters or fewer only
     note: str = ""
 
 
@@ -158,7 +162,8 @@ def judge(item: Item, passages, hosts) -> Result:
         pick = own[0] if own else stating[0]
         page, heading, _ = usable[pick]
         return Result(item, STATES, page, clean_heading(heading), len(item.words),
-                      other_page=item.has_page and not own)
+                      other_page=item.has_page and not own,
+                      short=all(len(w) <= SHORT for w in item.words))
     # The passage that holds the most words; on a tie, the higher one.
     pick = min(range(len(usable)), key=lambda i: len(missing[i]))
     if len(missing[pick]) == len(item.words):
@@ -196,7 +201,8 @@ def cell(text: str) -> str:
 
 def _verdict(result: Result) -> str:
     if result.verdict == STATES:
-        return STATES + (", other page" if result.other_page else "")
+        return (STATES + (" (short words only)" if result.short else "")
+                + (", other page" if result.other_page else ""))
     if result.verdict == NEAR:
         missing = ", ".join(f"`{cell(w)}`" for w in result.missing)
         return f"near: {result.found} of {len(result.item.words)}; missing {missing}"
@@ -214,7 +220,9 @@ def table(results: list[Result], left: int | None = None) -> str:
     the run stopped, or None when it did not stop."""
     count = {v: sum(r.verdict == v for r in results) for v in (STATES, NEAR, CANNOT, NO_PAGE,
                                                                  FAILED)}
-    first = (f"Rows checked: {len(results)}. States it: {count[STATES]}. Near: {count[NEAR]}. "
+    short = sum(r.short for r in results)
+    first = (f"Rows checked: {len(results)}. States it: {count[STATES]} "
+             f"(short words only: {short}). Near: {count[NEAR]}. "
              f"Cannot check: {count[CANNOT]}. No page: {count[NO_PAGE]}. "
              f"Search failed: {count[FAILED]}.")
     if any(r.item.has_page for r in results):
@@ -245,7 +253,8 @@ def moved_part(records, hosts) -> str:
         if not all(SHOWABLE.fullmatch(a) and allowed(a, hosts) for a in shown):
             continue
         _, changed, fix = MOVED_TEXT[record["verdict"]]
-        lines.append(f"- {changed.format(**record)} {fix.format(**record)}")
+        coded = {**record, "address": f"`{record['address']}`", "to": f"`{record['to']}`"}
+        lines.append(f"- {changed.format(**coded)} {fix.format(**coded)}")
     if not lines:
         return "Every doc page of the list is in Agent Docs.\n"
     return "Doc pages of the list that are not in Agent Docs:\n\n" + "\n".join(lines) + "\n"
