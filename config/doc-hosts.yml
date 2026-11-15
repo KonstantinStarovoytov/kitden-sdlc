@@ -1,0 +1,7 @@
+# The doc pages a watcher script may read: an https address on this host whose path starts
+# with this path. scripts/doc_address.py refuses every other address, and any redirect to one.
+- {host: code.claude.com, path: /docs/}
+- {host: cursor.com, path: /docs/}
+- {host: cursor.com, path: /help/}
+- {host: learn.chatgpt.com, path: /docs/}
+- {host: developers.openai.com, path: /codex/}

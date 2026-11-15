@@ -131,3 +131,12 @@ Problems found while building the reviewers, and what changed because of each.
   Kept by: `tests/test_release_apply.py::test_a_name_that_is_not_allowed_is_counted_and_never_shown`,
   `tests/test_release_prep_workflow.py::test_a_refused_body_fails_the_step_and_its_reason_reaches_the_log`
   and `tests/test_workflows.py::test_release_prep_keeps_only_the_models_text_for_one_day`.
+
+## 2026-11-15
+
+- **The watcher read no Claude Code doc page.** `code.claude.com` answered Python's default
+  User-Agent with 403, Cloudflare error 1010, so all seven pages went unread for two runs.
+  Now the watcher names itself in its requests and reads each doc page as `<address>.md`,
+  and the doc hashes in its memory are filled again once, quietly.
+  Kept by: `tests/test_watch_pages.py::test_get_doc_sends_the_watcher_user_agent` and
+  `tests/test_watch_fetch.py::test_doc_pages_fill_again_quietly_after_the_switch_to_markdown`.

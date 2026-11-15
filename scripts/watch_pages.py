@@ -2,11 +2,14 @@
 
 import hashlib
 import re
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from html.parser import HTMLParser
 
 import yaml
+
+import doc_address
 
 DROPPED = {"script", "style", "nav", "header", "footer"}
 HEADINGS = {f"h{i}" for i in range(1, 7)}
@@ -131,11 +134,55 @@ def releases(payload: list[dict]) -> list[Section]:
 def get(url: str) -> tuple[str, str]:
     if not url.startswith("https://"):
         raise ValueError(f"only https URLs are allowed: {url}")
-    with urllib.request.urlopen(url, timeout=20) as resp:  # noqa: S310
+    # The check above has just made sure the address is https.
+    request = urllib.request.Request(url, headers={"User-Agent": doc_address.USER_AGENT})  # noqa: S310
+    with urllib.request.urlopen(request, timeout=20) as resp:  # noqa: S310
         if not resp.url.startswith("https://"):
             raise ValueError(f"redirected to a non-https URL: {resp.url}")
         charset = resp.headers.get_content_charset() or "utf-8"
         return resp.read().decode(charset, errors="replace"), resp.headers.get_content_type()
+
+
+MARKDOWN = ("text/markdown", "text/plain")
+GONE = (404, 410)
+
+
+def _markdown(address: str, hosts, opener) -> tuple[str, str, str] | None:
+    """Read `address` as markdown. None when it is gone (404, 410) or has another type.
+
+    Any other error goes out, so a timeout or a busy server leaves the page unread that day
+    instead of reading it in a different format.
+    """
+    try:
+        body, kind, read_from = doc_address.read(address, hosts, opener)
+    except urllib.error.HTTPError as e:
+        if e.code in GONE:
+            return None
+        raise
+    return (body, kind, read_from) if kind in MARKDOWN else None
+
+
+def get_doc(address: str, hosts, opener=None) -> tuple[str, str, str]:
+    """Read a doc page as `<address>.md` first, and as the plain address when there is none.
+
+    Gives the body, the content type and the address read from. The `.md` answer counts only
+    when its type is text/markdown or text/plain; the plain address is read only when the
+    `.md` one is gone (404, 410) or has another type. When the plain read was redirected, the
+    `.md` of the address it ended at is tried once more under the same rule, and the page
+    already read is kept when that one has none. Every other error goes out.
+    """
+    if address.endswith(".md"):
+        return doc_address.read(address, hosts, opener)
+    found = _markdown(address + ".md", hosts, opener)
+    if found:
+        return found
+    page = doc_address.read(address, hosts, opener)
+    read_from = page[2]
+    if read_from != address and not read_from.endswith(".md"):
+        found = _markdown(read_from + ".md", hosts, opener)
+        if found:
+            return found
+    return page
 
 
 def load_sources(path) -> list[dict]:

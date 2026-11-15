@@ -1,11 +1,23 @@
 import json
 
 import watch_fetch
-from watch_fetch import FAIL_DAYS, PIECE_CHARS, PIECES_MAX, _fetch, build_input, plan_run
+from watch_fetch import (
+    DOC_FORMAT,
+    FAIL_DAYS,
+    PIECE_CHARS,
+    PIECES_MAX,
+    _fetch,
+    build_input,
+    plan_run,
+)
 from watch_pages import Section
 
 META = {"s": {"client": "codex", "kind": "release", "url": "https://x/s"}}
-EMPTY = {"fails": {}, "kept": [], "urgent": {"week": "", "count": 0}}
+EMPTY = {"fails": {}, "kept": [], "urgent": {"week": "", "count": 0}, "doc_format": DOC_FORMAT}
+DOC_META = {
+    "https://d": {"client": "cursor", "kind": "doc", "url": "https://d"},
+    "r": {"client": "codex", "kind": "release", "url": "https://x/r"},
+}
 
 
 def old(sources, **extra):
@@ -16,6 +28,7 @@ def test_first_run_fills_and_makes_no_pieces():
     pieces, state = plan_run(None, {"s": [Section("1.0", "t", "h")]}, META)
     assert pieces == [] and state["sources"]["s"] == {"1.0": "h"}
     assert state["summary_week"] == "" and state["tries"] == {}
+    assert state["doc_format"] == DOC_FORMAT == 2
 
 
 def test_source_new_to_memory_makes_no_pieces():
@@ -108,3 +121,79 @@ def test_read_passes_the_split_tag_of_a_page_source(monkeypatch):
     monkeypatch.setattr(watch_fetch, "get", lambda url: (html, "text/html"))
     src = {"id": "c", "kind": "page", "url": "https://c", "level": 2, "split": "article"}
     assert [s.key for s in watch_fetch._read(src)] == ["A", "B"]
+
+
+def html_era(**extra):
+    state = old({
+        "https://d": {"Search the docs": "h1", "Suggested": "h2", "Install": "h3"},
+        "r": {"1.0": "h"},
+    }, **extra)
+    del state["doc_format"]
+    return state
+
+
+def test_doc_pages_fill_again_quietly_after_the_switch_to_markdown():
+    fetched = {
+        "https://d": [Section("Install", "t", "m1"), Section("Remove", "t", "m2")],
+        "r": [Section("1.1", "t", "h2"), Section("1.0", "t", "h")],
+    }
+    pieces, state = plan_run(html_era(), fetched, DOC_META)
+    assert [p["id"] for p in pieces] == ["r#1.1"]
+    assert state["sources"]["https://d"] == {"Install": "m1", "Remove": "m2"}
+    assert state["sources"]["r"] == {"1.0": "h"}
+    assert state["fails"]["https://d"] == 0
+    assert state["doc_format"] == DOC_FORMAT
+
+
+def test_a_lower_doc_format_also_fills_again():
+    fetched = {"https://d": [Section("Install", "t", "m1")], "r": [Section("1.0", "t", "h")]}
+    pieces, state = plan_run(html_era(doc_format=1), fetched, DOC_META)
+    assert pieces == [] and state["sources"]["https://d"] == {"Install": "m1"}
+    assert state["doc_format"] == DOC_FORMAT
+
+
+def test_an_unread_doc_page_loses_its_old_hashes_and_fills_on_its_next_read():
+    pieces, state = plan_run(html_era(), {"https://d": None, "r": None}, DOC_META)
+    assert "https://d" not in state["sources"] and state["sources"]["r"] == {"1.0": "h"}
+    assert state["fails"] == {"https://d": 1, "r": 1}
+    assert state["doc_format"] == DOC_FORMAT
+    pieces, state = plan_run(
+        state, {"https://d": [Section("Install", "t", "m1")], "r": None}, DOC_META
+    )
+    assert pieces == [] and state["sources"]["https://d"] == {"Install": "m1"}
+
+
+def test_no_html_era_key_survives_for_a_page_that_left_the_list():
+    state = html_era()
+    state["sources"]["https://gone"] = {"Search the docs": "h9"}
+    _, new = plan_run(state, {"https://d": [], "r": []}, DOC_META)
+    assert set(new["sources"]) == {"https://d", "r"}
+
+
+def test_after_the_refill_a_changed_doc_section_is_a_piece_again():
+    _, state = plan_run(html_era(), {"https://d": [Section("Install", "t", "m1")]}, DOC_META)
+    pieces, _ = plan_run(state, {"https://d": [Section("Install", "t", "m9")]}, DOC_META)
+    assert [p["id"] for p in pieces] == ["https://d#Install"]
+
+
+def test_a_doc_page_is_read_through_get_doc_with_the_given_hosts(monkeypatch):
+    seen = []
+
+    def fake_get_doc(address, hosts):
+        seen.append((address, hosts))
+        return "# Install\nmade-up text\n", "text/markdown", address + ".md"
+
+    monkeypatch.setattr(watch_fetch, "get_doc", fake_get_doc)
+    hosts = [("docs.example.com", "/a/")]
+    got = watch_fetch._read_doc("https://docs.example.com/a/b", hosts)
+    assert [s.key for s in got] == ["Install"]
+    assert seen == [("https://docs.example.com/a/b", hosts)]
+
+
+def test_a_failed_doc_read_counts_as_an_unread_source(monkeypatch):
+    def fake_get_doc(address, hosts):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(watch_fetch, "get_doc", fake_get_doc)
+    address = "https://docs.example.com/a/b"
+    assert watch_fetch._fetch(address, lambda u: watch_fetch._read_doc(u, []), address) is None

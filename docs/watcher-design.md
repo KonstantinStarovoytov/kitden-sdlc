@@ -102,6 +102,10 @@ Codex pre-releases come several a day with empty notes (checked 2026-11-11), so 
 reads stable releases only. The price: a change the ChatGPT app ships early is seen at the
 stable release. Reading commits between tags is not in this step.
 
+The watcher reads a doc page as `<address>.md` first and as the address itself only when
+that fails, because the markdown holds the page's text without the site's menu, which would
+otherwise be hashed with it and look like a doc change.
+
 A doc page is cut into sections by its headings. The watcher keeps one hash per section and
 gives the model the new text of a section whose hash changed. It does not keep the pages
 themselves: they are other companies' text, and the memory is public (call).
@@ -195,7 +199,8 @@ items show the same words in their text.
 A branch `watch` in `kitden-sdlc`, the same way the weekly numbers have theirs (call). It
 holds the last version seen per source, the section hashes of each doc page, the items kept for
 the next summary, the number of urgent issues this week, the week of the last summary, how
-many runs failed on each piece, and one log line per run. It also
+many runs failed on each piece, the format the doc page hashes were made in (`doc_format`), and
+one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.
