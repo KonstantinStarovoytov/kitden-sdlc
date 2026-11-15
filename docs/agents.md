@@ -107,7 +107,7 @@ Lantern app posts the "Agent review" comment. `agents-check.yml` calls
 Once a day a job reads the release notes and docs of Claude Code, Codex and Cursor and asks a
 model whether anything touches what Kitden shows. It opens an issue in Kitden for a sure
 break or wrong data (two a week at most) and one summary issue in the first run of the week,
-normally Monday. It keeps its memory on the `watch` branch. The design is in [watcher-design.md](watcher-design.md).
+normally Monday. Once a week the summary also says which doc pages of Kitden's list are not in the Agent Docs manifest. It keeps its memory on the `watch` branch. The design is in [watcher-design.md](watcher-design.md).
 To run, it needs the `watch` branch and Lantern (the review app) with Issues write on Kitden.
 It also needs the secrets `ANTHROPIC_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in kitden-sdlc (`OPENAI_API_KEY` too, to run the eval on Luna or Terra).
 Before it is switched on, the `eval` job (run by hand) measures the model on [the watch tasks](../evals/watch/README.md).

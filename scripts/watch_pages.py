@@ -131,7 +131,9 @@ def releases(payload: list[dict]) -> list[Section]:
     ])
 
 
-def get(url: str) -> tuple[str, str]:
+def get(url: str, limit: int | None = None) -> tuple[str, str]:
+    """The body and content type of `url`. With `limit`, a body over `limit` bytes raises
+    ValueError."""
     if not url.startswith("https://"):
         raise ValueError(f"only https URLs are allowed: {url}")
     # The check above has just made sure the address is https.
@@ -140,7 +142,10 @@ def get(url: str) -> tuple[str, str]:
         if not resp.url.startswith("https://"):
             raise ValueError(f"redirected to a non-https URL: {resp.url}")
         charset = resp.headers.get_content_charset() or "utf-8"
-        return resp.read().decode(charset, errors="replace"), resp.headers.get_content_type()
+        data = resp.read() if limit is None else resp.read(limit + 1)
+        if limit is not None and len(data) > limit:
+            raise ValueError(f"the body of {url} is over {limit} bytes")
+        return data.decode(charset, errors="replace"), resp.headers.get_content_type()
 
 
 MARKDOWN = ("text/markdown", "text/plain")

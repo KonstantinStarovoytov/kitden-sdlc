@@ -48,6 +48,38 @@ def test_get_refuses_plain_http():
         get("http://example.com")
 
 
+class FakeResponse:
+    def __init__(self, data):
+        self.data, self.url = data, "https://example.com/m.json"
+        self.headers = email.message.Message()
+        self.headers["Content-Type"] = "application/json"
+
+    def read(self, size=-1):
+        return self.data if size < 0 else self.data[:size]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_get_with_a_limit_refuses_a_larger_body(monkeypatch):
+    monkeypatch.setattr(watch_pages.urllib.request, "urlopen",
+                        lambda request, timeout: FakeResponse(b"x" * 11))
+    with pytest.raises(ValueError):
+        get("https://example.com/m.json", limit=10)
+    monkeypatch.setattr(watch_pages.urllib.request, "urlopen",
+                        lambda request, timeout: FakeResponse(b"x" * 10))
+    assert get("https://example.com/m.json", limit=10) == ("x" * 10, "application/json")
+
+
+def test_get_without_a_limit_reads_the_whole_body(monkeypatch):
+    monkeypatch.setattr(watch_pages.urllib.request, "urlopen",
+                        lambda request, timeout: FakeResponse(b"x" * 100))
+    assert get("https://example.com/m.json")[0] == "x" * 100
+
+
 def test_text_keeps_newlines_and_hash_ignores_spacing():
     a = sections("## A\nx\ny\n", "text/markdown")
     b = sections("## A\nx  \ny\n", "text/markdown")

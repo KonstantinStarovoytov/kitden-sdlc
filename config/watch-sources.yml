@@ -13,3 +13,8 @@
   url: https://cursor.com/changelog
   # One section per entry: each entry is an <article>, keyed by its title.
   split: article
+# Agent Docs' list of every doc page it holds: once a week the watcher tells which doc pages
+# of Kitden's list are not in it (scripts/watch_moved.py). It has no client and makes no piece.
+- id: agent-docs-manifest
+  kind: manifest
+  url: https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/data/manifests/agent_docs_hybrid_v1.json

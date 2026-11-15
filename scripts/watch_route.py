@@ -80,7 +80,14 @@ def check(findings: dict, inp: dict) -> list[dict]:
 
 
 def client_name(item: dict) -> str:
-    return NAMES.get(item.get("client", ""), item.get("client") or "Unknown")
+    """The client's name; an item with no client is about Agent Docs, such as its manifest."""
+    return NAMES.get(item.get("client", ""), item.get("client") or "Agent Docs")
+
+
+def week_of(today: date) -> str:
+    """The ISO week, as the memory keeps it: "2026-W46"."""
+    year, week, _ = today.isocalendar()
+    return f"{year}-W{week:02d}"
 
 
 def _quiet(text: str, limit: int) -> str:
@@ -118,8 +125,7 @@ def _not_judged(piece: dict) -> dict:
 def route(findings: list[dict], state: dict, judged: list[str], inp: dict, today: date,
           failed: list[str] = ()) -> Plan:
     new = copy.deepcopy(state)
-    year, week, _ = today.isocalendar()
-    this_week = f"{year}-W{week:02d}"
+    this_week = week_of(today)
     if new["urgent"]["week"] != this_week:
         new["urgent"] = {"week": this_week, "count": 0}
     titles = set(inp["known_titles"]) | {k["title"] for k in new["kept"]}
