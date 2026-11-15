@@ -36,7 +36,7 @@ LIST = """# The list
 | `zork --frob` turns the frob on | command | `src/a.py` | scan | same | guess |
 | Widgets live in `~/.zork/widgets.toml` under `gizmos` | path | `src/a.py` | scan | same | install |
 | Gadgets are slow on rainy days | key | `src/a.py` | scan | same | help |
-| `zork plugin add` adds a plugin | command | `src/a.py` | scan | same | https://code.claude.com/docs/en/plugins |
+| `zork plugin-add` adds a plugin | command | `src/a.py` | scan | same | https://code.claude.com/docs/en/plugins |
 
 ## Codex
 
@@ -55,7 +55,7 @@ LIST = """# The list
 CC1 = "zork --frob turns the frob on"
 CC2 = "Widgets live in ~/.zork/widgets.toml under gizmos"
 CC3 = "Gadgets are slow on rainy days"
-CC4 = "zork plugin add adds a plugin"
+CC4 = "zork plugin-add adds a plugin"
 CX1 = "quux run reads quux.toml"
 CU1 = "Rules in .blorp/rules"
 
@@ -76,6 +76,7 @@ class FakeSearch:
         self.woke = woke
         self.product = product
         self.calls = []
+        self.cuts = []
         self.asked = 0
         self.failed = 0
 
@@ -87,8 +88,9 @@ class FakeSearch:
         self.calls.append("has_product")
         return self.product
 
-    def search(self, query, product):
+    def search(self, query, product, cut=1500):
         self.calls.append(("search", query, product))
+        self.cuts.append(cut)
         self.asked += 1
         found = self.answers.get(query, [])
         if found is FAIL:
@@ -203,6 +205,10 @@ def test_question_drops_only_dated_and_version_groups(what, question):
     assert ask(what) == question
 
 
+def test_each_search_asks_for_passages_cut_at_4000_characters(run):
+    assert run().search.cuts == [4000] * 5
+
+
 def test_client_limits_the_run_to_that_client(run):
     result = run("--client", "codex")
     assert result.search.searched == [(CX1, "codex")]
@@ -285,7 +291,7 @@ def test_a_passage_holding_none_of_the_words_is_no_page_with_a_note(run):
     assert result.line("CC-02") == (
         "| CC-02 Widgets live in `~/.zork/widgets.toml` under `gizmos` | install "
         "|  | no page: the top passage holds none of its words |")
-    assert result.first == ("Rows checked: 5. States it: 0 (short words only: 0). Near: 0. "
+    assert result.first == ("Rows checked: 5. States it: 0 (weak words only: 0). Near: 0. "
                             "Cannot check: 0. No page: 5. Search failed: 0.")
 
 
@@ -358,14 +364,14 @@ def test_a_row_with_no_word_and_no_passage_is_no_page(run):
 
 def test_a_row_whose_own_page_states_it_is_not_flagged(run):
     result = run("--all", answers={CC4: [
-        passage("zork plugin add", url="https://code.claude.com/docs/en/plugins.md")]})
+        passage("zork plugin-add", url="https://code.claude.com/docs/en/plugins.md")]})
     line = result.line("CC-04")
     assert line.endswith("| states it |")
     assert "https://code.claude.com/docs/en/plugins |" in line
 
 
 def test_a_row_whose_page_is_not_the_one_that_states_it_is_flagged_other_page(run):
-    result = run("--all", answers={CC4: [passage("zork plugin add")]})
+    result = run("--all", answers={CC4: [passage("zork plugin-add")]})
     line = result.line("CC-04")
     assert line.endswith("| states it, other page |")
     assert f"`{SHOWN}`" in line
@@ -374,8 +380,8 @@ def test_a_row_whose_page_is_not_the_one_that_states_it_is_flagged_other_page(ru
 def test_the_own_page_is_shown_when_it_states_it_below_another_page(run):
     own = "https://code.claude.com/docs/en/plugins.md"
     result = run("--all", answers={CC4: [
-        passage("zork plugin add", heading="Elsewhere"),
-        passage("zork plugin add", url=own, heading="Own"),
+        passage("zork plugin-add", heading="Elsewhere"),
+        passage("zork plugin-add", url=own, heading="Own"),
     ]})
     line = result.line("CC-04")
     assert line.endswith("| states it |")
@@ -398,23 +404,40 @@ def test_the_first_line_counts_each_verdict(run):
         CX1: [],
         CU1: FAIL,
     })
-    assert result.first == ("Rows checked: 5. States it: 1 (short words only: 0). Near: 1. "
+    assert result.first == ("Rows checked: 5. States it: 1 (weak words only: 0). Near: 1. "
                             "Cannot check: 1. No page: 1. Search failed: 1.")
 
 
 SHORT = LIST.replace("| `quux run` reads `quux.toml` |", "| `qx` reads `-r` and `a.b` |")
 
 
-def test_a_states_it_on_short_words_only_says_so(run):
+def test_a_states_it_on_short_words_only_is_weak(run):
     result = run("--rows", "CX-01", text=SHORT, answers={"qx reads -r and a.b": [passage("qx -r a.b")]})
-    assert result.line("CX-01").endswith("| states it (short words only) |")
-    assert result.first.startswith("Rows checked: 1. States it: 1 (short words only: 1). ")
+    assert result.line("CX-01").endswith("| states it (weak words only) |")
+    assert result.first.startswith("Rows checked: 1. States it: 1 (weak words only: 1). ")
 
 
-def test_a_states_it_with_one_longer_word_has_no_note(run):
+PLAIN = LIST.replace("| `quux run` reads `quux.toml` |", "| It reads a `file` and its `description` |")
+
+
+def test_a_states_it_on_plain_lowercase_words_only_is_weak(run):
+    question = "It reads a file and its description"
+    result = run("--rows", "CX-01", text=PLAIN, answers={question: [passage("a description file")]})
+    assert result.line("CX-01").endswith("| states it (weak words only) |")
+    assert "(weak words only: 1)" in result.first
+
+
+def test_a_states_it_with_one_strong_word_is_not_weak(run):
     result = run("--rows", "CX-01", answers={CX1: [passage("quux run quux.toml")]})
     assert result.line("CX-01").endswith("| states it |")
-    assert "(short words only: 0)" in result.first
+    assert "(weak words only: 0)" in result.first
+
+
+def test_weak_words_and_other_page_go_together(run):
+    text = LIST.replace("`zork plugin-add` adds", "`zork` `plugin` `add` adds")
+    result = run("--rows", "CC-04", text=text,
+                 answers={"zork plugin add adds a plugin": [passage("zork plugin add")]})
+    assert result.line("CC-04").endswith("| states it (weak words only), other page |")
 
 
 def test_a_short_word_inside_a_longer_one_is_not_found(run):
@@ -424,7 +447,7 @@ def test_a_short_word_inside_a_longer_one_is_not_found(run):
 
 
 def test_the_first_line_counts_other_page_when_rows_with_an_address_are_checked(run):
-    result = run("--all", answers={CC4: [passage("zork plugin add")]})
+    result = run("--all", answers={CC4: [passage("zork plugin-add")]})
     assert result.first.endswith(" Other page: 1.")
 
 
@@ -498,10 +521,18 @@ def test_no_row_to_check_searches_nothing(run):
 def test_the_table_has_a_header_and_a_line_a_row(run):
     result = run()
     lines = result.out.splitlines()
-    assert lines[1] == ""
-    assert lines[2] == "| Row | Source | Page and section | Verdict |"
-    assert lines[3] == "|---|---|---|---|"
-    assert [ln.split(" ")[1] for ln in lines[4:9]] == ["CC-01", "CC-02", "CC-03", "CX-01", "CU-01"]
+    assert lines[1].startswith("Limits: ")
+    assert lines[2] == ""
+    assert lines[3] == "| Row | Source | Page and section | Verdict |"
+    assert lines[4] == "|---|---|---|---|"
+    assert [ln.split(" ")[1] for ln in lines[5:10]] == ["CC-01", "CC-02", "CC-03", "CX-01", "CU-01"]
+
+
+def test_the_limits_line_names_the_three_known_limits(run):
+    limits = run().out.splitlines()[1]
+    assert "Kitden's own names or long strings" in limits
+    assert "`mcp.json` in `.mcp.json`" in limits
+    assert "a letter, digit, `_` or `-`" in limits
 
 
 # Waking, product and the pause
@@ -517,6 +548,7 @@ def test_a_server_without_product_stops_with_exit_3_and_no_search(run):
     result = run(product=False)
     assert result.code == 3
     assert "product" in result.err and "deploy" in result.err
+    assert "could not be read" in result.err
     assert result.search.searched == []
     assert result.out == ""
 
@@ -612,10 +644,33 @@ def test_the_real_client_states_it_and_sends_the_key_only_in_its_header(tmp_path
     code, out, err, web = real_run(tmp_path, capsys, [json_answer(
         {"passages": [full_passage("Run zork --frob.")]})])
     assert code == 0
-    assert "| CC-01 " in out and out.count("states it") == 1
+    assert "| CC-01 " in out and out.count("| states it |") == 1
     assert KEY not in out + err
     [search] = [req for req in web.asked if req.full_url == SEARCH]
     assert search.get_header("X-cohere-api-key") == KEY
+
+
+def test_the_real_client_finds_a_word_at_character_2500(tmp_path, capsys):
+    content = "Some filler words. " * 131 + "Run zork --frob."
+    assert content.index("zork") > 2480
+    code, out, err, web = real_run(tmp_path, capsys, [json_answer(
+        {"passages": [full_passage(content)]})])
+    assert "| states it |" in out
+
+
+def test_the_table_is_printed_before_the_moved_check(tmp_path, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "clients.md").write_text(LIST)
+
+    def interrupted(pages):
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        main(["--kitden", str(tmp_path)], env=ENV, make_search=lambda key: FakeSearch(),
+             sleep=lambda s: None, find_moved=interrupted)
+    out = capsys.readouterr().out
+    assert out.startswith("Rows checked: 5.")
+    assert "| CU-01 " in out
 
 
 def test_the_real_client_s_429_is_search_failed(tmp_path, capsys):
@@ -705,7 +760,7 @@ def test_passage_text_is_never_printed(run):
         CC1: [passage(f"zork --frob {secret}")],
         CC2: [passage(f"gizmos {secret}")],
         CC3: [passage(secret)],
-        CC4: [passage(f"zork plugin add {secret}")],
+        CC4: [passage(f"zork plugin-add {secret}")],
     })
     assert secret not in result.out + result.err
 

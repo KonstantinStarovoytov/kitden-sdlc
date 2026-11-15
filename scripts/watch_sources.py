@@ -4,8 +4,8 @@ For each row whose `Source` is `help`, `install` or `guess` (or every row, with 
 Agent Docs for the row's What, within the row's client, and says whether a passage states it:
 
 - states it: one passage holds every exact word of the row (watch_list.row_words), each
-  standing alone (watch_list.held). "(short words only)" when all of them have 3 characters
-  or fewer.
+  standing alone (watch_list.held). "(weak words only)" when every word is weak: 3
+  characters or fewer, or plain lowercase letters (the rule of watch_list.terms).
 - near: n of m: no passage holds them all; the one that holds the most holds n of the m,
   and n is at least 1.
 - cannot check: no exact word: the row has no word in backticks; the top passage is shown.
@@ -54,7 +54,13 @@ CANNOT = "cannot check: no exact word"
 NO_PAGE = "no page"
 FAILED = "search failed"
 NONE_HELD = "the top passage holds none of its words"
-SHORT = 3  # a "states it" whose words are all this long or shorter says so
+CUT = 4000  # passage characters to search in; an Agent Docs chunk reaches 3000
+SHORT = 3  # a word this long or shorter is weak
+PLAIN = re.compile(r"[a-z]+")  # so is a word of plain lowercase letters, as terms() drops
+LIMITS = ("Limits: rows whose words are Kitden's own names or long strings cannot reach "
+          "\"states it\"; a word that starts or ends with a mark can match inside a longer "
+          "name (`.mdc` in `my-rule.mdc`, `mcp.json` in `.mcp.json`); a word glued to a "
+          "letter, digit, `_` or `-` reads as missing.")
 STOP_AFTER = 3  # failed searches at the start of a run that stop it
 # A group in brackets that starts with a date, such as "(2026-10-19, version 2.1.283)", or
 # names a version, such as "(version 0.169.0)": the list's notes, not words of the docs.
@@ -86,8 +92,13 @@ class Result:
     found: int = 0
     missing: list[str] = field(default_factory=list)
     other_page: bool = False
-    short: bool = False  # "states it" on words of 3 characters or fewer only
+    weak: bool = False  # "states it" on weak words only
     note: str = ""
+
+
+def weak(word: str) -> bool:
+    """Whether a word proves little when found: 3 characters or fewer, or plain lowercase."""
+    return len(word) <= SHORT or bool(PLAIN.fullmatch(word))
 
 
 def question(what: str) -> str:
@@ -163,7 +174,7 @@ def judge(item: Item, passages, hosts) -> Result:
         page, heading, _ = usable[pick]
         return Result(item, STATES, page, clean_heading(heading), len(item.words),
                       other_page=item.has_page and not own,
-                      short=all(len(w) <= SHORT for w in item.words))
+                      weak=all(weak(w) for w in item.words))
     # The passage that holds the most words; on a tie, the higher one.
     pick = min(range(len(usable)), key=lambda i: len(missing[i]))
     if len(missing[pick]) == len(item.words):
@@ -182,7 +193,7 @@ def check(items: list[Item], search, sleep, pause: float, hosts) -> tuple[list[R
         if n:
             sleep(pause)
         before = search.failed
-        passages = search.search(question(item.what), item.client)
+        passages = search.search(question(item.what), item.client, cut=CUT)
         failed = search.failed != before
         result = Result(item, FAILED) if failed else judge(item, passages, hosts)
         print(f"[{n + 1}/{len(items)}] {item.id}: {result.verdict}", file=sys.stderr)
@@ -201,7 +212,7 @@ def cell(text: str) -> str:
 
 def _verdict(result: Result) -> str:
     if result.verdict == STATES:
-        return (STATES + (" (short words only)" if result.short else "")
+        return (STATES + (" (weak words only)" if result.weak else "")
                 + (", other page" if result.other_page else ""))
     if result.verdict == NEAR:
         missing = ", ".join(f"`{cell(w)}`" for w in result.missing)
@@ -220,16 +231,17 @@ def table(results: list[Result], left: int | None = None) -> str:
     the run stopped, or None when it did not stop."""
     count = {v: sum(r.verdict == v for r in results) for v in (STATES, NEAR, CANNOT, NO_PAGE,
                                                                  FAILED)}
-    short = sum(r.short for r in results)
+    weak_only = sum(r.weak for r in results)
     first = (f"Rows checked: {len(results)}. States it: {count[STATES]} "
-             f"(short words only: {short}). Near: {count[NEAR]}. "
+             f"(weak words only: {weak_only}). Near: {count[NEAR]}. "
              f"Cannot check: {count[CANNOT]}. No page: {count[NO_PAGE]}. "
              f"Search failed: {count[FAILED]}.")
     if any(r.item.has_page for r in results):
         first += f" Other page: {sum(r.other_page for r in results)}."
     if results and count[FAILED] == len(results):
         first = "Every search failed, so this table says nothing about the docs. " + first
-    lines = [first, "", "| Row | Source | Page and section | Verdict |", "|---|---|---|---|"]
+    lines = [first, LIMITS, "",
+             "| Row | Source | Page and section | Verdict |", "|---|---|---|---|"]
     for r in results:
         lines.append(f"| {r.item.id} {cell(r.item.label)} | {cell(r.item.source)} "
                      f"| {_where(r)} | {_verdict(r)} |")
@@ -327,14 +339,18 @@ def main(argv=None, env=None, make_search=Search, sleep=time.sleep, find_moved=N
                   file=sys.stderr)
             return 4
         if not search.has_product():
-            print("Agent Docs' /search does not take `product` yet: deploy that first. "
-                  "Nothing was searched.", file=sys.stderr)
+            print("Agent Docs' /search does not take `product`, or its API description could "
+                  "not be read: deploy `product` first, or try again later. Nothing was "
+                  "searched.", file=sys.stderr)
             return 3
     results, stopped = check(items, search, sleep, a.pause, hosts)
+    left = len(items) - len(results) if stopped else None
+    # The table first: the moved check can take 20 seconds a page, and Ctrl-C then must not
+    # lose it.
+    print(table(results, left), flush=True)
     pages = doc_pages(parse_list(text))
     records = find_moved(pages) if find_moved else moved_pages(pages, hosts)
-    left = len(items) - len(results) if stopped else None
-    print(table(results, left) + "\n" + moved_part(records, hosts), end="")
+    print(moved_part(records, hosts), end="", flush=True)
     return 5 if stopped else 0
 
 

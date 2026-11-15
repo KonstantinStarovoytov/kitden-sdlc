@@ -197,6 +197,17 @@ def test_text_is_cut_to_1500_characters():
     assert search.search("hooks", "codex")[0]["text"] == "x" * 1500
 
 
+def test_a_caller_can_ask_for_a_longer_cut():
+    fake, search = client({SEARCH: [json_answer({"passages": [passage(content="x" * 5000)]})]})
+    assert search.search("hooks", "codex", cut=4000)[0]["text"] == "x" * 4000
+
+
+def test_the_cut_keeps_a_word_at_character_2500():
+    content = "y" * 2499 + " hooks"
+    fake, search = client({SEARCH: [json_answer({"passages": [passage(content=content)]})]})
+    assert search.search("hooks", "codex", cut=4000)[0]["text"].endswith(" hooks")
+
+
 @pytest.mark.parametrize("url", [
     "https://example.com/docs/a",
     "http://code.claude.com/docs/en/mcp.md",

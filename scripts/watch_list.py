@@ -130,18 +130,28 @@ def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     return result
 
 
-# A word is found only where it stands alone: the character before it and the one after it
-# are not one of these (or are the start or the end of the text).
+# A word is found only where it stands alone: on a side where the word ends in one of these
+# characters, the text's character next to it is not one of them either (or is the start or
+# the end of the text).
 WORD_CHARS = "A-Za-z0-9_-"
+_WORD_CHAR = re.compile(f"[{WORD_CHARS}]")
 
 
 def held(words: list[str], body: str) -> list[str]:
     """Return the missing words: those not found standing alone in body, in the order given.
 
-    A word stands alone where the character before it and the character after it are not a
-    letter, a digit, `_` or `-`, or are the start or the end of body. So `-s` is not found in
-    `--scope`, `ws` not in `allows`, `enable` not in `enabledPlugins`; `rules/` is found in
-    `rules/*.md`. Each word is compared as written, case and all.
+    Where a word begins with a letter, a digit, `_` or `-`, the character before it in body
+    must not be one of these (or must be the start of body); where it ends with one, the
+    character after it likewise. A side that is a mark, such as `.`, `/` or `@`, is not
+    checked. So `-s` is not found in `--scope`, `ws` not in `allows`, `enable` not in
+    `enabledPlugins`; but `.mdc` is found in `my-rule.mdc`, `/sse` in
+    `http://localhost:3000/sse` and `rules/` in `.claude/rules/code-style.md`. Each word is
+    compared as written, case and all.
     """
-    return [w for w in words
-            if not re.search(rf"(?<![{WORD_CHARS}]){re.escape(w)}(?![{WORD_CHARS}])", body)]
+    return [w for w in words if not re.search(_alone(w), body)]
+
+
+def _alone(word: str) -> str:
+    left = f"(?<![{WORD_CHARS}])" if word and _WORD_CHAR.fullmatch(word[0]) else ""
+    right = f"(?![{WORD_CHARS}])" if word and _WORD_CHAR.fullmatch(word[-1]) else ""
+    return left + re.escape(word) + right

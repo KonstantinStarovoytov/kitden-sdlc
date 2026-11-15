@@ -124,6 +124,14 @@ def test_row_words_drops_a_word_with_no_letter_or_digit():
     ("hooks", "hooks", True),
     ("Hooks", "hooks are read.", False),
     ("add", "add-json", False),
+    # A word that starts or ends with a mark is not checked on that side.
+    (".mdc", "Rules end in my-rule.mdc here.", True),
+    ("/sse", "Use http://localhost:3000/sse now.", True),
+    ("@synced", "An id like name@synced is skipped.", True),
+    (".zst", "Logs are x.jsonl.zst files.", True),
+    ("rules/", "Files in .claude/rules/code-style.md load.", True),
+    (".mdc", "Rules end in my-rule.mdcx here.", False),
+    ("/sse", "Use /sse_old now.", False),
 ])
 def test_held_finds_a_word_only_where_it_stands_alone(word, body, found):
     assert held([word], body) == ([] if found else [word])

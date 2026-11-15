@@ -71,8 +71,9 @@ class _BadAnswer(ValueError):
     """The answer was not 200, was over 1 MB, was not JSON or had another shape."""
 
 
-def _passages(doc, hosts) -> list[dict]:
-    """The passages of a /search answer whose address is a doc address, at most three."""
+def _passages(doc, hosts, cut: int) -> list[dict]:
+    """The passages of a /search answer whose address is a doc address, at most three, each
+    text cut to `cut` characters."""
     if not isinstance(doc, dict) or not isinstance(doc.get("passages"), list):
         raise _BadAnswer("the answer has another shape")
     found = []
@@ -82,7 +83,7 @@ def _passages(doc, hosts) -> list[dict]:
             raise _BadAnswer("a passage has another shape")
         if allowed(item["url"], hosts):
             found.append({"url": item["url"], "heading": item["heading"],
-                          "text": item["content"][:TEXT_MAX]})
+                          "text": item["content"][:cut]})
     return found[:PASSAGES]
 
 
@@ -156,9 +157,10 @@ class Search:
             raise _BadAnswer("the answer is over 1 MB")
         return body
 
-    def search(self, query: str, product: str) -> list[dict]:
+    def search(self, query: str, product: str, cut: int = TEXT_MAX) -> list[dict]:
         """At most three passages, each {"url", "heading", "text"}, for `query` in the docs
-        of `product`. [] on any failure, counted in `failed`. Never raises."""
+        of `product`, each text cut to `cut` characters. [] on any failure, counted in
+        `failed`. Never raises."""
         self.asked += 1
         try:
             if product not in PRODUCTS:
@@ -167,7 +169,7 @@ class Search:
                 raise _BadAnswer("empty query")
             data = json.dumps({"query": query.strip()[:QUERY_MAX], "limit": PASSAGES,
                                "product": product}).encode()
-            return _passages(json.loads(self._send(SEARCH, data)), self._hosts)
+            return _passages(json.loads(self._send(SEARCH, data)), self._hosts, cut)
         except Exception as err:
             self.failed += 1
             _say("search", _why(err))
