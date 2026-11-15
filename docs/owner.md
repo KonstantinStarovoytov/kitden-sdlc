@@ -23,7 +23,7 @@ daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for y
 | Stop one agent | set its switch variable to `false` |
 | Stop everything | set `AGENTS_ENABLED` to `false` in both repositories: every agent stops; the desk's count still runs |
 | Answer a person | write yourself; no bot answers people |
-| Find doc pages for the list | in kitden-sdlc, with `COHERE_API_KEY` set: `uv run --only-group watch-io python scripts/watch_sources.py --kitden <Kitden checkout>`; see [below](#find-doc-pages-for-the-list) |
+| Find doc pages for the list | in kitden-sdlc, with `COHERE_API_KEY` set: `uv run --only-group watch-io python scripts/watch_sources.py --kitden <Kitden checkout> > table.md`; see [below](#find-doc-pages-for-the-list) |
 
 ## The five lights
 
@@ -64,11 +64,20 @@ The Variables pages:
 ## Find doc pages for the list
 
 For each row of Kitden's `docs/clients.md` whose `Source` is `help`, `install` or `guess`, the
-script asks Agent Docs for a page that states it. A trial key works, slowly: 7 seconds between
-searches, about 7 minutes for 60 rows (`--pause 2` with a paid key). Agent Docs' `/search` must
-take `product` first. If the first 3 searches fail, it stops: check the key, the limit, the
-server. `--client codex`, `--all` or `--rows CC-04,CX-12` change which rows. Change `Source` in
-`docs/clients.md` in a Kitden pull request.
+script asks Agent Docs for a page that states it, and writes a table. Agent Docs' `/search`
+must take `product` first. A trial key works, slowly: 62 rows take 8 to 10 minutes with the
+default pause of 7 seconds (`--pause 2` with a paid key). `--client codex`, `--all` or
+`--rows CC-04,CX-12` change which rows. Change `Source` in `docs/clients.md` in a Kitden pull
+request.
+
+```sh
+uv run --only-group watch-io python scripts/watch_sources.py --kitden <Kitden checkout> > table.md
+```
+
+- Exit 2: `COHERE_API_KEY` is not set or cannot be used, the list cannot be read, or an option is wrong.
+- Exit 3: Agent Docs' `/search` does not take `product`, or its API description could not be read.
+- Exit 4: Agent Docs did not wake up; try again later.
+- Exit 5: the first 3 searches failed: check the key, the per-minute limit or the server; the table so far is written.
 
 ## Agent Docs in a session
 

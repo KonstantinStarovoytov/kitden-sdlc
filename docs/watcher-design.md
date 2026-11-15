@@ -83,6 +83,10 @@ row is one thing Kitden relies on:
 - whether it differs between macOS and Linux;
 - where the fact comes from: a doc page, the client's `--help`, a real install, a guess.
 
+For the rows whose source is `help`, `install` or `guess`, the owner runs
+`scripts/watch_sources.py` by hand: it asks Agent Docs for a doc page that states each one
+([owner.md](owner.md#find-doc-pages-for-the-list)).
+
 The builder drafts it from the 2026-11-11 look and the "checked" comments already in the code;
 the owner approves it as a pull request in `kitden`. A small test in `kitden` fails when a file
 named in the list does not exist, so the list cannot rot unnoticed (call). `kitden`'s AGENTS.md
