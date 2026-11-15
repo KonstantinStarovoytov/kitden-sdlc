@@ -164,3 +164,32 @@ def test_row_places_counts_lines_as_git_does():
     # Only "\n" ends a line in the file; a form feed or U+2028 in a line does not.
     text = "# Title\x0c more title\r\n" + TEXT
     assert [line for line, _, _ in row_places(text).values()] == [5, 6]
+
+
+def one_row(what: str) -> list[str]:
+    text = "## Codex\n" + TEXT.splitlines()[1] + "\n|---|---|---|---|---|---|\n" \
+        f"| {what} | key | `src/a.py` | scan | same | guess |\n"
+    return next(iter(row_words(text).values()))
+
+
+def test_row_words_drops_a_word_that_names_kitden():
+    # No vendor page names Kitden, so such a word would always read as missing.
+    assert one_row("Update `command` of the `kitden` entry") == ["command"]
+    assert one_row("`[mcp_servers.kitden]` and `src/Kitden/x.py` and `MYKITDENX` and `kit`") == [
+        "kit"]
+
+
+@pytest.mark.parametrize(("what", "words"), [
+    ("Entries list `args`, no `cwd`", ["args"]),
+    ("No `x` here, `y` there", ["y"]),
+    ("it is not `y`; it is `z`", ["z"]),
+    ("NOT `y` but `z`", ["z"]),
+    ("you know `z`", ["z"]),
+    ("a piano `z`", ["z"]),
+    ("a cannot `z`", ["z"]),
+    ("no  `z` with two spaces", ["z"]),
+    ("no `two words` here, `z`", ["z"]),
+    ("`no` `z`", ["no", "z"]),
+])
+def test_row_words_drops_a_word_the_row_says_is_absent(what, words):
+    assert one_row(what) == words

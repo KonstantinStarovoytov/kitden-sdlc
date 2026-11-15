@@ -108,6 +108,8 @@ def terms(text: str) -> dict[tuple[str, str], list[str]]:
 
 
 PROSE_MARKS = "(),;:"
+# "no " or "not " as a whole word right before a part in backticks: the row says it is absent.
+ABSENT = re.compile(r"(?<![A-Za-z0-9_])(?:no|not) $", re.IGNORECASE)
 
 
 def _bare_word(word: str) -> str:
@@ -122,7 +124,11 @@ def _bare_word(word: str) -> str:
 def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     """Every word in backticks of each row's What, in order and without repeats.
 
-    Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out.
+    Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out, and so is a
+    word with `kitden` in it, in any case: no vendor page names Kitden. A part in backticks
+    that the row says is absent, right after `no ` or `not ` (any case, one space, the whole
+    word), is left out with all its words: "no `cwd`".
+
     Quotes (' and ") around a word are taken off, then the marks of the list's prose: `(`,
     `)`, `,`, `;` and `:` at either end, and `.` at the end (a leading `.` stays, as in
     `.claude`). Then a word with `*` in it becomes its longest part without one, and is left
@@ -132,9 +138,11 @@ def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     result = {}
     for client, cells in _table_rows(text):
         words: list[str] = []
-        for part in TICKS.findall(cells[0]):
-            for word in part.split():
-                if "<" in word or ">" in word:
+        for match in TICKS.finditer(cells[0]):
+            if ABSENT.search(cells[0], 0, match.start()):
+                continue
+            for word in match.group(1).split():
+                if "<" in word or ">" in word or "kitden" in word.lower():
                     continue
                 word = _bare_word(word.strip("'\""))
                 if not word:
