@@ -1,5 +1,9 @@
 # Agent Foundation and Reviewers Implementation Plan
 
+> Historical foundation. Fork review is now planned in
+> [fork-review-design.md](fork-review-design.md) and [fork-review-plan.md](fork-review-plan.md).
+> It is not enabled; the existing skip-fork rule remains in force.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Two reviewers (Claude on a strong model, GPT-6 Luna through Codex) comment on every

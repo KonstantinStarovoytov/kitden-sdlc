@@ -21,7 +21,7 @@
 
 ## What it does
 
-- **Reviews every pull request.** Claude and Luna read it; you get one comment. It never blocks.
+- **Reviews eligible internal pull requests.** Claude and Luna read them; you get one comment. It never blocks. Forks are skipped today.
 - **Watches the clients every day.** When Claude Code, Codex or Cursor changes something Kitden reads, you get an issue.
 - **Ships releases.** You press one button and merge one pull request. PyPI, GitHub, the MCP Registry and Homebrew follow.
 
@@ -30,6 +30,10 @@ The three pictures below are its three stories. A column is a place; an arrow sa
 next thing starts; a dot on a job means a model runs in it.
 
 ### A pull request
+
+Fork support is [designed, not enabled](docs/fork-review-design.md): a secret-free gate,
+trusted collection, isolated reviewers and validated publication. The [rollout plan](docs/fork-review-plan.md)
+requires security tests and paired quality results before activation. The pictures show the current flow.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/map-pull-request-dark.png">
@@ -65,7 +69,7 @@ Everything is posted by one of three GitHub Apps, so you see who did what.
 No job holds untrusted text, a secret and write access together. So the work is split in
 three: one job reads, one runs the model with no way to write, one writes with no model.
 
-All eleven rules, checked by a script on every change: [RULES.md](RULES.md).
+The current eleven rules, with a documented future fork-review exception: [RULES.md](RULES.md).
 
 ## It checks itself
 

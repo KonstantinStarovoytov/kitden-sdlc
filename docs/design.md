@@ -1,5 +1,9 @@
 # Agents for Kitden: the foundation and the two reviewers
 
+> Historical foundation. Fork review is now planned in
+> [fork-review-design.md](fork-review-design.md) and [fork-review-plan.md](fork-review-plan.md).
+> It is not enabled; the existing skip-fork rule remains in force.
+
 Date: 2026-11-09. Owner's choices from a chat the same day; the rest are the writer's calls,
 marked "(call)". Facts about other tools were checked on 2026-11-09; the sources are at the end.
 

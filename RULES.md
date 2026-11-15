@@ -46,3 +46,16 @@ Every workflow that runs an AI agent must follow these eleven rules.
     one fails the comment names it, if both fail the comment says so. A refusal to post
     secret-like text does turn the job red, and so does a failure of the workflow's own steps
     (checkout, the prepare script, the cap, GitHub's API).
+
+## Planned fork-review exception — not active
+
+The [fork design](docs/fork-review-design.md) and [rollout](docs/fork-review-plan.md)
+define a future exception to rule 2: a secret-free PR gate, a default-branch receiver and
+SHA-bound maintainer admission for forks. The checker must enforce the full boundary before
+this exception is enabled. Current callers still skip forks.
+
+The new review path will pin reusable workflows by full SHA, isolate credentials from all
+model tools, enforce egress limits and validate output before public upload. Audit mode,
+read-only access and secret scanning alone do not meet these requirements. The publisher
+handles untrusted results as bounded data; it has write permission but never runs a model
+or code from those results. See the design for exact identities, permissions and tests.

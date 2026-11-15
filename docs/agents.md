@@ -246,3 +246,12 @@ The first versions broke in several ways: [LOG.md](../LOG.md). The design is in
 [design.md](design.md) and the plan in [plan.md](plan.md); the watcher's plan is in
 [watcher-plan.md](watcher-plan.md) and the release flow's in
 [2026-11-12-release-flow.md](superpowers/plans/2026-11-12-release-flow.md).
+
+## Planned fork review
+
+Forks are still skipped. The [design](fork-review-design.md) keeps Claude, Luna and one
+Lantern comment, with the same models and full source context. It adds a secret-free gate,
+trusted revision checks, confined read/search tools and a separate publisher. Every fork
+revision needs maintainer admission at first. Coverage, failures and the reviewed SHAs are
+explicit. No prompt, credential boundary or new trigger changes until the
+[rollout gates](fork-review-plan.md) pass.

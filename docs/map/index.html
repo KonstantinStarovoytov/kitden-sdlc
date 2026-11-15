@@ -289,7 +289,7 @@ table.hold tr:last-child td{border-bottom:0}
 .trio .has{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 @media (max-width:620px){.trio{grid-template-columns:1fr}.trio .cell{border-right:0;border-bottom:1px solid var(--wire)}.trio .cell:last-child{border-bottom:0}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
-.shot .rail,.shot #v-map > div:first-child,.shot .bar,.shot .hint{display:none}
+.shot .rail,.shot #v-map > div:first-child,.shot .bar,.shot .hint,.shot #fork-review-plan{display:none}
 .shot .shell{padding:0} .shot .app{display:block;max-width:none;border:0;border-radius:0} .shot .main{padding:0}
 .shot .panel{border:0;border-radius:0} .shot .go{display:none}
 </style>
@@ -314,6 +314,14 @@ table.hold tr:last-child td{border-bottom:0}
         <h1>What causes what.</h1>
         <p class="lede">Follow the arrows. A column is a place. Point at a block to see what starts it.</p>
       </div>
+      <aside class="panel" style="padding:12px 14px" id="fork-review-plan" aria-label="Fork review plan">
+        <strong>Fork review: planned, not live.</strong>
+        <p>Today forks are skipped. The proposed flow adds a secret-free gate, trusted revision checks,
+        isolated Claude and Luna reviews, and one validated Lantern comment.</p>
+        <p><a href="https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/fork-review-design.md">Read the design</a>
+        · <a href="https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/fork-review-plan.md">Security, quality and rollout gates</a>.
+        The map below shows the current workflows.</p>
+      </aside>
       <div class="bar">
         <div class="seg" id="modes">
           <button type="button" id="m-pr" data-m="pr" aria-pressed="true">Pull request</button>

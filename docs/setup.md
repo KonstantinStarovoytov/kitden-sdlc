@@ -50,3 +50,12 @@ the environments `release` and `pypi`, and a few rules. Every step, with exact n
 Never reuse the review app for releases, and never store the release app's key in the tap:
 the review app's key lives in kitden-sdlc, and the tap's daily `brew bump` runs code from
 outside it.
+
+## Fork support is not ready to copy
+
+The current examples intentionally skip forks. Do not remove that condition or change the
+event to `pull_request_target`. The [proposed design](fork-review-design.md) needs both a
+secret-free gate and a validated default-branch receiver, plus isolated model access.
+Install the future SDLC implementation by full SHA only after its
+[security and quality evidence](fork-review-plan.md) passes. No new secret, environment,
+permission or event-policy change is required for this documentation proposal.

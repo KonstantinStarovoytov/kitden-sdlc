@@ -38,7 +38,7 @@ row, and a changed choice replaces its row, in the pull request that makes it.
 | Kitden's own review skill, not Anthropic's `code-review` plugin, which it follows in method | the plugin reviews once, runs helpers on three models and holds `gh pr comment`, which breaks rules 1, 3 and 6 and the one-model comparison | docs/design.md, part 4: Anthropic's code-review plugin | never |
 | One review comment per pull request for both reviewers, edited in place, no inline comments; a finding the next review does not repeat stays, marked fixed only when its lines changed | a comment per finding is spam, and only the first comment sends a notification; on Kitden pull request 70 a valid finding vanished because the model did not repeat it | docs/design.md, part 4 (owner, 2026-11-10); scripts/post_findings.py; LOG.md 2026-11-12 | never |
 | At most five findings per reviewer, only what is surely wrong, each checked before it is kept | noise ends such setups, and a wrong comment costs the owner time | docs/design.md, parts 4 and 5; Anthropic's code-review plugin | false alarms stay under the bar |
-| Reviews run on `pull_request` only and skip forks and bots | a fork's run gets no secrets, and a job that had them would hold outside text next to a secret | RULES.md rule 2 | a design for reviewing fork pull requests, which the owner wants later |
+| Reviews run on `pull_request` only and skip forks and bots | a fork's run gets no secrets, and a job that had them would hold outside text next to a secret | RULES.md rule 2 | [fork review design](fork-review-design.md), planned 2026-11-14; activate only after the [rollout gates](fork-review-plan.md) pass |
 | At most 10 reviews a day, counted by a step without a model (Kitden's caller sets 20) | Claude runs on the owner's Max plan, a limit shared with his own work | docs/design.md, part 3; .github/workflows/review.yml | reviews stop running on the Max plan |
 | One switch stops every agent; the reviewers and the watcher's daily run each have a second one | the owner stops everything in one place, and the watcher's eval can run while its daily run is off | docs/owner.md; docs/watcher-design.md, part 7 | never |
 | A project key for OpenAI with a $5 monthly budget set in its dashboard | when the budget ends only the Luna job fails and nothing else changes | docs/design.md, part 3; docs/agents.md | the first months of real cost are known |
@@ -72,3 +72,11 @@ row, and a changed choice replaces its row, in the pull request that makes it.
 Nothing shows an agent's 30 days against its keep criteria yet; when the criteria are set (a
 later task), the owner's decision for each agent, keep, change or off, is added here with its
 numbers.
+
+## Proposed on 2026-11-14: review forks with the same quality
+
+Use one validated review path for internal and admitted fork revisions. Keep both reviewers,
+their context and one advisory comment. Never execute PR content beside credentials; prove
+isolation and quality before activation. The [design](fork-review-design.md) supersedes the
+old deferral of fork support as a plan, not as deployed behaviour. No standing runtime rule
+changes in this documentation update.
