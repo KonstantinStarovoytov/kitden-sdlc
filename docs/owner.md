@@ -60,6 +60,27 @@ The Variables pages:
 - Kitden: <https://github.com/KonstantinStarovoytov/kitden/settings/variables/actions>
 - kitden-sdlc: <https://github.com/KonstantinStarovoytov/kitden-sdlc/settings/variables/actions>
 
+## Find doc pages for the list
+
+For each row of Kitden's `docs/clients.md` whose `Source` is `help`, `install` or `guess`, a
+script asks Agent Docs for a doc page that states it and prints a table. Run it by hand in
+kitden-sdlc, with your Kitden checkout:
+
+```sh
+uv run --only-group watch-io python scripts/watch_sources.py --kitden <your Kitden checkout>
+```
+
+- It needs `COHERE_API_KEY` in your shell. A trial key works, slowly.
+- It waits 7 seconds between searches, so a run takes about 7 minutes. With a paid key add
+  `--pause 2`.
+- Agent Docs' `/search` must take `product` first. Until that is deployed the script stops
+  and says so.
+- `--client codex` checks one client, `--all` also the rows that have a page, and
+  `--rows CC-04,CX-12` only those rows, for example the ones whose search failed.
+- "states it" means one passage holds every word the row has in backticks; "near: n of m"
+  means the best passage holds n of them; "search failed" says nothing about the docs.
+- Read the table and change `Source` in `docs/clients.md` in a pull request in Kitden.
+
 ## Agent Docs in a session
 
 Agent Docs, your own index of the clients' docs, reaches your sessions through Kitden. To set
