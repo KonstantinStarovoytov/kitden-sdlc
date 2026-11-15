@@ -46,6 +46,8 @@ WORDS = """## Claude Code
 | `claude mcp add-json -s user <name>` | command | `src/c.py` | servers | same | https://example.com/mcp |
 | `a*` and `x/*` | path | `src/d.py` | rules | same | guess |
 | `hooks` and `hooks` again | key | `src/e.py` | hooks | same | guess |
+| `<project>/.mcp.json` and `cmd '<json>' -s` | path | `src/g.py` | servers | same | guess |
+| `'rules/*.md'` and `"enabled"` and `'x*'` and `''` | key | `src/h.py` | rules | same | guess |
 | rollout log lines | path | `src/f.py` | skill list | same | install |
 """
 
@@ -54,7 +56,7 @@ def test_row_words_keeps_every_word_in_backticks():
     got = row_words(WORDS)
     assert got[("claude-code", "hooks")] == ["hooks"]
     assert got[("claude-code", "claude mcp add-json -s user <name>")] == [
-        "claude", "mcp", "add-json", "-s", "user", "<name>"]
+        "claude", "mcp", "add-json", "-s", "user"]
     assert got[("claude-code", "rollout log lines")] == []
 
 
@@ -81,3 +83,14 @@ def test_held_gives_the_words_not_in_the_body_in_order():
     assert held(["rules/", "Hooks", "-s"], "Put files in rules/ with -s.") == ["Hooks"]
     assert held(["b", "a"], "") == ["b", "a"]
     assert held([], "anything") == []
+
+
+def test_row_words_drops_placeholders():
+    got = row_words(WORDS)
+    assert got[("claude-code", "<project>/.mcp.json and cmd '<json>' -s")] == ["cmd", "-s"]
+
+
+def test_row_words_strips_quotes_before_the_star_rule():
+    got = row_words(WORDS)
+    assert got[("claude-code", "'rules/*.md' and \"enabled\" and 'x*' and ''")] == [
+        "rules/", "enabled"]

@@ -89,14 +89,21 @@ def terms(text: str) -> dict[tuple[str, str], list[str]]:
 def row_words(text: str) -> dict[tuple[str, str], list[str]]:
     """Every word in backticks of each row's What, in order and without repeats.
 
-    Keyed like terms(). A word with `*` in it becomes its longest part without one,
-    and is left out if that part is shorter than 3 characters.
+    Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out.
+    Quotes (' and ") around a word are taken off. Then a word with `*` in it becomes
+    its longest part without one, and is left out if that part is shorter than 3
+    characters.
     """
     result = {}
     for client, cells in _table_rows(text):
         words: list[str] = []
         for part in TICKS.findall(cells[0]):
             for word in part.split():
+                if "<" in word or ">" in word:
+                    continue
+                word = word.strip("'\"")
+                if not word:
+                    continue
                 if "*" in word:
                     word = max(word.split("*"), key=len)
                     if len(word) < 3:
