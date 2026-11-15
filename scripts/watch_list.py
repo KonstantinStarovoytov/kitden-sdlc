@@ -84,3 +84,74 @@ def terms(text: str) -> dict[tuple[str, str], list[str]]:
             w for w in words if len(w) >= 6 and not re.fullmatch(r"[a-z]+", w)
         ]
     return result
+
+
+PROSE_MARKS = "(),;:"
+
+
+def _bare_word(word: str) -> str:
+    """`word` without the prose marks around it: `(file:` is `file`, `path).` is `path`."""
+    before = None
+    while word != before:
+        before = word
+        word = word.strip(PROSE_MARKS).removesuffix(".")
+    return word
+
+
+def row_words(text: str) -> dict[tuple[str, str], list[str]]:
+    """Every word in backticks of each row's What, in order and without repeats.
+
+    Keyed like terms(). A placeholder (a word with `<` or `>` in it) is left out.
+    Quotes (' and ") around a word are taken off, then the marks of the list's prose: `(`,
+    `)`, `,`, `;` and `:` at either end, and `.` at the end (a leading `.` stays, as in
+    `.claude`). Then a word with `*` in it becomes its longest part without one, and is left
+    out if that part is shorter than 3 characters. A word with no letter or digit in it, such
+    as `=` or `-`, is left out: it would be found on any page.
+    """
+    result = {}
+    for client, cells in _table_rows(text):
+        words: list[str] = []
+        for part in TICKS.findall(cells[0]):
+            for word in part.split():
+                if "<" in word or ">" in word:
+                    continue
+                word = _bare_word(word.strip("'\""))
+                if not word:
+                    continue
+                if "*" in word:
+                    word = max(word.split("*"), key=len)
+                    if len(word) < 3:
+                        continue
+                if not any(c.isalnum() for c in word):
+                    continue
+                if word not in words:
+                    words.append(word)
+        result[(client, cells[0].replace("`", ""))] = words
+    return result
+
+
+# A word is found only where it stands alone: on a side where the word ends in one of these
+# characters, the text's character next to it is not one of them either (or is the start or
+# the end of the text).
+WORD_CHARS = "A-Za-z0-9_-"
+_WORD_CHAR = re.compile(f"[{WORD_CHARS}]")
+
+
+def held(words: list[str], body: str) -> list[str]:
+    """Return the missing words: those not found standing alone in body, in the order given.
+
+    Where a word begins with a letter, a digit, `_` or `-`, the character before it in body
+    must not be one of these (or must be the start of body); where it ends with one, the
+    character after it likewise. A side that is a mark, such as `.`, `/` or `@`, is not
+    checked. So `-s` is not found in `--scope`, `ws` not in `allows`, `enable` not in
+    `enabledPlugins`; but `.mdc` is found in `my-rule.mdc`, `/sse` in
+    `http://localhost:3000/sse` and `rules/` in `.claude/rules/code-style.md`. Each word is
+    compared as written, case and all.
+    """
+    return [w for w in words if not re.search(_alone(w), body)]
+
+
+def _alone(word: str) -> str:
+    left = f"(?<![{WORD_CHARS}])" if word and _WORD_CHAR.fullmatch(word[0]) else ""
+    right = f"(?![{WORD_CHARS}])" if word and _WORD_CHAR.fullmatch(word[-1]) else ""
+    return left + re.escape(word) + right
