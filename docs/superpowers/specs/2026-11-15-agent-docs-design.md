@@ -139,7 +139,10 @@ watcher (it still pays for one small OpenAI embedding a search).
 A fix in kitden-sdlc alone. `scripts/watch_pages.py`:
 
 - sends a `User-Agent` that names the watcher and its repository (call);
-- reads a doc page as `<address>.md` and, if that fails, as the address itself (call). The
+- reads a doc page as `<address>.md` and, only if that answers 404, 410 or something that
+  is not markdown, as the address itself (call). Any other failure leaves the page unread
+  for the day: a page must not flip between markdown and HTML, or every section would look
+  changed. When the address redirects, the `.md` of the new address is tried once. The
   list in Kitden keeps the plain addresses, since those are what a person opens.
 
 The section keys of every doc page change with this. In the same run the old hashes of the
@@ -662,6 +665,11 @@ changed day of a page; how a section is found again by its heading in the eval r
   the posting job, calls it. `scripts/prepare_review.sh` runs inside the two reviewers' jobs
   (`review.yml`). The check for long random strings runs in the posting job
   (`scripts/post_findings.py`). `scripts/check_agent_workflows.py` knows three model secrets.
+
+- Read with the watcher's `User-Agent` on 2026-11-15: all four doc hosts answer `<address>.md`
+  with 200 `text/markdown`; `developers.openai.com/codex/` redirects to
+  `learn.chatgpt.com/docs/`; `cursor.com/docs/context/skills` and `.../context/rules`
+  redirect to `/docs/skills` and `/docs/rules`.
 
 Not checked: whether `cursor.com` and `learn.chatgpt.com` serve `<address>.md` to the
 watcher's runner (this session could not reach them; Agent Docs reads them daily); whether
