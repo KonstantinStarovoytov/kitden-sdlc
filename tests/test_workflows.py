@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -304,7 +305,7 @@ def test_a_pull_request_cannot_switch_off_zizmor_or_actionlint():
         "check.yml": (
             (
                 "uvx --no-config zizmor==1.32.0",
-                "--config .kitden-sdlc/config/zizmor.yml",
+                '--config "$GITHUB_WORKSPACE/.kitden-sdlc/config/zizmor.yml"',
                 "--no-ignores",
             ),
             ("-config-file .kitden-sdlc/config/actionlint.yaml",),
@@ -395,3 +396,122 @@ def test_the_daily_cap_counts_only_runs_that_did_work_and_not_itself():
     ):
         assert _cap_problems(text.replace(guard, "", 1)) != [], guard
     assert _cap_problems(text.replace("RUN_ID: ${{ github.run_id }}", "RUN_ID: ''")) != []
+
+
+# --- uv runs a .venv/bin/python it finds in its working folder or any folder above it, even
+# --- with --no-project --no-config (uv 0.10.10). A pull request can commit one, so where a job
+# --- has someone else's checkout at the top of the workspace, uv and python run from the
+# --- runner's temp folder, with absolute paths.
+
+RUNS_PYTHON = re.compile(r"(?<![\w./-])(?:uv\s+run|uv\s+tool\s+run|uvx|python3?)(?![\w-])")
+OWN_REPOSITORY = "${{ job.workflow_repository }}"
+TEMP = "${{ runner.temp }}"
+
+# Jobs that run uv or python on someone else's checkout on purpose, and why that is safe.
+# Each is checked below: an entry that is no longer needed fails the test too.
+OWN_CODE_ON_PURPOSE = {
+    # kitden-sdlc's own tests: the job's whole point is to run the pull request's code, and a
+    # pull request can change the tests and the rule checker directly. No secret, read only.
+    ("checks.yml", "checks"),
+    # Kitden's main only: every job needs guard, which stops a run that is not on Kitden's
+    # main, so the checkout at the top is code the owner merged, never a pull request's.
+    ("release-prep.yml", "fix"),
+    ("release-prep.yml", "record"),
+}
+
+
+def _triggers(doc: dict) -> set[str]:
+    on = doc.get("on", doc.get(True))
+    if isinstance(on, str):
+        return {on}
+    return set(on or ())
+
+
+def _someone_elses_checkout_on_top(doc: dict, job: dict) -> bool:
+    """A checkout at the top of the workspace that is not kitden-sdlc's own: the caller's,
+    in a workflow another repository calls, or a pull request's. A scheduled or pushed run of
+    one of this repository's own workflows checks out this repository."""
+    outside = bool(_triggers(doc) & {"workflow_call", "pull_request", "pull_request_target"})
+    for step in job.get("steps") or []:
+        if "actions/checkout" not in str(step.get("uses", "")):
+            continue
+        given = step.get("with") or {}
+        if str(given.get("path", ".")).strip("/") not in ("", "."):
+            continue
+        repository = given.get("repository")
+        if (repository is None and outside) or repository not in (None, OWN_REPOSITORY):
+            return True
+    return False
+
+
+def _outside_folder_problems(text: str, file: str) -> list[str]:
+    doc = yaml.safe_load(text)
+    problems = []
+    for name, job in doc["jobs"].items():
+        if not _someone_elses_checkout_on_top(doc, job) or (file, name) in OWN_CODE_ON_PURPOSE:
+            continue
+        default = ((job.get("defaults") or {}).get("run") or {}).get("working-directory")
+        for step in job.get("steps") or []:
+            run = str(step.get("run", ""))
+            if not RUNS_PYTHON.search(run):
+                continue
+            where = f"{name}: {step.get('name') or ' '.join(run.split())[:40]}"
+            folder = str(step.get("working-directory", default or "."))
+            if folder != TEMP and not folder.startswith(TEMP + "/"):
+                problems.append(f"{where}: runs inside the checkout ({folder})")
+            if re.search(r"(?<![\w-])(?:cd|pushd)\s|--directory|--project", run):
+                problems.append(f"{where}: changes its folder")
+            # From the temp folder a relative path would name nothing.
+            for path in re.findall(r"\S*(?:\.kitden-sdlc|\.github)/", run):
+                if "$GITHUB_WORKSPACE/" not in path:
+                    problems.append(f"{where}: {path} is not under $GITHUB_WORKSPACE")
+    return problems
+
+
+def test_uv_and_python_never_run_inside_a_checkout_someone_else_controls():
+    for file in sorted(WORKFLOWS.glob("*.yml")):
+        assert _outside_folder_problems(file.read_text(), file.name) == [], file.name
+    text = (WORKFLOWS / "check.yml").read_text()
+    for guard, swap in (
+        ("        working-directory: ${{ runner.temp }}\n", ""),
+        ("working-directory: ${{ runner.temp }}", "working-directory: ."),
+        ("working-directory: ${{ runner.temp }}", "working-directory: ${{ github.workspace }}"),
+        ('python "$GITHUB_WORKSPACE/.kitden-sdlc/', "python .kitden-sdlc/"),
+        ('"$GITHUB_WORKSPACE/.github/workflows"', ".github/workflows"),
+        ("uv run --no-project", 'cd "$GITHUB_WORKSPACE" && uv run --no-project'),
+        ("uv run --no-project", 'uv run --directory "$GITHUB_WORKSPACE" --no-project'),
+    ):
+        # Each uv step of check.yml is guarded on its own: undoing either one complains.
+        parts = text.split(guard)
+        assert len(parts) > 1, guard
+        for n in range(1, len(parts)):
+            cut = guard.join(parts[:n]) + swap + guard.join(parts[n:])
+            assert _outside_folder_problems(cut, "check.yml") != [], (guard, n)
+
+
+def test_a_planted_python_is_looked_for_in_every_job_that_could_hold_one():
+    # Reached at all: check.yml's job counts as holding the pull request's files, the review
+    # post job (kitden-sdlc's own checkout) and a scheduled job of this repository do not.
+    def held(file: str, job: str) -> bool:
+        doc = yaml.safe_load((WORKFLOWS / file).read_text())
+        return _someone_elses_checkout_on_top(doc, doc["jobs"][job])
+
+    assert held("check.yml", "check")
+    assert held("review.yml", "claude") and held("review.yml", "luna")
+    assert not held("review.yml", "post")
+    assert not held("desk.yml", "measure") and not held("watch.yml", "fetch")
+    assert not held("publish.yml", "registry")  # Kitden sits in kitden/, not on top
+    # Each job let off holds someone else's checkout and runs uv or python: without its entry
+    # it would fail, so an entry that is no longer needed is noticed.
+    for file, job in OWN_CODE_ON_PURPOSE:
+        assert held(file, job), (file, job)
+        doc = yaml.safe_load((WORKFLOWS / file).read_text())
+        assert any(RUNS_PYTHON.search(str(s.get("run", ""))) for s in doc["jobs"][job]["steps"])
+    # The release-prep jobs are let off because guard stops any run that is not Kitden's main.
+    doc = yaml.safe_load((WORKFLOWS / "release-prep.yml").read_text())
+    guard = " ".join(str(_step(doc, "guard", "May release prep start?")["run"]).split())
+    assert 'if [ "$GITHUB_REF" != "refs/heads/main" ]; then' in guard
+    for file, job in OWN_CODE_ON_PURPOSE:
+        if file == "release-prep.yml":
+            needs = doc["jobs"][job]["needs"]
+            assert "guard" in ([needs] if isinstance(needs, str) else needs), job
