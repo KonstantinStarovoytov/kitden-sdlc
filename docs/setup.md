@@ -5,6 +5,8 @@ bumped at each release. Put them in your `.github/workflows/`:
 
 - review and the workflow check: [agents-review.yml](../examples/agents-review.yml),
   [agents-check.yml](../examples/agents-check.yml);
+- the check of a list of facts against their doc pages (Kitden's `docs/clients.md`):
+  [list-check.yml](../examples/list-check.yml);
 - the release flow: [release.yml](../examples/release.yml),
   [release-watch.yml](../examples/release-watch.yml),
   [release-prep.yml](../examples/release-prep.yml).

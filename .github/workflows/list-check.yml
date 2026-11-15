@@ -35,10 +35,12 @@ jobs:
             exit 1
           fi
       # The pull request's files are untrusted, a fork's too: only git and the kitden-sdlc
-      # script read them, and nothing the pull request brings runs.
+      # script read them, and nothing the pull request brings runs. Depth 2: the merge commit
+      # GitHub made for this run, and its parents.
       - name: Check out the pull request
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 2
           persist-credentials: false
       # The pull request could commit .kitden-sdlc as a link; checkout would follow it.
       - name: Clear the tools folder
@@ -56,25 +58,26 @@ jobs:
         with:
           version: "0.10.10"
           enable-cache: false
+      # The base list is the merge's first parent: the base the head was made from, so a
+      # re-run does not count rows edited on the base branch since.
       # Both lists come from git, not from the files on disk: docs/clients.md could be a link
       # to another file on the runner. They go to the temp folder, outside the checkout.
       # A side with no list gets an empty file: on the base, every row then counts as added.
-      # Kitden is public, so the fetch needs no token; a private caller would need one.
       - name: Get the list before and after the pull request
-        env:
-          BASE_REF: ${{ github.base_ref }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          git rev-parse --verify --quiet "origin/$BASE_REF" > /dev/null
-          list() { # commit, file to write
+          if ! git rev-parse --verify --quiet "HEAD^1" > /dev/null; then
+            echo "::error::the checkout has no parent: run this on a pull request's merge commit"
+            exit 1
+          fi
+          list() { # commit, base or head
             if git cat-file -e "$1:docs/clients.md" 2> /dev/null; then
-              git show "$1:docs/clients.md" > "$2"
+              git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"
             else
-              : > "$2"
+              : > "$RUNNER_TEMP/$2.md"
             fi
           }
-          list "origin/$BASE_REF" "$RUNNER_TEMP/base.md"
-          list HEAD "$RUNNER_TEMP/head.md"
+          list "HEAD^1" base
+          list HEAD head
       # From the temp folder: uv runs a .venv/bin/python it finds in its folder or any folder
       # above it, even with --no-project, and the pull request could bring one. --no-config:
       # no uv.toml may change where uv installs from.

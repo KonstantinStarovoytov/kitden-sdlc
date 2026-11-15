@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 from check_agent_workflows import HOSTS_ACTION, PINNED, _is_model_step, check_workflow
@@ -557,6 +558,10 @@ def _list_check_problems(text: str) -> list[str]:
         (s.get("with") or {}).get("persist-credentials") is not False for s in checkouts
     ):
         problems.append("a checkout keeps the token")
+    # The merge commit and its parents: the base list is the merge's first parent, the commit
+    # the head was made from, not the base branch's tip at the time of a re-run.
+    if checkouts and (checkouts[0].get("with") or {}).get("fetch-depth") != 2:
+        problems.append("the pull request's checkout does not bring the merge's parents")
     if checkouts and (checkouts[-1].get("with") or {}).get("ref") != "${{ job.workflow_sha }}":
         problems.append("kitden-sdlc is not checked out at this workflow's own commit")
     if not _before(doc, "check", "Clear the tools folder", "Check out kitden-sdlc"):
@@ -564,18 +569,43 @@ def _list_check_problems(text: str) -> list[str]:
     runs = [str(s["run"]) for s in steps if "run" in s]
     if any("${{" in run for run in runs):
         problems.append("an expression sits inside run")
-    if not any(s.get("env", {}).get("BASE_REF") == "${{ github.base_ref }}" for s in steps):
-        problems.append("the base branch is not passed through env")
+    if any("git fetch" in run for run in runs):
+        problems.append("a step fetches: the base list comes from the merge's first parent")
+    problems += _list_files_problems(_step(doc, "check", LISTS_STEP))
     step = _step(doc, "check", LIST_STEP)
     if step is None:
         return [*problems, "the script step is missing"]
     run = " ".join(str(step["run"]).split())
     if "uv run --no-project --no-config" not in run or "list_sources.py" not in run:
         problems.append("the script is not run with --no-project --no-config")
+    if "--base base.md --head head.md" not in run or "docs/clients.md" in run:
+        problems.append("the script reads a list other than the two written by git show")
     # uv runs a .venv/bin/python it finds in its folder or any folder above it, and the pull
     # request can bring one: the script runs from the runner's temp folder instead.
     if step.get("working-directory") != "${{ runner.temp }}":
         problems.append("the script runs inside the pull request's checkout")
+    return problems
+
+
+LISTS_STEP = "Get the list before and after the pull request"
+
+
+def _list_files_problems(step: dict | None) -> list[str]:
+    """Both lists are written by `git show` into $RUNNER_TEMP: a docs/clients.md that is a link
+    is read as its link text, and a base.md the pull request brings is never written through."""
+    if step is None:
+        return ["the step that writes the lists is missing"]
+    lines = [line.strip() for line in str(step["run"]).splitlines()]
+    problems = []
+    for line in lines:
+        if "docs/clients.md" in line and not line.startswith(("git show ", "if git cat-file -e ")):
+            problems.append(f"the list is read by something other than git: {line}")
+        writes = re.findall(r"(?<![0-9&])> *([^\s;]+)", line)
+        if any(w != "/dev/null" and not w.startswith('"$RUNNER_TEMP/') for w in writes):
+            problems.append(f"a file is written outside the temp folder: {line}")
+    for wanted in ('list "HEAD^1" base', "list HEAD head"):
+        if wanted not in lines:
+            problems.append(f"missing: {wanted}")
     return problems
 
 
@@ -591,7 +621,8 @@ def test_the_list_check_runs_kitden_sdlcs_script_and_nothing_the_pull_request_br
         ("persist-credentials: false", "persist-credentials: true"),
         ("ref: ${{ job.workflow_sha }}", "ref: main"),
         ("- name: Clear the tools folder", "- name: Something else"),
-        ("BASE_REF: ${{ github.base_ref }}", "BASE_REF: main"),
+        ("fetch-depth: 2", "fetch-depth: 1"),
+        ('list "HEAD^1" base', 'list "origin/main" base'),
         ("--no-project", ""),
         ("--no-config", ""),
         ("working-directory: ${{ runner.temp }}", "working-directory: ."),
@@ -603,8 +634,34 @@ def test_the_list_check_runs_kitden_sdlcs_script_and_nothing_the_pull_request_br
     assert _list_check_problems(text + "# secrets.GITHUB_TOKEN\n") != []
     unpinned = re.sub(r"(harden-runner@)[0-9a-f]{40}", r"\1v2", text)
     assert unpinned != text and _list_check_problems(unpinned) != []
-    late = text.replace('"$BASE_REF"', '"${{ github.base_ref }}"', 1)
+    late = text.replace('list "HEAD^1" base', 'list "${{ github.base_ref }}" base', 1)
     assert late != text and _list_check_problems(late) != []
+    fetch = 'git fetch origin main\n          list "HEAD^1" base'
+    fetched = text.replace('list "HEAD^1" base', fetch)
+    assert fetched != text and _list_check_problems(fetched) != []
+
+
+@pytest.mark.parametrize(("old", "new"), [
+    ('git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"',
+     'cp docs/clients.md "$RUNNER_TEMP/$2.md"'),
+    ('git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"',
+     'cat docs/clients.md > "$RUNNER_TEMP/$2.md"'),
+    ('git show "$1:docs/clients.md" > "$RUNNER_TEMP/$2.md"',
+     'git show "$1:docs/clients.md" > "$2.md"'),
+    ("list HEAD head", 'cp docs/clients.md "$RUNNER_TEMP/head.md"'),
+    ("--head head.md", '--head "$GITHUB_WORKSPACE/docs/clients.md"'),
+])
+def test_the_list_check_reads_both_lists_only_from_git_show_in_the_temp_folder(old, new):
+    text = LIST_CHECK.read_text()
+    assert _list_check_problems(text) == []
+    changed = text.replace(old, new, 1)
+    assert changed != text and _list_check_problems(changed) != []
+
+
+def test_the_list_check_stops_red_when_the_checkout_is_not_a_merge():
+    run = str(_step(yaml.safe_load(LIST_CHECK.read_text()), "check", LISTS_STEP)["run"])
+    assert 'git rev-parse --verify --quiet "HEAD^1"' in run
+    assert run.count("::error::") == 1 and "exit 1" in run
 
 
 def test_the_list_check_uses_the_same_pins_as_the_workflows_it_copies():

@@ -592,7 +592,7 @@ const STORIES = {
       [{id:'ci', wf:'k-release', stages:[['build']]}, {id:'t1', kind:'thing', ic:'github', t:'Checks', sub:'green or red'}],
       [{wf:'k-agents-review'}, {wf:'s-review'}, {id:'t2', kind:'thing', ic:'lantern', t:'One review comment', sub:'never blocks'}],
       [{wf:'k-agents-check'}, {wf:'s-check'}, {id:'t3', kind:'thing', ic:'github', t:'Workflow check', sub:'green or red'}],
-      [{wf:'k-list-check'}, {wf:'s-list-check'}, {id:'t5', kind:'thing', ic:'github', t:'Warnings on the list', sub:'never red'}],
+      [{wf:'k-list-check'}, {wf:'s-list-check'}, {id:'t5', kind:'thing', ic:'github', t:'Warnings on the list', sub:'never red for a missing word'}],
       [{wf:'k-scenes'}, {id:'t4', kind:'thing', ic:'playwright', t:'README pictures', sub:'to look at'}]
     ],
     edges:[['you','ci','always','l'],['ci','t1','','h'],
