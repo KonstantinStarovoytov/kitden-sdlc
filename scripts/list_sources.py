@@ -16,8 +16,9 @@ not their place; an edit of Kind, Files, Seen in or the systems column alone is 
 A row with no exact word gets no warning; the summary counts it. A table under a `## `
 heading that is not a client's is not read; the summary names its heading.
 
-Each page is read once, and at most 20 pages a run, and no new page once the reads took 180
-seconds in all: rows on further pages are listed as not checked.
+Each page is read once, and at most 20 pages a run. A row with more than 40 exact words is not
+checked. Once the check has run 180 seconds, page reads and word matching together, no further
+row is matched against a page. Such rows are listed as not checked, with no warning.
 
 The pull request is untrusted, so is every row's text. A warning holds a row id, digits and
 fixed words only, so no text can pass for a workflow command. The job summary may name the
@@ -49,7 +50,8 @@ from watch_sources import pick_rows, question
 
 FILE = "docs/clients.md"
 PAGES_MAX = 20
-TIME_MAX = 180  # seconds for all page reads of a run
+TIME_MAX = 180  # seconds for the whole check: page reads and word matching
+WORDS_MAX = 40  # exact words checked in one row; the longest real row has 23
 WORD_MAX = 60  # characters of a missing word shown in the summary
 WORDS_SHOWN = 10  # missing words shown for one row
 ROWS_SHOWN = 100  # rows listed in the summary; GitHub takes 1 MiB of summary a step
@@ -66,6 +68,7 @@ NOT_ADDRESS = "not an address"
 CANNOT = "cannot check"
 NOT_CHECKED = "not checked"
 SLOW = "too slow"
+TOO_MANY = "too many words"
 NO_CHECK = "help or install"
 
 TEXTS = {
@@ -74,13 +77,14 @@ TEXTS = {
     NOT_ADDRESS: "`Source` is not a doc address",
     CANNOT: "cannot check: the row has no exact word",
     NOT_CHECKED: f"not checked: more than {PAGES_MAX} pages in one pull request",
-    SLOW: "not checked: the pages took too long",
+    SLOW: "not checked: the check took too long",
+    TOO_MANY: f"not checked: more than {WORDS_MAX} exact words",
 }
 WARNED = (MISSING, GUESS, UNREAD, NOT_ADDRESS)
 COUNTS = (("Every word on the page", (HELD,)), ("Words missing", (MISSING,)),
           ("Page not read", (UNREAD,)), ("Not a doc address", (NOT_ADDRESS,)),
           ("No page named", (GUESS,)), ("Cannot check", (CANNOT,)),
-          ("Not checked", (NOT_CHECKED, SLOW)), ("`help` or `install`", (NO_CHECK,)))
+          ("Not checked", (NOT_CHECKED, SLOW, TOO_MANY)), ("`help` or `install`", (NO_CHECK,)))
 # A read that fails this way leaves the page unread; any other error is a bug and goes out.
 READ_ERRORS = (OSError, ValueError, http.client.HTTPException)
 NOTE = ("Each page is read as `.md` when it has one. An exact word is a word in backticks in "
@@ -130,13 +134,15 @@ def check(head_text: str, ids: list[str], hosts, read: Callable,
     """One line for each row named by `ids`, in the list's order.
 
     `read(address)` gives (body, content type, address read from), as get_doc does. Each
-    address is read once, and at most PAGES_MAX addresses are read. No new address is read
-    once the reads have taken TIME_MAX seconds in all, by `clock`; a read already started is
-    not cut short.
+    address is read once, and at most PAGES_MAX addresses are read. A row with more than
+    WORDS_MAX exact words is not checked. Once TIME_MAX seconds have passed by `clock` since
+    the check began, reads and word matching both counted, no further row is read or matched;
+    a read or a match already started is not cut short. A row that needs neither (a guess, no
+    page, no word) still gets its verdict.
     """
     places = row_places(head_text)
     pages: dict[str, str | None] = {}
-    spent = 0.0
+    began = clock()
     lines = []
     for item in pick_rows(head_text, ids=ids):
         verdict, missing = HELD, []
@@ -148,15 +154,15 @@ def check(head_text: str, ids: list[str], hosts, read: Callable,
             verdict = NOT_ADDRESS
         elif not item.words:
             verdict = CANNOT
+        elif len(item.words) > WORDS_MAX:
+            verdict = TOO_MANY
         elif item.source not in pages and len(pages) >= PAGES_MAX:
             verdict = NOT_CHECKED
-        elif item.source not in pages and spent >= TIME_MAX:
+        elif clock() - began >= TIME_MAX:
             verdict = SLOW
         else:
             if item.source not in pages:
-                started = clock()
                 pages[item.source] = _page_text(item.source, read)
-                spent += clock() - started
             text = pages[item.source]
             if text is None:
                 verdict = UNREAD

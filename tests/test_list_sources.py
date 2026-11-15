@@ -21,13 +21,16 @@ from list_sources import (
     PAGES_MAX,
     SLOW,
     TIME_MAX,
+    TOO_MANY,
     UNREAD,
+    WORDS_MAX,
     Line,
     changed_rows,
     check,
     main,
     render,
 )
+from watch_list import held
 
 HOSTS = load_hosts()
 HEADER = "| What | Kind | Files | Seen in | macOS and Linux | Source |\n|---|---|---|---|---|---|\n"
@@ -284,30 +287,60 @@ class FakeClock:
         return read
 
 
-def test_page_reads_stop_once_they_took_too_long():
+def test_the_check_stops_once_it_took_too_long():
     assert TIME_MAX == 180
     clock = FakeClock(50)
     rows = [(f"`zork{n}` fact", doc(f"p{n}")) for n in range(1, 7)]
     rows += [("`zork1` again", doc("p1")), ("`zork` guessed", "guess")]
     read = clock.reader({doc(f"p{n}"): f"zork{n}\n" for n in range(1, 7)})
     lines = check(make_list(rows), [f"CC-{n:02d}" for n in range(1, 9)], HOSTS, read, clock)
-    # 50, 100, 150 seconds: a fourth read starts, and after it 200 seconds are spent.
+    # 50, 100, 150 seconds: a fourth read starts, and after it 200 seconds are spent. A row
+    # on a page already read is not matched either; a guess costs nothing and still warns.
     assert read.calls == [doc(f"p{n}") for n in range(1, 5)]
-    assert [line.verdict for line in lines] == [HELD] * 4 + [SLOW] * 2 + [HELD, GUESS]
+    assert [line.verdict for line in lines] == [HELD] * 4 + [SLOW] * 3 + [GUESS]
     warned, summary = render(lines)
     assert [w.split("::")[2] for w in warned] == [
         "CC-08: no page named; scripts/watch_sources.py can look for one"]
-    assert "- CC-05, line 11: not checked: the pages took too long" in summary
-    assert "Not checked: 2." in summary
+    assert "- CC-05, line 11: not checked: the check took too long" in summary
+    assert "Not checked: 3." in summary
 
 
-def test_the_time_counts_page_reads_only():
+def test_the_time_counts_from_the_start_of_the_check():
     clock = FakeClock(0)
     rows = [("`zork` one", doc("a")), ("`zork` two", doc("b"))]
     read = clock.reader({doc("a"): "zork\n", doc("b"): "zork\n"})
-    clock.now += 10_000  # time before the reads does not count
+    clock.now += 10_000  # time before the check does not count
     lines = check(make_list(rows), ["CC-01", "CC-02"], HOSTS, read, clock)
     assert [line.verdict for line in lines] == [HELD, HELD]
+
+
+def test_the_time_counts_word_matching_too(monkeypatch):
+    # Reads take no time here; each row's matching takes 100 seconds.
+    clock = FakeClock(0)
+
+    def slow_held(words, body):
+        clock.now += 100
+        return held(words, body)
+
+    monkeypatch.setattr(list_sources, "held", slow_held)
+    rows = [("`zork` one", doc("a")), ("`zork` two", doc("a")), ("`zork` three", doc("a")),
+            ("`zork` four", "guess")]
+    read = clock.reader({doc("a"): "zork\n"})
+    lines = check(make_list(rows), ["CC-01", "CC-02", "CC-03", "CC-04"], HOSTS, read, clock)
+    assert [line.verdict for line in lines] == [HELD, HELD, SLOW, GUESS]
+
+
+def test_a_row_with_more_than_forty_exact_words_is_not_checked():
+    assert WORDS_MAX == 40
+    many = " ".join(f"`w{n}x`" for n in range(41))
+    rows = [(many, doc("a")), (" ".join(f"`w{n}x`" for n in range(40)), doc("a"))]
+    lines, reader = run(rows, ["CC-01", "CC-02"], {doc("a"): "nothing\n"})
+    assert [line.verdict for line in lines] == [TOO_MANY, MISSING]
+    assert reader.calls == [doc("a")]  # read for the second row only
+    warned, summary = render(lines)
+    assert [w.split("::")[2].split(":")[0] for w in warned] == ["CC-02"]
+    assert "- CC-01, line 7: not checked: more than 40 exact words" in summary
+    assert "Not checked: 1." in summary
 
 
 def test_a_failed_read_counts_toward_the_time():
@@ -325,7 +358,7 @@ def test_main_passes_its_clock_to_check(tmp_path, capsys):
     summary = tmp_path / "summary.md"
     assert main(files(tmp_path, "", head), {"GITHUB_STEP_SUMMARY": str(summary)}, read,
                 clock) == 0
-    assert "CC-02, line 8: not checked: the pages took too long" in summary.read_text()
+    assert "CC-02, line 8: not checked: the check took too long" in summary.read_text()
 
 
 def test_an_html_page_is_read_as_its_text():

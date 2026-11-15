@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # the script stops reading pages after 180 seconds
+    timeout-minutes: 10 # the script stops checking rows after 180 seconds
     permissions:
       contents: read # check out the code
     steps:
