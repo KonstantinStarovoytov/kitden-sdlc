@@ -216,7 +216,9 @@ not taken yet:
 
 Limits (call): at most 5 feed pieces a run, after the releases and the list's own pages; the
 rest wait in the memory, and an entry older than 14 days is dropped and counted in the run's
-log line. A `checked` date older than three days is an unreadable source, with the same
+log line. Fetch has one time budget for all the pages it reads in a run, the list's, the
+feed's and those of part 8 (2026-11-16); a page past it is read the next day and is not a
+failed read. A `checked` date older than three days is an unreadable source, with the same
 "Cannot read" item as any other.
 
 The reindex is set for 06:00 UTC and in fact starts between 12:30 and 15:20. The watcher is
@@ -226,7 +228,9 @@ It takes whole days it has not taken yet, so no day is lost or read twice. A gap
 weekly summary anyway; the day does not matter (call).
 
 **A shadow week first.** For seven days fetch builds the feed pieces, writes how many of them
-there are and which filter word kept each, and gives none to the judge. The owner sees the
+there are and which filter word kept each, and gives none to the judge. The limits are the
+live ones, so the count shows what live would send. While the feed is switched off it is
+not read at all, and so never counts as a source that cannot be read. The owner sees the
 count before any of it costs a model call or adds a summary item. Without the filter the 14
 days above would give about 8 pages a day; the guess with it is 2 to 4, about $5 a month at
 the measured $0.05 a piece.
@@ -357,24 +361,29 @@ wakes the free server (up to 90 seconds). A search waits 15 seconds and a timeou
 once more. A failed search means that row has no passages. When the first three searches all
 fail, the job stops searching: the key, the limit or the server is wrong. A failed `docs`
 job means the judge runs without `docs`: the judge names `fetch`, `screen` and `docs` in
-`needs`, runs whenever `fetch` succeeded and gave pieces, whatever became of the other two, and a missing
+`needs`, runs whenever `fetch` succeeded and gave pieces, whatever became of the other two,
+and a missing
 `screened.json` or `docs.json` is not an error: without the first it screens by itself, as
 today. The run never stops for Agent Docs. The log line of the run counts searches and
 failures.
 
-**The eval decides.** The lookups of the 40 tasks are recorded once into `evals/watch/docs/`
-and replayed after that, so the table does not depend on the server or the day. They are
+**The eval decides.** The lookups of the 40 tasks are recorded once into one file and
+replayed after that, so the table does not depend on the server or the day. They are
 recorded by row, not by task (2026-11-16): a passage depends on the row alone, and the judge
 may pick any row of the piece's client, also a wrong one on a task that touches nothing. A
 recording of only the rows one screen run picked would give the judge no passages exactly
 where a false alarm starts. So every row that a task's list holds for its client is searched
 once, about 60 searches without Cursor's rows, and the recording needs no model. The owner
 records them by hand with a key in the shell (`COHERE_API_KEY`; the trial key will do, part
-11). A recorded file holds the passages themselves (call): the eval tasks beside them
-already hold the vendors' notes in full, and a replay that read a live page would change
-with the day. If the owner moves the tasks out of the public repository (question 6), the
-recordings move with them. No Cursor passage is recorded until question 4 is answered. Two
-tables, three runs each: `docs` off and on. It ships when (call):
+11). A recorded file holds the passages themselves (call): a replay that read a live page
+would change with the day. The recording is vendors' text, and it stays out of git until
+the owner answers questions 11 and 6 (2026-11-16): until then it lives where the owner
+keeps it, its path is given on the command line, and the two tables are run by hand. If the
+answer is "in git", it goes to `evals/watch/docs/` and the eval job can replay it. A task
+may carry passages of its own that win over the recording for that task alone; the task
+with a planted order does, and that text is ours. No Cursor passage is recorded until
+question 4 is answered. Two tables, three runs each: `docs` off and on. It ships when
+(call):
 
 - both pass the bar in every run, and
 - with `docs` there are no more false alarms, and
@@ -549,7 +558,9 @@ is.
 Off by default, behind a variable `REVIEW_DOCS`, set in the calling repository (Kitden)
 beside `REVIEW_LIVE`. It ships only when the eval table on the 42 review tasks, three runs
 with and without the file, shows no more false alarms and more of the planted mistakes
-caught. Otherwise it stays off and a row in `docs/decisions.md` says what was measured. It
+caught. The packs recorded for that eval are vendors' text too: like the passages of part 3
+they stay out of git until the owner answers questions 11 and 6 (2026-11-16). Otherwise it
+stays off and a row in `docs/decisions.md` says what was measured. It
 is built only if the table of part 2 shows that enough rows have a page.
 
 ### 8. Facts checked before the page changed
@@ -586,8 +597,11 @@ Agent Docs indexes one later, the watcher still reads it itself.
 A page read as HTML is hashed after the same cleaning the watcher gives any HTML page (no
 script, style, menu, header or footer), so a changed menu or a token in the page's code is
 less likely to look like a change. Whether each of the rules' pages gives the same hash on
-two reads is not checked yet; a page that does not cannot be watched this way and is left
-out by name.
+two reads is not checked yet. So fetch checks it itself: a page that is new, or whose hash
+changed, is read once more in the same run, and a page whose two reads differ is marked as
+one that cannot be watched. That is told once, and the page is skipped from then on, not
+reported every day. An address in the rules file that leads off its host (one says so
+itself) is fixed in the file when this part is built, or it would be a failed read daily.
 
 Once a week, as the moved check of part 6 does it: when a page changed after a fact's date,
 the weekly summary gets one item for the page: "<page> changed on <day>; these facts were
@@ -611,10 +625,17 @@ tasks before it goes live, as the first list did. Nothing else in this design wa
 
 What the built code asks of it (2026-11-16): the list reader knows three clients by name
 (`CLIENTS` and `PREFIX` in `scripts/watch_list.py`), fetch reads one list at one path, and
-the posting job opens issues in one repository, so each of the three gets the second list as
-a second run with its own memory, not as a second code path. The actions' doc pages are not
-on the four doc hosts; the address check gains only the path starts those pages need, and
-only after a look at whether such a page reads the same twice.
+the posting job opens issues in one repository. The shape that follows: one run of the same
+three jobs handles both lists. Fetch writes one input file a list; the judge and the
+posting job each run their script a second time on the second file, with its own memory
+folder and its own limit of model calls. An input stays one list with its files and its
+memory, so the judge and the checks of its findings do not change; the artifacts and the
+one push to the `watch` branch stay as they are. A list name on every piece was weighed and
+not taken: every script reads the list of an input as a whole. kitden-sdlc has no releases,
+so for the second list the checked version is the `main` commit of the run, and the
+issues' fixed texts speak of kitden-sdlc and its workflows, not of Kitden. The actions' doc
+pages are not on the four doc hosts; the address check gains only the path starts those
+pages need, and only after a look at whether such a page reads the same twice.
 
 ### 10. Rules, secrets and hosts
 
@@ -711,7 +732,8 @@ list: they are read by their exact addresses only.
   failure the script prints the status code and nothing of the answer;
 - `docs.json` is checked before it is uploaded. A passage that holds secret-like text or a
   long random string (the two tests of `scripts/post_findings.py` and
-  `scripts/secret_filter.py`) is left out and counted; this also means the judge is never
+  `scripts/secret_filter.py`, as one shared function that part 7 uses too) is left out and
+  counted; this also means the judge is never
   given such a string that is not in its input, so the posting job's own check needs no
   change. If the key itself, or a piece of it, is in the file, the script writes an empty
   file and fails (2026-11-16: the first text refused the whole file for either).
@@ -793,8 +815,7 @@ the eval tasks of step 6 come from its own shadow week.
 
 The exact filter words of part 1; the wording of the summary items and warnings of the parts
 not built yet; the names of new functions and config keys (the built ones are in the plan);
-how a section is found again by its heading in the eval replay; how the second list of part
-9 gets its second run.
+how a section is found again by its heading in the eval replay.
 
 ## Questions for the owner
 
@@ -828,10 +849,10 @@ New on 2026-11-16:
 10. Parts 3 and 7 now leave out a passage or a section that holds a long random string,
     where the first text had the posting job read the reviewers' doc file to know such a
     string. Fine?
-11. The eval of part 3 records passages for every row of Claude Code and Codex, not only
-    for the rows a screen run picked: up to about 0.3 MB of vendors' text in the public
-    repository, on top of what question 6 asks about. Fine, or record less and accept an
-    eval that cannot see false alarms the passages cause?
+11. The evals of parts 3 and 7 need recorded vendors' text: passages for every row of
+    Claude Code and Codex (up to about 0.3 MB) and the reviewers' packs. May they be in the
+    public repository, on top of what question 6 asks about? Until you answer, they are
+    not: they stay where you keep them and the tables are run by hand.
 
 ## Checked facts
 
