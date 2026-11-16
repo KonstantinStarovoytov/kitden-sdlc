@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "updated": "2026-11-15T14:19:08Z",
+  "updated": "2026-11-16T15:29:03Z",
   "repo": "KonstantinStarovoytov/kitden",
-  "overall": "green",
+  "overall": "amber",
   "lights": [
     {
       "id": "works",
@@ -19,8 +19,8 @@
     {
       "id": "bugs",
       "name": "Bugs",
-      "state": "green",
-      "why": ""
+      "state": "amber",
+      "why": "Open bugs grew on each of the last 2 Mondays: 0, 3, 5."
     },
     {
       "id": "agents",
@@ -39,16 +39,16 @@
     "issues_from_others": 0,
     "pulls_from_others": 7,
     "stars": 1,
-    "downloads": 1690
+    "downloads": 1716
   },
   "waiting": [],
   "week": [
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 87,
+      "runs": 96,
       "failed": 6,
-      "did": 44,
+      "did": 52,
       "agreed": 5,
       "disagreed": 0,
       "no_answer": 1
@@ -56,9 +56,9 @@
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 87,
+      "runs": 96,
       "failed": 6,
-      "did": 43,
+      "did": 51,
       "agreed": 4,
       "disagreed": 0,
       "no_answer": 2
@@ -66,7 +66,7 @@
     {
       "agent": "watcher",
       "name": "Client watcher",
-      "runs": 3,
+      "runs": 4,
       "failed": 0,
       "did": 0,
       "agreed": 0,
@@ -83,7 +83,7 @@
     }
   ],
   "review": {
-    "clean": 36,
+    "clean": 43,
     "fixed": 1,
     "days_to_merge": 0.0
   },
@@ -91,7 +91,7 @@
     {
       "month": "2026-11",
       "review": 1,
-      "nightly": null,
+      "nightly": 0,
       "tester": null,
       "watcher": 0,
       "owner": 8,
@@ -100,7 +100,7 @@
     {
       "month": "2026-10",
       "review": 0,
-      "nightly": null,
+      "nightly": 0,
       "tester": null,
       "watcher": 0,
       "owner": 0,
@@ -109,7 +109,7 @@
     {
       "month": "2026-09",
       "review": 0,
-      "nightly": null,
+      "nightly": 0,
       "tester": null,
       "watcher": 0,
       "owner": 0,
@@ -117,21 +117,76 @@
     }
   ],
   "misses": [],
+  "nightly": [
+    {
+      "workflow": "nightly.yml",
+      "name": "Nightly tests",
+      "part": "systems",
+      "state": "green",
+      "failed": [],
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43845837169",
+      "night": "2026-11-16",
+      "since": null,
+      "grey_since": null,
+      "grey_nights": null,
+      "why": ""
+    },
+    {
+      "workflow": "nightly.yml",
+      "name": "Nightly tests",
+      "part": "clients",
+      "state": "green",
+      "failed": [],
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43845837169",
+      "night": "2026-11-16",
+      "since": null,
+      "grey_since": null,
+      "grey_nights": null,
+      "why": ""
+    },
+    {
+      "workflow": "nightly.yml",
+      "name": "Nightly tests",
+      "part": "browser",
+      "state": "green",
+      "failed": [],
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43845837169",
+      "night": "2026-11-16",
+      "since": null,
+      "grey_since": null,
+      "grey_nights": null,
+      "why": ""
+    },
+    {
+      "workflow": "latest-deps.yml",
+      "name": "Newest dependencies",
+      "part": "test",
+      "state": "green",
+      "failed": [],
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43877316459",
+      "night": "2026-11-16",
+      "since": null,
+      "grey_since": null,
+      "grey_nights": null,
+      "why": ""
+    }
+  ],
+  "set_aside": 0,
   "budget": {
     "agents": [
       {
         "agent": "claude",
-        "runs": 87,
+        "runs": 96,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 87,
+        "runs": 96,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "watcher",
-        "runs": 3,
+        "runs": 4,
         "cap": "60 model calls a run"
       },
       {
