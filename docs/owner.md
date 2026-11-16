@@ -13,7 +13,7 @@ daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for y
 | Turn one down | close it |
 | Say a bot issue is real | put `confirmed` on it; it stays open until fixed |
 | Say a bot issue is wrong | close it with `false-alarm` |
-| A nightly test job is red | open its `ci-failure` issue; re-run the job if it failed by chance, or fix it; the issue closes itself |
+| A nightly test job is red | open its `ci-failure` issue; re-run the job if it failed by chance, or fix it; the issue closes itself. Do not close it by hand: while the part is red, the next day opens a new one |
 | Say a review was useful or wrong | 👍 or 👎 on the "Agent review" comment |
 | A reviewer gave no answer (the review comment says so) | push again, or re-run the "Agent review" run |
 | Record a miss | in the bug form, write `#N` of the pull request that caused the bug under "Caused by" |
@@ -41,8 +41,8 @@ table one line says how the five stand.
 - **Works:** on `main`'s newest commit, the checks its push started passed, and so did every
   check `main` requires; last night's tests other than the client tests passed.
 - **Clients:** no major client change you confirmed has been open long, and last night's client
-  tests passed. "Last night" is the newest nightly run: GitHub starts it hours late, so the
-  desk mostly shows the night before, and its reason gives the run's date.
+  tests passed. "Last night" is the newest nightly run: GitHub starts scheduled runs hours
+  late, so the desk may show the night before; each reason gives the run's date.
 - **Bugs:** open bugs did not grow three Mondays in a row, and no confirmed major bot issue is
   over 14 days old.
 - **Agents:** none is paused, the watcher is within its two urgent issues a week, no agent job

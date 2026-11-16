@@ -39,7 +39,8 @@ REFERENCE = re.compile(
     rf"(?:(?<![\w&])|(?<=\bPR))#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
 # The workflows in Kitden that test it every night, and the job ids of each.
 NIGHTLY = (("nightly.yml", ("systems", "clients", "browser")), ("latest-deps.yml", ("test",)))
-# The nightly run starts about 10:00 UTC, the desk at 06:41: the desk mostly sees yesterday's.
+# GitHub starts scheduled runs hours late, so the desk may see the night before; each reason
+# gives the run's date.
 # A run is current when its date (UTC) is the desk's day or at most NIGHT_DAYS days before:
 # with 1, today or yesterday. An older run means GitHub skipped a night: grey.
 NIGHT_DAYS = 1
@@ -390,12 +391,22 @@ def _failed(failed: list[str], required: list[str] | None, partial: bool) -> dic
                   f"On main, {', '.join(failed)} failed; main does not require {them}.")
 
 
+def _stretch_end(row: dict) -> date | None:
+    """The night a grey row is about when it has no `night` (no run was read): the last of
+    its grey stretch."""
+    start, nights = _date(row.get("grey_since")), row.get("grey_nights")
+    if start is None or not isinstance(nights, int) or isinstance(nights, bool) or nights < 1:
+        return None
+    return start + timedelta(days=nights - 1)
+
+
 def _night_light(light_id: str, rows: list[dict] | None) -> tuple[list[dict], list[str]]:
     """What the nightly rows of this light's parts prove: a light for each red row, amber and
-    red once it has been red since NIGHT_RED_DAYS before its newest run; an amber light for
-    each row grey for NIGHT_RED_DAYS nights or more, so a nightly that hangs every night is
-    seen; and what is not measured, from the other grey rows. Rows None: the nightly runs
-    were not read."""
+    red once it has been red since NIGHT_RED_DAYS before its newest run; the same for a grey
+    row that keeps a red `since`, since nothing has fixed it; an amber light for each other
+    row grey for NIGHT_RED_DAYS nights or more, so a nightly that hangs every night is seen;
+    and what is not measured, from the other grey rows. Rows None: the nightly runs were not
+    read."""
     if rows is None:
         return [], ["the nightly runs were not read."]
     found, missing = [], []
@@ -403,16 +414,22 @@ def _night_light(light_id: str, rows: list[dict] | None) -> tuple[list[dict], li
         if (row.get("part") in CLIENT_PARTS) != (light_id == "clients"):
             continue
         name, night, since = row.get("part"), row.get("night"), row.get("since")
+        began, last = _date(since), _date(night) or _stretch_end(row)
+        late = began and last and (last - began).days >= NIGHT_RED_DAYS
         if row.get("state") == "red":
-            began, last = _date(since), _date(night)
-            late = began and last and (last - began).days >= NIGHT_RED_DAYS
             found.append(_light(light_id, "red" if late else "amber",
                                 f"Nightly: {name} has been red since {since}; its newest run "
                                 f"was made {night}.", row.get("run") or ""))
         elif row.get("state") != "green":
             why = row.get("why") or f"the nightly job {name} has no finished green or red run."
             nights = row.get("grey_nights")
-            if isinstance(nights, int) and nights >= NIGHT_RED_DAYS:
+            if began:  # red before the grey nights, and not green since: still not fixed
+                found.append(_light(
+                    light_id, "red" if late else "amber",
+                    f"Nightly: {name} was red since {since}; it has had no finished green or "
+                    f"red run since {row.get('grey_since')} ({why.rstrip('.')}).",
+                    row.get("run") or ""))
+            elif isinstance(nights, int) and nights >= NIGHT_RED_DAYS:
                 found.append(_light(light_id, "amber",
                                     f"Nightly: {name} has had no finished green or red run "
                                     f"since {row.get('grey_since')} ({why.rstrip('.')}).",

@@ -519,7 +519,8 @@ def test_the_title_names_the_workflow_and_is_never_empty():
     assert ci_title({**RED, "name": "a\nb"}) == "a b: clients is red"
 
 
-@pytest.mark.parametrize("name", ["@owner", "[x](http://e.example)", "<!-- x", "a | b", "a\nb"])
+@pytest.mark.parametrize("name", ["@owner", "[x](http://e.example)", "<!-- x", "a | b", "a\nb",
+                                  "me@evil.example"])
 def test_a_job_or_step_name_cannot_ping_link_or_break_the_page(name):
     body = ci_body(row("systems", "red", failed=[{"job": name, "step": name, "url": JOB_URL}]))
     assert name not in body and "http://e.example" not in body
@@ -531,7 +532,9 @@ def test_the_issue_lists_each_failed_job_linked_and_says_what_to_do():
               {"job": "systems (b, 3.12)", "step": None, "url": "http://e.example/job"}]
     body = ci_body(row("systems", "red", failed=failed, since="2026-11-13"))
     assert body.startswith("<picture>") and 'alt="red since: 2026-11-13"' in body
-    assert "The nightly job systems failed on 2 of its runs." in body
+    assert "2 jobs of the nightly part systems failed." in body
+    one = ci_body(row("systems", "red", failed=failed[:1], since="2026-11-13"))
+    assert "1 job of the nightly part systems failed." in one
     first, second = (one_line(item["job"]) for item in failed)
     assert f"- [{first}]({JOB_URL}): the step \"Run uv run pytest -q\" failed" in body
     assert f"- {second} (`http://e.example/job`): no failed step is named" in body
@@ -600,3 +603,18 @@ def test_the_nightly_column_is_explained_when_it_is_shown():
     week = render({**DESK, "found_by": found}).split("## This week")[1].split("## Budget")[0]
     assert "Nightly: `ci-failure` issues the desk opened for a red nightly test job." in week
     assert "| 2026-11 | 6 | 1 | 0 | 4 | 0 |" in week
+
+
+def test_no_rows_at_all_close_no_issue():
+    gh = FakeIssues([red_issue()])
+    post_nightly(gh, [])
+    assert (gh.created, gh.edited, gh.closed) == ([], [], [])
+
+
+def test_a_grey_part_that_was_red_still_says_since_when_on_the_desk():
+    grey = row("systems", "grey", since="2026-11-10", grey_since=NIGHT, grey_nights=1)
+    line = nightly_line(render({**DESK, "nightly": [grey], "set_aside": 0}))
+    assert "systems](" in line and "red since 2026-11-10 (no finished run since 2026-11-15)" in line
+    gh = FakeIssues([red_issue(title="Nightly tests: systems is red")])
+    post_nightly(gh, [grey])
+    assert (gh.edited, gh.closed) == ([], [])

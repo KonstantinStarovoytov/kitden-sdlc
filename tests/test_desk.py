@@ -1245,3 +1245,55 @@ def test_build_turns_works_amber_on_the_third_grey_night():
     assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "amber"
     facts.before = yesterday("grey", grey_since="2026-11-14")
     assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "grey"
+
+
+# --- A grey night after red nights keeps the red ---
+
+
+def whole_night_cancelled():
+    """Kitden's nightly run of 2026-11-15: cancelled whole, before any job ran."""
+    found = night(jobs=[])
+    found["run"] = {**found["run"], "conclusion": "cancelled"}
+    return found
+
+
+def test_a_run_cancelled_whole_after_5_red_nights_keeps_works_red():
+    before = [{"workflow": "nightly.yml", "part": "systems", "state": "red",
+               "since": "2026-11-10"}]
+    rows = nightly([whole_night_cancelled(), GREEN_NIGHTS[1]], before, NOW)
+    systems = rows[0]
+    assert (systems["state"], systems["since"], systems["grey_nights"]) == (
+        "grey", "2026-11-10", 1)
+    works = light_works([OK], [], nightly=rows)
+    assert works["state"] == "red" and works["url"] == RUN_URL
+    assert works["why"].startswith(
+        "Nightly: systems was red since 2026-11-10; it has had no finished green or red run "
+        "since 2026-11-15 (the nightly run of nightly.yml made 2026-11-15 has no jobs")
+    facts = Facts(**{**FACTS.__dict__, "nightly": [whole_night_cancelled(), GREEN_NIGHTS[1]],
+                     "before": before})
+    assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "red"
+
+
+def test_a_grey_night_soon_after_a_red_one_is_amber():
+    grey = [row("systems", "grey", since="2026-11-14", grey_since=NIGHT, grey_nights=1,
+                why="x.")]
+    assert light_works([OK], [], nightly=grey)["state"] == "amber"
+    clients = [{**grey[0], "part": "clients"}]
+    assert light_clients([], FRESH, NOW, nightly=clients)["state"] == "amber"
+    assert light_works([OK], [], nightly=clients)["state"] == "green"
+
+
+def test_a_grey_night_with_no_red_before_it_stays_grey():
+    grey = [row("systems", "grey", grey_since=NIGHT, grey_nights=1, why="the reason.")]
+    works = light_works([OK], [], nightly=grey)
+    assert works["state"] == "grey" and "the reason." in works["why"]
+    assert "was red" not in works["why"]
+
+
+def test_a_night_with_no_run_after_red_nights_keeps_works_red():
+    before = [{"workflow": "nightly.yml", "part": "systems", "state": "red",
+               "since": "2026-11-10"}]
+    rows = nightly([night(run=None), GREEN_NIGHTS[1]], before, NOW)
+    assert (rows[0]["night"], rows[0]["since"], rows[0]["grey_since"]) == (
+        None, "2026-11-10", "2026-11-15")
+    assert light_works([OK], [], nightly=rows)["state"] == "red"

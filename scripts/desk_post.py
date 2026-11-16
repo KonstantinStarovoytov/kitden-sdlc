@@ -74,8 +74,9 @@ MEANS = {
     "browser": "A main flow of the page is broken in a real browser.",
 }
 MEANS_ELSE = "A scheduled test run failed."
-# An address GitHub would make a link of by itself, in text: the scheme's "//" or "www.".
-AUTOLINK = re.compile(r"(?<=[A-Za-z]:)(?=//)|(?<=\bwww)(?=\.)", re.I)
+# An address GitHub would make a link of by itself, in text: the scheme's "//", "www." or the
+# "@" of an email address (one_line already quiets an "@" that starts a word).
+AUTOLINK = re.compile(r"(?<=[A-Za-z]:)(?=//)|(?<=\bwww)(?=\.)|(?<=\w)(?=@)", re.I)
 
 
 class Safe(str):
@@ -281,22 +282,30 @@ def _set_aside(desk: dict) -> str:
 
 
 def _part_mark(row: dict) -> str:
-    """A nightly part: its mark, its name linked to its run, and since when it is red, or,
-    from its GREY_SHOWN-th grey night, since when it has had no finished run."""
+    """A nightly part: its mark, its name linked to its run, and since when it is red. A grey
+    part that was red before its grey nights says since when it was red and since when it has
+    had no finished run; another grey part says the second from its GREY_SHOWN-th grey night."""
     state = row.get("state") if row.get("state") in ("green", "red") else "grey"
     text = f"{MARKS[state]} {_link(_name(row.get('part')), row.get('run'))}"
     since, grey_since, nights = row.get("since"), row.get("grey_since"), row.get("grey_nights")
     if state == "red" and isinstance(since, str):
         return f"{text} since {_name(since)}"
-    if (state == "grey" and isinstance(grey_since, str) and isinstance(nights, int)
-            and nights >= GREY_SHOWN):
+    if state != "grey":
+        return text
+    if isinstance(since, str):
+        text += f" red since {_name(since)}"
+        if isinstance(grey_since, str):
+            text += f" (no finished run since {_name(grey_since)})"
+        return text
+    if isinstance(grey_since, str) and isinstance(nights, int) and nights >= GREY_SHOWN:
         return f"{text} (no finished run since {_name(grey_since)})"
     return text
 
 
 def _nightly(desk: dict) -> str:
-    """One line: each nightly part, grouped by the night its row is about (the desk at 06:41
-    UTC sees the nightly that started the day before), then the tests set aside."""
+    """One line: each nightly part, grouped by the night its row is about (GitHub starts
+    scheduled runs hours late, so the desk may see the night before), then the tests set
+    aside."""
     rows = desk.get("nightly")
     if not isinstance(rows, list):
         return f"Nightly runs: {NOT_MEASURED_YET}. {_set_aside(desk)}"
@@ -564,8 +573,8 @@ def ci_body(row: dict) -> str:
     since = row.get("since") if isinstance(row.get("since"), str) else "unknown"
     night = row.get("night")
     failed = [item for item in row.get("failed") or [] if isinstance(item, dict)]
-    lead = (f"The nightly job {part} failed on {_n(len(failed), 'of its runs', 'of its runs')}."
-            if failed else f"The nightly job {part} failed.")
+    jobs = _n(len(failed), "job of the nightly part", "jobs of the nightly part")
+    lead = (f"{jobs} {part} failed." if failed else f"The nightly part {part} failed.")
     if isinstance(night, str):
         lead += f" Its newest run was made {_name(night)}."
     run = row.get("run")
@@ -591,7 +600,8 @@ def ci_body(row: dict) -> str:
 def post_nightly(gh: GhIssues, rows: list[dict] | None) -> None:
     """One `ci-failure` issue per red nightly part, rewritten each day; a green part's issue
     is closed. A grey row proves neither a failure nor a fix, so its issue is left alone, as
-    is the issue of a row that cannot be read. When every row is green or red, an open
+    is the issue of a row that cannot be read. When there are rows and every one is green or
+    red, an open
     `ci-failure` issue of the bot whose title is no row's title is closed: its job no longer
     exists. With `rows` None (not read) nothing is opened or closed."""
     if not isinstance(rows, list):
@@ -603,7 +613,7 @@ def post_nightly(gh: GhIssues, rows: list[dict] | None) -> None:
             continue
         titles.add(ci_title(row))
         upsert(gh, ci_title(row), ci_body(row) if row["state"] == "red" else "", CI_LABELS)
-    if sure:
+    if sure and titles:  # no row at all proves no job is gone
         for item in gh.by_bot("open", "ci-failure"):
             if item["title"] not in titles:
                 gh.close(item["number"])
