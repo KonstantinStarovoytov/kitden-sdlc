@@ -70,7 +70,7 @@ The agents are measured, and what they get wrong becomes the next test.
 - **No change without a score.** A change to a prompt, a skill or a model comes with its eval table, before and after.
 - **A noisy agent pauses itself.** When more than half of its last 10 verdicts are false alarms, it stops and asks you.
 
-The desk shows the same health every day in one issue: [docs/agents.md](docs/agents.md#the-desk).
+The desk shows the same health every day in one issue and on [the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): [docs/agents.md](docs/agents.md#the-desk).
 
 ## What you do
 
@@ -87,6 +87,7 @@ Kitden-specific skills and prompts, then do the one-time setup:
 
 - [docs/agents.md](docs/agents.md): every agent and workflow, the watcher's labels, the release flow
 - [docs/owner.md](docs/owner.md): everything you do, one table; the switches
+- [The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): every light, what waits for you, the nightly tests, the week and the budget
 - [desk.json](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json) on the `numbers` branch: the desk's data
 - [docs/setup.md](docs/setup.md) and [docs/release-setup.md](docs/release-setup.md): the one-time setup
 - [docs/decisions.md](docs/decisions.md): every standing choice, why, and when to look again

@@ -51,7 +51,9 @@ what waits for the owner ([desk.py](../scripts/desk.py)). It saves them as `desk
 [numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md). A
 second job, only with `AGENTS_ENABLED` on, shows `desk.json` as the pinned issue "Kitden desk" and
 adds one comment with the week's first run. Started by hand from another branch, the desk
-neither commits nor posts. What the owner does about each line is in [owner.md](owner.md).
+neither commits nor posts. [The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/)
+(`docs/desk`, on GitHub Pages) shows the same `desk.json`, read from the `numbers` branch each time
+it opens; no job writes it, and it links only to github.com and the usage pages the roster names. What the owner does about each line is in [owner.md](owner.md).
 
 A light is the worst thing the read facts prove: bad news that was read always wins, and grey
 means something was not read and nothing bad was found. A red or amber light also says what it
