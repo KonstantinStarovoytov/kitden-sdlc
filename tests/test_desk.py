@@ -80,10 +80,11 @@ def night(jobs=GREEN_JOBS, run=GIVEN, made=MADE, workflow="nightly.yml"):
 GREEN_NIGHTS = [night(), night([job("test")], workflow="latest-deps.yml")]
 
 
-def row(name, state, since=None):
+def row(name, state, since=None, grey_since=None, grey_nights=None, why=""):
     """One row of desk.json's `nightly`."""
     return {"workflow": "nightly.yml", "name": "Nightly tests", "part": name, "state": state,
-            "failed": [], "run": RUN_URL, "night": NIGHT, "since": since, "why": ""}
+            "failed": [], "run": RUN_URL, "night": NIGHT, "since": since,
+            "grey_since": grey_since, "grey_nights": grey_nights, "why": why}
 
 
 
@@ -957,11 +958,14 @@ def test_an_expected_part_with_no_job_is_grey():
     ]
 
 
-def test_works_is_amber_on_a_red_night_and_red_from_the_third():
+def test_works_is_amber_on_a_red_night_and_red_once_red_since_3_days_before_it():
+    # since 11-12, night 11-15: the fourth red night in a row.
     first = [row("systems", "red", since=NIGHT)]
-    third = [row("systems", "red", since=THREE_NIGHTS_BEFORE)]
+    fourth = [row("systems", "red", since=THREE_NIGHTS_BEFORE)]
+    third = [row("systems", "red", since="2026-11-13")]
     assert light_works([OK], [], nightly=first)["state"] == "amber"
-    assert light_works([OK], [], nightly=third)["state"] == "red"
+    assert light_works([OK], [], nightly=third)["state"] == "amber"
+    assert light_works([OK], [], nightly=fourth)["state"] == "red"
 
 
 def test_a_red_clients_part_turns_clients_and_leaves_works():
@@ -1003,7 +1007,7 @@ def test_a_row_has_every_key_and_the_latest_deps_workflow_has_its_own():
         ("nightly.yml", "browser", "green"), ("latest-deps.yml", "test", "green")]
     assert rows[0] == {"workflow": "nightly.yml", "name": "Nightly tests", "part": "systems",
                        "state": "green", "failed": [], "run": RUN_URL, "night": NIGHT,
-                       "since": None, "why": ""}
+                       "since": None, "grey_since": None, "grey_nights": None, "why": ""}
     json.dumps(rows)
 
 
@@ -1045,13 +1049,32 @@ def test_a_run_or_jobs_of_another_shape_are_grey_with_a_reason(change):
     assert light_works([OK], [], nightly=rows)["state"] == "grey"
 
 
-def test_an_old_run_says_when_it_was_made():
+def test_an_old_run_says_which_night_had_no_run_and_when_the_newest_was_made():
     rows = nightly([night(made=days_ago(3))], None, NOW)
-    assert rows[0]["why"] == ("the nightly job systems has no finished run of the last 2 days; "
-                              "the newest was made 2026-11-13.")
-    edge = nightly([night(made=days_ago(2))], None, NOW)
-    late = nightly([night(made=days_ago(2 + MINUTE))], None, NOW)
-    assert (edge[0]["state"], late[0]["state"]) == ("green", "grey")
+    assert rows[0]["why"] == ("nightly.yml had no run on 2026-11-15; its newest was made "
+                              "2026-11-13.")
+    assert rows[0]["night"] == "2026-11-13"
+
+
+DESK_TIME = datetime(2026, 11, 16, 6, 41, tzinfo=UTC)
+
+
+def test_a_run_of_yesterday_is_current_and_one_of_the_day_before_is_a_skipped_night():
+    yesterday = nightly([night(made="2026-11-15T10:06:00Z")], None, DESK_TIME)
+    assert yesterday[0]["state"] == "green" and yesterday[0]["night"] == "2026-11-15"
+    skipped = nightly([night(made="2026-11-14T10:06:00Z")], None, DESK_TIME)
+    assert skipped[0]["state"] == "grey" and "no run on 2026-11-15" in skipped[0]["why"]
+    today = nightly([night(made="2026-11-16T06:00:00Z")], None, DESK_TIME)
+    assert today[0]["state"] == "green"
+    midnight = nightly([night(made="2026-11-14T23:59:00Z")], None, DESK_TIME)
+    assert midnight[0]["state"] == "grey"
+
+
+def test_a_run_dated_after_the_desk_says_so():
+    (row, *_) = nightly([night(made="2026-11-16T08:00:00Z")], None, NOW)
+    assert row["state"] == "grey"
+    assert row["why"] == ("the newest nightly run of nightly.yml is dated 2026-11-16T08:00:00Z, "
+                          "after the desk's own time.")
 
 
 def test_a_failure_beside_a_cancelled_job_is_red_and_names_only_the_failure():
@@ -1060,7 +1083,8 @@ def test_a_failure_beside_a_cancelled_job_is_red_and_names_only_the_failure():
     rows = nightly([night(jobs=jobs)], None, NOW)
     assert [r["state"] for r in rows[:3]] == ["red", "grey", "grey"]
     assert [f["job"] for f in rows[0]["failed"]] == ["systems (a)"]
-    assert rows[1]["why"] == "the nightly job clients ended cancelled in the run made 2026-11-15."
+    assert rows[1]["why"] == ("the nightly job clients ended cancelled in the run made "
+                              "2026-11-15: stopped, or past its time limit.")
     assert rows[2]["why"] == "the nightly job browser ended skipped in the run made 2026-11-15."
 
 
@@ -1143,3 +1167,81 @@ def test_who_found_counts_only_the_bots_ci_failure_issues_open_or_closed():
     rows = found_by(None, issues, NOW)
     assert [r["nightly"] for r in rows] == [1, 1, 0]
     assert found_by(None, None, NOW)[0]["nightly"] is None
+
+
+# --- A grey night does not hide a problem that repeats ---
+
+CANCELLED = [job("systems (a)"), job("clients"), job("browser", "cancelled")]
+
+
+def browser(before, found=None):
+    """The browser row, after `before`, of a night whose browser job was cancelled."""
+    return nightly([found or night(jobs=CANCELLED)], before, NOW)[2]
+
+
+def yesterday(state, since=None, grey_since=None):
+    return [{"workflow": "nightly.yml", "part": "browser", "state": state, "since": since,
+             "grey_since": grey_since}]
+
+
+def test_a_first_grey_night_starts_its_stretch():
+    first = browser(None)
+    assert (first["since"], first["grey_since"], first["grey_nights"]) == (None, NIGHT, 1)
+    assert browser(yesterday("green"))["grey_since"] == NIGHT
+    assert first["why"] == ("the nightly job browser ended cancelled in the run made 2026-11-15: "
+                            "stopped, or past its time limit.")
+
+
+def test_a_grey_night_keeps_the_red_since_and_the_grey_since_of_yesterday():
+    after_red = browser(yesterday("red", since="2026-11-12"))
+    assert (after_red["since"], after_red["grey_since"], after_red["grey_nights"]) == (
+        "2026-11-12", NIGHT, 1)
+    after_grey = browser(yesterday("grey", since="2026-11-10", grey_since="2026-11-13"))
+    assert (after_grey["since"], after_grey["grey_since"], after_grey["grey_nights"]) == (
+        "2026-11-10", "2026-11-13", 3)
+
+
+def test_a_red_night_after_grey_nights_keeps_the_red_since_it_had():
+    red = night(jobs=[job("systems (a)"), job("clients"), job("browser", "failure")])
+    again = browser(yesterday("grey", since="2026-11-10", grey_since="2026-11-13"), red)
+    assert (again["state"], again["since"], again["grey_since"]) == ("red", "2026-11-10", None)
+    fresh = browser(yesterday("grey", grey_since="2026-11-13"), red)
+    assert fresh["since"] == NIGHT
+    assert light_works([OK], [], nightly=[again])["state"] == "red"
+
+
+def test_a_grey_night_without_a_run_is_counted_from_yesterday():
+    no_run = browser(yesterday("grey", grey_since="2026-11-14"), night(run=None))
+    assert (no_run["night"], no_run["grey_since"], no_run["grey_nights"]) == (
+        None, "2026-11-14", 2)
+    skipped = browser(None, night(made=days_ago(3)))
+    assert (skipped["grey_since"], skipped["grey_nights"]) == ("2026-11-15", 1)
+
+
+def test_dates_of_yesterday_that_are_odd_or_after_tonight_are_not_kept():
+    for odd in ("12 Nov", None, 7, "2026-11-20"):
+        grey = browser(yesterday("grey", since=odd, grey_since=odd))
+        assert (grey["since"], grey["grey_since"]) == (None, NIGHT)
+
+
+def test_a_part_grey_for_3_nights_turns_its_light_amber():
+    why = ("the nightly job browser ended cancelled in the run made 2026-11-15: stopped, or "
+           "past its time limit.")
+    two = [row("browser", "grey", grey_since="2026-11-14", grey_nights=2, why=why)]
+    three = [row("browser", "grey", grey_since="2026-11-13", grey_nights=3, why=why)]
+    assert light_works([OK], [], nightly=two)["state"] == "grey"
+    amber = light_works([OK], [], nightly=three)
+    assert amber == {"id": "works", "name": "Works", "state": "amber", "url": RUN_URL,
+                     "why": "Nightly: browser has had no finished green or red run since "
+                            f"2026-11-13 ({why[:-1]})."}
+    clients = [row("clients", "grey", grey_since="2026-11-13", grey_nights=3, why="x.")]
+    assert light_clients([], FRESH, NOW, nightly=clients)["state"] == "amber"
+    assert light_works([OK], [], nightly=clients)["state"] == "green"
+
+
+def test_build_turns_works_amber_on_the_third_grey_night():
+    facts = Facts(**{**FACTS.__dict__, "nightly": [night(jobs=CANCELLED), GREEN_NIGHTS[1]],
+                     "before": yesterday("grey", grey_since="2026-11-13")})
+    assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "amber"
+    facts.before = yesterday("grey", grey_since="2026-11-14")
+    assert build(facts, ROSTER, NOW)["lights"][0]["state"] == "grey"

@@ -38,7 +38,7 @@ mark is green with a check ("ok"), amber with a question mark ("look"), red with
 table one line says how the five stand.
 
 - **Works:** on `main`'s newest commit, the checks its push started passed, and so did every
-  check `main` requires; last night's tests passed, except the client tests.
+  check `main` requires; last night's tests other than the client tests passed.
 - **Clients:** no major client change you confirmed has been open long, and last night's client
   tests passed. "Last night" is the newest nightly run: GitHub starts it hours late, so the
   desk mostly shows the night before, and its reason gives the run's date.
