@@ -16,6 +16,7 @@ from typing import NamedTuple
 
 from doc_address import NO_TEXT_CLIENTS, client_of, load_hosts, location, page_of
 from watch_feed import (
+    COUNTS,
     KEEP_DAYS,
     MODES,
     Entry,
@@ -54,9 +55,6 @@ WAIT_MAX = FEED_PAGES_MAX * KEEP_DAYS
 # when a feed breaks them.
 HEADINGS_MAX = 50
 HEADING_CHARS = 200
-# A feed entry whose address is longer than this is dropped and counted, never kept in the
-# memory: a doc address is far shorter, and the memory branch is public.
-ADDRESS_MAX = 500
 # The page keys kept as taken on the last day taken. Agent Docs merges a second reindex of a
 # day into that day, so a run between the two takes that day again for the pages it has not
 # taken. Past this number a page of that day may be taken twice: read again, not lost.
@@ -293,9 +291,27 @@ def _taken(feed: dict) -> set[str] | None:
 
 def _keys(entries: list[Entry], day: str, hosts) -> list[str]:
     """The page keys of the entries of `day`, in order, each once, at most TAKEN_MAX."""
-    found = [page_key(page_of(e.url, hosts)) for e in entries
-             if e.day == day and len(e.url) <= ADDRESS_MAX]
+    found = [page_key(page_of(e.url, hosts)) for e in entries if e.day == day]
     return list(dict.fromkeys(found))[:TAKEN_MAX]
+
+
+def _one_a_page(entries: list[Entry], hosts) -> list[Entry]:
+    """`entries` with one entry a page (watch_feed.page_key), in the place of its first: a
+    page in the queue from two days makes one piece a run. The later day names it, and its new
+    headings are both days': added when either is added."""
+    out: dict[str, Entry] = {}
+    for e in entries:
+        key = page_key(page_of(e.url, hosts))
+        first = out.get(key)
+        if first is None:
+            out[key] = e
+            continue
+        early, late = sorted((first, e), key=lambda x: x.day)
+        added = "added" in (first.kind, e.kind)
+        out[key] = late._replace(
+            kind="added" if added else "changed",
+            sections=() if added else tuple(dict.fromkeys(early.sections + late.sections)))
+    return list(out.values())
 
 
 def _count(feed: dict, name: str) -> int:
@@ -328,18 +344,23 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
     without it takes no more of its day. In that order, an entry leaves the queue when:
     - route marked its piece judged, or given up after its third failed try: its key is in
       `sources[source]`. That map is emptied each run, so it does not grow;
-    - its address is longer than ADDRESS_MAX, or its day is more than KEEP_DAYS days before
-      `today` (counted in `dropped`);
+    - its day is more than KEEP_DAYS days before `today` (counted in `dropped`);
+    - its page is in the queue from a later day too: the two make one entry of the later day
+      (`_one_a_page`), so a page makes one piece a run;
     - its page's client (doc_address.client_of, never the feed's product) is in
-      NO_TEXT_CLIENTS: the page is not read (counted in `held`);
+      NO_TEXT_CLIENTS: the page is not read (counted in `held`). So is a page whose read
+      ended, after redirects, at an address of another client or of one in NO_TEXT_CLIENTS;
     - its page holds no section that watch_feed.kept_sections keeps, from every section of an
       added page or the sections `pick` finds for a changed page's new headings;
     - its page is gone: the read answered 404 or 410 (counted in `gone`).
-    The rest make a piece each, read with `read_page(page_of(url))`, until there are
-    min(room, FEED_PIECES_MAX) pieces, FEED_PAGES_MAX pages were read or `in_time()` is false
-    (the run's page budget). An entry that made a piece, was not reached, or whose read failed
-    another way stays in the queue; neither is a failed read of the feed. A page is read once
-    a run. The queue keeps WAIT_MAX entries; the rest are dropped and counted.
+    The rest make a piece each, read with `read_page(page_of(url))`, which gives the page's
+    sections and the address read from, until there are min(room, FEED_PIECES_MAX) pieces,
+    FEED_PAGES_MAX pages were read or `in_time()` is false (the run's page budget). An entry
+    that made a piece, was not reached, or whose read failed another way stays in the queue;
+    neither is a failed read of the feed. A failed one goes to the back of the queue, so pages
+    that keep failing cannot take every read of each run; `feed.failed` counts them, this
+    run's only. A page is read once a run. The queue keeps WAIT_MAX entries; the rest are
+    dropped and counted.
 
     `words` maps a client to its list words. Prints one line of counts (and the class of each
     failed read); no address or heading.
@@ -385,19 +406,18 @@ def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_
         e.day == day and taken is not None and page_key(page_of(e.url, hosts)) not in taken)]
     queue = wanted(_waiting(feed.get("wait")) + fresh, hosts, listed, "")
     cap = max(0, min(room, FEED_PIECES_MAX))
-    made, wait, pages = [], [], {}
+    made, wait, retry, pages, live = [], [], [], {}, []
     dropped = held = failed = gone = 0
     for e in queue:
-        if len(e.url) > ADDRESS_MAX:
-            dropped += 1
-            continue
-        page = page_of(e.url, hosts)
-        key = f"{page}@{e.day}"
-        if key in done:
+        if f"{page_of(e.url, hosts)}@{e.day}" in done:
             continue
         if (today - date.fromisoformat(e.day)).days > KEEP_DAYS:
             dropped += 1
             continue
+        live.append(e)
+    for e in _one_a_page(live, hosts):
+        page = page_of(e.url, hosts)
+        key = f"{page}@{e.day}"
         client = client_of(page, hosts)
         if client in NO_TEXT_CLIENTS:
             held += 1
@@ -410,7 +430,10 @@ def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_
                 wait.append(e)
                 continue
             try:
-                pages[page] = read_page(page)
+                found, read_from = read_page(page)
+                # A redirect may end on another client's page: its text is that client's.
+                other = client_of(read_from, hosts)
+                pages[page] = found if other == client and other not in NO_TEXT_CLIENTS else "held"
             except urllib.error.HTTPError as error:
                 if error.code not in GONE:
                     print(f"feed: cannot read a page: {type(error).__name__}", file=sys.stderr)
@@ -424,8 +447,11 @@ def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_
         if pages[page] == "gone":
             gone += 1
             continue
+        if pages[page] == "held":
+            held += 1
+            continue
         if pages[page] is None:
-            wait.append(e)
+            retry.append(e)
             continue
         offered = pages[page] if e.kind == "added" else pick(pages[page], list(e.sections))
         kept = kept_sections(offered, words.get(client, []))
@@ -440,11 +466,13 @@ def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_
         # Live: it waits until route marks it judged. Shadow: its row is the end of it.
         if not shadow:
             wait.append(e)
+    wait += retry
     dropped += max(0, len(wait) - WAIT_MAX)
     wait = wait[:WAIT_MAX]
     new["feed"] = {"day": max(day, newest), "wait": [_stored(e) for e in wait],
                    "dropped": _count(feed, "dropped") + dropped,
-                   "held": _count(feed, "held") + held, "gone": _count(feed, "gone") + gone}
+                   "held": _count(feed, "held") + held, "gone": _count(feed, "gone") + gone,
+                   "failed": failed}
     if new["feed"]["day"] != day:
         new["feed"]["taken"] = _keys(queue, new["feed"]["day"], hosts)
     elif taken is not None:
@@ -457,15 +485,19 @@ def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_
     return made, new
 
 
-def feed_counts(mode: str, state, pieces: int) -> dict:
-    """The feed's counts for input.json and the log (watch_feed.COUNTS): `pieces` (this run's
-    pieces, or rows in shadow) and `waiting` (the queue after this run), then the memory's
-    running totals `dropped`, `held` and `gone`. A memory with no feed of its shape counts 0."""
+def feed_counts(mode: str, state, pieces: int, planned: bool = True) -> dict:
+    """The feed's counts for input.json and the log, one for each name of watch_feed.COUNTS:
+    `pieces` (this run's pieces, or rows in shadow), `waiting` (the queue after this run),
+    `failed` (this run's failed page reads; 0 when this run did not plan the feed, `planned`),
+    and the memory's running totals for the rest. A memory with no feed of its shape counts 0.
+    """
     feed = state.get("feed") if isinstance(state, dict) else None
     feed = feed if isinstance(feed, dict) else {}
     wait = feed.get("wait")
-    return {"mode": mode, "pieces": pieces, "waiting": len(wait) if isinstance(wait, list) else 0,
-            **{name: _count(feed, name) for name in ("dropped", "held", "gone")}}
+    this_run = {"pieces": pieces, "waiting": len(wait) if isinstance(wait, list) else 0,
+                "failed": _count(feed, "failed") if planned else 0}
+    return {"mode": mode, **{name: this_run[name] if name in this_run else _count(feed, name)
+                             for name in COUNTS}}
 
 
 def feed_mode(value: str | None) -> str:
@@ -523,6 +555,13 @@ def read_manifest(source):
 def _read_doc(address, hosts):
     body, ctype, _ = get_doc(address, hosts)
     return sections(body, ctype)
+
+
+def _read_feed_page(address, hosts, opener=None):
+    """A feed page's sections and the address it was read from, after redirects: plan_feed
+    checks that address's client."""
+    body, ctype, read_from = get_doc(address, hosts, opener)
+    return sections(body, ctype), read_from
 
 
 def read_or_none(sid, reader, address):
@@ -599,7 +638,7 @@ def main(argv=None, clock=time.monotonic):
         # Shadow has the caps of live: the same room, the same budget, the same page cap.
         plan = plan_shadow if mode == "shadow" else plan_feed
         found, new_state = plan(new_state, fetched[feed], set(pages), hosts,
-                                lambda u: _read_doc(u, hosts), list_words(list_text),
+                                lambda u: _read_feed_page(u, hosts), list_words(list_text),
                                 today, PIECES_MAX - len(pieces), budget.left, source=feed)
     if mode == "live":
         pieces = pieces + found
@@ -615,7 +654,9 @@ def main(argv=None, clock=time.monotonic):
     # The Kitden commit the pieces are judged at: the archive keeps it, so a harvested task is
     # pinned to it (evals/watch_harvest.py).
     out["kitden"] = _git(a.kitden, "rev-parse", "HEAD").stdout.strip()
-    out["feed"] = feed_counts(mode, new_state, len(found))
+    # A run that did not plan the feed (off, or the feed unread) read none of its pages.
+    planned = feed is not None and mode != "off" and fetched.get(feed) is not None
+    out["feed"] = feed_counts(mode, new_state, len(found), planned)
     if mode == "shadow":
         # Rows only: an address, a day, words, a number. The judge never reads this file.
         Path(a.out).with_name(SHADOW_FILE).write_text(json.dumps(found, indent=1),

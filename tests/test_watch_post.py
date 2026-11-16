@@ -321,7 +321,8 @@ def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):
 
 # The feed's counts in the log (Task 6.6)
 
-FEED = {"mode": "shadow", "pieces": 5, "waiting": 3, "dropped": 1, "held": 2, "gone": 0}
+FEED = {"mode": "shadow", "pieces": 5, "waiting": 3, "dropped": 1, "held": 2, "gone": 0,
+        "failed": 4}
 
 
 def test_the_feed_counts_go_into_the_runs_log_line(tmp_path):
@@ -342,7 +343,8 @@ def test_only_the_known_counts_are_logged(tmp_path):
 
 @pytest.mark.parametrize("feed", [
     "shadow", [], {**FEED, "mode": "planted text"}, {**FEED, "pieces": "5"},
-    {**FEED, "held": -1}, {**FEED, "gone": True}, {k: v for k, v in FEED.items() if k != "gone"}])
+    {**FEED, "held": -1}, {**FEED, "gone": True}, {k: v for k, v in FEED.items() if k != "gone"},
+    {k: v for k, v in FEED.items() if k != "failed"}, {**FEED, "failed": "1"}])
 def test_feed_counts_of_another_shape_are_not_logged(tmp_path, capsys, feed):
     run({**inp(0), "feed": feed}, None, FakeIssues(), tmp_path, WED)
     assert "feed" not in json.loads((tmp_path / "log.jsonl").read_text())

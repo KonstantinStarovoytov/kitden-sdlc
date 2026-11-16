@@ -33,12 +33,16 @@ KINDS = ("added", "changed", "removed")
 # How far `checked` may be after today: the feed is written on UTC days, and a run by hand
 # on a computer west of UTC can still be on the day before.
 AHEAD = timedelta(days=1)
+# An entry whose address is longer than this is dropped, never kept in the watcher's memory: a
+# doc address is far shorter, and the memory branch is public.
+ADDRESS_MAX = 500
 # The values of the repository variable WATCH_FEED (Task 6.6). off: the feed is not read.
 # shadow: its pieces are made and counted but none reaches the judge. live: they are judged.
 MODES = ("off", "shadow", "live")
-# The feed's counts in input.json and the run's line of log.jsonl. `pieces` and `waiting` are
-# this run's; `dropped`, `held` and `gone` are running totals kept in the memory.
-COUNTS = ("pieces", "waiting", "dropped", "held", "gone")
+# The feed's counts in input.json and the run's line of log.jsonl. `pieces`, `waiting` and
+# `failed` (pages whose read failed, not gone) are this run's; `dropped`, `held` and `gone` are
+# running totals kept in the memory.
+COUNTS = ("pieces", "waiting", "dropped", "held", "gone", "failed")
 
 
 class Entry(NamedTuple):
@@ -161,15 +165,19 @@ def wanted(entries: list[Entry], hosts, listed: set[str], after_day: str) -> lis
     config/doc-hosts.yml gives its host and path (`doc_address.client_of`), so a feed cannot
     call a Cursor page another client's; that is not one of the list's pages in `listed`. Pages
     are compared without `.md`, a fragment or a last `/`, and with the host in lower case; a
-    page found again on the same day is kept once, the first time. The entries dropped for
-    their product are counted on stderr.
+    page found again on the same day is kept once, the first time; an address is at most
+    ADDRESS_MAX characters. The entries dropped for their product or for a longer address are
+    counted on stderr.
     """
     listed_keys = {page_key(address) for address in listed}
-    out, taken, mislabeled = [], set(), 0
+    out, taken, mislabeled, long = [], set(), 0, 0
     for e in entries:
         if not (e.kind == "added" or (e.kind == "changed" and e.sections)):
             continue
         if e.product not in PRODUCTS or e.day <= after_day:
+            continue
+        if len(e.url) > ADDRESS_MAX:
+            long += 1
             continue
         if not allowed(e.url, hosts):
             continue
@@ -184,6 +192,9 @@ def wanted(entries: list[Entry], hosts, listed: set[str], after_day: str) -> lis
         out.append(e)
     if mislabeled:
         print(f"feed: {mislabeled} entries whose product is not their host's dropped",
+              file=sys.stderr)
+    if long:
+        print(f"feed: {long} entries with an address over {ADDRESS_MAX} characters dropped",
               file=sys.stderr)
     return out
 

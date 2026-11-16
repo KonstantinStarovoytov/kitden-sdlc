@@ -434,8 +434,8 @@ def feed_piece_and_state():
     entry = Entry(FEED_DAY, "added", FEED_PAGE + ".md", "claude-code", ())
 
     def plan(state, entries):
-        return plan_feed(state, entries, set(), load_hosts(), lambda page: [
-            Section("Hooks", "## Hooks\nA planted hook.", "h")], {}, NOW, 20)
+        return plan_feed(state, entries, set(), load_hosts(), lambda page: (
+            [Section("Hooks", "## Hooks\nA planted hook.", "h")], page), {}, NOW, 20)
 
     [p], state = plan(state, [entry])
     return p, state, plan

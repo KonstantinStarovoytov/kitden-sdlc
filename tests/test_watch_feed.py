@@ -11,6 +11,7 @@ import watch_feed
 import watch_pages
 from doc_address import load_hosts
 from watch_feed import (
+    ADDRESS_MAX,
     FEED_MAX,
     KEEP_DAYS,
     PRODUCTS,
@@ -545,3 +546,16 @@ def test_a_topic_word_only_in_the_key_does_not_count():
 
 def test_a_blank_list_word_keeps_nothing():
     assert kept_sections([Section("Billing", "Pay by card.", "h")], ["", " "]) == []
+
+
+def test_an_entry_with_an_address_over_500_characters_is_dropped_and_counted(capsys):
+    assert ADDRESS_MAX == 500
+    url = "https://code.claude.com/docs/en/" + "x" * 466 + ".md"
+    assert len(url) == ADDRESS_MAX + 1
+    good = entry("2026-11-15", "added", NEW)
+    assert wanted([entry("2026-11-15", "added", url), good], HOSTS, set(), "") == [good]
+    assert capsys.readouterr().err == (
+        "feed: 1 entries with an address over 500 characters dropped\n")
+    edge = url[:-4] + ".md"  # one character shorter
+    assert len(edge) == ADDRESS_MAX and wanted([entry("2026-11-15", "added", edge)],
+                                               HOSTS, set(), "") != []
