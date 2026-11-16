@@ -393,3 +393,133 @@ def test_a_manifest_over_the_cap_counts_as_unread(monkeypatch):
     monkeypatch.setattr(watch_fetch, "get", too_big)
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
     assert read_or_none("m", watch_fetch.read_manifest, src) is None
+
+
+# One time budget for the doc pages of a run (Review Focus 10)
+
+DOCS = [f"https://docs.example.com/a/page{n}" for n in range(1, 6)]
+# Made-up rows: no fact about a real client.
+BUDGET_LIST = "## Codex\n\n| What | Kind | Files | Seen in | macOS and Linux | Source |\n" + \
+    "|---|---|---|---|---|---|\n" + "".join(
+        f"| `zork{n}` | key | `src/a.py` | scan | same | {page} |\n"
+        for n, page in enumerate(DOCS, 1))
+BUDGET_SOURCES = "- {id: r, client: codex, kind: github-releases, repo: o/r}\n"
+
+
+class Clock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None):
+    """main() on a list of five doc pages, every read a fake. The release read takes
+    `release_seconds`; the clock jumps past the budget during doc read number `slow_after`.
+    Gives the output, stderr, the pages read, and the meta and fetched plan_run got."""
+    clock = Clock()
+    (tmp_path / "kitden/docs").mkdir(parents=True)
+    (tmp_path / "kitden/docs/clients.md").write_text(BUDGET_LIST)
+    (tmp_path / "sources.yml").write_text(BUDGET_SOURCES)
+    (tmp_path / "titles.json").write_text("[]")
+    state = old({"r": {"1.0": "h"}, **{page: {"Install": f"old-{page}"} for page in DOCS}},
+                fails={DOCS[4]: 2})
+    (tmp_path / "state.json").write_text(json.dumps(state))
+    read = []
+
+    def fake_read(source):
+        clock.now += release_seconds
+        return [Section("1.0", "t", "h")]
+
+    def fake_read_doc(address, hosts):
+        read.append(address)
+        if len(read) == slow_after:
+            clock.now += watch_fetch.PAGES_SECONDS + 1
+        return [Section("Install", "t", f"old-{address}")]
+
+    planned = {}
+
+    def spy(state, fetched, meta):
+        planned.update(fetched=dict(fetched), meta=dict(meta))
+        return plan_run(state, fetched, meta)
+
+    class Done:
+        stdout, returncode = "v1", 0
+
+    monkeypatch.setattr(watch_fetch, "_read", fake_read)
+    monkeypatch.setattr(watch_fetch, "_read_doc", fake_read_doc)
+    monkeypatch.setattr(watch_fetch, "plan_run", spy)
+    monkeypatch.setattr(watch_fetch, "_git", lambda kitden, *args: Done())
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    watch_fetch.main([
+        "--sources", str(tmp_path / "sources.yml"), "--kitden", str(tmp_path / "kitden"),
+        "--state", str(tmp_path / "state.json"), "--titles", str(tmp_path / "titles.json"),
+        "--out", str(tmp_path / "out.json")], clock=clock)
+    out = json.loads((tmp_path / "out.json").read_text())
+    return out, capsys.readouterr().err, read, planned
+
+
+def test_the_page_budget_is_seven_minutes():
+    assert watch_fetch.PAGES_SECONDS == 420
+
+
+def test_a_budget_is_left_until_its_seconds_have_passed():
+    clock = Clock()
+    budget = watch_fetch.Budget(10, clock=clock)
+    assert budget.left()
+    clock.now += 9.9
+    assert budget.left()
+    clock.now += 0.1
+    assert not budget.left()
+    assert not watch_fetch.Budget(0, clock=clock).left()
+
+
+def test_a_budget_counts_from_when_it_is_made():
+    clock = Clock()
+    clock.now = 5000.0
+    budget = watch_fetch.Budget(10, clock=clock)
+    clock.now += 5
+    assert budget.left()
+
+
+def test_on_time_every_doc_page_is_read_and_nothing_is_said(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys)
+    assert read == DOCS
+    assert set(DOCS) <= set(planned["meta"]) and set(DOCS) <= set(planned["fetched"])
+    assert err == ""
+
+
+def test_pages_after_the_budget_are_not_read_and_keep_their_hashes(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    assert read == DOCS[:3]
+    for page in DOCS[3:]:
+        assert page not in planned["meta"] and page not in planned["fetched"]
+    state = out["state"]
+    # Not failed reads: no fail is counted, no "Cannot read" item, the hashes stay.
+    assert state["fails"] == {"r": 0, **{page: 0 for page in DOCS[:3]}, DOCS[4]: 2}
+    assert not [k for k in state["kept"] if k["title"].startswith("Cannot read")]
+    assert state["sources"] == {"r": {"1.0": "h"},
+                                **{page: {"Install": f"old-{page}"} for page in DOCS}}
+    assert out["pieces"] == []
+
+
+def test_a_read_already_started_is_not_cut_short(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    # The clock jumped during the third read: that read still counts.
+    assert planned["fetched"][DOCS[2]] == [Section("Install", "t", f"old-{DOCS[2]}")]
+    assert out["state"]["fails"][DOCS[2]] == 0
+
+
+def test_one_line_says_how_many_pages_wait_for_tomorrow(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    [line] = err.splitlines()
+    assert "420 seconds" in line and line.endswith("left for tomorrow: 2.")
+    assert not [page for page in DOCS if page in err]
+
+
+def test_the_budget_starts_at_the_first_doc_page(tmp_path, monkeypatch, capsys):
+    seconds = 2 * watch_fetch.PAGES_SECONDS
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, release_seconds=seconds)
+    assert read == DOCS and err == ""

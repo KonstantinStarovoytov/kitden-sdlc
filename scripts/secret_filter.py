@@ -3,8 +3,9 @@ nowhere in the text the model was given.
 
 A known token (a prefix plus a long tail) is caught by SECRET_LIKE in post_findings.py. A
 tail alone has no prefix to match, so a long run of key characters in model text counts as
-a leak unless the model could have copied it from its input. Standard library only: the
-scripts that use this run without the project's dependencies.
+a leak unless the model could have copied it from its input. `clean` uses the same two
+checks to leave out items of outside text before a script passes them on. Standard library
+only: the scripts that use this run without the project's dependencies.
 """
 
 import os
@@ -39,6 +40,27 @@ def unknown_runs(texts: Iterable[str], known: Callable[[str], bool]) -> list[str
             if run not in found and not known(run):
                 found.append(run)
     return found
+
+
+def clean(
+    items: list[dict], fields: tuple[str, ...], secret_like: re.Pattern[str]
+) -> tuple[list[dict], int]:
+    """The items of outside text (a doc passage, a section) that are safe to pass on, and
+    how many were left out.
+
+    An item is left out when one of its `fields` holds a match of `secret_like` or a random
+    run. Outside text was never ours, so no run in it counts as known. An item that is not a
+    dict, or whose named field is missing or not a string, is left out too, never an error.
+    Other fields are not looked at. The caller passes post_findings.SECRET_LIKE: that module
+    imports this one.
+    """
+    kept = []
+    for item in items:
+        texts = [item.get(name) for name in fields] if isinstance(item, dict) else [None]
+        if all(isinstance(text, str) and not secret_like.search(text)
+               and not random_runs(text) for text in texts):
+            kept.append(item)
+    return kept, len(items) - len(kept)
 
 
 def in_text(*sources: str) -> Callable[[str], bool]:

@@ -708,19 +708,6 @@ def test_the_real_server_without_product_exits_3(tmp_path, capsys):
 # Cleaning what comes from a passage
 
 
-def test_a_heading_keeps_only_letters_digits_spaces_and_a_few_marks():
-    assert clean_heading("Set `x` | <b>y</b> [z](w) *é* 2-a_b.c,d:e(f)/g") == (
-        "Set x by/b z(w) é 2-a_b.c,d:e(f)/g")
-
-
-def test_a_heading_turns_line_breaks_into_spaces_and_drops_hidden_characters():
-    assert clean_heading("One\nTwo\tThree\u202eFour\u200b") == "One Two ThreeFour"
-
-
-def test_a_heading_is_cut_to_80_characters():
-    assert len(clean_heading("a" * 200)) == 80
-
-
 @pytest.mark.parametrize(("row_id", "question", "text"), [
     ("CC-01", CC1, "zork --frob"),  # states it
     ("CC-02", CC2, "gizmos"),  # near

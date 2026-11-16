@@ -6,6 +6,7 @@ import json
 import os
 import subprocess  # noqa: S404
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -22,6 +23,24 @@ FAIL_DAYS = 3
 # 2: doc pages are read as markdown. A memory with a lower number holds hashes of HTML
 # sections, so its doc pages are filled again, quietly, as if new.
 DOC_FORMAT = 2
+# Seconds for every doc page read of a run. The job has 15 minutes, and the releases and the
+# list's files come before the pages. A page not started in time waits for tomorrow: it is
+# not a failed read and keeps its hashes.
+PAGES_SECONDS = 420
+
+
+class Budget:
+    """A time budget that starts when it is made. A read already started is not cut short:
+    the caller asks `left()` before each read."""
+
+    def __init__(self, seconds: float, clock=time.monotonic):
+        self.seconds = seconds
+        self.clock = clock
+        self.start = clock()
+
+    def left(self) -> bool:
+        """Whether some of the seconds are left."""
+        return self.clock() - self.start < self.seconds
 
 
 def _unreadable(meta: dict, source: str) -> dict:
@@ -185,11 +204,11 @@ def read_or_none(sid, reader, address):
         return None
 
 
-def main():
+def main(argv=None, clock=time.monotonic):
     ap = argparse.ArgumentParser()
     for name in ("sources", "kitden", "state", "titles", "out"):
         ap.add_argument(f"--{name}", required=True)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     state = json.loads(Path(a.state).read_text()) if Path(a.state).is_file() else None
     list_text = (Path(a.kitden) / "docs/clients.md").read_text(encoding="utf-8")
     rows = parse_list(list_text)
@@ -206,7 +225,13 @@ def main():
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
         fetched[src["id"]] = read_or_none(src["id"], _read, src)
     pages = doc_pages(rows)
-    for address, client in pages.items():
+    budget = Budget(PAGES_SECONDS, clock)
+    for done, (address, client) in enumerate(pages.items()):
+        if not budget.left():
+            # Left out of meta and fetched: plan_run keeps their hashes and counts no fail.
+            print(f"Out of time for doc pages after {PAGES_SECONDS} seconds; left for "
+                  f"tomorrow: {len(pages) - done}.", file=sys.stderr)
+            break
         meta[address] = {"client": client, "kind": "doc", "url": address}
         fetched[address] = read_or_none(address, lambda u: _read_doc(u, hosts), address)
     pieces, new_state = plan_run(state, fetched, meta)

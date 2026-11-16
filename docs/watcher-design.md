@@ -224,7 +224,8 @@ The first run only fills the memory and opens nothing.
   `AGENTS_ENABLED`, so it can run while the daily watcher stays off.
 - One run at a time, 15 minutes at most per job (the model gets 10 of them), a fixed top
   number of model calls and of new pieces per run; what does not fit waits for the next day
-  (call).
+  (call). The fetch reads doc pages for 7 minutes at most (`PAGES_SECONDS`); a page it does
+  not reach in time waits for the next day, keeps its hashes and is not a failed read.
 - The judge runs on `ANTHROPIC_API_KEY`. The eval measured about $0.05 a piece on Sonnet 5.5;
   at 10 to 12 new pieces a week that is about $2 to $5 a month.
 
