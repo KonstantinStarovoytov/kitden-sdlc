@@ -22,6 +22,7 @@ LABELS: tuple[tuple[str, str, str], ...] = (
     ("client-change", "1d76db", "Opened by the watcher: a client changed"),
     ("release", "fef2c0", "Opened by the release watch"),
     ("desk", "006b75", "The owner's desk"),
+    ("ci-failure", "d4c5f9", "Opened by the desk: a nightly test job is red"),
     ("claude-code", "d97757", "Which client"),
     ("codex", "0e8a16", "Which client"),
     ("cursor", "5319e7", "Which client"),

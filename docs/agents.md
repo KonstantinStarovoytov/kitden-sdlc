@@ -83,6 +83,16 @@ with their first failed step, the run, and the run's date as `night`. It also ho
 for a grey part. The count of the tests in Kitden's `tests/set-aside.txt` is `set_aside`.
 `nightly` and `set_aside` are `null` when they were not read.
 
+The second job also gives each red part one issue in Kitden, "<workflow>: <part> is red" (for
+example "Nightly tests: clients is red"; the workflow is the run's name, or its file's name when
+the run has none), with the labels `automated` and `ci-failure` and the bots' one look. It is
+rewritten each day and closed when the part is green: one issue per part, not per night or per
+system. A grey part's issue stays as it is. When no part is grey, an open `ci-failure` issue of
+the bot that names no part of today is closed, because its job no longer exists. The desk issue's
+Health section has one "Nightly:" line: each part's mark, since when a red part is red, since
+when a part grey for a second night has had no finished run, the night the rows are about, and
+the count of the tests set aside.
+
 | Light | Red | Amber | Grey |
 |---|---|---|---|
 | Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole; a nightly part has been red since 3 or more days before its newest run | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass; a nightly part is red, or has been grey 3 nights in a row | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part; the nightly runs were not read, or a nightly part is grey |
@@ -166,6 +176,7 @@ holds each one's badges, so the items under it do not repeat them; words of a ro
 | `client-change` | Opened by the watcher: a client changed |
 | `release` | Opened by the release watch |
 | `desk` | The owner's desk |
+| `ci-failure` | Opened by the desk: a nightly test job is red |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
 | `wrong-data` | Kitden shows one thing while the client has another |

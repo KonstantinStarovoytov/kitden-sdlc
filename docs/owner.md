@@ -13,6 +13,7 @@ daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for y
 | Turn one down | close it |
 | Say a bot issue is real | put `confirmed` on it; it stays open until fixed |
 | Say a bot issue is wrong | close it with `false-alarm` |
+| A nightly test job is red | open its `ci-failure` issue; re-run the job if it failed by chance, or fix it; the issue closes itself |
 | Say a review was useful or wrong | 👍 or 👎 on the "Agent review" comment |
 | A reviewer gave no answer (the review comment says so) | push again, or re-run the "Agent review" run |
 | Record a miss | in the bug form, write `#N` of the pull request that caused the bug under "Caused by" |

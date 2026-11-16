@@ -1,5 +1,5 @@
 # What: every day, with no model, counts the facts about Kitden and its agents and shows them
-# as one issue in Kitden, "Kitden desk".
+# as one issue in Kitden, "Kitden desk", and opens an issue when a nightly test job is red.
 # Why: the owner sees in one place whether everything is healthy and what waits for a decision,
 # without opening each workflow.
 #
