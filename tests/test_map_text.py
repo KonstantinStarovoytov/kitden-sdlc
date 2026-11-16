@@ -212,16 +212,16 @@ def test_the_every_day_story_draws_the_nightly_run_and_who_reads_it():
     assert "red: a ci-failure issue" in day and "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
     assert day.count("'s-desk','the desk reads it'") == 2
-    assert "['d0','s-desk','the desk reads it','z']" in day
-    assert "['d2','s-desk','the desk reads it','z']" in day
+    assert "['d0','s-desk','the desk reads it','t']" in day
+    assert "['d2','s-desk','the desk reads it','r']" in day
 
 
-def test_the_nightly_and_latest_deps_rows_sit_right_above_the_desk():
-    """So that the edges into the desk run down into it (shape z) and cross no card."""
-    rows = HTML.split("day:{")[1].split("rows:[")[1].split("\n    ],")[0].splitlines()
-    firsts = [re.search(r"\{wf:'([\w-]+)'", row).group(1) for row in rows if "wf:" in row]
-    at = firsts.index("s-desk")
-    assert firsts[at - 2:at + 1] == ["k-nightly", "k-latest-deps", "s-desk"]
+def test_the_every_day_clock_runs_in_time_order():
+    """The wires into the desk go down the gap before the last column, so no row moves."""
+    rows = HTML.split("day:{")[1].split("rows:[")[1].split("\n    ],")[0]
+    times = re.findall(r"kind:'clock', t:'(\d\d:\d\d)'", rows)
+    assert times == sorted(times) and times[0] == "02:37" and len(times) == 6
+    assert "if (shape === 'r')" in HTML and "if (shape === 't')" in HTML
 
 
 def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():
