@@ -42,6 +42,7 @@ def test_config_lists_the_doc_hosts():
     assert ("code.claude.com", "/docs/") in HOSTS
     assert ("cursor.com", "/help/") in HOSTS
     assert ("developers.openai.com", "/codex/") in HOSTS
+    assert ("developers.openai.com", "/plugins/") in HOSTS
 
 
 REFUSED = [
@@ -90,6 +91,7 @@ def test_refused_address_is_never_read(address):
     "https://cursor.com/help/a",
     "https://learn.chatgpt.com/docs/x",
     "https://developers.openai.com/codex/config",
+    "https://developers.openai.com/plugins/build/plugins",
 ])
 def test_listed_address_is_allowed(address):
     assert allowed(address, HOSTS) is True

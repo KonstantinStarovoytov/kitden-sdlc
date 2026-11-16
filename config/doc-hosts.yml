@@ -5,3 +5,5 @@
 - {host: cursor.com, path: /help/}
 - {host: learn.chatgpt.com, path: /docs/}
 - {host: developers.openai.com, path: /codex/}
+# OpenAI's plugin docs cover both ChatGPT and Codex; Kitden's list cites them for Codex rows.
+- {host: developers.openai.com, path: /plugins/}
