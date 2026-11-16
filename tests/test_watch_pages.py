@@ -5,7 +5,7 @@ import pytest
 import watch_pages
 from doc_address import USER_AGENT, load_hosts, make_opener
 from tests.test_doc_address import FakeWeb
-from watch_pages import get, get_doc, releases, sections
+from watch_pages import get, get_doc, pick, releases, sections
 
 HOSTS = load_hosts()
 DOC = "https://code.claude.com/docs/en/mcp"
@@ -312,3 +312,42 @@ def test_get_sends_the_watcher_user_agent(monkeypatch):
     assert get("https://example.com/changes") == ("changes", "text/plain")
     assert asked[0].full_url == "https://example.com/changes"
     assert asked[0].get_header("User-agent") == USER_AGENT
+
+
+PICK_PAGE = sections("intro\n## Setup\na\n## Remote  MCP servers\nb\n## setup\nc\n## Limits\nd\n",
+                "text/markdown")
+
+
+def test_pick_takes_a_section_by_its_exact_key():
+    assert [s.key for s in pick(PICK_PAGE, ["Limits"])] == ["Limits"]
+
+
+def test_pick_prefers_the_exact_key_over_one_of_another_case():
+    assert [s.text for s in pick(PICK_PAGE, ["setup"])] == ["## setup\nc"]
+    assert [s.text for s in pick(PICK_PAGE, ["Setup"])] == ["## Setup\na"]
+
+
+def test_pick_then_ignores_case_and_spacing():
+    assert [s.key for s in pick(PICK_PAGE, ["remote mcp servers"])] == ["Remote  MCP servers"]
+    assert [s.key for s in pick(PICK_PAGE, [" REMOTE\tMCP  SERVERS "])] == ["Remote  MCP servers"]
+    assert [s.key for s in pick(PICK_PAGE, ["LIMITS"])] == ["Limits"]
+
+
+def test_pick_skips_a_heading_that_is_not_on_the_page():
+    assert pick(PICK_PAGE, ["Gone", "Limit", "Limits and more"]) == []
+    assert [s.key for s in pick(PICK_PAGE, ["Gone", "Limits"])] == ["Limits"]
+
+
+def test_pick_gives_page_order_and_each_section_once():
+    got = pick(PICK_PAGE, ["Limits", "Setup", "limits", "Limits"])
+    assert [s.key for s in got] == ["Setup", "Limits"]
+
+
+def test_pick_never_takes_the_text_before_the_first_heading_for_a_blank_heading():
+    assert PICK_PAGE[0].key == ""
+    assert pick(PICK_PAGE, ["", " ", "\n"]) == []
+
+
+def test_pick_with_no_headings_or_no_sections_is_empty():
+    assert pick(PICK_PAGE, []) == []
+    assert pick([], ["Setup"]) == []

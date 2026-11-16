@@ -1,0 +1,54 @@
+{
+  "checked": "2026-11-15",
+  "days": [
+    {
+      "added": [
+        {
+          "product": "claude-code",
+          "url": "https://code.claude.com/docs/en/example-new.md"
+        }
+      ],
+      "changed": [
+        {
+          "new_sections": [],
+          "product": "claude-code",
+          "url": "https://code.claude.com/docs/en/example-same.md"
+        },
+        {
+          "new_sections": [
+            "Planted heading one",
+            "Planted heading two"
+          ],
+          "product": "codex",
+          "url": "https://developers.openai.com/codex/example-changed.md"
+        }
+      ],
+      "day": "2026-11-15",
+      "removed": [
+        {
+          "product": "cursor",
+          "url": "https://cursor.com/docs/example-gone.md"
+        }
+      ]
+    },
+    {
+      "added": [
+        {
+          "product": "mcp",
+          "url": "https://modelcontextprotocol.io/docs/example-new.md"
+        }
+      ],
+      "changed": [
+        {
+          "new_sections": [
+            "Planted heading three"
+          ],
+          "product": "cursor",
+          "url": "https://cursor.com/docs/example-rules.md"
+        }
+      ],
+      "day": "2026-11-14",
+      "removed": []
+    }
+  ]
+}

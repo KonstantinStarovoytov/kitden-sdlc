@@ -123,6 +123,33 @@ def sections(body: str, content_type: str, level: int = 3,
     return _build([(k, t) for k, t in parts])
 
 
+def _loose(key: str) -> str:
+    """`key` with no spacing at all and in one case: how pick compares a second time."""
+    return "".join(key.split()).casefold()
+
+
+def pick(all_sections: list[Section], headings: list[str]) -> list[Section]:
+    """The sections of a page that `headings` name, in page order, each once.
+
+    A heading names the section whose key it is, exactly; when no key is, the one whose key
+    reads the same ignoring case and spacing (the first, when there are more). A heading
+    that is not on the page, or is blank, is skipped. Headings are only compared here.
+    """
+    exact: dict[str, int] = {}
+    loose: dict[str, int] = {}
+    for place, section in enumerate(all_sections):
+        exact.setdefault(section.key, place)
+        loose.setdefault(_loose(section.key), place)
+    chosen = set()
+    for heading in headings:
+        if not heading.strip():
+            continue
+        place = exact.get(heading, loose.get(_loose(heading)))
+        if place is not None:
+            chosen.add(place)
+    return [all_sections[place] for place in sorted(chosen)]
+
+
 def releases(payload: list[dict]) -> list[Section]:
     return _build([
         (r["tag_name"], r.get("body") or "")
