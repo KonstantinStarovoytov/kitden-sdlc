@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+import map_text
 from map_text import differences, header, map_ids, map_jobs, read_block, write_block
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -89,3 +90,71 @@ def test_the_block_cannot_close_the_script_it_sits_in():
     page = write_block(HTML, block)
     assert page.count("</script>") == HTML.count("</script>")
     assert read_block(page)["s-desk"]["what"] == "a </script> and <b>&</b>"
+
+
+# The fix wave: a check that read nothing never passes, and an empty text is never written.
+
+def _repo_fake(texts_by_file):
+    """A fetch that lists the map's files in Kitden and the tap and answers each with a text."""
+    files = {r: sorted(f for rr, f in map_ids(HTML).values() if rr == r) for r in "kt"}
+
+    def fake(url):
+        repo = "k" if "/kitden/" in url else "t"
+        if "api.github.com" in url:
+            return "[" + ",".join(f'{{"name": "{f}", "type": "file"}}' for f in files[repo]) + "]"
+        return texts_by_file(repo, url.rsplit("/", 1)[1])
+
+    return fake
+
+
+def _good(repo, file):
+    wf_id = next(i for i, (r, f) in map_ids(HTML).items() if (r, f) == (repo, file))
+    text = read_block(HTML)[wf_id]
+    return f"# What: {text['what']}\n# Why: {text['why']}\nname: {text['name']}\n"
+
+
+def test_the_repositories_to_read_come_from_the_map_not_from_repo():
+    def offline(url):
+        raise OSError("offline")
+
+    kitden_moved = HTML.replace("k:{name:", "k: {name:")
+    assert "k: its repository is not in REPO" in differences(kitden_moved, ROOT, offline)
+    both_moved = kitden_moved.replace("t:{name:", "t: {name:")
+    lines = differences(both_moved, ROOT, offline)
+    assert lines == ["k: its repository is not in REPO", "t: its repository is not in REPO"]
+
+
+def test_an_answer_that_is_not_a_workflow_is_a_difference_and_is_not_written(tmp_path,
+                                                                              monkeypatch):
+    def portal(repo, file):
+        return "<html>captive portal</html>" if file == "release.yml" else _good(repo, file)
+
+    fake = _repo_fake(portal)
+    lines = differences(HTML, ROOT, fake)
+    assert lines == [f"k-release: its file has no {field}" for field in ("name", "what", "why")]
+    page = tmp_path / "index.html"
+    page.write_text(HTML)
+    monkeypatch.setattr(map_text, "PAGE", page)
+    assert map_text.main(["--write"], fetch=fake) == 1
+    assert read_block(page.read_text())["k-release"] == read_block(HTML)["k-release"]
+
+
+def test_a_file_whose_header_is_not_at_the_top_has_no_text():
+    for text in ("\n# What: a.\n# Why: b.\nname: A b\n", "---\n# What: a.\n# Why: b.\nname: A b\n",
+                 "# what: a.\n# why: b.\nname: A b\n"):
+        said = header(text)
+        assert said["what"] == "" and said["why"] == "", text
+
+
+def test_the_name_loses_a_windows_line_end_and_a_trailing_comment():
+    assert header("# What: a.\r\n# Why: b.\r\nname: A b\r\n")["name"] == "A b"
+    assert header("# What: a.\n# Why: b.\nname: A b  # the title\n")["name"] == "A b"
+    assert header("# What: a.\n# Why: b.\nname: 'A # b'\n")["name"] == "A # b"
+
+
+def test_what_keeps_its_second_paragraph_and_why_stops_at_a_tool_directive():
+    text = ("# What: one.\n#\n# Two.\n# Why: because.\n# zizmor: ignore[artipacked]\n"
+            "name: A b\n")
+    assert header(text) == {"name": "A b", "what": "one. Two.", "why": "because."}
+    assert header("# What: a\n# zizmor, actionlint.\n# Why: b.\nname: A b\n")["what"] == (
+        "a zizmor, actionlint.")

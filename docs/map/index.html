@@ -306,7 +306,7 @@ table.hold tr:last-child td{border-bottom:0}
       <button type="button" id="n-tools" data-v="tools" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Tools</button>
     </nav>
     <a class="back" href="https://github.com/KonstantinStarovoytov/kitden-sdlc"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to the repo</a>
-    <div class="foot">From main<br>14 Nov 2026</div>
+    <div class="foot">From main<br>16 Nov 2026</div>
   </aside>
 
   <main class="main">
@@ -550,8 +550,14 @@ const WF = [
   stages:[['autobump']],
   jobs:[{n:'autobump', tags:['Kettle'], when:'always', steps:['Sign in as Kettle','`brew bump`, open the PR']}]}
 ];
-/* The name, What and Why come from each workflow file: scripts/map_text.py writes them above. */
-const TEXT = JSON.parse(document.getElementById('wf-text').textContent);
+/* The name, What and Why come from each workflow file: scripts/map_text.py writes them above.
+   Without them the rest of the map still works, and one sentence says what is missing. */
+let TEXT = null;
+try { TEXT = JSON.parse(document.getElementById('wf-text').textContent); } catch (e) { TEXT = null; }
+if (!TEXT || typeof TEXT !== 'object') {
+  TEXT = {};
+  document.querySelector('.main').insertAdjacentHTML('afterbegin', '<p class="lede" role="alert">The map’s texts could not be read.</p>');
+}
 WF.forEach(w => Object.assign(w, {name:'', what:'', why:''}, TEXT[w.id]));
 
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

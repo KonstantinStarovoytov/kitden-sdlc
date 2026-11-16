@@ -36,6 +36,7 @@ BLOCK = re.compile(r'(<script type="application/json" id="wf-text">\n)(.*?)(\n</
 WF_LIST = re.compile(r"\nconst WF = \[\n(.*?)\n\];", re.S)
 ENTRY = re.compile(r"\{id:'([\w-]+)', r:'(\w)', file:'([\w.-]+)'")
 JOB = re.compile(r"\{n:'([\w-]+)'")
+DIRECTIVE = re.compile(r"#\s*(?:(?:zizmor|actionlint)\s*:|(?:yamllint|shellcheck)\s+disable)")
 REPO = re.compile(r"(\w):\{name:'([\w.-]+)', url:'https://github\.com/([\w.-]+/[\w.-]+)'\}")
 
 
@@ -51,18 +52,20 @@ def fetch_url(url: str) -> str:
 def header(text: str) -> dict[str, str]:
     """The workflow's name, and its What and Why comments, each on one line.
 
-    What runs from `# What:` to `# Why:`; Why runs to the first bare `#` or the end of the
-    comments at the top of the file."""
-    name = re.search(r"^name:[ \t]*(.*?)[ \t]*$", text, re.M)
+    Only the comment lines at the top of the file count. What runs from `# What:` to
+    `# Why:`, its paragraphs joined with a space. Why runs to the first bare `#`, the first
+    line that is not a comment, or a tool's directive such as `# zizmor: ignore[...]`. In all
+    22 workflows of the map today, Why ends at a bare `#` or at the `name:` line. A field that
+    is not found is "", and the caller treats that as a problem."""
+    found = re.search(r"^name:(.*)$", text, re.M)
     parts: dict[str, list[str]] = {"what": [], "why": []}
     part = None
     for line in text.splitlines():
-        if not line.startswith("#"):
+        if not line.startswith("#") or DIRECTIVE.match(line):
             break
         if line.rstrip() == "#":
             if part == "why":
                 break
-            part = None
             continue
         words = line[1:].strip()
         if words.startswith("What:"):
@@ -71,11 +74,18 @@ def header(text: str) -> dict[str, str]:
             part, words = "why", words[len("Why:"):].strip()
         if part:
             parts[part].append(words)
-    value = name.group(1) if name else ""
-    if len(value) > 1 and value[0] == value[-1] and value[0] in "'\"":
-        value = value[1:-1]
-    return {"name": value, "what": " ".join(parts["what"]).strip(),
-            "why": " ".join(parts["why"]).strip()}
+    return {"name": _yaml_text(found.group(1)) if found else "",
+            "what": " ".join(w for w in parts["what"] if w),
+            "why": " ".join(w for w in parts["why"] if w)}
+
+
+def _yaml_text(value: str) -> str:
+    """A one-line YAML value as text: spaces and quotes off, a trailing ` # comment` dropped."""
+    value = value.strip()
+    if value[:1] in ("'", '"'):
+        end = value.find(value[0], 1)
+        return value[1:end] if end > 0 else value
+    return re.sub(r"\s+#.*$", "", value)
 
 
 def _entries(html: str) -> list[tuple[str, str, str, str]]:
@@ -132,12 +142,17 @@ def write_block(html: str, texts: dict) -> str:
 def _read_files(html: str, root: Path, fetch: Fetch | None):
     """The header of each workflow on the map, and the problems met reading them.
 
-    Returns (texts by id, lines): an id whose file could not be read is not in texts."""
+    Returns (texts by id, lines). An id whose file could not be read, or has an empty name,
+    What or Why, is not in texts: it gets a line instead."""
     ids, names = map_ids(html), repos(html)
     texts: dict[str, dict[str, str]] = {}
     lines: list[str] = []
-    letters = [HERE] + ([letter for letter in names if letter != HERE] if fetch else [])
-    for letter in letters:
+    # The repositories come from the map's own entries, so none of them can be left out.
+    others = sorted({repo for repo, _ in ids.values()} - {HERE})
+    for letter in [HERE] + (others if fetch else []):
+        if letter != HERE and letter not in names:
+            lines.append(f"{letter}: its repository is not in REPO")
+            continue
         name, slug = names.get(letter, (letter, ""))
         on_map = {file: wf_id for wf_id, (r, file) in ids.items() if r == letter}
         if letter == HERE:
@@ -167,7 +182,11 @@ def _read_files(html: str, root: Path, fetch: Fetch | None):
             except UNREADABLE:
                 lines.append(f"{wf_id}: its file could not be read")
                 continue
-            texts[wf_id] = header(text)
+            said = header(text)
+            empty = [field for field in FIELDS if not said[field]]
+            lines += [f"{wf_id}: its file has no {field}" for field in empty]
+            if not empty:
+                texts[wf_id] = said
     return texts, lines
 
 
@@ -190,8 +209,8 @@ def differences(html: str, root: Path, fetch: Fetch | None) -> list[str]:
 
 
 def written(html: str, root: Path, fetch: Fetch | None) -> str:
-    """The page with the block written from the files. A text that could not be read, or a
-    repository left out, keeps what the block had."""
+    """The page with the block written from the files. A workflow whose file could not be read
+    or has an empty text, or whose repository was left out, keeps what the block had."""
     block = read_block(html)
     texts, _ = _read_files(html, root, fetch)
     new = {wf_id: texts.get(wf_id) or block.get(wf_id) for wf_id in map_ids(html)}
