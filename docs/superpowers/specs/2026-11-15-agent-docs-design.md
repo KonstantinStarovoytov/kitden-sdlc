@@ -97,7 +97,10 @@ workflow. The numbers in "Why" above are those of 2026-11-15, before anything wa
 - A watcher that fails or goes quiet because a free server is asleep.
 - More noise: the feed must not push the summary past what the owner reads.
 - A vendor's text in a public repository. Agent Docs keeps only its own summaries in git, and
-  the watcher keeps only hashes. Neither changes.
+  the watcher keeps only hashes. Neither changes. The one addition (2026-11-16): the memory
+  also keeps the new headings of the feed entries still waiting, at most 50 an entry of at
+  most 200 characters each, and never of a Cursor page. It only compares them with a page's
+  own headings and never shows them; the same headings are already in Agent Docs' git.
 - A key that can spend money in a job that runs a model, holds a write permission or runs on
   a pull request.
 - A check that blocks a pull request because a vendor's site is down.

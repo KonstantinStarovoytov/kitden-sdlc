@@ -225,16 +225,23 @@ public, searched with grep, and indexed later if that is ever needed.
 - `taken`: the pages taken on `day`, so a second reindex on the same day is not lost.
 - `wait`: the entries not done yet, oldest first, at most 140, each with its day, kind,
   address, product and new headings (at most 50, each cut to 200 characters). In live an
-  entry leaves when its piece is judged; in shadow, when its row is written.
-- `dropped`: entries dropped since the feed was first read: older than 14 days, an address
-  over 500 characters, or past the 140.
-- `held`: Cursor entries held back, not read, until the owner answers question 4 of the
-  [Agent Docs design](superpowers/specs/2026-11-15-agent-docs-design.md).
+  entry leaves when its piece is judged; in shadow, when its row is written. A page waiting
+  from two days makes one entry of the later day with the new headings of both, so a page
+  makes one piece a run. An entry whose page could not be read goes to the back, so pages
+  that keep failing cannot use every read of each run.
+- `dropped`: entries dropped since the feed was first read: older than 14 days, or past the
+  140. An entry whose address is over 500 characters is never taken (`scripts/watch_feed.py`
+  drops it and says so on stderr each run).
+- `held`: entries held back, not read or not sent, until the owner answers question 4 of the
+  [Agent Docs design](superpowers/specs/2026-11-15-agent-docs-design.md): a Cursor page, and
+  a page whose read ended, after redirects, on a page of another client or of Cursor.
 - `gone`: entries whose page answered 404 or 410.
+- `failed`: the feed pages whose read failed in the last run that read the feed.
 
 `dropped`, `held` and `gone` are running totals. The log line of each run copies them under
-`feed`, with the mode and two counts of that run: `pieces` (made in live, or rows in shadow)
-and `waiting` (the size of `wait` after the run).
+`feed`, with the mode and three counts of that run: `pieces` (made in live, or rows in
+shadow), `waiting` (the size of `wait` after the run) and `failed` (0 when the run did not
+read the feed).
 
 The first run only fills the memory and opens nothing.
 
