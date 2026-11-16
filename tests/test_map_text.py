@@ -208,7 +208,7 @@ def test_a_link_to_a_workflow_opens_it_because_the_start_keeps_the_hash():
 def test_the_every_day_story_draws_the_nightly_run_and_who_reads_it():
     day = HTML.split("day:{")[1].split("\n};")[0]
     assert "{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}" in day
-    assert "t:'Nightly tests: green or red'" in day and "a real browser" in day
+    assert "t:'Breaks found before your users find them'" in day and "a real browser" in day
     assert "red: a ci-failure issue" in day and "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
     assert day.count("'s-desk','the desk reads it'") == 2
@@ -243,6 +243,25 @@ def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():
     numbered = re.findall(r"<span class=\"si\">' \+ (.+?) \+ '</span>", HTML)
     assert numbered == ["(i + 1)"]
     assert "<span class=\"n\">' + (i + 1) + '</span>" in HTML  # the story cards' steps
+
+
+def test_every_step_is_one_short_line_with_at_most_one_short_why():
+    """A step reads 'what it does|why': at most 12 words, then at most 14. A job's `about`
+    line, which says what its steps share, is at most 14 words too."""
+    wf = HTML.split("\nconst WF = [\n")[1].split("\n];")[0]
+    hosts = re.search(r"\nconst HOSTS = '([^'\\]*)';", HTML).group(1)
+    lists = re.findall(r"steps:\[((?:HOSTS|'[^'\\]*'|\s|,)*)\]", wf)
+    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 48
+    steps = [hosts if s == "HOSTS" else s[1:-1] for found in lists
+             for s in re.findall(r"HOSTS|'[^']*'", found)]
+    assert len(steps) > 100
+    for text in steps:
+        what, *why = text.split("|")
+        assert len(why) <= 1 and 0 < len(what.split()) <= 12, text
+        assert all(0 < len(w.split()) <= 14 for w in why), text
+    for about in re.findall(r"about:'([^'\\]*)'", wf):
+        assert 0 < len(about.split()) <= 14, about
+    assert "'<span class=\"why\">'" in HTML
 
 
 def test_the_tools_view_shows_what_the_nightly_tests_use():

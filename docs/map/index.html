@@ -134,6 +134,9 @@ h3 .ic{margin-right:6px}
 .sl{margin:7px 0 0;padding:7px 0 0 0;border-top:1px solid var(--wire);list-style:none;display:flex;flex-direction:column;gap:5px}
 .sl li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px;font-size:11.5px;line-height:1.35;color:var(--ink-2);animation:rise .25s var(--calm) both;animation-delay:calc(var(--i) * 30ms)}
 .sl li .n{font-size:10px;font-weight:600;color:var(--ink-3);text-align:center;padding-top:1px}
+.sl li .why{display:block;font-size:10.5px;color:var(--ink-3);margin-top:1px}
+.sla{margin:7px 0 0;padding-top:7px;border-top:1px solid var(--wire);font-size:11.5px;line-height:1.35;color:var(--ink-2)}
+.sla:not([hidden]) + .sl{margin-top:5px;padding-top:0;border-top:0}
 .outs{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;padding-top:7px;border-top:1px solid var(--wire)}
 .go{margin-top:6px;border:1px solid var(--wire);background:var(--panel);border-radius:6px;font-size:11px;padding:3px 8px;cursor:pointer;color:var(--route)}
 .flow.focus .fc:not(.on){opacity:.4} .flow.focus .fe:not(.on){opacity:.2}
@@ -228,6 +231,8 @@ h3 .ic{margin-right:6px}
 .jobpanel{display:flex;flex-direction:column;gap:10px}
 .jobpanel .jt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .jobpanel .jt b{font-family:var(--mono);font-size:14px;margin-right:4px}
+.jobpanel .jab{font-size:13px;color:var(--ink-2)}
+.tl li .why{display:block;font-size:12px;line-height:1.4;color:var(--ink-3);margin-top:1px}
 .tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;counter-reset:s}
 .tl li{position:relative;padding:2px 0 10px 34px;animation:rise .28s var(--calm) both;animation-delay:calc(var(--i) * 40ms);font-size:13px}
 .tl li .si{position:absolute;left:0;top:0;width:22px;height:22px;border-radius:6px;background:var(--inset);border:1px solid var(--wire);display:grid;place-items:center;font-size:10.5px;font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums}
@@ -400,158 +405,286 @@ const REPO = {
   t:{name:'homebrew-tap', url:'https://github.com/konstantinstarovoytov/homebrew-tap'}
 };
 const SONNET = 'Claude Sonnet 5.5';
+/* A step is 'what it does|why': the part after | is the second, smaller line. A job's `about`,
+   shown under its name, says what its steps have in common when they are of different kinds. */
+const HOSTS = 'Harden-Runner records every web address the job connects to|so a connection nobody expected shows; later the list becomes a limit';
 /* Links between workflows, each with its other end: calls and calledBy when one uses the other,
    reads and readBy when one reads the other's runs without calling it. */
 const WF = [
  {id:'k-release', r:'k', file:'release.yml', kind:'own + call',
-  trigger:'Push to `main`, a `v*` tag, any pull request',
+  trigger:'Every pull request, every push to `main`, and a version tag `v*`',
   calls:['s-publish'], stages:[['build'],['publish','autotag'],['release','version'],['stores']],
   jobs:[
-   {n:'build', tags:['macOS + Ubuntu'], when:'always',
-    steps:['Install','Lint: `ruff`, `pyright`','Tests: `pytest`, coverage 94%+','Real keyring test (Ubuntu)','Page tests in Node','Start-up speed','`zizmor`, `pip-audit`','On a tag: version and notes match','Release check from kitden-sdlc','Build the package']},
-   {n:'publish', tags:['env: pypi','no token'], when:'tag only', steps:['Publish to PyPI']},
-   {n:'release', tags:[], when:'tag only', steps:['Create the GitHub release']},
-   {n:'autotag', tags:['env: release','Beacon'], when:'push to `main`',
-    steps:['Does this version need a tag?','If yes: Beacon tags `vX.Y.Z`','The tag starts this workflow again']},
-   {n:'version', tags:[], when:'tag only', steps:['Read the version from the tag']},
-   {n:'stores', tags:['calls kitden-sdlc'], when:'tag only', steps:['Call `publish.yml`']}
+   {n:'build', about:'Checks Kitden from every side; on macOS it also builds the package', tags:['macOS and Ubuntu'], when:'always',
+    steps:['Install Kitden with the exact versions in `uv.lock`|on Ubuntu also the GNOME keyring, for the keyring test',
+     'Check the code with `ruff` and its types with `pyright`|slips such as an unused import, bad formatting, text where a number belongs',
+     'Run the Python tests with `pytest`|red if they run less than 94% of Kitden’s code',
+     'On Ubuntu: save and read a secret in the real GNOME keyring|Kitden keeps server secrets in the keyring on Linux',
+     'Test the code of Kitden’s web page in Node|with a stand-in page instead of a real browser',
+     'Time how fast Kitden’s page starts on a large sample|red if it misses a budget: usable in 2 s, done in 5 s',
+     'Check the workflow files for unsafe settings with `zizmor`|e.g. pull request text run as code, a broad token, an unpinned action',
+     'Check the dependencies with `pip-audit`|red if one has a published security hole',
+     'On a tag: the tag names this version, and its notes exist|`docs/releases/vX.Y.Z.md` becomes the text of the GitHub release',
+     'On macOS: kitden-sdlc’s release check of names and descriptions|they must match `listing.toml` and fit each store’s length limit',
+     'On macOS: build the package, check it and keep it|it must hold Kitden only and run outside the checkout']},
+   {n:'publish', tags:['no stored key'], when:'a `v*` tag, after build passed',
+    steps:['Upload the built package to PyPI|PyPI trusts this repository and job, so no password is stored']},
+   {n:'release', tags:[], when:'a `v*` tag, after PyPI',
+    steps:['Create the GitHub release with the built files|its text is `docs/releases/vX.Y.Z.md`']},
+   {n:'autotag', tags:['as Beacon, the release app'], when:'a push to `main`, after build passed',
+    steps:['Does `main`’s version need a tag?|yes when its release notes exist and it has no tag yet',
+     'If yes: Beacon, the release app, tags `vX.Y.Z`|the tag starts this workflow again to publish; a job’s own tag would not']},
+   {n:'version', tags:[], when:'a `v*` tag',
+    steps:['Take the version from the tag: `v1.2.3` gives `1.2.3`|the stores job needs it without the v']},
+   {n:'stores', tags:['calls kitden-sdlc'], when:'a `v*` tag, after the GitHub release',
+    steps:['Call kitden-sdlc’s `publish.yml` for the other stores|the MCP Registry, the Homebrew tap and Kitden’s `release` branch']}
   ]},
  {id:'k-agents-review', r:'k', file:'agents-review.yml', kind:'caller',
-  trigger:'A pull request to `main`',
+  trigger:'A pull request to `main` opens, reopens, gets new commits or leaves draft',
   calls:['s-review'], model:true, stages:[['review']],
-  jobs:[{n:'review', tags:['calls kitden-sdlc'], when:'switches on; not a fork, bot or draft',
-    steps:['Model: `claude-sonnet-5-5`','Cap: 20 reviews a day','Call `review.yml`']}]},
+  jobs:[{n:'review', about:'Kitden sets the review’s model and limit; kitden-sdlc does the review', tags:['calls kitden-sdlc'],
+    when:'`AGENTS_ENABLED` and `REVIEW_LIVE` on; not a fork, a bot, a draft or `no-agent-review`',
+    steps:['Name Claude’s model: `claude-sonnet-5-5`|Luna’s model is fixed in kitden-sdlc’s `review.yml`',
+     'Allow at most 20 reviews a day|the variable `AGENTS_REVIEW_DAILY_CAP` can change the number',
+     'Call kitden-sdlc’s `review.yml` with the three keys|Claude’s token, the OpenAI key and Lantern’s key']}]},
  {id:'k-agents-check', r:'k', file:'agents-check.yml', kind:'caller',
-  trigger:'A pull request that changes a workflow',
+  trigger:'A pull request that changes a file in `.github/workflows/`',
   calls:['s-check'], stages:[['check']],
-  jobs:[{n:'check', tags:['calls kitden-sdlc'], when:'always', steps:['Call `check.yml`']}]},
+  jobs:[{n:'check', tags:['calls kitden-sdlc'], when:'always',
+    steps:['Call kitden-sdlc’s `check.yml`|it checks all of Kitden’s workflow files, not only the changed one']}]},
  {id:'k-list-check', r:'k', file:'list-check.yml', kind:'caller',
-  trigger:'A pull request that changes `docs/clients.md`',
+  trigger:'A pull request that changes `docs/clients.md`, Kitden’s list of client facts',
   calls:['s-list-check'], stages:[['check']],
-  jobs:[{n:'check', tags:['calls kitden-sdlc'], when:'always', steps:['Call `list-check.yml`']}]},
+  jobs:[{n:'check', tags:['calls kitden-sdlc'], when:'always, for pull requests from forks too',
+    steps:['Call kitden-sdlc’s `list-check.yml`|safe for any pull request: it holds no secret and only reads']}]},
  {id:'k-release-prep', r:'k', file:'release-prep.yml', kind:'caller',
-  trigger:'You press Run workflow',
+  trigger:'You press Run workflow in Kitden, on `main`',
   calls:['s-release-prep'], model:true, stages:[['prepare']],
-  jobs:[{n:'prepare', tags:['calls kitden-sdlc'], when:'`AGENTS_ENABLED` on',
-    steps:['Version: Auto, Features or Fixes','Call `release-prep.yml`']}]},
+  jobs:[{n:'prepare', tags:['calls kitden-sdlc'], when:'`AGENTS_ENABLED`, the agents’ switch, is on',
+    steps:['You pick the version: Auto, Features (0.X.0) or Fixes (0.0.X)|Auto: Claude picks it from the merged changes',
+     'Call kitden-sdlc’s `release-prep.yml`, naming Kitden’s docs tests|the tests the release texts must pass']}]},
  {id:'k-release-watch', r:'k', file:'release-watch.yml', kind:'caller',
-  trigger:'Every day, 06:23 UTC',
+  trigger:'Every day at 06:23 UTC, or by hand',
   calls:['s-release-watch'], stages:[['watch']],
-  jobs:[{n:'watch', tags:['calls kitden-sdlc'], when:'`AGENTS_ENABLED` on', steps:['Call `release-watch.yml`']}]},
+  jobs:[{n:'watch', tags:['calls kitden-sdlc'], when:'`AGENTS_ENABLED` is on',
+    steps:['Call kitden-sdlc’s `release-watch.yml` with Lantern’s key|Lantern, the bot app, opens and closes the issues']}]},
  {id:'k-latest-deps', r:'k', file:'latest-deps.yml', kind:'own',
-  trigger:'Every day, 05:17 UTC',
+  trigger:'Every day at 05:17 UTC, or by hand',
   readBy:['s-desk'], stages:[['test']],
-  jobs:[{n:'test', tags:['macOS'], when:'always', steps:['`uv sync --upgrade`','`pytest`']}]},
+  jobs:[{n:'test', tags:['on macOS'], when:'always',
+    steps:['Install the newest version of every dependency|`uv sync --upgrade`: not the versions locked in `uv.lock`',
+     'Run the Python tests with `pytest`|red: a new version breaks Kitden for people who install it now']}]},
  {id:'k-nightly', r:'k', file:'nightly.yml', kind:'own',
-  trigger:'Every night, 02:37 UTC',
+  trigger:'Every night at 02:37 UTC, or by hand',
   readBy:['s-desk'], stages:[['systems','clients','browser']],
   jobs:[
-   {n:'systems', tags:['macOS ARM + Intel','Ubuntu x64 + ARM','Python 3.13 + 3.14','no secret'], when:'always: 8 runs, one per system and Python',
-    steps:['Install, on the Python of this run','Tests: `pytest`','The real keyring (Ubuntu)','The real Keychain (macOS)','Page tests in Node','Start-up within its time budgets: twice the budgets on the Intel Mac','Tests set aside: never red']},
-   {n:'clients', tags:['macOS + Ubuntu','no account','no secret'], when:'always',
-    steps:['Install','No account on the runner','Install the newest Claude Code and Codex','Which versions','Contract tests against them','On a red night: keep the files the clients wrote']},
-   {n:'browser', tags:['Ubuntu','Playwright','no secret'], when:'always',
-    steps:['Install','Install Chromium with Playwright','Browser tests: the page on the demo sample, in Chromium']}
+   {n:'systems', about:'All of Kitden’s own checks, on one system and one Python per run', tags:['macOS ARM and Intel','Ubuntu x64 and ARM','Python 3.13 and 3.14','holds no secret'],
+    when:'always: 8 runs, one per system and Python',
+    steps:['Install Kitden on this run’s Python, and check it is that one|so a pass really means that Python',
+     'Run the Python tests with `pytest`|no coverage floor here: pull requests check that',
+     'On Ubuntu: save and read secrets in the real GNOME keyring|Kitden keeps server secrets in the keyring on Linux',
+     'On macOS: the same in a real Keychain, made for this run|never the runner’s own login keychain',
+     'Test the code of Kitden’s web page in Node|with a stand-in page instead of a real browser',
+     'Time how fast Kitden’s page starts|the slower Intel Mac gets twice the time',
+     'Run the tests set aside because they fail by chance|to see if they still do; this step never turns red']},
+   {n:'clients', about:'Kitden against the newest real Claude Code and Codex, with no account', tags:['macOS and Ubuntu','no client account','holds no secret'],
+    when:'always: 2 runs, one per system',
+    steps:['Install Kitden|it gives the tests the `kitden` command',
+     'Stop if the runner is signed in to Claude Code or Codex|so a pass means Kitden works with no account',
+     'Install the newest Claude Code and Codex with their own installers|not pinned on purpose: to meet each new version before users do',
+     'Write the two versions into the run’s summary',
+     'Run Kitden’s contract tests against these real clients|does what Kitden reads and writes still work with these versions?',
+     'If something failed: keep the files the clients wrote, 7 days|they help build a new test fixture; they hold no secret']},
+   {n:'browser', about:'Kitden’s page in a real browser, pressed as a user would', tags:['on Ubuntu','Playwright','holds no secret'], when:'always',
+    steps:['Install Kitden',
+     'Install Playwright and its Chromium browser, and check it loads|without Playwright the tests would skip and look green',
+     'Open Kitden’s page on the demo sample and press its buttons|preview, Apply, Undo; an error in the browser console fails']}
   ]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
   trigger:'A pull request that changes `src/kitden`, the recorder or `tests/conftest.py`',
   stages:[['scenes']],
-  jobs:[{n:'scenes', tags:['macOS'], when:'always', steps:['Install the tools','Record every scene','Upload the pictures']}]},
+  jobs:[{n:'scenes', tags:['on macOS'], when:'always',
+    steps:['Install `ffmpeg`, `webp` and Chromium for the recorder|the recorder makes the README pictures with them',
+     'Record every README scene once|red if a scene fails, so it shows in this pull request',
+     'Upload the pictures as the run’s file `scenes`|to look at; nothing is committed']}]},
 
  {id:'s-review', r:'s', file:'review.yml', kind:'reusable',
-  trigger:'Called by `agents-review.yml`',
+  trigger:'Called by Kitden’s `agents-review.yml`',
   calledBy:['k-agents-review'], model:true, stages:[['cap'],['claude','luna'],['post']],
   jobs:[
-   {n:'cap', tags:[], when:'always', steps:['Count today’s reviews','Over the cap: stop']},
-   {n:'claude', tags:['model:'+SONNET,'harden'], when:'under the cap',
-    steps:['Record hosts','Check out the pull request','Collect the diff','Remove the PR’s Claude files','Review: read only, no shell, no web','Save the findings']},
-   {n:'luna', tags:['model:GPT-6 Luna','harden'], when:'under the cap',
-    steps:['Record hosts','Check out the pull request','Collect the diff','Remove the PR’s agent files','Review: read only, no network','Save the findings']},
-   {n:'post', tags:['no model','Lantern'], when:'a reviewer finished',
-    steps:['Get both findings','Sign in as Lantern','Refuse secret-like text','Post one comment']}
+   {n:'cap', tags:[], when:'always',
+    steps:['Count today’s review runs|cancelled and skipped runs do not count',
+     'At the cap: stop, no review today|Kitden’s cap is 20 a day unless its variable says otherwise']},
+   {n:'claude', about:'One reviewer: first make the checkout safe to read, then Claude reviews', tags:['model:'+SONNET,'harden'], when:'under the cap',
+    steps:[HOSTS,
+     'Check out the pull request, and kitden-sdlc beside it|kitden-sdlc brings the review skill Claude follows',
+     'Collect the change, its description, and the base branch’s rules|`PRINCIPLES.md` and `AGENTS.md`: a pull request cannot change its own rules',
+     'Delete the `CLAUDE.md` files and `.claude` folders in subfolders|the pull request could plant instructions there; the root ones come from the base',
+     'Claude reviews: it reads files and writes only its findings|no shell, no web; 12 minutes at most',
+     'Keep the findings as a file of the run, for a day|the post job reads them; anyone signed in to GitHub can too']},
+   {n:'luna', about:'One reviewer: first make the checkout safe to read, then Luna reviews', tags:['model:GPT-6 Luna','harden'], when:'under the cap',
+    steps:[HOSTS,
+     'Check out the pull request, and kitden-sdlc beside it|kitden-sdlc brings Luna’s prompt',
+     'Collect the change, its description, and the base branch’s rules|`PRINCIPLES.md` and `AGENTS.md`: a pull request cannot change its own rules',
+     'Delete `AGENTS.md`, `.agents` and `.codex` from the checkout|Codex would follow them as instructions; the pull request controls them',
+     'Luna reviews in a read-only sandbox with no network|no web search; 12 minutes at most',
+     'Keep the findings as a file of the run, for a day|the post job reads them; anyone signed in to GitHub can too']},
+   {n:'post', about:'Turns both reviewers’ findings into one comment, with no model', tags:['no model','as Lantern'], when:'under the cap, once one reviewer or both finished',
+    steps:['Download both reviewers’ findings|no file: that reviewer gave no answer, and the comment says so',
+     'Sign in as Lantern, the review app|its token may only write to pull requests',
+     'Refuse text that looks like a secret or a stray random string|a model must never post a key; a refusal turns the job red',
+     'Post one “Agent review” comment, or edit the earlier one|findings from earlier pushes stay, as fixed or not repeated']}
   ]},
  {id:'s-check', r:'s', file:'check.yml', kind:'reusable',
-  trigger:'Called by `agents-check.yml`',
+  trigger:'Called by Kitden’s `agents-check.yml`',
   calledBy:['k-agents-check'], stages:[['check']],
-  jobs:[{n:'check', tags:['no model'], when:'always',
-    steps:['`zizmor`: security holes','`actionlint`: mistakes','Rule checker: the 11 rules']}]},
+  jobs:[{n:'check', about:'Checks every workflow file, as the pull request leaves it, three ways', tags:['no model','read only'], when:'always',
+    steps:['Security, with `zizmor`: settings an attacker could abuse|e.g. pull request text run as code, a broad token, an unpinned action',
+     'Errors, with `actionlint`: what would fail or misbehave|e.g. bad YAML, a misspelled key, a broken shell line',
+     'Agent rules: the rule checker tests each workflow against `RULES.md`|e.g. a job with a model’s key may not write']}]},
  {id:'s-list-check', r:'s', file:'list-check.yml', kind:'reusable',
-  trigger:'Called by `list-check.yml`',
+  trigger:'Called by Kitden’s `list-check.yml`',
   calledBy:['k-list-check'], stages:[['check']],
-  jobs:[{n:'check', tags:['no model','no secret','harden'], when:'always',
-    steps:['Record hosts','Get the list before and after','Read the page of each changed row','Warn about missing words']}]},
+  jobs:[{n:'check', about:'Checks each changed row of Kitden’s list against its doc page', tags:['no model','holds no secret','harden'], when:'always',
+    steps:['Harden-Runner records every web address the job connects to|the script reads vendors’ pages: an unexpected address would show',
+     'Take `docs/clients.md`, Kitden’s list of client facts, before and after|the two copies show which rows the pull request adds or changes',
+     'For each such row, read the doc page its `Source` column names|at most 20 pages; a row marked `guess` gets a warning too',
+     'Warn when a word the row writes in backticks is not there|e.g. a setting or file name: the row may be wrong or old',
+     'Sum up in the run’s summary: counts, and each row’s missing words|it never fails for a row: pages move, go down or are reworded']}]},
  {id:'s-release-prep', r:'s', file:'release-prep.yml', kind:'reusable',
-  trigger:'Called by `release-prep.yml`',
+  trigger:'Called by Kitden’s `release-prep.yml`',
   calledBy:['k-release-prep'], model:true, stages:[['guard'],['prepare'],['agent'],['bump'],['check','record'],['fix'],['final-check'],['open-pr']],
   jobs:[
-   {n:'guard', tags:[], when:'always', steps:['Only from `main`','Stop if a release PR is open']},
-   {n:'prepare', tags:[], when:'guard said go', steps:['Collect merged PRs and the diff','Is the branch free?']},
-   {n:'agent', tags:['model:'+SONNET,'harden'], when:'after prepare',
-    steps:['Record hosts','Write the release notes','Write the README','Edit the policy files','Check the store rules']},
-   {n:'bump', tags:['no model'], when:'after agent', steps:['Pick the version','Set it in Kitden’s files']},
-   {n:'check', tags:['no model','no secret'], when:'after bump', steps:['Run Kitden’s docs tests','Run the release check','Write `problems.md`']},
-   {n:'record', tags:['macOS','no model'], when:'after bump', steps:['Record every scene']},
+   {n:'guard', tags:[], when:'`AGENTS_ENABLED` is on',
+    steps:['Only for Kitden, and only from `main`|started anywhere else, it stops at once',
+     'Stop while a release PR is open or 3 bot PRs wait|the run’s summary then says why, and nothing else runs']},
+   {n:'prepare', tags:[], when:'the guard let it start',
+    steps:['Collect what changed since the last tag into `context.json`|the log, the merged pull requests, how much each file changed',
+     'Stop if Kitden already has the branch `prepare-vX.Y.Z`|left from an earlier run: delete it and run again']},
+   {n:'agent', about:'Claude writes the release texts; it may only read, and write into `out/`', tags:['model:'+SONNET,'harden'], when:'after prepare',
+    steps:[HOSTS,
+     'Claude writes the release notes with the `release-notes` skill|it may read files and write only into the folder `out/`',
+     'Claude updates the README with the `readme-kitden` skill|it reads the new release notes first',
+     'Claude edits the policy files this release made untrue|`SECURITY.md`, `PRIVACY.md`, `AI_POLICY.md`, `listing.toml`',
+     'Claude checks the changes against each store’s rules|from `docs/platform-rules.md`; steps you must do by hand are listed']},
+   {n:'bump', tags:['no model'], when:'after agent',
+    steps:['Take the version: yours, or the one Claude picked|only the next minor or patch version is accepted',
+     'A script writes it into every Kitden file that holds it|and stops if the branch `prepare-vX.Y.Z` exists']},
+   {n:'check', about:'Scripts test Claude’s files; what they find goes to the fix job', tags:['no model','holds no secret'], when:'after bump',
+    steps:['Put Claude’s files into Kitden and run Kitden’s docs tests|test files Kitden names, e.g. `test_docs_words.py`',
+     'Run the release check on names and descriptions|they must match `listing.toml` and fit each store’s limit',
+     'Check the notes and README, and list each problem in `problems.md`|a problem is a result, not a failure: the fix job gets it']},
+   {n:'record', tags:['on macOS','no model'], when:'after bump, beside check and fix',
+    steps:['Install `ffmpeg` and `webp`, which the recorder needs',
+     'Record every README scene with Kitden’s own recorder|one by one: a failed scene does not stop the next']},
    {n:'fix', tags:['model:'+SONNET,'harden'], when:'only if check found problems',
-    steps:['Record hosts','Give Claude `problems.md`','One pass to fix']},
-   {n:'final-check', tags:['no model'], when:'after fix and record', steps:['Same checks, with the pictures']},
-   {n:'open-pr', tags:['no model','env: release','Beacon'], when:'final check passed',
-    steps:['Sign in as Beacon','Commit to `prepare-vX.Y.Z`','Open “Kitden X.Y.Z”','A draft if something is left']}
+    steps:[HOSTS,
+     'Give Claude the list of problems, `problems.md`|read as data: it may quote text from pull requests',
+     'Claude gets one pass to fix them: 10 minutes, 15 turns|a script then puts back the version and the scene list']},
+   {n:'final-check', tags:['no model'], when:'after fix and record, also when fix was skipped',
+    steps:['The same checks again, on the fixed files, with the pictures|no second fix: what is left goes into the PR body']},
+   {n:'open-pr', about:'Turns the checked files into the release pull request, as Beacon', tags:['no model','as Beacon, the release app'],
+    when:'final check finished; started from `main`',
+    steps:['Sign in as Beacon, the release app|a short-lived token that writes Kitden’s files and pull requests',
+     'Commit to a new branch, `prepare-vX.Y.Z`|first a script refuses any text that looks like a secret',
+     'Open the pull request “Kitden X.Y.Z” for you to review|its body has Claude’s findings, the checks and the pictures',
+     'A draft when a problem or a failed picture is left|the body lists those first']}
   ]},
  {id:'s-publish', r:'s', file:'publish.yml', kind:'reusable',
-  trigger:'Called by `release.yml` on a tag',
+  trigger:'Called by Kitden’s `release.yml` on a version tag',
   calledBy:['k-release'], stages:[['check'],['release-branch','registry','homebrew'],['summary']],
   jobs:[
-   {n:'check', tags:[], when:'a `v*` tag', steps:['Tag and version match']},
-   {n:'release-branch', tags:['env: release','Beacon'], when:'after check', steps:['Move `release` to the tag']},
-   {n:'registry', tags:['no token'], when:'after check', steps:['Wait for PyPI','Check `server.json`','Publish to the MCP Registry']},
-   {n:'homebrew', tags:['env: release','Beacon'], when:'after check', steps:['Dependencies changed? Leave it to the tap','Update the formula','Open the PR in the tap']},
-   {n:'summary', tags:[], when:'always', steps:['Table of every store']}
+   {n:'check', tags:[], when:'a `v*` tag',
+    steps:['Check the run is Kitden’s, for the tag of this version|anything else stops every store job']},
+   {n:'release-branch', tags:['as Beacon, the release app'], when:'after check',
+    steps:['Move Kitden’s `release` branch forward to the tag|the Claude directory and Kitden’s marketplace read the plugin there']},
+   {n:'registry', tags:['no stored key'], when:'after check',
+    steps:['Wait until PyPI shows the new version, 15 minutes at most',
+     'Check `server.json`, Kitden’s registry entry, names this version|skipped when the registry has this version already',
+     'Publish to the MCP Registry|GitHub proves the run is Kitden’s, so no key is stored']},
+   {n:'homebrew', tags:['as Beacon, the release app'], when:'after check',
+    steps:['Stop if Kitden’s dependencies changed since the last tag|the tap’s daily `brew bump` updates them the next day',
+     'After PyPI has it: new address, checksum and description in the formula|`Formula/kitden.rb` in the tap: the recipe `brew` installs from',
+     'Open the pull request `bump-kitden-X.Y.Z` in the tap, as Beacon|the tap’s tests then build bottles: ready-built packages for `brew`']},
+   {n:'summary', tags:[], when:'after the others, even if one failed',
+    steps:['Write a table of Kitden’s version in every store|PyPI, GitHub, MCP Registry, Homebrew and more; it shows what failed']}
   ]},
  {id:'s-release-watch', r:'s', file:'release-watch.yml', kind:'reusable',
-  trigger:'Called by `release-watch.yml`',
+  trigger:'Called by Kitden’s `release-watch.yml`',
   calledBy:['k-release-watch'], stages:[['watch']],
-  jobs:[{n:'watch', tags:['no model','Lantern'], when:'`AGENTS_ENABLED` on',
-    steps:['“Time for a release?”','“Release is not everywhere”']}]},
+  jobs:[{n:'watch', about:'Turns public facts about releases into issues in Kitden', tags:['no model','as Lantern'], when:'`AGENTS_ENABLED` is on',
+    steps:['Open “Time for a release?” when merged changes wait for a release|to `src/`, `plugins/` or `install.*`; after 7 days, sooner for a bug',
+     'Open “Release vX.Y.Z is not everywhere” when a store is behind|PyPI, GitHub, MCP Registry, Homebrew after 48 hours, and more',
+     'Close such an issue on its own once it no longer holds|it never touches an issue a person opened']}]},
  {id:'s-watch', r:'s', file:'watch.yml', kind:'own',
-  trigger:'Every day, 05:17 UTC',
+  trigger:'Every day at 05:17 UTC, or by hand',
   model:true, stages:[['fetch'],['judge'],['post'],['eval']],
   jobs:[
-   {n:'fetch', tags:['no secret'], when:'daily', steps:['Fetch new release notes','Save `input.json`']},
-   {n:'judge', tags:['model:'+SONNET,'harden','langfuse'], when:'something is new',
-    steps:['Record hosts','Model judges each piece','60 calls at most','Save `findings.json`']},
-   {n:'post', tags:['no model','Lantern'], when:'after judge', steps:['Open issues in Kitden','Save the memory']},
-   {n:'eval', tags:['model:your choice','harden','langfuse'], when:'by hand only',
-    steps:['Record hosts','Judge the test tasks','Score them']}
+   {n:'fetch', tags:['holds no secret'], when:'both switches on: `AGENTS_ENABLED` and `WATCH_LIVE`',
+    steps:['Read what is new from Claude Code, Codex and Cursor|their release notes, and the doc pages Kitden’s list names',
+     'Cut what is new into pieces and keep them in `input.json`|with Kitden’s list and the files it names, for the judge']},
+   {n:'judge', tags:['model:'+SONNET,'harden','langfuse'], when:'fetch found something new',
+    steps:[HOSTS,
+     'Claude judges each piece: does it touch what Kitden reads or shows?|it compares the change with Kitden’s list and reads the files named',
+     'At most 60 model calls in a run|what does not fit waits for the next day',
+     'Write the findings to `findings.json`; no tools, no write rights|the model only turns text into findings']},
+   {n:'post', tags:['no model','as Lantern'], when:'after judge, or when nothing was new',
+    steps:['Check the findings, then open issues in Kitden as Lantern|a sure break gets its own issue; the rest waits for the weekly summary',
+     'Save what it has read to the `watch` branch|so the next run reads only what is new']},
+   {n:'eval', tags:['model:the model you pick','harden','langfuse'], when:'by hand only, with `eval` ticked',
+    steps:[HOSTS,
+     'Run the judge on the test tasks in `evals/watch`|tasks with known answers; nothing is posted',
+     'Score the answers against the known ones|the daily run uses the model and effort that passed it']}
   ]},
  {id:'s-desk', r:'s', file:'desk.yml', kind:'own',
-  trigger:'Every day, 06:41 UTC',
+  trigger:'Every day at 06:41 UTC, or by hand',
   reads:['k-nightly','k-latest-deps'], stages:[['measure'],['post']],
   jobs:[
-   {n:'measure', tags:['no model'], when:'always', steps:['Gather the facts, the nightly runs and the workflow map among them','Commit the numbers']},
-   {n:'post', tags:['no model','Lantern'], when:'`AGENTS_ENABLED` on', steps:['Update the “Kitden desk” issue','A `ci-failure` issue for each red nightly part, closed when it is green']}
+   {n:'measure', about:'Works out from facts, with no model, what is healthy and what waits', tags:['no model'], when:'always',
+    steps:['Read the facts: checks on `main`, nightly runs, issues, reviews|and whether this map still matches the workflow files',
+     'Turn them into five lights and what waits for you|a light shows the worst fact it read; grey: not read',
+     'Commit `desk.json` and the numbers to the `numbers` branch|`main` takes pull requests only; only a run from `main` commits']},
+   {n:'post', about:'Shows the desk in Kitden as issues, posted by Lantern', tags:['no model','as Lantern'], when:'`AGENTS_ENABLED` is on, on `main`',
+    steps:['Rewrite the “Kitden desk” issue from `desk.json`|one pinned issue: the five lights and what waits for you',
+     'Open a `ci-failure` issue for each red nightly part|closed on its own once that part is green']}
   ]},
  {id:'s-checks', r:'s', file:'checks.yml', kind:'own',
-  trigger:'Any push or pull request',
+  trigger:'Any push or pull request in kitden-sdlc',
   stages:[['checks']],
-  jobs:[{n:'checks', tags:['no model'], when:'always', steps:['`ruff`, `pytest`','Rule checker','`zizmor`, `actionlint`']}]},
+  jobs:[{n:'checks', about:'Checks kitden-sdlc itself: first its Python code, then its workflow files', tags:['no model'], when:'always',
+    steps:['Python: `ruff` for slips, then the tests with `pytest`',
+     'Agent rules: the rule checker tests these workflows against `RULES.md`|e.g. a job with a model’s key may not write',
+     'Security and errors: `zizmor` and `actionlint`|unsafe settings, and files that would fail or misbehave']}]},
 
  {id:'t-tests', r:'t', file:'tests.yml', kind:'own',
-  trigger:'Any pull request or push',
+  trigger:'Any pull request, or a push to `main`',
   stages:[['test-bot']],
-  jobs:[{n:'test-bot', tags:['macOS + Ubuntu'], when:'always', steps:['Check the syntax','Build and test the formula','Upload the bottles']}]},
+  jobs:[{n:'test-bot', about:'Homebrew’s own test robot, `brew test-bot`, on the tap’s formula', tags:['macOS 26 and Ubuntu'], when:'always',
+    steps:['Check the syntax of the tap’s formula files',
+     'On a pull request: build Kitden from the formula and test it|the builds become bottles: ready-built packages for `brew`',
+     'On a pull request: keep the bottles as files of the run|`brew pr-pull` takes them from there later']}]},
  {id:'t-auto-pull', r:'t', file:'auto-pull.yml', kind:'own',
-  trigger:'After `brew test-bot` passes',
+  trigger:'A run of `brew test-bot` (`tests.yml`) finishes',
   stages:[['auto-pull']],
-  jobs:[{n:'auto-pull', tags:['no model'], when:'a `bump-kitden-*` PR passed',
-    steps:['Author is a trusted bot?','Only the formula changed?','Start `publish.yml`','Check the bottle is out']}]},
+  jobs:[{n:'auto-pull', about:'Publishes a bump pull request with no Merge button, only when it is safe', tags:['no model'],
+    when:'the test passed, on a `bump-kitden-*` PR of the tap itself',
+    steps:['Check the pull request: open, into `main`, opened by a trusted bot|Beacon, Kettle or `github-actions[bot]`; anyone else turns the run red',
+     'Check it changes only `Formula/kitden.rb`, at the tested commit|anything else turns the run red, and nothing is published',
+     'Start the tap’s `publish.yml` for this pull request, and wait|that run publishes the formula and bottles; nobody presses Merge',
+     'Check `main`’s formula has the new version and its bottles']}]},
  {id:'t-publish', r:'t', file:'publish.yml', kind:'own',
-  trigger:'Started by `auto-pull`',
+  trigger:'Started by `auto-pull.yml`, or by hand, for one pull request',
   stages:[['pr-pull']],
-  jobs:[{n:'pr-pull', tags:[], when:'always', steps:['`brew pr-pull`','Sign the bottles','Push to `main`']}]},
+  jobs:[{n:'pr-pull', tags:[], when:'always',
+    steps:['`brew pr-pull` takes the pull request and the bottles test-bot built|it uploads the bottles and writes their address into the formula',
+     'Attest the bottles: a signed record of where they were built|anyone can check a bottle came from this workflow',
+     'Push the formula and bottle commits to the tap’s `main`|then `brew install kitden` gets the new version']}]},
  {id:'t-autobump', r:'t', file:'autobump.yml', kind:'own',
-  trigger:'Every day, 13:10 UTC',
+  trigger:'Every day at 13:10 UTC, and when this file changes on `main`',
   stages:[['autobump']],
-  jobs:[{n:'autobump', tags:['Kettle'], when:'always', steps:['Sign in as Kettle','`brew bump`, open the PR']}]}
+  jobs:[{n:'autobump', tags:['as Kettle, the tap’s app'], when:'always',
+    steps:['Sign in as Kettle, the tap’s own app|a pull request opened with the job’s token would start no tests',
+     '`brew bump`: if Kitden has a newer version, open a bump PR|it also updates the formula’s Python dependencies']}]}
 ];
 /* The name, What and Why come from each workflow file: scripts/map_text.py writes them above.
    Without them the rest of the map still works, and one sentence says what is missing. */
@@ -565,6 +698,8 @@ WF.forEach(w => Object.assign(w, {name:'', what:'', why:''}, TEXT[w.id]));
 
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const fmt = s => esc(s).replace(/`([^`]+)`/g,'<code>$1</code>');
+/* A step's first line, and its why as a second, smaller line. */
+const step = s => { const [what, why] = s.split('|'); return fmt(what) + (why ? '<span class="why">' + fmt(why) + '</span>' : ''); };
 const byId = Object.fromEntries(WF.map(w => [w.id, w]));
 const fileUrl = w => REPO[w.r].url + '/blob/main/.github/workflows/' + w.file;
 const runsUrl = w => REPO[w.r].url + '/actions/workflows/' + w.file;
@@ -621,11 +756,11 @@ const STORIES = {
   pr:{note:'Agents never block a merge. After you merge, the daily release watch notices, and every night nightly.yml runs the tests a pull request does not: see Every day.',
     rows:[
       [{id:'you', kind:'you', t:'You open a pull request'}],
-      [{id:'ci', wf:'k-release', stages:[['build']]}, {id:'t1', kind:'thing', ic:'github', t:'Checks', sub:'green or red'}],
-      [{wf:'k-agents-review'}, {wf:'s-review'}, {id:'t2', kind:'thing', ic:'lantern', t:'One review comment', sub:'never blocks'}],
-      [{wf:'k-agents-check'}, {wf:'s-check'}, {id:'t3', kind:'thing', ic:'github', t:'Workflow check', sub:'green or red'}],
-      [{wf:'k-list-check'}, {wf:'s-list-check'}, {id:'t5', kind:'thing', ic:'github', t:'Warnings on the list', sub:'never red for a missing word'}],
-      [{wf:'k-scenes'}, {id:'t4', kind:'thing', ic:'playwright', t:'README pictures', sub:'to look at'}]
+      [{id:'ci', wf:'k-release', stages:[['build']]}, {id:'t1', kind:'thing', ic:'github', t:'You see a break before you merge', sub:'tests, types, style, dependency security holes, start-up speed; red shows the failed step'}],
+      [{wf:'k-agents-review'}, {wf:'s-review'}, {id:'t2', kind:'thing', ic:'lantern', t:'A second pair of eyes on each change', sub:'Claude and Luna point out bugs and broken rules in one comment; it never blocks'}],
+      [{wf:'k-agents-check'}, {wf:'s-check'}, {id:'t3', kind:'thing', ic:'github', t:'Safe, working workflows before you merge', sub:'red if a change runs PR text as code, lets a model write, or is broken'}],
+      [{wf:'k-list-check'}, {wf:'s-list-check'}, {id:'t5', kind:'thing', ic:'github', t:'Each changed client fact checked against its docs', sub:'a warning if a changed row’s word is not on its page; never red, pages change'}],
+      [{wf:'k-scenes'}, {id:'t4', kind:'thing', ic:'playwright', t:'A broken README picture shows up early', sub:'red on the pull request that broke a scene; the pictures are there to look at'}]
     ],
     edges:[['you','ci','always','l'],['ci','t1','','h'],
       ['you','k-agents-review','to main','l'],['k-agents-review','s-review','uses','h'],['s-review','t2','Lantern posts','h'],
@@ -634,14 +769,14 @@ const STORIES = {
       ['you','k-scenes','page changed','l'],['k-scenes','t4','','h']]},
   rel:{note:'If dependencies changed, publish.yml leaves the tap alone and brew bump opens the PR the next day.',
     rows:[
-      [{id:'run', kind:'you', t:'You press Run workflow'}, {wf:'k-release-prep'}, {wf:'s-release-prep'}, {id:'pr', kind:'thing', ic:'beacon', t:'PR “Kitden X.Y.Z”', sub:'a draft if a problem is left'}],
-      [{id:'merge', kind:'you', t:'You read it and merge'}, {id:'rel1', wf:'k-release', stages:[['build'],['autotag']]}, {id:'tag', kind:'thing', ic:'beacon', t:'Tag vX.Y.Z'}],
+      [{id:'run', kind:'you', t:'You press Run workflow'}, {wf:'k-release-prep'}, {wf:'s-release-prep'}, {id:'pr', kind:'thing', ic:'beacon', t:'A ready release: one review, one merge', sub:'PR “Kitden X.Y.Z”: notes, README, policies and version done; a draft lists what is left'}],
+      [{id:'merge', kind:'you', t:'You read it and merge'}, {id:'rel1', wf:'k-release', stages:[['build'],['autotag']]}, {id:'tag', kind:'thing', ic:'beacon', t:'Tag vX.Y.Z, made for you', sub:'it starts the publishing; nobody tags by hand'}],
       [{id:'rel2', wf:'k-release', stages:[['build'],['publish'],['release'],['stores']], outs:[['pypi','PyPI'],['github','GitHub release']]},
        {wf:'s-publish', outs:[['github','release branch'],['modelcontextprotocol','MCP Registry']]},
-       {id:'bump', kind:'thing', lane:'t', ic:'beacon', t:'PR bump-kitden', sub:'in the tap'}],
+       {id:'bump', kind:'thing', lane:'t', ic:'beacon', t:'PR bump-kitden in the tap', sub:'Homebrew gets the new version; nobody has to merge it'}],
       [{wf:'t-tests'}],
       [{wf:'t-auto-pull'}],
-      [{wf:'t-publish'}, {id:'brew', kind:'thing', ic:'homebrew', t:'brew install kitden', sub:'the bottles are out'}]
+      [{wf:'t-publish'}, {id:'brew', kind:'thing', ic:'homebrew', t:'brew install kitden gets the new version', sub:'ready-built for macOS and Linux, with no step by hand'}]
     ],
     edges:[['run','k-release-prep','starts','h'],['k-release-prep','s-release-prep','uses','h'],['s-release-prep','pr','Beacon opens','h'],
       ['pr','merge','waits for you','z'],['merge','rel1','push','h'],['rel1','tag','Beacon tags','h'],
@@ -649,12 +784,12 @@ const STORIES = {
       ['bump','t-tests','starts','z'],['t-tests','t-auto-pull','tests pass','z'],['t-auto-pull','t-publish','starts','z'],['t-publish','brew','','h']]},
   day:{note:'Times are UTC. Nothing here needs you until an issue, a pull request or a red run shows up.',
     rows:[
-      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Nightly tests: green or red', sub:'4 systems, the newest Claude Code and Codex, a real browser; red: a ci-failure issue'}],
-      [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Issue in kitden', sub:'you confirm or close'}],
-      [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A red run', sub:'if a new version breaks; then a ci-failure issue'}],
-      [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'“Time for a release?”', go:'rel'}],
-      [{id:'c4', kind:'clock', t:'06:41'}, {wf:'s-desk'}, {id:'d4', kind:'thing', ic:'lantern', t:'“Kitden desk” issue', sub:'what waits for you'}],
-      [{id:'c5', kind:'clock', t:'13:10'}, {wf:'t-autobump'}, {id:'d5', kind:'thing', ic:'kettle', t:'PR bump-kitden', sub:'then bottles', go:'rel'}]
+      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Breaks found before your users find them', sub:'4 systems, newest Claude Code and Codex, a real browser; red: a ci-failure issue'}],
+      [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Warned when a client change breaks Kitden', sub:'an issue for a sure break, the rest weekly; label it confirmed or close it'}],
+      [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A broken new dependency, caught first', sub:'before people who install Kitden meet it; red: a ci-failure issue'}],
+      [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'Merged work does not sit unreleased', sub:'“Time for a release?” when changes wait; “not everywhere” when a store lags', go:'rel'}],
+      [{id:'c4', kind:'clock', t:'06:41'}, {wf:'s-desk'}, {id:'d4', kind:'thing', ic:'lantern', t:'Health and your to-do in one place', sub:'the “Kitden desk” issue: five lights and what waits for you, every day'}],
+      [{id:'c5', kind:'clock', t:'13:10'}, {wf:'t-autobump'}, {id:'d5', kind:'thing', ic:'kettle', t:'Homebrew’s formula stays up to date', sub:'if the formula lags Kitden, a bump PR that publishes itself', go:'rel'}]
     ],
     edges:[['c0','k-nightly','','h'],['k-nightly','d0','','h'],['c1','s-watch','','h'],['s-watch','d1','Lantern opens','h'],['c2','k-latest-deps','','h'],['k-latest-deps','d2','','h'],
       ['c3','k-release-watch','','h'],['k-release-watch','s-release-watch','uses','h'],['s-release-watch','d3','Lantern opens','h'],
@@ -669,7 +804,7 @@ function card(n){
     const w = byId[n.wf], jobBy = Object.fromEntries(w.jobs.map(j => [j.n, j])), stages = n.stages || w.stages;
     return '<div class="fc wf"' + at + '><div class="hd">' + tile(RLOGO[w.r]) + '<button type="button" class="fname" data-open="' + w.id + '">' + esc(w.file) + '</button></div>' +
       (w.kind === 'caller' ? '' : '<div class="jl">' + stages.map(st => '<div class="st">' + st.map(j =>
-        '<button type="button" class="jb" data-wf="' + w.id + '" data-j="' + esc(j) + '" aria-expanded="false">' + (hasModel(jobBy[j]) ? '<i class="lamp model"></i>' : '') + esc(j) + '</button>').join('') + '</div>').join('') + '</div><ol class="sl" hidden></ol>') +
+        '<button type="button" class="jb" data-wf="' + w.id + '" data-j="' + esc(j) + '" aria-expanded="false">' + (hasModel(jobBy[j]) ? '<i class="lamp model"></i>' : '') + esc(j) + '</button>').join('') + '</div>').join('') + '</div><p class="sla" hidden></p><ol class="sl" hidden></ol>') +
       (n.outs ? '<div class="outs">' + n.outs.map(([ic, t]) => '<span class="chip">' + ico(ic, 12) + esc(t) + '</span>').join('') + '</div>' : '') + '</div>';
   }
   const ic = n.kind === 'you' ? 'you' : n.kind === 'clock' ? 'clock' : n.ic;
@@ -763,13 +898,15 @@ flow.addEventListener('click', ev => {
   if (g) return story(g.dataset.go);
   if (o) { select(o.dataset.open); return view('flows'); }
   if (!j) return;
-  const box = j.closest('.fc'), list = box.querySelector('.sl'), was = j.getAttribute('aria-expanded') === 'true';
+  const box = j.closest('.fc'), list = box.querySelector('.sl'), about = box.querySelector('.sla'), was = j.getAttribute('aria-expanded') === 'true';
   box.querySelectorAll('.jb').forEach(x => x.setAttribute('aria-expanded', 'false'));
-  list.hidden = was;
+  list.hidden = was; about.hidden = true;
   if (!was){
     j.setAttribute('aria-expanded', 'true');
-    list.innerHTML = byId[j.dataset.wf].jobs.find(x => x.n === j.dataset.j).steps.map((t, i) =>
-      '<li style="--i:' + i + '"><span class="n">' + (i + 1) + '</span><span>' + fmt(t) + '</span></li>').join('');
+    const job = byId[j.dataset.wf].jobs.find(x => x.n === j.dataset.j);
+    about.innerHTML = job.about ? fmt(job.about) : ''; about.hidden = !job.about;
+    list.innerHTML = job.steps.map((t, i) =>
+      '<li style="--i:' + i + '"><span class="n">' + (i + 1) + '</span><span>' + step(t) + '</span></li>').join('');
   }
   draw();
 });
@@ -778,11 +915,11 @@ if (window.ResizeObserver) new ResizeObserver(() => draw()).observe(flow);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());
 
 /* ================= workflows ================= */
-const TAGIC = {Lantern:'lantern', Beacon:'beacon', Kettle:'kettle', 'calls kitden-sdlc':'githubactions', 'env: pypi':'pypi', Playwright:'playwright'};
+const TAGIC = {'as Lantern':'lantern', 'as Beacon, the release app':'beacon', 'as Kettle, the tap’s app':'kettle', 'calls kitden-sdlc':'githubactions', Playwright:'playwright'};
 function tag(t){
   if (t.startsWith('model:')) { const n = t.slice(6); return '<span class="chip">' + ico(n.startsWith('Claude') ? 'claude' : n.startsWith('GPT') ? 'openai' : 'you', 12) + esc(n) + '<i class="lamp model"></i></span>'; }
-  if (t === 'harden') return '<span class="chip">' + ico('stepsecurity', 12) + 'Harden-Runner</span>';
-  if (t === 'langfuse') return '<span class="chip">' + ico('langfuse', 12) + 'Langfuse</span>';
+  if (t === 'harden') return '<span class="chip">' + ico('stepsecurity', 12) + 'Harden-Runner: logs connections</span>';
+  if (t === 'langfuse') return '<span class="chip">' + ico('langfuse', 12) + 'Langfuse: model calls, if set up</span>';
   return '<span class="chip">' + (TAGIC[t] ? ico(TAGIC[t], 12) : '') + esc(t) + '</span>';
 }
 const hasModel = j => j.tags.some(t => t.startsWith('model:'));
@@ -793,8 +930,9 @@ function jobPanel(w, name){
   const j = w.jobs.find(x => x.n === name);
   document.querySelectorAll('#detail .jobchip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.j === name)));
   $('jobpanel').innerHTML = '<div class="jt"><b>' + esc(j.n) + '</b>' + j.tags.map(tag).join('') + '</div>' +
+    (j.about ? '<div class="jab">' + fmt(j.about) + '</div>' : '') +
     '<div class="ink3" style="font-size:12px">When: ' + fmt(j.when) + '</div>' +
-    '<ol class="tl">' + j.steps.map((s, i) => '<li style="--i:' + i + '"><span class="si">' + (i + 1) + '</span>' + fmt(s) + '</li>').join('') + '</ol>';
+    '<ol class="tl">' + j.steps.map((s, i) => '<li style="--i:' + i + '"><span class="si">' + (i + 1) + '</span>' + step(s) + '</li>').join('') + '</ol>';
 }
 function select(id){
   const w = byId[id]; if (!w) return;
@@ -834,9 +972,9 @@ $('hold').addEventListener('click', ev => { const b = ev.target.closest('.blk');
 const TOOLS = [
   ['Yours', [['kitden','Kitden','the product'],['sdlc','kitden-sdlc','the automation'],['lantern','Lantern','comments and issues'],['beacon','Beacon','releases'],['kettle','Kettle','the Homebrew tap']]],
   ['Models', [['claude','Claude Sonnet 5.5','review, watcher, release'],['openai','GPT-6 Luna','second reviewer']]],
-  ['Checks', [['ruff','ruff','lint'],['python','pyright','types'],['pytest','pytest','tests'],['nodedotjs','Node','page tests'],['zizmor','zizmor','workflow security'],['lint','actionlint','workflow mistakes'],['pypi','pip-audit','known vulnerabilities'],['shield','macOS Keychain','real secret tests'],['shield','GNOME Keyring','real secret tests']]],
+  ['Checks', [['ruff','ruff','code slips and style'],['python','pyright','type errors'],['pytest','pytest','tests'],['nodedotjs','Node','page tests'],['zizmor','zizmor','unsafe workflow settings'],['lint','actionlint','broken workflow files'],['pypi','pip-audit','known vulnerabilities'],['shield','macOS Keychain','real secret tests'],['shield','GNOME Keyring','real secret tests']]],
   ['Build and ship', [['githubactions','GitHub Actions','runs it all'],['uv','uv','install and build'],['python','Python','the code'],['pypi','PyPI','the package'],['github','GitHub Releases','files and notes'],['modelcontextprotocol','MCP Registry','the server list'],['homebrew','Homebrew','brew install'],['playwright','Playwright','README pictures, browser tests'],['ffmpeg','ffmpeg','README pictures']]],
-  ['Guards', [['stepsecurity','Harden-Runner','records hosts'],['langfuse','Langfuse','model traces']]],
+  ['Guards', [['stepsecurity','Harden-Runner','logs each web address a job reaches'],['langfuse','Langfuse','a record of each model call']]],
   ['Clients watched and tested', [['claude','Claude Code','watched, tested nightly'],['openai','Codex','watched, tested nightly'],['cursor','Cursor','watched only']]]
 ];
 const USED = {
