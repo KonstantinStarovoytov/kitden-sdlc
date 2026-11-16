@@ -247,7 +247,8 @@ def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():
 
 def test_every_step_is_one_short_line_with_at_most_one_short_why():
     """A step reads 'what it does|why': at most 12 words, then at most 14. A job's `about`
-    line, which says what its steps share, is at most 14 words too."""
+    line, which says what its steps share, is at most 14 words too, and a result card has a
+    title of at most 8 words and a line of at most 16."""
     wf = HTML.split("\nconst WF = [\n")[1].split("\n];")[0]
     hosts = re.search(r"\nconst HOSTS = '([^'\\]*)';", HTML).group(1)
     lists = re.findall(r"steps:\[((?:HOSTS|'[^'\\]*'|\s|,)*)\]", wf)
@@ -261,6 +262,11 @@ def test_every_step_is_one_short_line_with_at_most_one_short_why():
         assert all(0 < len(w.split()) <= 14 for w in why), text
     for about in re.findall(r"about:'([^'\\]*)'", wf):
         assert 0 < len(about.split()) <= 14, about
+    stories = HTML.split("const STORIES = {")[1].split("\n};")[0]
+    cards = re.findall(r"kind:'thing'[^}]*?t:'([^'\\]*)'(?:, sub:'([^'\\]*)')?", stories)
+    assert len(cards) == 15
+    for title, line in cards:  # a result card: at most 8 words, then at most 16
+        assert len(title.split()) <= 8 and len(line.split()) <= 16, (title, line)
     assert "'<span class=\"why\">'" in HTML
 
 
