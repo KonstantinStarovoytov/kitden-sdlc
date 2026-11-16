@@ -27,8 +27,7 @@ from watch_fetch import _git, build_input  # noqa: E402
 from watch_judge import MAX_MODEL_CALLS, chat_model, judge  # noqa: E402
 from watch_list import parse_list  # noqa: E402
 from watch_score import load_tasks, task_scores  # noqa: E402
-
-DATASET = "watch-eval"
+from watch_texts import DATASET, dataset_items  # noqa: E402
 
 
 def _at(kitden, commit: str, name: str) -> str | None:
@@ -77,13 +76,6 @@ def run_task(task: dict, kitden, out, model, max_calls: int) -> dict:
     seconds = round(time.monotonic() - start)
     print(f"{task['id']}: {state}, {len(found['findings'])} findings, {seconds} s", flush=True)
     return found
-
-
-def dataset_items(tasks: list[dict]) -> list[dict]:
-    """The Langfuse dataset items, made from the task files: the repo is the source."""
-    return [{"id": t["id"], "input": t["piece"], "expected_output": t["expect"],
-             "metadata": {"id": t["id"], "kind": t["kind"], "source": t["source"]}}
-            for t in tasks]
 
 
 def run_name(model_name: str, now: datetime, run: int = 0) -> str:

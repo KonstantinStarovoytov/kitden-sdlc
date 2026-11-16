@@ -102,6 +102,8 @@ class FakeLangfuse:
                                                metadata=metadata)
 
     def get_dataset(self, name):
+        if self.fail:
+            raise self.fail
         return types.SimpleNamespace(items=[*self.items.values(),
                                             types.SimpleNamespace(id="gone")])
 
