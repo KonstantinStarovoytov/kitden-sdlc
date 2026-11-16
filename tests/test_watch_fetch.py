@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import watch_fetch
 from watch_fetch import (
     DOC_FORMAT,
@@ -393,3 +395,291 @@ def test_a_manifest_over_the_cap_counts_as_unread(monkeypatch):
     monkeypatch.setattr(watch_fetch, "get", too_big)
     src = {"id": "m", "kind": "manifest", "url": "https://raw.example.com/m.json"}
     assert read_or_none("m", watch_fetch.read_manifest, src) is None
+
+
+# One time budget for the doc pages of a run (Review Focus 10)
+
+DOCS = [f"https://docs.example.com/a/page{n}" for n in range(1, 6)]
+# Made-up rows: no fact about a real client.
+BUDGET_LIST = "## Codex\n\n| What | Kind | Files | Seen in | macOS and Linux | Source |\n" + \
+    "|---|---|---|---|---|---|\n" + "".join(
+        f"| `zork{n}` | key | `src/a.py` | scan | same | {page} |\n"
+        for n, page in enumerate(DOCS, 1))
+BUDGET_SOURCES = "- {id: r, client: codex, kind: github-releases, repo: o/r}\n"
+
+
+class Clock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def budget_state():
+    return old({"r": {"1.0": "h"}, **{page: {"Install": f"old-{page}"} for page in DOCS}},
+               fails={DOCS[4]: 2})
+
+
+def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None, state=None):
+    """main() on a list of five doc pages, every read a fake, with `state` as the memory
+    (budget_state() when None). The release read takes `release_seconds`; the clock jumps
+    past the budget during doc read number `slow_after`. Gives the output, stderr, the pages
+    read, and the meta and fetched plan_run got."""
+    clock = Clock()
+    (tmp_path / "kitden/docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "kitden/docs/clients.md").write_text(BUDGET_LIST)
+    (tmp_path / "sources.yml").write_text(BUDGET_SOURCES)
+    (tmp_path / "titles.json").write_text("[]")
+    state = budget_state() if state is None else state
+    (tmp_path / "state.json").write_text(json.dumps(state))
+    read = []
+
+    def fake_read(source):
+        clock.now += release_seconds
+        return [Section("1.0", "t", "h")]
+
+    def fake_read_doc(address, hosts):
+        read.append(address)
+        if len(read) == slow_after:
+            clock.now += watch_fetch.PAGES_SECONDS + 1
+        return [Section("Install", "t", f"old-{address}")]
+
+    planned = {}
+
+    def spy(state, fetched, meta):
+        planned.update(fetched=dict(fetched), meta=dict(meta))
+        return plan_run(state, fetched, meta)
+
+    class Done:
+        stdout, returncode = "v1", 0
+
+    monkeypatch.setattr(watch_fetch, "_read", fake_read)
+    monkeypatch.setattr(watch_fetch, "_read_doc", fake_read_doc)
+    monkeypatch.setattr(watch_fetch, "plan_run", spy)
+    monkeypatch.setattr(watch_fetch, "_git", lambda kitden, *args: Done())
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    watch_fetch.main([
+        "--sources", str(tmp_path / "sources.yml"), "--kitden", str(tmp_path / "kitden"),
+        "--state", str(tmp_path / "state.json"), "--titles", str(tmp_path / "titles.json"),
+        "--out", str(tmp_path / "out.json")], clock=clock)
+    out = json.loads((tmp_path / "out.json").read_text())
+    return out, capsys.readouterr().err, read, planned
+
+
+def test_the_page_budget_is_seven_minutes():
+    assert watch_fetch.PAGES_SECONDS == 420
+
+
+def test_a_budget_is_left_until_its_seconds_have_passed():
+    clock = Clock()
+    budget = watch_fetch.Budget(10, clock=clock)
+    assert budget.left()
+    clock.now += 9.9
+    assert budget.left()
+    clock.now += 0.1
+    assert not budget.left()
+    assert not watch_fetch.Budget(0, clock=clock).left()
+
+
+def test_a_budget_counts_from_when_it_is_made():
+    clock = Clock()
+    clock.now = 5000.0
+    budget = watch_fetch.Budget(10, clock=clock)
+    clock.now += 5
+    assert budget.left()
+
+
+def test_on_time_every_doc_page_is_read_and_nothing_is_said(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys)
+    assert read == DOCS
+    assert set(DOCS) <= set(planned["meta"]) and set(DOCS) <= set(planned["fetched"])
+    assert err == ""
+
+
+def test_pages_after_the_budget_are_not_read_and_keep_their_hashes(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    assert read == DOCS[:3]
+    for page in DOCS[3:]:
+        assert page not in planned["meta"] and page not in planned["fetched"]
+    state = out["state"]
+    # Not failed reads: no fail is counted, no "Cannot read" item, the hashes stay.
+    assert state["fails"] == {"r": 0, **{page: 0 for page in DOCS[:3]}, DOCS[4]: 2}
+    assert not [k for k in state["kept"] if k["title"].startswith("Cannot read")]
+    assert state["sources"] == {"r": {"1.0": "h"},
+                                **{page: {"Install": f"old-{page}"} for page in DOCS}}
+    assert out["pieces"] == []
+
+
+def test_a_read_already_started_is_not_cut_short(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    # The clock jumped during the third read: that read still counts.
+    assert planned["fetched"][DOCS[2]] == [Section("Install", "t", f"old-{DOCS[2]}")]
+    assert out["state"]["fails"][DOCS[2]] == 0
+
+
+def test_one_line_says_how_many_pages_wait_for_tomorrow(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    [line] = err.splitlines()
+    assert "420 seconds" in line and line.endswith("left for tomorrow: 2.")
+    assert not [page for page in DOCS if page in err]
+
+
+def test_the_budget_starts_at_the_first_doc_page(tmp_path, monkeypatch, capsys):
+    seconds = 2 * watch_fetch.PAGES_SECONDS
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, release_seconds=seconds)
+    assert read == DOCS and err == ""
+
+
+# Where the pages start, and pages left unread for lack of time
+
+
+def runs(tmp_path, monkeypatch, capsys, count, slow_after):
+    """`count` runs of main(), each on the memory the one before wrote."""
+    state, done = None, []
+    for _ in range(count):
+        out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys,
+                                            slow_after=slow_after, state=state)
+        state = out["state"]
+        done.append((read, state))
+    return done
+
+
+def test_a_run_starts_where_the_last_one_ran_out_of_time(tmp_path, monkeypatch, capsys):
+    done = runs(tmp_path, monkeypatch, capsys, 3, slow_after=2)
+    assert [read for read, _ in done] == [DOCS[0:2], DOCS[2:4], [DOCS[4], DOCS[0]]]
+    assert [state["page_start"] for _, state in done] == [2, 4, 1]
+    assert {page for read, _ in done for page in read} == set(DOCS)
+
+
+def test_on_time_the_start_stays_and_nothing_is_skipped(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys,
+                                        state={**budget_state(), "page_start": 3})
+    assert read == DOCS[3:] + DOCS[:3]
+    assert out["state"]["page_start"] == 3 and out["state"]["skips"] == {}
+
+
+def test_the_pages_are_read_in_sorted_order_from_the_start():
+    pages = {"https://d/b": "codex", "https://d/c": "cursor", "https://d/a": "codex"}
+    assert watch_fetch.page_order(None, pages) == ["https://d/a", "https://d/b", "https://d/c"]
+    assert watch_fetch.page_order({"page_start": 1}, pages) == [
+        "https://d/b", "https://d/c", "https://d/a"]
+    assert watch_fetch.page_order({"page_start": 7}, pages)[0] == "https://d/b"  # 7 % 3
+
+
+@pytest.mark.parametrize("start", ["2", None, 1.5, True, [1]])
+def test_a_start_that_is_not_a_whole_number_starts_at_the_first_page(start):
+    pages = {"https://d/b": "codex", "https://d/a": "codex"}
+    assert watch_fetch.page_order({"page_start": start}, pages)[0] == "https://d/a"
+
+
+def test_no_doc_page_reads_nothing_and_starts_at_0():
+    assert watch_fetch.page_order({"page_start": 4}, {}) == []
+    state = watch_fetch.plan_skips(old({}, page_start=4), {}, 0)
+    assert state["page_start"] == 0 and state["skips"] == {}
+
+
+def out_of_time(count):
+    pages = "1 doc page was" if count == 1 else f"{count} doc pages were"
+    return f"{pages} not read for {FAIL_DAYS} runs: out of time"
+
+
+def test_the_third_skipped_run_in_a_row_makes_one_item_for_its_pages(
+        tmp_path, monkeypatch, capsys):
+    # One page a run: DOCS[3] and DOCS[4] are left out of the first three runs.
+    done = runs(tmp_path, monkeypatch, capsys, 4, slow_after=1)
+    _, third = done[2]
+    assert third["skips"] == {DOCS[3]: 3, DOCS[4]: 3, DOCS[0]: 2, DOCS[1]: 1}
+    [item] = third["kept"]
+    assert item["title"] == out_of_time(2)
+    assert (item["effect"], item["severity"], item["sure"]) == ("unknown", "medium", True)
+    assert item["client"] == "codex" and item["url"] == ""
+    assert f"`{DOCS[3]}`, `{DOCS[4]}`" in item["changed"]
+    assert DOCS[0] not in item["changed"]
+    _, fourth = done[3]
+    # DOCS[4] is on its fourth run: not said again. DOCS[0] reaches its third.
+    assert [k["title"] for k in fourth["kept"]] == [out_of_time(2), out_of_time(1)]
+    new = fourth["kept"][1]
+    assert DOCS[0] in new["changed"] and DOCS[4] not in new["changed"]
+    assert all(fourth["fails"].get(page, 0) == 0 for page in DOCS[:4])
+
+
+def test_a_page_read_resets_its_skips(tmp_path, monkeypatch, capsys):
+    out, *_ = fetch_run(tmp_path, monkeypatch, capsys, slow_after=3)
+    assert out["state"]["skips"] == {DOCS[3]: 1, DOCS[4]: 1}
+    again, *_ = fetch_run(tmp_path, monkeypatch, capsys, state=out["state"])
+    assert again["state"]["skips"] == {}
+
+
+def test_a_page_whose_read_was_started_is_not_skipped_even_if_the_read_failed():
+    # `read` counts the reads started; plan_run counts a failed one in `fails`.
+    pages = {"https://d/a": "codex", "https://d/b": "codex"}
+    state = old({}, skips={"https://d/a": 2, "https://d/b": 2})
+    new = watch_fetch.plan_skips(state, pages, 1)
+    assert new["skips"] == {"https://d/b": 3}
+    [item] = new["kept"]
+    assert item["title"] == out_of_time(1) and "https://d/a" not in item["changed"]
+    assert new["page_start"] == 1
+
+
+def test_a_page_past_its_third_run_adds_nothing():
+    pages = {"https://d/a": "codex"}
+    new = watch_fetch.plan_skips(old({}, skips={"https://d/a": 3}), pages, 0)
+    assert new["kept"] == [] and new["skips"] == {"https://d/a": 4}
+
+
+def test_many_pages_on_their_third_run_make_one_short_item():
+    pages = {f"https://docs.example.com/a/{'x' * 40}{n:02d}": "codex" for n in range(19)}
+    state = old({}, skips=dict.fromkeys(pages, 2))
+    [item] = watch_fetch.plan_skips(state, pages, 0)["kept"]
+    assert item["title"] == out_of_time(19) and len(item["title"]) <= 80
+    assert all(f"`{page}`" in item["changed"] for page in pages)
+
+
+def test_pages_of_several_clients_make_an_item_of_no_one_client():
+    pages = {"https://d/a": "codex", "https://d/b": "cursor"}
+    state = old({}, skips=dict.fromkeys(pages, 2))
+    [item] = watch_fetch.plan_skips(state, pages, 0)["kept"]
+    assert item["client"] == "" and item["title"] == out_of_time(2)
+
+
+def test_the_grouped_item_renders_in_the_summary():
+    from datetime import date
+
+    from watch_post import render_summary
+
+    pages = {"https://d/a": "codex", "https://d/b": "cursor"}
+    state = old({}, skips=dict.fromkeys(pages, 2))
+    kept = watch_fetch.plan_skips(state, pages, 0)["kept"]
+    _, body, rest = render_summary(kept, date(2026, 11, 16))
+    assert rest == [] and out_of_time(2) in body and "`https://d/b`" in body
+
+
+def test_a_page_that_left_the_list_is_forgotten_from_skips():
+    new = watch_fetch.plan_skips(old({}, skips={"https://d/gone": 2}),
+                                 {"https://d/a": "codex"}, 1)
+    assert new["skips"] == {}
+
+
+def test_plan_skips_does_not_change_its_input():
+    before = old({}, skips={"https://d/a": 2})
+    watch_fetch.plan_skips(before, {"https://d/a": "codex"}, 0)
+    assert before == old({}, skips={"https://d/a": 2})
+
+
+def test_the_skip_item_is_built_only_when_a_page_reaches_its_third_run(monkeypatch):
+    built = []
+    real = watch_fetch._out_of_time
+
+    def counting(addresses, pages):
+        built.append(list(addresses))
+        return real(addresses, pages)
+
+    monkeypatch.setattr(watch_fetch, "_out_of_time", counting)
+    pages = {"https://d/a": "codex", "https://d/b": "codex", "https://d/c": "codex"}
+    watch_fetch.plan_skips(old({}, skips={"https://d/c": 3}), pages, 0)
+    assert built == []
+    new = watch_fetch.plan_skips(old({}, skips={"https://d/b": 2, "https://d/c": 3}), pages, 0)
+    assert built == [["https://d/b"]]
+    assert [k["title"] for k in new["kept"]] == [out_of_time(1)]

@@ -6,7 +6,16 @@ import urllib.response
 
 import pytest
 
-from doc_address import CONFIG, allowed, load_hosts, location, make_opener, read
+from doc_address import (
+    CONFIG,
+    NO_TEXT_CLIENTS,
+    allowed,
+    clean_heading,
+    load_hosts,
+    location,
+    make_opener,
+    read,
+)
 
 HOSTS = load_hosts()
 PAGE = "https://code.claude.com/docs/en/mcp.md"
@@ -242,3 +251,26 @@ def test_load_hosts_refuses_a_path_without_slashes_at_both_ends(tmp_path, start)
     path.write_text(f"- {{host: docs.example.com, path: {start}}}\n")
     with pytest.raises(ValueError):
         load_hosts(path)
+
+
+# Cleaning what comes from a passage
+
+
+def test_a_heading_keeps_only_letters_digits_spaces_and_a_few_marks():
+    assert clean_heading("Set `x` | <b>y</b> [z](w) *é* 2-a_b.c,d:e(f)/g") == (
+        "Set x by/b z(w) é 2-a_b.c,d:e(f)/g")
+
+
+def test_a_heading_turns_line_breaks_into_spaces_and_drops_hidden_characters():
+    assert clean_heading("One\nTwo\tThree\u202eFour\u200b") == "One Two ThreeFour"
+
+
+def test_a_heading_is_cut_to_80_characters():
+    assert len(clean_heading("a" * 200)) == 80
+
+
+def test_cursor_is_the_one_client_whose_doc_text_is_kept_out():
+    from watch_list import CLIENTS
+
+    assert NO_TEXT_CLIENTS == ("cursor",)
+    assert set(NO_TEXT_CLIENTS) <= set(CLIENTS.values())

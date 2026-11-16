@@ -29,12 +29,11 @@ import os
 import re
 import sys
 import time
-import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent_docs import Search
-from doc_address import allowed, load_hosts, location
+from doc_address import SHOWABLE, allowed, clean_heading, load_hosts, location, page_of
 from watch_fetch import MOVED_TEXT, read_manifest, read_or_none
 from watch_list import CLIENTS, doc_pages, held, parse_list, row_ids, words_by_row
 from watch_moved import moved
@@ -42,11 +41,6 @@ from watch_pages import load_sources
 
 SOURCES = Path(__file__).resolve().parent.parent / "config" / "watch-sources.yml"
 PAUSE = 7  # seconds between searches: it fits a trial key's limit; a paid key can take 2
-HEADING_MAX = 80
-HEADING_MARKS = " -_.,:()/"
-# An address is shown only with these characters: none of them can break a table cell or a
-# code span.
-SHOWABLE = re.compile(r"https://[A-Za-z0-9._~:/%@!$&'()*+,;=-]+")
 
 STATES = "states it"
 NEAR = "near"
@@ -127,24 +121,6 @@ def pick_rows(text: str, client: str | None = None, all_rows: bool = False,
         return [item for item in items if item.id in ids]
     return [item for item in items
             if (client is None or item.client == client) and (all_rows or not item.has_page)]
-
-
-def clean_heading(text: str) -> str:
-    """Letters, digits, spaces and -_.,:()/ only, at most 80 characters."""
-    kept = "".join(" " if c.isspace() else c for c in text
-                   if c.isalnum() or c in HEADING_MARKS or c.isspace())
-    return " ".join(kept.split())[:HEADING_MAX].strip()
-
-
-def page_of(url, hosts) -> str:
-    """The page of a passage's address, without its fragment and `.md`, when it may be
-    shown; else ""."""
-    if not isinstance(url, str) or not allowed(url, hosts):
-        return ""
-    page = urllib.parse.urldefrag(url).url.removesuffix(".md")
-    if not SHOWABLE.fullmatch(page) or not allowed(page, hosts):
-        return ""
-    return page
 
 
 def _same(page: str, source: str) -> bool:

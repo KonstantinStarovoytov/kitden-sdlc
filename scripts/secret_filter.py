@@ -3,17 +3,24 @@ nowhere in the text the model was given.
 
 A known token (a prefix plus a long tail) is caught by SECRET_LIKE in post_findings.py. A
 tail alone has no prefix to match, so a long run of key characters in model text counts as
-a leak unless the model could have copied it from its input. Standard library only: the
-scripts that use this run without the project's dependencies.
+a leak unless the model could have copied it from its input. `clean` uses the same two
+checks to leave out items of outside text before a script passes them on. Standard library
+only: the scripts that use this run without the project's dependencies.
 """
 
 import os
 import re
 import subprocess
+import unicodedata
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
 RUN_MIN = 32
+HEADING_MARKS = " -_.,:()/"
+HEADING = "heading"  # the field `clean` checks as clean_heading shows it, unless told otherwise
+# Characters that show as nothing, or only as a mark on the one before: format characters
+# (zero-width spaces and joiners, the BOM) and combining marks (U+034F, U+FE0F, accents).
+HIDDEN = ("Cf", "Mn", "Me")
 RUN = re.compile(rf"[A-Za-z0-9_-]{{{RUN_MIN},}}")
 
 
@@ -39,6 +46,69 @@ def unknown_runs(texts: Iterable[str], known: Callable[[str], bool]) -> list[str
             if run not in found and not known(run):
                 found.append(run)
     return found
+
+
+def clean(
+    items: list[dict], fields: tuple[str, ...], secret_like: re.Pattern[str],
+    kept: tuple[str, ...] | None = None,
+) -> tuple[list[dict], int]:
+    """The items of outside text (a doc passage, a section) that are safe to pass on, and
+    how many were left out.
+
+    An item is left out when one of its `fields` holds a match of `secret_like` or a random
+    run. Outside text was never ours, so no run in it counts as known. An item that is not a
+    dict, or whose named field is missing or not a string, is left out too, never an error.
+    Other fields are not looked at. The caller passes post_findings.SECRET_LIKE: that module
+    imports this one.
+
+    Each field is checked as written and without its hidden characters (Unicode categories
+    Cf, Mn and Me: zero-width spaces and joiners, the BOM, combining marks such as U+034F and
+    U+FE0F). The fields also named in `kept`,
+    those the caller will show through doc_address.clean_heading, are checked a third time
+    as `kept_marks` leaves them: cleaning drops marks, and that could join a split token
+    again. `kept` None, the default, means the field named "heading" when it is in
+    `fields`, so a caller cannot forget it; `kept=()` turns the check off, and a tuple is
+    used as given. Other fields are not checked that way: in a doc line such as
+    `export NAME=claude-x-1`, dropping the `=` makes a long run that is no secret.
+
+    Raises ValueError when `fields` is empty, which would let every item through unchecked,
+    and when `kept` names a field that is not in `fields`.
+    """
+    if not fields:
+        raise ValueError("clean needs at least one field to check")
+    if kept is None:
+        kept = tuple(name for name in fields if name == HEADING)
+    if not set(kept) <= set(fields):
+        raise ValueError("every field in `kept` must also be in `fields`")
+    passed = []
+    for item in items:
+        if isinstance(item, dict) and all(
+                _field_safe(item.get(name), name in kept, secret_like) for name in fields):
+            passed.append(item)
+    return passed, len(items) - len(passed)
+
+
+def _field_safe(text, cleaned: bool, secret_like: re.Pattern[str]) -> bool:
+    if not isinstance(text, str):
+        return False
+    forms = [text, _without_hidden(text)] + ([kept_marks(text)] if cleaned else [])
+    return all(_safe(form, secret_like) for form in forms)
+
+
+def kept_marks(text: str) -> str:
+    """`text` with only letters, digits, whitespace and HEADING_MARKS: each whitespace
+    character becomes a space, nothing is cut. doc_address.clean_heading starts from this,
+    so `clean` checks the very characters a shown heading keeps."""
+    return "".join(" " if c.isspace() else c for c in text
+                   if c.isalnum() or c in HEADING_MARKS or c.isspace())
+
+
+def _safe(text: str, secret_like: re.Pattern[str]) -> bool:
+    return not secret_like.search(text) and not random_runs(text)
+
+
+def _without_hidden(text: str) -> str:
+    return "".join(c for c in text if unicodedata.category(c) not in HIDDEN)
 
 
 def in_text(*sources: str) -> Callable[[str], bool]:

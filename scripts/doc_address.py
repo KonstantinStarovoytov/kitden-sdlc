@@ -3,19 +3,35 @@
 An address is read only when it is https, on a host in config/doc-hosts.yml, and its path
 starts with that host's path. It may not carry a query, a port or a user. A redirect is
 followed only to an address that passes the same check.
+
+It also holds what every script uses to show a doc address or a heading from outside, so a
+script that cannot import watch_sources.py (which imports it) has them too.
 """
 
+import re
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 import yaml
 
+from secret_filter import HEADING_MARKS as HEADING_MARKS  # shown here too
+from secret_filter import kept_marks
+
 CONFIG = Path(__file__).resolve().parent.parent / "config" / "doc-hosts.yml"
 USER_AGENT = "kitden-sdlc-watcher (+https://github.com/KonstantinStarovoytov/kitden-sdlc)"
 TIMEOUT = 20
 LIMIT = 2 * 1024 * 1024
 REDIRECTS = (301, 302, 303, 307, 308)
+HEADING_MAX = 80
+# An address is shown only with these characters: none of them can break a table cell or a
+# code span.
+SHOWABLE = re.compile(r"https://[A-Za-z0-9._~:/%@!$&'()*+,;=-]+")
+# The clients whose doc text is not given to a model or kept in a file, until the owner
+# answers question 4 of the spec (docs/superpowers/specs/2026-11-15-agent-docs-design.md):
+# Cursor's terms forbid to reproduce its docs. The watcher still reads their pages and keeps
+# hashes only.
+NO_TEXT_CLIENTS = ("cursor",)
 
 
 def load_hosts(path=CONFIG) -> list[tuple[str, str]]:
@@ -130,3 +146,22 @@ def location(address: str, hosts, opener=None) -> str | None:
         return None
     target = urllib.parse.urljoin(address, target)
     return target if allowed(target, hosts) else None
+
+
+def clean_heading(text: str) -> str:
+    """Letters, digits, spaces and -_.,:()/ only, at most 80 characters. Which characters
+    stay is decided by secret_filter.kept_marks. secret_filter.clean checks a field the way
+    this function shows it only when that field is in its `kept` (by default, `heading`):
+    pass any other field that is shown through here in `kept` too."""
+    return " ".join(kept_marks(text).split())[:HEADING_MAX].strip()
+
+
+def page_of(url, hosts) -> str:
+    """The page of a passage's address, without its fragment and `.md`, when it may be
+    shown; else ""."""
+    if not isinstance(url, str) or not allowed(url, hosts):
+        return ""
+    page = urllib.parse.urldefrag(url).url.removesuffix(".md")
+    if not SHOWABLE.fullmatch(page) or not allowed(page, hosts):
+        return ""
+    return page

@@ -6,6 +6,7 @@ import json
 import os
 import subprocess  # noqa: S404
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -22,6 +23,24 @@ FAIL_DAYS = 3
 # 2: doc pages are read as markdown. A memory with a lower number holds hashes of HTML
 # sections, so its doc pages are filled again, quietly, as if new.
 DOC_FORMAT = 2
+# Seconds for every doc page read of a run. The job has 15 minutes, and the releases and the
+# list's files come before the pages. A page not started in time waits for tomorrow: it is
+# not a failed read and keeps its hashes.
+PAGES_SECONDS = 420
+
+
+class Budget:
+    """A time budget that starts when it is made. A read already started is not cut short:
+    the caller asks `left()` before each read."""
+
+    def __init__(self, seconds: float, clock=time.monotonic):
+        self.seconds = seconds
+        self.clock = clock
+        self.start = clock()
+
+    def left(self) -> bool:
+        """Whether some of the seconds are left."""
+        return self.clock() - self.start < self.seconds
 
 
 def _unreadable(meta: dict, source: str) -> dict:
@@ -33,6 +52,59 @@ def _unreadable(meta: dict, source: str) -> dict:
         "user_gets": "Nothing yet.", "systems": "", "row": "", "files": [],
         "version": "", "url": meta["url"],
     }
+
+
+def _out_of_time(addresses: list[str], pages: dict[str, str]) -> dict:
+    """One item for the doc pages that reached FAIL_DAYS skipped runs in one run. The title
+    stays short (the summary's table cuts at 80 characters); the text lists the pages."""
+    count = len(addresses)
+    pages_were = "1 doc page was" if count == 1 else f"{count} doc pages were"
+    clients = {pages[a] for a in addresses}
+    listed = ", ".join(f"`{a}`" for a in addresses)
+    return {**_unreadable({"client": clients.pop() if len(clients) == 1 else "", "url": ""},
+                          "doc pages"),
+            "title": f"{pages_were} not read for {FAIL_DAYS} runs: out of time",
+            "changed": f"Each of the last {FAIL_DAYS} runs ran out of time before {listed}."}
+
+
+def _start(state, count: int) -> int:
+    start = state.get("page_start", 0) if state else 0
+    # A bool is an int in Python; it is not a place in the list.
+    if type(start) is not int or not count:
+        return 0
+    return start % count
+
+
+def page_order(state, pages: dict[str, str]) -> list[str]:
+    """The doc pages in the order to read them: sorted, from the memory's `page_start`,
+    wrapping around. So on a slow day the pages a run did not reach come first the next day."""
+    order = sorted(pages)
+    start = _start(state, len(order))
+    return order[start:] + order[:start]
+
+
+def plan_skips(state, pages: dict[str, str], read: int) -> dict:
+    """The memory after a run that started `read` pages of page_order(state, pages).
+
+    `page_start` moves to the first page left unread, or stays when every page was read.
+    `skips` counts, for each page left unread, the runs in a row that left it unread; a page
+    whose read was started is dropped from it, and so is a page that left the list. The
+    pages that reach their third run in a row today go to `kept` as one item, so a slow site
+    makes one line of the summary, not one for each page.
+    """
+    new = copy.deepcopy(state)
+    order = page_order(state, pages)
+    new["page_start"] = (_start(state, len(order)) + read) % len(order) if order else 0
+    old = state.get("skips") if isinstance(state.get("skips"), dict) else {}
+    new["skips"] = {}
+    for address in order[read:]:
+        count = old.get(address, 0)
+        new["skips"][address] = (count if type(count) is int else 0) + 1
+    # == and not >=: a page is in the item of the run it reaches its third skip, not again.
+    third = [address for address, count in new["skips"].items() if count == FAIL_DAYS]
+    if third:
+        new["kept"].append(_out_of_time(third, pages))
+    return new
 
 
 def plan_run(state, fetched, meta):
@@ -185,11 +257,11 @@ def read_or_none(sid, reader, address):
         return None
 
 
-def main():
+def main(argv=None, clock=time.monotonic):
     ap = argparse.ArgumentParser()
     for name in ("sources", "kitden", "state", "titles", "out"):
         ap.add_argument(f"--{name}", required=True)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     state = json.loads(Path(a.state).read_text()) if Path(a.state).is_file() else None
     list_text = (Path(a.kitden) / "docs/clients.md").read_text(encoding="utf-8")
     rows = parse_list(list_text)
@@ -206,10 +278,21 @@ def main():
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
         fetched[src["id"]] = read_or_none(src["id"], _read, src)
     pages = doc_pages(rows)
-    for address, client in pages.items():
-        meta[address] = {"client": client, "kind": "doc", "url": address}
+    order = page_order(state, pages)
+    budget = Budget(PAGES_SECONDS, clock)
+    done = 0
+    for address in order:
+        if not budget.left():
+            # Left out of meta and fetched: plan_run keeps their hashes and counts no fail.
+            print(f"Out of time for doc pages after {PAGES_SECONDS} seconds; left for "
+                  f"tomorrow: {len(order) - done}.", file=sys.stderr)
+            break
+        meta[address] = {"client": pages[address], "kind": "doc", "url": address}
         fetched[address] = read_or_none(address, lambda u: _read_doc(u, hosts), address)
+        done += 1
     pieces, new_state = plan_run(state, fetched, meta)
+    # plan_run keeps the memory's page_start, so plan_skips sees today's order.
+    new_state = plan_skips(new_state, pages, done)
     if manifests:
         read = None if None in manifests else set().union(*manifests)
         new_state = plan_moved(new_state, read, pages, hosts,
