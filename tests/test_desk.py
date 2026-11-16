@@ -1297,3 +1297,15 @@ def test_a_night_with_no_run_after_red_nights_keeps_works_red():
     assert (rows[0]["night"], rows[0]["since"], rows[0]["grey_since"]) == (
         None, "2026-11-10", "2026-11-15")
     assert light_works([OK], [], nightly=rows)["state"] == "red"
+
+
+def test_a_skipped_night_after_red_nights_keeps_the_red_clock_going():
+    # Red since 11-12; the newest run is from 11-13, so the night of 11-15 was skipped. The
+    # row keeps the old run's date, but its grey stretch ends on 11-15: 3 days after `since`.
+    before = [{"workflow": "nightly.yml", "part": "systems", "state": "red",
+               "since": "2026-11-12"}]
+    rows = nightly([night(made="2026-11-13T10:12:00Z"), GREEN_NIGHTS[1]], before, NOW)
+    systems = rows[0]
+    assert (systems["state"], systems["night"], systems["grey_since"]) == (
+        "grey", "2026-11-13", "2026-11-15")
+    assert light_works([OK], [], nightly=rows)["state"] == "red"

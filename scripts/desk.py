@@ -392,8 +392,7 @@ def _failed(failed: list[str], required: list[str] | None, partial: bool) -> dic
 
 
 def _stretch_end(row: dict) -> date | None:
-    """The night a grey row is about when it has no `night` (no run was read): the last of
-    its grey stretch."""
+    """The last night of a grey row's grey stretch; None when it has none."""
     start, nights = _date(row.get("grey_since")), row.get("grey_nights")
     if start is None or not isinstance(nights, int) or isinstance(nights, bool) or nights < 1:
         return None
@@ -414,7 +413,10 @@ def _night_light(light_id: str, rows: list[dict] | None) -> tuple[list[dict], li
         if (row.get("part") in CLIENT_PARTS) != (light_id == "clients"):
             continue
         name, night, since = row.get("part"), row.get("night"), row.get("since")
-        began, last = _date(since), _date(night) or _stretch_end(row)
+        # A grey row can carry the date of an old run (a skipped night) or none (no run): the
+        # last night of its grey stretch counts too, so the red clock keeps going.
+        began = _date(since)
+        last = max(filter(None, (_date(night), _stretch_end(row))), default=None)
         late = began and last and (last - began).days >= NIGHT_RED_DAYS
         if row.get("state") == "red":
             found.append(_light(light_id, "red" if late else "amber",

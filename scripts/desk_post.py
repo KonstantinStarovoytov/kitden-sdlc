@@ -74,9 +74,10 @@ MEANS = {
     "browser": "A main flow of the page is broken in a real browser.",
 }
 MEANS_ELSE = "A scheduled test run failed."
-# An address GitHub would make a link of by itself, in text: the scheme's "//", "www." or the
-# "@" of an email address (one_line already quiets an "@" that starts a word).
-AUTOLINK = re.compile(r"(?<=[A-Za-z]:)(?=//)|(?<=\bwww)(?=\.)|(?<=\w)(?=@)", re.I)
+# An address GitHub would make a link of by itself, in text: the scheme's "//", "www." or an
+# email address. The joiner goes after the "@", as quiet_mentions puts it after one that starts
+# a word: before it, the "@" would start a mention.
+AUTOLINK = re.compile(r"(?<=[A-Za-z]:)(?=//)|(?<=\bwww)(?=\.)|(?<=\w@)", re.I)
 
 
 class Safe(str):

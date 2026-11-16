@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -7,7 +8,7 @@ import desk_post
 from bot_issues import BOT
 from desk import Facts, build
 from desk_post import LIMIT, TITLE, ci_body, ci_title, main, post, post_nightly, render, week_note
-from post_findings import one_line
+from post_findings import WORD_JOINER, one_line
 from tests.fakes import FakeIssues, issue
 from tests.test_desk import FACTS, JOB_URL, NIGHT, NOW, ROSTER, RUN_URL
 from tests.test_desk import row as desk_row
@@ -524,6 +525,8 @@ def test_the_title_names_the_workflow_and_is_never_empty():
 def test_a_job_or_step_name_cannot_ping_link_or_break_the_page(name):
     body = ci_body(row("systems", "red", failed=[{"job": name, "step": name, "url": JOB_URL}]))
     assert name not in body and "http://e.example" not in body
+    assert WORD_JOINER + "@" not in body  # a joiner before "@" would make "@evil" a mention
+    assert not re.search(r"(?<!\w)@evil", body)
 
 
 def test_the_issue_lists_each_failed_job_linked_and_says_what_to_do():
