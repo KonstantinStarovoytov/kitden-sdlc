@@ -179,9 +179,9 @@ Merged on 2026-11-15 and 2026-11-16. The spec's "Built" notes say what each sett
 | 5 — the list check | 5 | KonstantinStarovoytov/kitden-sdlc#43, KonstantinStarovoytov/kitden#119 |
 | On the way | | KonstantinStarovoytov/kitden-sdlc#42 (uv runs from the temp folder in `check.yml`), KonstantinStarovoytov/kitden#115 (rows CC-04 and CX-09 were real bugs) |
 
-Left open by them, for the owner (spec questions 7 and 8): the list names
-`https://developers.openai.com/plugins/build/plugins`, which the address check refuses; and
-no `WATCH_COHERE_KEY` is saved yet.
+Left open by them, for the owner (spec question 8): no `WATCH_COHERE_KEY` is saved yet.
+Spec question 7 is answered: KonstantinStarovoytov/kitden-sdlc#44 lets the watcher read
+`developers.openai.com/plugins/`.
 
 Parts 6 to 10 do not wait for each other. Task 6.3 is a small pull request of its own that
 Parts 6, 7, 8 and 9 need; do it first.
@@ -1094,9 +1094,8 @@ input-actions.json --repo KonstantinStarovoytov/kitden-sdlc --memory memory/acti
 
 ## What the owner does, in order
 
-1. Now: answers spec question 7 (the `developers.openai.com/plugins/` page the watcher
-   cannot read) before the third failed day puts it in the summary. Questions 11 and 6
-   decide whether recorded vendor text may be in git; until then it is not.
+1. Now: answers questions 11 and 6, which decide whether recorded vendor text may be in git;
+   until then it is not. (Question 7 was answered by kitden-sdlc#44.)
 2. For Part 6: merges the agent-docs feed, sets `WATCH_FEED` to `shadow`, reads the count
    after seven runs, sets it to `live`.
 3. For Part 7: reads which rule pages cannot be watched, and fixes dates in

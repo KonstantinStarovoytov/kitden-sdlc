@@ -836,11 +836,10 @@ how a section is found again by its heading in the eval replay.
 
 New on 2026-11-16:
 
-7. Kitden's list now names `https://developers.openai.com/plugins/build/plugins` as a
-   `Source` (kitden#115). The address check allows only `/codex/` on that host, so the
-   watcher counts the page as unread every day and the summary will say "Cannot read" on the
-   third day. Add the path start `/plugins/` to `config/doc-hosts.yml`, or name another page
-   in the row?
+7. Answered 2026-11-16: the owner chose to allow the page. KonstantinStarovoytov/kitden-sdlc#44
+   added the path start `/plugins/` for `developers.openai.com` to `config/doc-hosts.yml`, so
+   the watcher reads `https://developers.openai.com/plugins/build/plugins` (kitden#115's
+   `Source` for CX-09).
 8. Is the watcher's Cohere key a key of its own, or the one Agent Docs' server already
    uses? Part 12 asks for its own, so it can be taken back alone.
 9. Part 8 changed in two ways (marked there): the watcher reads every page of the stores'
@@ -902,10 +901,9 @@ As of 2026-11-16, read in kitden-sdlc `main` at `7bc1432` unless another place i
   Cursor); `Source` is an address in 35, `install` in 41, `guess` in 5, `help` in 3; 19
   different pages (8 on `code.claude.com`, 6 on `cursor.com`, 4 on `learn.chatgpt.com`, 1 on
   `developers.openai.com`); 9 rows have no exact word.
-- **One page of the list fails the address check**:
-  `https://developers.openai.com/plugins/build/plugins`. On 2026-11-16 it answered 200, and
-  its `.md` 200 `text/markdown`, to the watcher's `User-Agent`; the watcher does not ask,
-  because `/plugins/` is not a path start in the config (question 7).
+- **Every page of the list passes the address check** since kitden-sdlc#44 (question 7):
+  `https://developers.openai.com/plugins/build/plugins` answered 200, and its `.md` 200
+  `text/markdown`, to the watcher's `User-Agent` on 2026-11-16.
 - **Agent Docs' manifest**, 2026-11-16 (`indexed_at` 2026-11-15): 645 pages (197
   `code.claude.com`, 192 `cursor.com`, 183 `learn.chatgpt.com`, 73 `modelcontextprotocol.io`);
   three addresses carry a query. Of the list's 19 pages, 17 are in it as `<address>.md`; the
