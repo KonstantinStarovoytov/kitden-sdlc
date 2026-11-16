@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "updated": "2026-11-16T15:29:03Z",
+  "updated": "2026-11-16T16:10:30Z",
   "repo": "KonstantinStarovoytov/kitden",
   "overall": "amber",
   "lights": [
     {
       "id": "works",
       "name": "Works",
-      "state": "green",
-      "why": ""
+      "state": "amber",
+      "why": "On main, build (macos-latest), build (ubuntu-latest) has not finished."
     },
     {
       "id": "clients",
@@ -46,9 +46,9 @@
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 96,
+      "runs": 98,
       "failed": 6,
-      "did": 52,
+      "did": 54,
       "agreed": 5,
       "disagreed": 0,
       "no_answer": 1
@@ -56,9 +56,9 @@
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 96,
+      "runs": 98,
       "failed": 6,
-      "did": 51,
+      "did": 53,
       "agreed": 4,
       "disagreed": 0,
       "no_answer": 2
@@ -83,7 +83,7 @@
     }
   ],
   "review": {
-    "clean": 43,
+    "clean": 45,
     "fixed": 1,
     "days_to_merge": 0.0
   },
@@ -172,16 +172,19 @@
     }
   ],
   "set_aside": 0,
+  "map": {
+    "stale": []
+  },
   "budget": {
     "agents": [
       {
         "agent": "claude",
-        "runs": 96,
+        "runs": 98,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 96,
+        "runs": 98,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
