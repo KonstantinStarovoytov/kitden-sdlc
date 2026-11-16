@@ -324,10 +324,21 @@ def _nightly(desk: dict) -> str:
     return f"Nightly: {parts}. {_set_aside(desk)}"
 
 
+def _map(desk: dict) -> list[str]:
+    """One line when the workflow map differs from the workflow files; none when it does not,
+    or when that was not read. It is no light and waits for nobody."""
+    found = desk.get("map")
+    stale = found.get("stale") if isinstance(found, dict) else None
+    if not isinstance(stale, list) or not stale:
+        return []
+    return [f"The workflow map is out of date in {_n(len(stale), 'place', 'places')}. "
+            "Run `scripts/map_text.py --write`."]
+
+
 def _health(desk: dict) -> list[str]:
-    """How Kitden is used, and how the nightly tests stand. The lights are the badges on
-    top."""
-    return [_use(desk.get("use") or {}), _nightly(desk)]
+    """How Kitden is used, how the nightly tests stand, and whether the workflow map is out of
+    date. The lights are the badges on top."""
+    return [_use(desk.get("use") or {}), _nightly(desk), *_map(desk)]
 
 
 def _wait(item: dict) -> str:

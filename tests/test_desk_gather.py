@@ -20,6 +20,15 @@ WEEK_AGO = "2026-11-09T07:00:00Z"
 DOWNLOADS = '{"data": {"last_month": 340}}'
 
 
+@pytest.fixture(autouse=True)
+def offline(monkeypatch):
+    """No test here reaches the network: main's own fetch_url finds it down."""
+    def down(request, timeout):
+        raise OSError("the tests are offline")
+
+    monkeypatch.setattr(desk_gather.urllib.request, "urlopen", down)
+
+
 def ago(days):
     return (NOW - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -163,6 +172,9 @@ class FakeApi:
 
     def pages(self, address, key=None):
         return desk_gather.page_items(self.get(address), key)  # the shape check is the real one
+
+    def text(self, address):
+        return json.dumps(self.get(address))
 
     def list_pulls(self, repo):
         self.asked.append(f"list_pulls {repo}")
@@ -777,3 +789,141 @@ def test_silent_and_failed_are_none_when_not_read():
     api.list_pulls = broken
     facts = gather(api, REPO, ROSTER, NOW, None, fetch=lambda url: DOWNLOADS)
     assert facts.reviews is None and facts.silent is None
+
+
+# Task 17: the desk reads the workflow map against the workflow files.
+
+TAP = "konstantinstarovoytov/homebrew-tap"
+JOBS = "jobs:\n  a:\n    runs-on: ubuntu-latest\n"  # what makes a raw text a workflow file
+
+
+def contents(slug):
+    return f"repos/{slug}/contents/.github/workflows?ref=main"
+
+
+def map_answers():
+    """The lists of Kitden's and the tap's workflow files, as the contents API gives them."""
+    from map_text import map_ids
+    ids = map_ids((ROOT / "docs/map/index.html").read_text())
+    return {contents(slug): [{"name": file, "type": "file"}
+                             for repo, file in sorted(ids.values()) if repo == letter]
+            for letter, slug in (("k", REPO), ("t", TAP))}
+
+
+def map_fetch(changed=None):
+    """Kitden's and the tap's raw workflow files, each saying what the map says; `changed`
+    gives another text for some of them."""
+    from tests.test_map_text import _good
+
+    def fetch(url):
+        if url.startswith("https://raw.githubusercontent.com/") and "/.github/workflows/" in url:
+            repo = "k" if f"/{REPO}/" in url else "t"
+            file = url.rsplit("/", 1)[1]
+            return (changed or {}).get(file) or _good(repo, file) + JOBS
+        return fetched(url)
+
+    return fetch
+
+
+def read_map(fetch=None, answers=None, root=ROOT):
+    api = FakeApi({**ANSWERS, **map_answers(), **(answers or {})})
+    return gather(api, REPO, ROSTER, NOW, None, fetch=fetch or map_fetch(), map_root=root), api
+
+
+def test_the_map_that_says_what_the_files_say_is_up_to_date(capsys):
+    facts, api = read_map()
+    assert facts.map_stale == []
+    assert contents(REPO) in api.asked and contents(TAP) in api.asked  # through gh, with a token
+    assert "::warning::" not in capsys.readouterr().out
+
+
+def test_each_place_the_map_differs_from_a_file_is_one_line():
+    from map_text import read_block
+    shown = read_block((ROOT / "docs/map/index.html").read_text())["k-release"]
+    renamed = f"# What: {shown['what']}\n# Why: {shown['why']}\nname: Another name\n{JOBS}"
+    facts, _ = read_map(map_fetch({"release.yml": renamed}))
+    assert facts.map_stale == [
+        f'k-release: name is "{shown["name"]}", the file says "Another name"']
+
+
+def test_a_new_workflow_file_in_kitden_is_a_place_the_map_is_out_of_date():
+    listed = map_answers()[contents(REPO)] + [{"name": "new.yml", "type": "file"}]
+    facts, _ = read_map(answers={contents(REPO): listed})
+    assert facts.map_stale == ["kitden: new.yml is not on the map"]
+
+
+def test_a_raw_file_that_cannot_be_read_is_null_never_up_to_date(capsys):
+    def fetch(url):
+        if url.endswith("/release.yml"):
+            raise OSError("offline")
+        return map_fetch()(url)
+
+    facts, _ = read_map(fetch)
+    assert facts.map_stale is None
+    out = capsys.readouterr().out
+    assert out.count("::warning::") == 1 and "::warning::desk: could not read map" in out
+    assert facts.downloads == 340  # the other reads still ran
+
+
+def test_a_list_that_cannot_be_read_is_null_never_up_to_date(capsys):
+    facts, _ = read_map(answers=failing(contents(TAP)))
+    assert facts.map_stale is None
+    assert "::warning::desk: could not read map" in capsys.readouterr().out
+
+
+def test_a_list_of_another_shape_is_null_never_up_to_date(capsys):
+    facts, _ = read_map(answers={contents(REPO): {"message": "Not Found"}})
+    assert facts.map_stale is None
+    assert "::warning::desk: could not read map" in capsys.readouterr().out
+
+
+def test_a_map_file_that_is_not_there_is_null(tmp_path, capsys):
+    facts, _ = read_map(root=tmp_path)
+    assert facts.map_stale is None
+    assert "::warning::desk: could not read map" in capsys.readouterr().out
+
+
+def test_without_a_root_the_map_is_not_read():
+    api = FakeApi({**ANSWERS, **map_answers()})
+    facts = gather(api, REPO, ROSTER, NOW, None, fetch=fetched)
+    assert facts.map_stale is None and not any("contents" in a for a in api.asked)
+
+
+def test_main_reads_the_map_of_this_checkout_and_writes_it_to_the_desk(tmp_path, monkeypatch):
+    monkeypatch.setattr(desk_gather, "fetch_url", map_fetch())
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    assert main(argv, api=FakeApi({**ANSWERS, **map_answers()}), now=NOW) == 0
+    assert json.loads((tmp_path / "desk.json").read_text())["map"] == {"stale": []}
+
+
+def test_the_desks_api_reads_a_text_through_gh(monkeypatch):
+    seen = []
+    monkeypatch.setattr(desk_gather.GhDeskApi, "_run",
+                        lambda self, *args: seen.append(args) or "[]")
+    assert desk_gather.GhDeskApi().text(contents(REPO)) == "[]"
+    assert seen == [(contents(REPO),)]
+
+
+def test_a_raw_answer_that_is_not_a_workflow_is_null_not_three_places(capsys):
+    facts, _ = read_map(map_fetch({"release.yml": "<html>Something went wrong</html>"}))
+    assert facts.map_stale is None
+    assert "::warning::desk: could not read map" in capsys.readouterr().out
+
+
+def test_the_map_read_stops_at_its_first_failure():
+    asked = []
+
+    def offline(url):
+        if "/.github/workflows/" in url:
+            asked.append(url)
+            raise OSError("offline")
+        return fetched(url)
+
+    facts, _ = read_map(offline)
+    assert facts.map_stale is None and len(asked) == 1
+
+
+def test_a_list_that_fails_stops_the_map_read_before_the_next_list():
+    facts, api = read_map(answers=failing(contents(REPO)))
+    assert facts.map_stale is None
+    assert contents(TAP) not in api.asked

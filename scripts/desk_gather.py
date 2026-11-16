@@ -18,6 +18,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import map_text
 from count_reviews import REPO, SINCE_DAYS, GhNumbersApi, collect, write_numbers
 from desk import NIGHTLY, Facts, build
 
@@ -30,7 +31,11 @@ RUN_DAYS = 7
 BRANCH = "main"
 SCHEDULED_ONLY = ("watcher",)  # watch.yml also has an eval started by hand: it is not a watch
 COUNTED = ("success", "failure")  # a skipped, cancelled or unfinished run is not a run
-ROSTER = Path(__file__).resolve().parent.parent / "config" / "agents.json"
+HERE = Path(__file__).resolve().parent.parent  # this repository's checkout
+ROSTER = HERE / "config" / "agents.json"
+MAP = Path("docs/map/index.html")
+API = "https://api.github.com/"
+WORKFLOW = re.compile(r"^jobs:", re.M)  # every workflow file has it; an error page has not
 RUN_ID = re.compile(r"/actions/runs/(\d+)/")  # in a check run's details_url
 
 
@@ -42,6 +47,10 @@ class GhDeskApi(GhNumbersApi):
 
     def get(self, address: str):
         return json.loads(self._run(address))
+
+    def text(self, address: str) -> str:
+        """The answer at `address` as gh prints it."""
+        return self._run(address)
 
     def pages(self, address: str, key: str | None = None) -> list:
         """Every page of `address`: the items of each list, or of each object's `key`."""
@@ -319,12 +328,42 @@ def _watch_log(path: Path | None) -> list[dict] | None:
     return lines
 
 
+class _Unread(Exception):
+    """A file the map is checked against could not be read. It is no OSError or ValueError,
+    which map_text turns into a line and reads on: this one ends the check at once."""
+
+
+def _map_stale(api, fetch: Fetch, root: Path) -> list[str]:
+    """Each place the workflow map in `root` differs from the workflow files: this checkout's,
+    and Kitden's and the tap's on `main`. Their raw files come through `fetch`; their lists of
+    files come from the contents API through gh, so with the job's token and not from the
+    60 calls an hour GitHub allows without one. A file or a list that was not read is a failed
+    read, never a place: a map that could not be checked is not shown as out of date, nor as
+    up to date. So is a raw file that is not a workflow, such as an error page. The first
+    failed read ends the check, so an offline night does not wait out every timeout."""
+
+    def read(url: str) -> str:
+        try:
+            text = api.text(url[len(API):]) if url.startswith(API) else fetch(url)
+        except Exception as error:
+            raise _Unread(url) from error
+        if not url.startswith(API) and not WORKFLOW.search(text):
+            raise _Unread(url)
+        return text
+
+    lines = map_text.differences((root / MAP).read_text(), root, read)
+    if any(line.endswith(map_text.NOT_READ) for line in lines):
+        raise _Unread("a list of another shape, or a file of this checkout")
+    return lines
+
+
 # --- All the facts ---
 
 
 def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
-           fetch: Fetch = fetch_url) -> Facts:
-    """Every fact the desk reads. A read that fails leaves its field None."""
+           fetch: Fetch = fetch_url, map_root: Path | None = None) -> Facts:
+    """Every fact the desk reads. A read that fails leaves its field None. The workflow map is
+    read only with `map_root`, the checkout it is in."""
     required, partial = _required(api, repo)
     reviews, silent = _reviews(api, repo, now)
     runs, failed = _agent_runs(api, roster, now)
@@ -344,6 +383,8 @@ def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
         downloads=_read("downloads", lambda: fetch_downloads(fetch)),
         nightly=_nightly(api, repo),
         set_aside=_read("set_aside", lambda: fetch_set_aside(fetch, repo)),
+        map_stale=None if map_root is None else _read(
+            "map", lambda: _map_stale(api, fetch, map_root)),
     )
 
 
@@ -358,7 +399,7 @@ def main(argv: list[str], api=None, now: datetime | None = None) -> int:
     now = now or datetime.now(UTC)
     roster = json.loads(args.roster.read_text())
     facts = gather(api or GhDeskApi(), args.repo, roster, now, args.watch_log,
-                   fetch=lambda url: fetch_url(url))
+                   fetch=lambda url: fetch_url(url), map_root=HERE)
     facts.before = before(args.out)  # read before the new desk.json takes its place
     try:
         args.out.mkdir(parents=True, exist_ok=True)
