@@ -1442,7 +1442,7 @@ def test_in_shadow_eight_pages_write_five_rows_and_three_wait():
     rows, state, reader = shadow_plan(feed_state(), eight)
     assert reader.read == [at(n) for n in range(5)]
     text = "\n\n".join(s.text for s in HOOK_PAGE)
-    assert rows == [{"page": at(n), "day": DAY, "word": "hook", "chars": len(text)}
+    assert rows == [{"page": at(n), "day": DAY, "words": ["hook"], "chars": len(text)}
                     for n in range(5)]
     # A row written is done: only the three not reached wait, and the day moves.
     assert waiting(state) == [e.url for e in eight[5:]]
@@ -1455,7 +1455,7 @@ def test_a_shadow_row_holds_no_page_text_and_no_heading():
                                                    headings=["Planted heading words"])],
                              reader=Pages({at(1): page}))
     [row] = rows
-    assert set(row) == {"page", "day", "word", "chars"}
+    assert set(row) == {"page", "day", "words", "chars"}
     assert "planted" not in json.dumps(rows).replace(at(1), "").lower()
 
 
@@ -1505,15 +1505,21 @@ def test_live_then_shadow_writes_a_row_for_a_piece_still_waiting_for_route():
     assert [r["page"] for r in rows] == [p["url"] for p in pieces] and waiting(state) == []
 
 
-def test_the_row_names_the_word_kept_sections_found_for_the_first_kept_section():
+def test_the_row_names_each_word_that_kept_a_section_once_in_first_seen_order():
     page = md(("Intro", "Nothing here."), ("Servers", "Add an MCP server and a hook."),
+              ("Hooks", "A hook runs."), ("More", "Another MCP server."),
               ("Settings", "The zorkSetting key and a hook."))
     rows, _, _ = shadow_plan(feed_state(), [fentry(1)], reader=Pages({at(1): page}))
-    assert [r["word"] for r in rows] == ["mcp"]
-    page = md(("Settings", "The zorkSetting key and a hook."))
-    rows, _, _ = shadow_plan(feed_state(), [fentry(1)], reader=Pages({at(1): page}))
-    # A list word comes before a topic word, as kept_sections finds it.
-    assert [r["word"] for r in rows] == ["zorkSetting"]
+    # One word a section, as kept_sections gives it: a list word before a topic word, and
+    # of the topic words the first of TOPIC_WORDS; then each word once.
+    assert [r["words"] for r in rows] == [["mcp", "hook", "zorkSetting"]]
+
+
+def test_a_changed_page_names_only_the_words_of_its_new_sections():
+    page = md(("Old", "An old MCP server."), ("New", "A new hook."))
+    rows, _, _ = shadow_plan(feed_state(), [fentry(1, kind="changed", headings=["New"])],
+                             reader=Pages({at(1): page}))
+    assert [r["words"] for r in rows] == [["hook"]]
 
 
 def test_the_row_counts_the_characters_the_judge_would_get():
@@ -1569,8 +1575,8 @@ def test_in_shadow_main_gives_no_feed_piece_to_the_judge_and_writes_the_rows(
                                         feed_pages=HOOK_PAGES, feed_mode="shadow")
     assert out["pieces"] == [] and planned["output"] == "pieces=0\n"
     assert read == DOCS + [at(n) for n in range(5)]
-    assert [(r["page"], r["day"], r["word"]) for r in planned["shadow"]] == [
-        (at(n), days_ago(1), "hook") for n in range(5)]
+    assert [(r["page"], r["day"], r["words"]) for r in planned["shadow"]] == [
+        (at(n), days_ago(1), ["hook"]) for n in range(5)]
     assert out["feed"] == {"mode": "shadow", "pieces": 5, "waiting": 3, "dropped": 0,
                            "held": 0, "gone": 0}
     assert [w["url"] for w in out["state"]["feed"]["wait"]] == [e.url for e in eight_today()[5:]]

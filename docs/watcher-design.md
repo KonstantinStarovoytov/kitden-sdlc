@@ -253,10 +253,11 @@ The first run only fills the memory and opens nothing.
   gets. `off` (or unset, or any other value): the feed is not read, so it is never a failed
   read, and its memory is left as it is. `shadow`: the feed is read and its pieces made under
   the limits of live (below), but none reaches the judge; `feed-shadow.json`, beside
-  `input.json` in the `watch-input` artifact, has one row a piece: the page, its day, the word
-  that kept its first section and its length. No page text or heading is in it. An entry
-  leaves the queue once its row is written and the feed's day moves, so going live does not
-  send the shadow week again. `live`: the pieces go to the judge.
+  `input.json` in the `watch-input` artifact, has one row a piece: the page, its day, the
+  words that kept its sections (each once, in page order) and its length. No page text or
+  heading is in it. An entry leaves the queue once its row is written and the feed's day
+  moves, so going live does not send the shadow week again. `live`: the pieces go to the
+  judge.
 - At most 5 feed pieces a run, in the room the releases and the list's pages leave of the 20,
   from at most 10 feed pages read, inside the same 7 minutes. The rest wait, at most 14 days.
 - The judge runs on `ANTHROPIC_API_KEY`. The eval measured about $0.05 a piece on Sonnet 5.5;

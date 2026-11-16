@@ -304,11 +304,12 @@ def _count(feed: dict, name: str) -> int:
 
 
 class Made(NamedTuple):
-    """A feed piece of this run, its entry's day and the word that kept its first section."""
+    """A feed piece of this run, its entry's day and the words that kept its sections: each
+    once, in the order first found."""
 
     piece: dict
     day: str
-    word: str
+    words: tuple[str, ...]
 
 
 def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
@@ -355,13 +356,13 @@ def plan_shadow(state, entries, listed, hosts, read_page, words, today, room,
     The same entries are read and the same pieces made, under the same caps, so the rows show
     what live would send. But no piece goes to the judge, so route never marks one judged:
     an entry leaves the queue as soon as its row is made. A row is the page's address (it
-    passed doc_address.allowed), the entry's day, the word that kept its first kept section
-    (watch_feed.kept_sections, which made the piece) and the length of the piece's text. It
-    holds no page text and no heading.
+    passed doc_address.allowed), the entry's day, the words that kept its sections (one a
+    section from watch_feed.kept_sections, which made the piece; each word once, in page
+    order) and the length of the piece's text. It holds no page text and no heading.
     """
     made, new = _plan_feed(state, entries, listed, hosts, read_page, words, today, room,
                            in_time, source=source, shadow=True)
-    return [{"page": m.piece["url"], "day": m.day, "word": m.word,
+    return [{"page": m.piece["url"], "day": m.day, "words": list(m.words),
              "chars": len(m.piece["text"])} for m in made], new
 
 
@@ -435,7 +436,7 @@ def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_
             "id": f"{source}#{key}", "kind": "doc", "client": client, "version": "",
             "url": page, "text": text, "source": source, "key": key,
             "hash": hashlib.sha256(text.encode()).hexdigest(),
-        }, e.day, kept[0][1]))
+        }, e.day, tuple(dict.fromkeys(word for _, word in kept))))
         # Live: it waits until route marks it judged. Shadow: its row is the end of it.
         if not shadow:
             wait.append(e)
@@ -616,7 +617,7 @@ def main(argv=None, clock=time.monotonic):
     out["kitden"] = _git(a.kitden, "rev-parse", "HEAD").stdout.strip()
     out["feed"] = feed_counts(mode, new_state, len(found))
     if mode == "shadow":
-        # Rows only: an address, a day, a word, a number. The judge never reads this file.
+        # Rows only: an address, a day, words, a number. The judge never reads this file.
         Path(a.out).with_name(SHADOW_FILE).write_text(json.dumps(found, indent=1),
                                                       encoding="utf-8")
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")

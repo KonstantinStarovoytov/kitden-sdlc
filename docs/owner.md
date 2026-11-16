@@ -61,8 +61,8 @@ A switch is a repository variable, set to `true` or `false` on the repository's 
 After a shadow week (seven daily runs), look at what live would have sent:
 
 - Each run's `watch-input` artifact (kept seven days, on the run's page in Actions) holds
-  `feed-shadow.json`: one row a piece, with the page, its day in the feed, the word that kept
-  it and its length in characters. No page text is in it: open the page to read it.
+  `feed-shadow.json`: one row a piece, with the page, its day in the feed, the words that kept
+  its sections (each once) and its length in characters. No page text is in it: open the page to read it.
 - Each run's line in `log.jsonl` on the `watch` branch has `feed`: `pieces` and `waiting` are
   that run's, `dropped`, `held` and `gone` are totals since the feed was first read.
 - If the pieces look about what Kitden shows, set `WATCH_FEED` to `live`. The pieces of the
