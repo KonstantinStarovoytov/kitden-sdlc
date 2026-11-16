@@ -168,14 +168,14 @@ def test_what_keeps_its_second_paragraph_and_why_stops_at_a_tool_directive():
         "a zizmor, actionlint.")
 
 
-# Task 16: the nightly run on the map. The desk does not read the nightly runs yet (S1 is not
-# built), so the map shows no `reads` link today; the tests below say so.
+# Task 16, finished in task 17: the nightly run on the map, and the desk that reads it.
 
-def test_the_nightly_run_is_on_the_map_with_its_jobs_and_no_link_yet():
+def test_the_nightly_run_is_on_the_map_with_its_jobs_and_links():
     assert map_ids(HTML)["k-nightly"] == ("k", "nightly.yml")
     assert map_jobs(HTML)["k-nightly"] == ["systems", "clients", "browser"]
     links = map_links(HTML)
-    assert links["k-nightly"] == {} and "reads" not in links["s-desk"]
+    assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps"]
+    assert links["k-nightly"]["readBy"] == links["k-latest-deps"]["readBy"] == ["s-desk"]
     assert links["s-review"] == {"calledBy": ["k-agents-review"]}
     assert "All 22 workflows" in HTML
 
@@ -192,9 +192,7 @@ def test_every_link_names_a_workflow_on_the_map_and_has_its_other_end():
 
 
 def test_a_reads_link_is_read_and_the_page_shows_it():
-    page = HTML.replace("{id:'s-desk', r:'s', file:'desk.yml', kind:'own',",
-                        "{id:'s-desk', r:'s', file:'desk.yml', kind:'own', reads:['k-nightly'],")
-    assert map_links(page)["s-desk"] == {"reads": ["k-nightly"]}
+    assert map_links(HTML)["s-desk"] == {"reads": ["k-nightly", "k-latest-deps"]}
     for kind, label in (("reads", "Reads"), ("readBy", "Read by")):
         shown = (f"(w.{kind} ? '<div class=\"fact\"><span class=\"cap\">{label}</span>"
                  f"<span>' + w.{kind}.map(ref)")
@@ -207,13 +205,23 @@ def test_a_link_to_a_workflow_opens_it_because_the_start_keeps_the_hash():
     assert "setHash('')" not in HTML
 
 
-def test_the_every_day_story_draws_the_nightly_run():
+def test_the_every_day_story_draws_the_nightly_run_and_who_reads_it():
     day = HTML.split("day:{")[1].split("\n};")[0]
     assert "{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}" in day
     assert "t:'Nightly tests: green or red'" in day and "a real browser" in day
-    assert "emails" not in day
+    assert "red: a ci-failure issue" in day and "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
-    assert "the desk reads it" not in day
+    assert day.count("'s-desk','the desk reads it'") == 2
+    assert "['d0','s-desk','the desk reads it','z']" in day
+    assert "['d2','s-desk','the desk reads it','z']" in day
+
+
+def test_the_nightly_and_latest_deps_rows_sit_right_above_the_desk():
+    """So that the edges into the desk run down into it (shape z) and cross no card."""
+    rows = HTML.split("day:{")[1].split("rows:[")[1].split("\n    ],")[0].splitlines()
+    firsts = [re.search(r"\{wf:'([\w-]+)'", row).group(1) for row in rows if "wf:" in row]
+    at = firsts.index("s-desk")
+    assert firsts[at - 2:at + 1] == ["k-nightly", "k-latest-deps", "s-desk"]
 
 
 def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():

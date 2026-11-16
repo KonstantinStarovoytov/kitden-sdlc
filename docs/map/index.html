@@ -440,11 +440,11 @@ const WF = [
   jobs:[{n:'watch', tags:['calls kitden-sdlc'], when:'`AGENTS_ENABLED` on', steps:['Call `release-watch.yml`']}]},
  {id:'k-latest-deps', r:'k', file:'latest-deps.yml', kind:'own',
   trigger:'Every day, 05:17 UTC',
-  stages:[['test']],
+  readBy:['s-desk'], stages:[['test']],
   jobs:[{n:'test', tags:['macOS'], when:'always', steps:['`uv sync --upgrade`','`pytest`']}]},
  {id:'k-nightly', r:'k', file:'nightly.yml', kind:'own',
   trigger:'Every night, 02:37 UTC',
-  stages:[['systems','clients','browser']],
+  readBy:['s-desk'], stages:[['systems','clients','browser']],
   jobs:[
    {n:'systems', tags:['macOS ARM + Intel','Ubuntu x64 + ARM','Python 3.13 + 3.14','no secret'], when:'always: 8 runs, one per system and Python',
     steps:['Install, on the Python of this run','Tests: `pytest`','The real keyring (Ubuntu)','The real Keychain (macOS)','Page tests in Node','Start-up within its time budgets: twice the budgets on the Intel Mac','Tests set aside: never red']},
@@ -525,10 +525,10 @@ const WF = [
   ]},
  {id:'s-desk', r:'s', file:'desk.yml', kind:'own',
   trigger:'Every day, 06:41 UTC',
-  stages:[['measure'],['post']],
+  reads:['k-nightly','k-latest-deps'], stages:[['measure'],['post']],
   jobs:[
-   {n:'measure', tags:['no model'], when:'always', steps:['Gather the facts','Commit the numbers']},
-   {n:'post', tags:['no model','Lantern'], when:'`AGENTS_ENABLED` on', steps:['Update the “Kitden desk” issue']}
+   {n:'measure', tags:['no model'], when:'always', steps:['Gather the facts, the nightly runs and the workflow map among them','Commit the numbers']},
+   {n:'post', tags:['no model','Lantern'], when:'`AGENTS_ENABLED` on', steps:['Update the “Kitden desk” issue','A `ci-failure` issue for each red nightly part, closed when it is green']}
   ]},
  {id:'s-checks', r:'s', file:'checks.yml', kind:'own',
   trigger:'Any push or pull request',
@@ -646,15 +646,16 @@ const STORIES = {
       ['bump','t-tests','starts','z'],['t-tests','t-auto-pull','tests pass','z'],['t-auto-pull','t-publish','starts','z'],['t-publish','brew','','h']]},
   day:{note:'Times are UTC. Nothing here needs you until an issue, a pull request or a red run shows up.',
     rows:[
-      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Nightly tests: green or red', sub:'4 systems, the newest Claude Code and Codex, a real browser'}],
       [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Issue in kitden', sub:'you confirm or close'}],
-      [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A red run', sub:'if a new version breaks'}],
       [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'“Time for a release?”', go:'rel'}],
+      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Nightly tests: green or red', sub:'4 systems, the newest Claude Code and Codex, a real browser; red: a ci-failure issue'}],
+      [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A red run', sub:'if a new version breaks; then a ci-failure issue'}],
       [{id:'c4', kind:'clock', t:'06:41'}, {wf:'s-desk'}, {id:'d4', kind:'thing', ic:'lantern', t:'“Kitden desk” issue', sub:'what waits for you'}],
       [{id:'c5', kind:'clock', t:'13:10'}, {wf:'t-autobump'}, {id:'d5', kind:'thing', ic:'kettle', t:'PR bump-kitden', sub:'then bottles', go:'rel'}]
     ],
     edges:[['c0','k-nightly','','h'],['k-nightly','d0','','h'],['c1','s-watch','','h'],['s-watch','d1','Lantern opens','h'],['c2','k-latest-deps','','h'],['k-latest-deps','d2','','h'],
       ['c3','k-release-watch','','h'],['k-release-watch','s-release-watch','uses','h'],['s-release-watch','d3','Lantern opens','h'],
+      ['d0','s-desk','the desk reads it','z'],['d2','s-desk','the desk reads it','z'],
       ['c4','s-desk','','h'],['s-desk','d4','Lantern updates','h'],['c5','t-autobump','','h'],['t-autobump','d5','opens','h']]}
 };
 const flow = $('flow');
