@@ -86,8 +86,8 @@ code{font-family:var(--mono);font-size:.9em;background:var(--inset);padding:1px 
 .tool:hover,.dayrow:hover{border-color:var(--route)}
 .tool:hover .tile,.dayrow:hover .tile{border-color:var(--route);box-shadow:0 0 0 3px var(--route-soft)}
 svg.ic{transition:color .2s}
-.tool:hover svg.ic,.dayrow:hover svg.ic,.chip:hover svg.ic,.term:hover svg.ic,.tl li:hover svg.ic,.stepc:hover svg.ic,th:hover svg.ic{color:var(--bc,var(--route))}
-.tool:hover .p3,.dayrow:hover .p3,.chip:hover .p3,.term:hover .p3,.tl li:hover .p3,.stepc:hover .p3,th:hover .p3{filter:none;opacity:1}
+.tool:hover svg.ic,.dayrow:hover svg.ic,.chip:hover svg.ic,.term:hover svg.ic,.stepc:hover svg.ic,th:hover svg.ic{color:var(--bc,var(--route))}
+.tool:hover .p3,.dayrow:hover .p3,.chip:hover .p3,.term:hover .p3,.stepc:hover .p3,th:hover .p3{filter:none;opacity:1}
 .tl li:hover .si,.chip:hover{color:var(--route);border-color:var(--route)}
 h3 .ic{margin-right:6px}
 .tools{display:flex;flex-direction:column;gap:18px}
@@ -772,11 +772,6 @@ function tag(t){
   if (t === 'langfuse') return '<span class="chip">' + ico('langfuse', 12) + 'Langfuse</span>';
   return '<span class="chip">' + (TAGIC[t] ? ico(TAGIC[t], 12) : '') + esc(t) + '</span>';
 }
-const STEPIC = [[/Record hosts/,'stepsecurity'],[/Lantern/,'lantern'],[/Beacon/,'beacon'],[/Kettle/,'kettle'],[/Luna|no network/,'openai'],[/Claude|Model judges|no shell/,'claude'],[/Playwright|Chromium|Browser tests/,'playwright'],
-  [/ruff/,'ruff'],[/zizmor/,'zizmor'],[/actionlint/,'lint'],[/Node/,'nodedotjs'],[/pytest|[Tt]ests/,'pytest'],[/pyright/,'python'],[/PyPI|pip-audit/,'pypi'],[/MCP|server\.json/,'modelcontextprotocol'],
-  [/brew|formula|bottle|the tap/,'homebrew'],[/scene|picture/,'playwright'],[/uv sync|Install|package/,'uv'],[/Call /,'githubactions'],
-  [/GitHub|pull request|PR|issue|comment|tag|branch|Commit|Push|`main`|diff/,'github'],[/Rule checker|secret/,'shield']];
-const stepIcon = (text, i) => { const hit = STEPIC.find(([re]) => re.test(text)); return hit ? ico(hit[1], 13) : String(i + 1); };
 const hasModel = j => j.tags.some(t => t.startsWith('model:'));
 const ref = id => '<a href="#' + id + '">' + byId[id].file + '</a> <span class="ink3">in ' + REPO[byId[id].r].name + '</span>';
 $('side').innerHTML = ['k','s','t'].map(r => '<div class="grp"><span class="cap">' + ico(RLOGO[r], 13) + ' ' + REPO[r].name + '</span>' +
@@ -786,7 +781,7 @@ function jobPanel(w, name){
   document.querySelectorAll('#detail .jobchip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.j === name)));
   $('jobpanel').innerHTML = '<div class="jt"><b>' + esc(j.n) + '</b>' + j.tags.map(tag).join('') + '</div>' +
     '<div class="ink3" style="font-size:12px">When: ' + fmt(j.when) + '</div>' +
-    '<ol class="tl">' + j.steps.map((s, i) => '<li style="--i:' + i + '"><span class="si">' + stepIcon(s, i) + '</span>' + fmt(s) + '</li>').join('') + '</ol>';
+    '<ol class="tl">' + j.steps.map((s, i) => '<li style="--i:' + i + '"><span class="si">' + (i + 1) + '</span>' + fmt(s) + '</li>').join('') + '</ol>';
 }
 function select(id){
   const w = byId[id]; if (!w) return;

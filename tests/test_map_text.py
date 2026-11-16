@@ -214,3 +214,10 @@ def test_the_every_day_story_draws_the_nightly_run():
     assert "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
     assert "the desk reads it" not in day
+
+
+def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():
+    assert "STEPIC" not in HTML and "stepIcon" not in HTML
+    numbered = re.findall(r"<span class=\"si\">' \+ (.+?) \+ '</span>", HTML)
+    assert numbered == ["(i + 1)"]
+    assert "<span class=\"n\">' + (i + 1) + '</span>" in HTML  # the story cards' steps
