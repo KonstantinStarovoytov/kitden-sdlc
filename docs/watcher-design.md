@@ -355,7 +355,9 @@ collected this way yet: one issue holds many of them (call).
 Traces and experiments go to Langfuse (cloud, free plan), only when its keys are set: each
 model call with its time and tokens, and each eval run with the scores of each task. The
 `judge` and the `eval` job get the keys. Langfuse
-keeps them 30 days; the long record stays in the repo and on the `watch` branch. The prompts
+keeps them 30 days; the long record stays in the repo and on the `watch` branch. The dataset
+`watch-eval` is now the source of the watch tasks' text, which is not in git
+(`evals/watch/README.md`); the data window does not delete datasets. The prompts
 stay in git. What is sent there is public release notes and Kitden's public code.
 
 Where to look in Langfuse (`scripts/watch_trace.py` sets all of it):

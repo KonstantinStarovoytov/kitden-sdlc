@@ -27,15 +27,25 @@ each task right, and the eval passes only when every run passes.
 `tasks/<id>/task.json` holds `id`, `kind`, `source` (the id in `config/watch-sources.yml`, or
 the address of a doc page),
 `piece` (as in `input.json`: one section of the source, cut to 12000 characters like the
-fetcher does) and `expect` (`row`: the `What` cell of `docs/clients.md` as written, or `gap`, or
-null; `effect`: `breaks`, `wrong-data`, `minor`, `gap` or null) and `kitden`: the Kitden commit
-the answer was checked against. The runner reads the list and the files at that commit, so a
+fetcher does, but with `text_sha256`, the SHA-256 of its text, in place of the text) and
+`expect` (`row`: the `What` cell of `docs/clients.md` as written, or `gap`, or null;
+`effect`: `breaks`, `wrong-data`, `minor`, `gap` or null) and `kitden`: the Kitden commit the
+answer was checked against. The runner reads the list and the files at that commit, so a
 later fix in Kitden does not turn a right answer wrong unseen. A row matches with or without
 its backticks. The pieces are fetched with the watcher's own code from the sources in the
 config.
 
 One piece is a whole version, so it can touch more than the row named here; the row is the one
 that matters most. A gap task only needs one finding with the effect `gap`.
+
+The vendors' text is not in git (the owner's answer to questions 6 and 11 of the Agent Docs
+design); older commits still hold it. It is in the Langfuse dataset `watch-eval`, and
+the owner's full copy, one `<task id>.json` a task, is in
+`~/Documents/work/kitden-private/watch-texts`, outside every repository. `evals/watch_texts.py`
+has three commands: `split` moves the text of task files that still hold one into the folder,
+`upload` puts the folder into the dataset, and `check --texts langfuse|<folder>` checks the
+texts against the files' hashes. Every `--texts <folder>` or `--folder` (the eval, the harvest,
+`upload`) is that full folder: `upload` and the eval need every task's text.
 
 ## How the answers were checked
 
@@ -114,11 +124,11 @@ Each answer has a type and a severity, by the rules in `docs/watch-effects.md`.
 
 With `KITDEN` set to a clone of Kitden whose `docs/clients.md` exists, `WATCH_MODEL` set with
 its maker's key (`OPENAI_API_KEY`, or `ANTHROPIC_API_KEY` for a `claude-` model), and `D` a
-folder for the results:
+folder for the results (`--texts` is `langfuse`, with its keys, or the texts folder):
 
 ```sh
 uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py \
-  --kitden "$KITDEN" --tasks evals/watch/tasks --out "$D"
+  --kitden "$KITDEN" --tasks evals/watch/tasks --out "$D" --texts langfuse
 uv run --locked --only-group watch --only-group watch-io python evals/watch_score.py \
   --tasks evals/watch/tasks --results "$D" --table evals/watch/table.md
 ```
@@ -138,9 +148,9 @@ on, and uploads the table as the artifact `watch-eval`. The table is committed a
 ### In Langfuse
 
 With `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` set (and `LANGFUSE_HOST` for the region),
-the run first writes the tasks to the dataset `watch-eval` (item id = task id; the files here
-are the source), then runs them as one experiment named `<model> <short commit> <UTC time>`,
-with `run <n>` after it when there are several runs.
+the run first writes the tasks to the dataset `watch-eval` (item id = task id; the answers from
+the files here, the text from `--texts`), then runs them as one experiment named
+`<model> <short commit> <UTC time>`, with `run <n>` after it when there are several runs.
 In Langfuse open Datasets, then `watch-eval`, then the run: each task has its trace (every
 `screen`, `assess` and `refute` call with its time and tokens) and the scores `found`,
 `false_alarm`, `severity_right`, `injection_obeyed` and `judge_failed` (1 or 0), and
@@ -154,7 +164,7 @@ About once a month, on a branch, with `gh` signed in and `archive.jsonl` from th
 
 ```sh
 uv run python evals/watch_harvest.py --repo OWNER/kitden --archive archive.jsonl \
-  --tasks evals/watch/tasks
+  --tasks evals/watch/tasks --texts ~/Documents/work/kitden-private/watch-texts
 ```
 
 A `client-change` issue labelled `confirmed`, open or closed, becomes a `touched` task (the row and
@@ -165,5 +175,6 @@ are skipped and listed. Summary issues are not collected. `harvest` returns the 
 the skipped issues. A piece from a doc page is read again from its address.
 
 A `false-alarm` issue becomes an `untouched` task for the whole piece, so the piece must touch
-nothing at all. Read such tasks before you merge the harvest pull request. The new tasks reach
+nothing at all. Read such tasks, their text in the folder, before you merge the harvest pull
+request, and run the `upload` the harvest prints. The new tasks reach
 `main` as a pull request; no workflow runs this.

@@ -1,13 +1,14 @@
 """Turn judged watcher issues into new watch tasks.
 
 Usage: watch_harvest.py --repo OWNER/kitden --archive <archive.jsonl> --tasks evals/watch/tasks
-                        --texts <folder> [--sources config/watch-sources.yml]
+                        --texts <the full texts folder> [--sources config/watch-sources.yml]
 
+--texts is the whole folder `watch_texts.py split` wrote, since `upload` reads every text.
 Run by hand about once a month, on a branch; the new tasks reach main as a pull request. It
 reads the `client-change` issues, open and closed, with `gh`, joins each to its line of the
 watcher's archive, fetches the piece again by its source (a config id or a doc address) and key,
 and writes <tasks>/issue-<n>/task.json without the piece's text, which goes to
-<folder>/issue-<n>.json (watch_texts.py); it then says how to upload the texts to Langfuse.
+<texts>/issue-<n>.json (watch_texts.py); it then says how to upload the texts to Langfuse.
 An issue with a verdict, `confirmed` or `false-alarm`, becomes a task, open or closed. Summary
 issues are not harvested.
 """

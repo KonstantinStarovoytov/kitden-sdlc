@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "2.1.306",
   "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-  "text": "## 2.1.306\n\n- Fixed `claude -p` inside cloud sessions reporting \"Not logged in\" when started without the session's environment variables\n- Fixed an API error being replaced by \"prompt is too long\", and an unneeded compaction, in sessions with many MCP tools",
   "source": "claude-code-changelog",
   "key": "2.1.306",
-  "hash": "d1f6435e70c3ce4851ff0f89650db9dd070d0ce5299913059a8e6819851176e8"
+  "hash": "d1f6435e70c3ce4851ff0f89650db9dd070d0ce5299913059a8e6819851176e8",
+  "text_sha256": "dc99dd00a680b9a718c092999fa236831c7a3de3fb2cb780d51239f01929843c"
  },
  "expect": {
   "row": null,

@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "rust-v0.162.1",
   "url": "https://github.com/openai/codex/releases",
-  "text": "## Bug Fixes\n\n- Fixed a TUI crash when asynchronous questions contain multiple lines, preserving line breaks and complete hyperlink destinations. (#51866)\n- Fixed startup failures caused by differences between a running background server's feature settings and CLI defaults. Compatibility checks now apply only to explicit command-line feature overrides. (#52648)\n\nFull Changelog: https://github.com/openai/codex/compare/rust-v0.162.0...rust-v0.162.1",
   "source": "codex-releases",
   "key": "rust-v0.162.1",
-  "hash": "381b005b61db42e513aceadac679efbea351be5032a91459dff544387f2b3722"
+  "hash": "381b005b61db42e513aceadac679efbea351be5032a91459dff544387f2b3722",
+  "text_sha256": "ad543d66f33d32971d477bf781a773fd19da583c4ed9ead6c5c5320fcc315f7b"
  },
  "expect": {
   "row": null,

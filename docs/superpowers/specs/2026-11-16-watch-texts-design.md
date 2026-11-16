@@ -39,9 +39,9 @@ not `tests/fixtures`, not the `watch` branch (`archive.jsonl` holds the judge's 
   when its SHA-256 differs from `text_sha256`, the run stops before any model call and names
   the tasks.
 - **Langfuse:** item id = task id, `input` = the whole piece with its text, as today. The
-  run no longer writes the input from the files (they have no text now): it reads each item,
-  checks the hash, and upserts only `expected_output` and `metadata` from the files, which
-  stay the source of the answers.
+  run no longer writes the input from the files alone (they have no text now): it joins each
+  file to its text from `--texts`, checks the hash, and upserts the whole item through
+  `watch_texts.upload`; the files stay the source of the answers.
 - **The copy on the Mac:** a folder outside every repository, one `<task id>.json` per task
   (`{"id", "sha256", "text"}`). My call for the place: `~/Documents/work/kitden-private/watch-texts/`.
 - **A small tool, `evals/watch_texts.py`:**

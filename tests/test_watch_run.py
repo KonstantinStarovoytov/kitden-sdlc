@@ -183,7 +183,8 @@ def test_a_langfuse_failure_does_not_fail_the_run(tmp_path, monkeypatch, capsys)
     run_tasks(folder, kitden, out, model, 10, "gpt-test")
     assert model.pieces == ["s#1", "s#2"]
     assert (out / "002-b/findings.json").exists()
-    assert "Langfuse failed: ConnectionError\n" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Langfuse failed: ConnectionError\n" in err and "sk-test" not in err
 
 
 def test_without_keys_nothing_of_langfuse_is_imported(tmp_path, monkeypatch, capsys):

@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "2.1.278",
   "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-  "text": "## 2.1.278\n\n- Changed auto mode for Claude API and Enterprise users, and on Bedrock, Vertex, Foundry and gateways, to default to the server-side classifier, which does not charge for classifier overhead (`CLAUDE_CODE_AUTO_MODE_SERVER=0` opts out on Bedrock, Vertex, Foundry and gateways); warns on billed fallback. See https://code.claude.com/docs/en/auto-mode-classifier-billing\n- Added an `Auto mode server` row to `/status` showing whether this session's auto mode classifier runs on the server",
   "source": "claude-code-changelog",
   "key": "2.1.278",
-  "hash": "2709a7004913baac065a225c0f3ee1edafee930b127276a3dfe6036d9fa6a586"
+  "hash": "2709a7004913baac065a225c0f3ee1edafee930b127276a3dfe6036d9fa6a586",
+  "text_sha256": "4260b6c27c5deecbacf16968f03a717545f46f659543abab0023e6c3f64e3675"
  },
  "expect": {
   "row": null,
