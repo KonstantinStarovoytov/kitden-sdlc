@@ -17,8 +17,8 @@ GitHub Actions; in agent-docs: FastAPI, pydantic, pytest.
 
 **Spec:** `docs/superpowers/specs/2026-11-15-agent-docs-design.md`, approved by the owner on
 2026-11-15 and brought in line with the code on 2026-11-16. Read it first, with its "Built"
-notes. "Spec part N" below is its numbering. All of the design's questions are answered (2026-11-16): Part 8 is built, on the
-watcher's own paid key; Cursor's text stays out for good; recorded vendor text lives in a
+notes. "Spec part N" below is its numbering. All of the design's questions are answered
+(2026-11-16): Part 8 is built, on the watcher's own paid key; Cursor's text stays out for good; recorded vendor text lives in a
 private place, never in this repository.
 
 **Written against** kitden-sdlc `main` at `7bc1432` and agent-docs `main` at `a9ea802`
