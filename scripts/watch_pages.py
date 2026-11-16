@@ -128,25 +128,34 @@ def _loose(key: str) -> str:
     return "".join(key.split()).casefold()
 
 
+# The number _build adds to a heading found again on the page: "Example (2)".
+NUMBERED = re.compile(r"(.*) \((?:[2-9]|[1-9][0-9]+)\)", re.DOTALL)
+
+
 def pick(all_sections: list[Section], headings: list[str]) -> list[Section]:
     """The sections of a page that `headings` name, in page order, each once.
 
-    A heading names the section whose key it is, exactly; when no key is, the one whose key
-    reads the same ignoring case and spacing (the first, when there are more). A heading
-    that is not on the page, or is blank, is skipped. Headings are only compared here.
+    A heading names every section whose key is the heading, or the heading with the number
+    `sections()` adds to a repeat (" (2)", " (3)", ...): a page that gains a second
+    "Example" has the new one as "Example (2)", and the feed names it "Example". When no key
+    is the heading that way, it names those whose key reads the same ignoring case and
+    spacing. A heading that is not on the page, or is blank, is skipped. Headings are only
+    compared here.
     """
-    exact: dict[str, int] = {}
-    loose: dict[str, int] = {}
+    exact: dict[str, list[int]] = {}
+    loose: dict[str, list[int]] = {}
     for place, section in enumerate(all_sections):
-        exact.setdefault(section.key, place)
-        loose.setdefault(_loose(section.key), place)
-    chosen = set()
+        numbered = NUMBERED.fullmatch(section.key)
+        names = {section.key, numbered.group(1)} if numbered else {section.key}
+        for name in names:
+            exact.setdefault(name, []).append(place)
+        for name in {_loose(n) for n in names}:
+            loose.setdefault(name, []).append(place)
+    chosen: set[int] = set()
     for heading in headings:
         if not heading.strip():
             continue
-        place = exact.get(heading, loose.get(_loose(heading)))
-        if place is not None:
-            chosen.add(place)
+        chosen.update(exact.get(heading) or loose.get(_loose(heading)) or [])
     return [all_sections[place] for place in sorted(chosen)]
 
 

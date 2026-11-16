@@ -348,6 +348,37 @@ def test_pick_never_takes_the_text_before_the_first_heading_for_a_blank_heading(
     assert pick(PICK_PAGE, ["", " ", "\n"]) == []
 
 
+REPEATS = sections("## X\na\n## X\nb\n## Xylophone\nc\n## X (2) more\nd\n## Y\ne\n## Y\nf\n"
+                   "## Y\ng\n", "text/markdown")
+
+
+def test_a_heading_picks_every_section_numbered_after_it():
+    assert [s.key for s in REPEATS] == ["X", "X (2)", "Xylophone", "X (2) more",
+                                        "Y", "Y (2)", "Y (3)"]
+    assert [s.text for s in pick(REPEATS, ["X"])] == ["## X\na", "## X\nb"]
+    assert [s.key for s in pick(REPEATS, ["Y"])] == ["Y", "Y (2)", "Y (3)"]
+
+
+def test_a_numbered_heading_picks_only_that_section():
+    assert [s.text for s in pick(REPEATS, ["X (2)"])] == ["## X\nb"]
+    assert [s.key for s in pick(REPEATS, ["Y (3)"])] == ["Y (3)"]
+
+
+def test_a_heading_does_not_pick_a_longer_heading_that_starts_with_it():
+    assert "Xylophone" not in [s.key for s in pick(REPEATS, ["X"])]
+    assert "X (2) more" not in [s.key for s in pick(REPEATS, ["X", "X (2)"])]
+
+
+def test_repeats_are_also_picked_ignoring_case_and_spacing():
+    assert [s.key for s in pick(REPEATS, ["x"])] == ["X", "X (2)"]
+    assert [s.key for s in pick(REPEATS, [" y  (2) "])] == ["Y (2)"]
+
+
+def test_a_number_sections_does_not_add_is_not_a_repeat():
+    page = sections("## Z\na\n## Z (1)\nb\n## Z (02)\nc\n## Z (2)\nd\n", "text/markdown")
+    assert [s.key for s in pick(page, ["Z"])] == ["Z", "Z (2)"]
+
+
 def test_pick_with_no_headings_or_no_sections_is_empty():
     assert pick(PICK_PAGE, []) == []
     assert pick([], ["Setup"]) == []
