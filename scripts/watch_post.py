@@ -7,6 +7,7 @@ from pathlib import Path
 
 import bot_style as style
 from bot_issues import GhIssues, ensure_labels, pause
+from watch_feed import COUNTS, MODES
 from watch_route import (
     VERSION_MAX,
     BadFindings,
@@ -235,6 +236,21 @@ def _hold(plan: Plan) -> Plan:
     return Plan([], None, state)
 
 
+def feed_log(inp: dict) -> dict | None:
+    """The feed's counts of `inp` (watch_fetch.feed_counts) for the log line: the mode and
+    each count of watch_feed.COUNTS, and nothing else. None when there are none, or when they
+    have another shape (one line says so): the log line is on a public branch, so only a
+    known word and whole numbers go there."""
+    feed = inp.get("feed")
+    if feed is None:
+        return None
+    if (isinstance(feed, dict) and feed.get("mode") in MODES
+            and all(type(feed.get(name)) is int and feed[name] >= 0 for name in COUNTS)):
+        return {"mode": feed["mode"], **{name: feed[name] for name in COUNTS}}
+    print("The feed's counts have another shape; they are not logged.")
+    return None
+
+
 def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: date) -> None:
     try:
         found = [] if findings is None else check(findings, inp)
@@ -266,6 +282,9 @@ def run(inp: dict, findings: dict | None, gh: GhIssues, memory: Path, today: dat
            "failed": len(failed),
            "findings": len(found), "urgent": len(plan.urgent), "summary": len(plan.summary or []),
            "paused": paused}
+    feed = feed_log(inp)
+    if feed is not None:
+        log["feed"] = feed
     _append(memory / "log.jsonl", [log])
     archive = [{"date": str(today), **{k: f[k] for k in
                ("piece", "client", "version", "url", "row", "title", "effect", "severity",

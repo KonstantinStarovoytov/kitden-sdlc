@@ -153,6 +153,29 @@ def test_the_watcher_knows_only_the_bots_own_issues_as_known_titles():
     assert "select(.pull_request | not)" in step["run"]
 
 
+def test_the_feed_switch_reaches_the_fetch_step_only_and_fetch_holds_no_secret():
+    text = (WORKFLOWS / "watch.yml").read_text()
+    doc = yaml.safe_load(text)
+    fetch = doc["jobs"]["fetch"]
+    assert "secrets" not in yaml.safe_dump(fetch)
+    step = next(s for s in fetch["steps"] if s.get("name") == "Fetch")
+    assert step["env"] == {"WATCH_FEED": "${{ vars.WATCH_FEED }}"}
+    assert "${{" not in step["run"]
+    # Nowhere else: not in another step, job or the file's own env (comments aside).
+    code = [line for line in text.splitlines() if not line.strip().startswith("#")]
+    assert [line.strip() for line in code if "WATCH_FEED" in line] == [
+        "WATCH_FEED: ${{ vars.WATCH_FEED }}"]
+
+
+def test_the_watch_input_artifact_takes_the_input_and_the_shadow_rows():
+    doc = yaml.safe_load((WORKFLOWS / "watch.yml").read_text())
+    [upload] = [s for s in doc["jobs"]["fetch"]["steps"]
+                if (s.get("with") or {}).get("name") == "watch-input"]
+    assert upload["with"]["path"].split() == ["input.json", "feed-shadow.json"]
+    assert upload["with"]["retention-days"] == 7
+    assert upload["with"]["if-no-files-found"] == "error"
+
+
 # --- Guards that LOG.md names. Each is a function of the file's text, so a negative case can
 # --- check the same function on a copy of the text with the guard cut out.
 

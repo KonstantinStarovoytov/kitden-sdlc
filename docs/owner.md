@@ -49,12 +49,24 @@ table one line says how the five stand.
 ## The switches
 
 A switch is a repository variable, set to `true` or `false` on the repository's Variables page.
+`WATCH_FEED` is the one switch with three values.
 
 | Variable | Where | Stops |
 |---|---|---|
 | `AGENTS_ENABLED` | both repositories | every agent of that repository; in kitden-sdlc also the desk's posting of its issue in Kitden |
 | `REVIEW_LIVE` | Kitden | the two reviewers |
 | `WATCH_LIVE` | kitden-sdlc | the client watcher's daily run |
+| `WATCH_FEED` | kitden-sdlc | the watcher's reading of Agent Docs' feed of new doc pages. `off` (or unset, or any other value): the feed is not read at all. `shadow`: the watcher reads the new pages and makes their pieces, but gives none to the model; it only counts them. `live`: the model judges them like any other piece |
+
+After a shadow week (seven daily runs), look at what live would have sent:
+
+- Each run's `watch-input` artifact (kept seven days, on the run's page in Actions) holds
+  `feed-shadow.json`: one row a piece, with the page, its day in the feed, the word that kept
+  it and its length in characters. No page text is in it: open the page to read it.
+- Each run's line in `log.jsonl` on the `watch` branch has `feed`: `pieces` and `waiting` are
+  that run's, `dropped`, `held` and `gone` are totals since the feed was first read.
+- If the pieces look about what Kitden shows, set `WATCH_FEED` to `live`. The pieces of the
+  shadow week are not sent again.
 
 The Variables pages:
 

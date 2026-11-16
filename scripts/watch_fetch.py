@@ -5,15 +5,25 @@ import copy
 import hashlib
 import json
 import os
+import re
 import subprocess  # noqa: S404
 import sys
 import time
 import urllib.error
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
 from doc_address import NO_TEXT_CLIENTS, client_of, load_hosts, location, page_of
-from watch_feed import KEEP_DAYS, Entry, kept_sections, page_key, read_feed, wanted
+from watch_feed import (
+    KEEP_DAYS,
+    MODES,
+    Entry,
+    kept_sections,
+    page_key,
+    read_feed,
+    wanted,
+)
 from watch_list import doc_pages, parse_list, terms
 from watch_moved import manifest_addresses, moved
 from watch_pages import GONE, get, get_doc, load_sources, pick, releases, sections
@@ -52,6 +62,11 @@ ADDRESS_MAX = 500
 # taken. Past this number a page of that day may be taken twice: read again, not lost.
 TAKEN_MAX = WAIT_MAX
 FEED_SOURCE = "agent-docs-feed"
+# In shadow (WATCH_FEED), the feed's rows go into this file beside input.json, one a piece.
+SHADOW_FILE = "feed-shadow.json"
+# An unknown WATCH_FEED is named on stderr only when it looks like this: a short word cannot
+# be a workflow command or a secret.
+SHOWN_MODE = re.compile(r"[a-z]{1,10}")
 
 
 class Budget:
@@ -288,9 +303,17 @@ def _count(feed: dict, name: str) -> int:
     return n if type(n) is int and n >= 0 else 0
 
 
+class Made(NamedTuple):
+    """A feed piece of this run, its entry's day and the word that kept its first section."""
+
+    piece: dict
+    day: str
+    word: str
+
+
 def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
               in_time=lambda: True, *, source=FEED_SOURCE):
-    """The feed's pieces of this run and the memory after them.
+    """The feed's pieces of this run and the memory after them, in live (WATCH_FEED).
 
     `entries` are the feed's (watch_feed.read_feed), or None when it could not be read: then
     the memory is left as it was. With no `feed` in the memory, the feed's newest day is
@@ -320,6 +343,30 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
     `words` maps a client to its list words. Prints one line of counts (and the class of each
     failed read); no address or heading.
     """
+    made, new = _plan_feed(state, entries, listed, hosts, read_page, words, today, room,
+                           in_time, source=source, shadow=False)
+    return [m.piece for m in made], new
+
+
+def plan_shadow(state, entries, listed, hosts, read_page, words, today, room,
+                in_time=lambda: True, *, source=FEED_SOURCE):
+    """plan_feed in shadow (WATCH_FEED): the rows of this run and the memory after them.
+
+    The same entries are read and the same pieces made, under the same caps, so the rows show
+    what live would send. But no piece goes to the judge, so route never marks one judged:
+    an entry leaves the queue as soon as its row is made. A row is the page's address (it
+    passed doc_address.allowed), the entry's day, the word that kept its first kept section
+    (watch_feed.kept_sections, which made the piece) and the length of the piece's text. It
+    holds no page text and no heading.
+    """
+    made, new = _plan_feed(state, entries, listed, hosts, read_page, words, today, room,
+                           in_time, source=source, shadow=True)
+    return [{"page": m.piece["url"], "day": m.day, "word": m.word,
+             "chars": len(m.piece["text"])} for m in made], new
+
+
+def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_time, *,
+               source, shadow):
     new = copy.deepcopy(state)
     if entries is None:
         return [], new
@@ -337,7 +384,7 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
         e.day == day and taken is not None and page_key(page_of(e.url, hosts)) not in taken)]
     queue = wanted(_waiting(feed.get("wait")) + fresh, hosts, listed, "")
     cap = max(0, min(room, FEED_PIECES_MAX))
-    pieces, wait, pages = [], [], {}
+    made, wait, pages = [], [], {}
     dropped = held = failed = gone = 0
     for e in queue:
         if len(e.url) > ADDRESS_MAX:
@@ -354,7 +401,7 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
         if client in NO_TEXT_CLIENTS:
             held += 1
             continue
-        if len(pieces) >= cap:
+        if len(made) >= cap:
             wait.append(e)
             continue
         if page not in pages:
@@ -384,12 +431,14 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
         if not kept:
             continue
         text = "\n\n".join(section.text for section, _ in kept)[:PIECE_CHARS]
-        pieces.append({
+        made.append(Made({
             "id": f"{source}#{key}", "kind": "doc", "client": client, "version": "",
             "url": page, "text": text, "source": source, "key": key,
             "hash": hashlib.sha256(text.encode()).hexdigest(),
-        })
-        wait.append(e)
+        }, e.day, kept[0][1]))
+        # Live: it waits until route marks it judged. Shadow: its row is the end of it.
+        if not shadow:
+            wait.append(e)
     dropped += max(0, len(wait) - WAIT_MAX)
     wait = wait[:WAIT_MAX]
     new["feed"] = {"day": max(day, newest), "wait": [_stored(e) for e in wait],
@@ -401,10 +450,35 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
         # The memory's own order first, so the cut never drops a key already kept.
         both = feed["taken"] + _keys(queue, day, hosts)
         new["feed"]["taken"] = list(dict.fromkeys(both))[:TAKEN_MAX]
-    print(f"feed: {len(pieces)} pieces, {len(wait)} waiting, {len(pages)} pages read, "
-          f"{failed} failed, {dropped} dropped, {gone} gone, {held} held back "
-          f"(no text for {'/'.join(NO_TEXT_CLIENTS)})", file=sys.stderr)
-    return pieces, new
+    print(f"feed{' (shadow)' if shadow else ''}: {len(made)} pieces, {len(wait)} waiting, "
+          f"{len(pages)} pages read, {failed} failed, {dropped} dropped, {gone} gone, "
+          f"{held} held back (no text for {'/'.join(NO_TEXT_CLIENTS)})", file=sys.stderr)
+    return made, new
+
+
+def feed_counts(mode: str, state, pieces: int) -> dict:
+    """The feed's counts for input.json and the log (watch_feed.COUNTS): `pieces` (this run's
+    pieces, or rows in shadow) and `waiting` (the queue after this run), then the memory's
+    running totals `dropped`, `held` and `gone`. A memory with no feed of its shape counts 0."""
+    feed = state.get("feed") if isinstance(state, dict) else None
+    feed = feed if isinstance(feed, dict) else {}
+    wait = feed.get("wait")
+    return {"mode": mode, "pieces": pieces, "waiting": len(wait) if isinstance(wait, list) else 0,
+            **{name: _count(feed, name) for name in ("dropped", "held", "gone")}}
+
+
+def feed_mode(value: str | None) -> str:
+    """The feed's mode (watch_feed.MODES) from the value of WATCH_FEED. Unset, empty or `off`
+    is off; any other value is off too, with one line on stderr. That line shows the value
+    only when it is a short lower-case word."""
+    if value in (None, "", "off"):
+        return "off"
+    if value in MODES:
+        return value
+    shown = f'is "{value}"' if SHOWN_MODE.fullmatch(value) else "has an unknown value"
+    print(f"WATCH_FEED {shown}, not off, shadow or live: the feed is treated as off.",
+          file=sys.stderr)
+    return "off"
 
 
 def list_words(list_text: str) -> dict[str, list[str]]:
@@ -470,6 +544,7 @@ def main(argv=None, clock=time.monotonic):
     fetched, meta = {}, {}
     hosts = load_hosts()
     today = date.today()
+    mode = feed_mode(os.environ.get("WATCH_FEED"))
     manifests, feed = [], None
     for src in load_sources(a.sources):
         if src["kind"] == "manifest":
@@ -482,6 +557,10 @@ def main(argv=None, clock=time.monotonic):
             if feed is not None:
                 raise ValueError("the sources may hold only one feed source")
             feed = src["id"]
+            if mode == "off":
+                # Skipped before it is read: out of meta and fetched, it is never a failed
+                # read, and plan_feed never touches the memory's `feed`.
+                continue
             meta[feed] = {"kind": "feed", "url": src["url"]}
             fetched[feed] = read_or_none(feed, lambda s: read_feed(s, today), src)
             continue
@@ -514,10 +593,14 @@ def main(argv=None, clock=time.monotonic):
         # does it.
         print("Out of time: the weekly check for moved pages waits for the next run.",
               file=sys.stderr)
-    if feed is not None:
-        found, new_state = plan_feed(new_state, fetched[feed], set(pages), hosts,
-                                     lambda u: _read_doc(u, hosts), list_words(list_text),
-                                     today, PIECES_MAX - len(pieces), budget.left, source=feed)
+    found = []
+    if feed is not None and mode != "off":
+        # Shadow has the caps of live: the same room, the same budget, the same page cap.
+        plan = plan_shadow if mode == "shadow" else plan_feed
+        found, new_state = plan(new_state, fetched[feed], set(pages), hosts,
+                                lambda u: _read_doc(u, hosts), list_words(list_text),
+                                today, PIECES_MAX - len(pieces), budget.left, source=feed)
+    if mode == "live":
         pieces = pieces + found
     release = _git(a.kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
     names = sorted({f for r in rows for f in r.files})
@@ -531,6 +614,11 @@ def main(argv=None, clock=time.monotonic):
     # The Kitden commit the pieces are judged at: the archive keeps it, so a harvested task is
     # pinned to it (evals/watch_harvest.py).
     out["kitden"] = _git(a.kitden, "rev-parse", "HEAD").stdout.strip()
+    out["feed"] = feed_counts(mode, new_state, len(found))
+    if mode == "shadow":
+        # Rows only: an address, a day, a word, a number. The judge never reads this file.
+        Path(a.out).with_name(SHADOW_FILE).write_text(json.dumps(found, indent=1),
+                                                      encoding="utf-8")
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:

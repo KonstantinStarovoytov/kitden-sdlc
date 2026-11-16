@@ -120,6 +120,7 @@ It also needs the secrets `ANTHROPIC_API_KEY` and `AGENTS_APP_PRIVATE_KEY` in ki
 Before it is switched on, the `eval` job (run by hand) measures the model on [the watch tasks](../evals/watch/README.md).
 The eval needs `AGENTS_ENABLED` only. The daily jobs also need the variable `WATCH_LIVE` set to `true`, which the owner sets after seeing the eval table.
 `WATCH_LIVE` is set: the daily run is on; the eval still runs by hand.
+The variable `WATCH_FEED` (`off`, `shadow` or `live`, [owner.md](owner.md#the-switches)) decides whether the watcher reads Agent Docs' feed of new doc pages, and whether their pieces reach the model; only the fetch step, which has no secret, gets it.
 Optional: with the secrets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and the variable `LANGFUSE_HOST` (the region's address), the eval sends each model call (time, tokens) and its scores to [Langfuse](https://langfuse.com) as one experiment, and the daily run sends each piece as one trace, in one session a run ([where to look](watcher-design.md)). Without them it is off.
 
 An issue is short and in plain words, in the bots' [one look](#one-look). GitHub shows

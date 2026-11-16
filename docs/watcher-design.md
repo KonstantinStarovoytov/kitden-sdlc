@@ -102,6 +102,7 @@ A file in `kitden-sdlc`, `config/watch-sources.yml` (call), so adding a source i
 | Codex | stable releases of `openai/codex` (call) | the pages named in the list |
 | Cursor | the changelog page on cursor.com | the pages named in the list |
 | none: Agent Docs | none | its manifest of every doc page it holds, `agent_docs_hybrid_v1.json` of `KonstantinStarovoytov/agent-docs`, for the weekly moved check (part 4); it makes no piece |
+| none: Agent Docs | none | its feed of new doc pages and new sections of the three clients, `reports/docs-changes/feed.json` of `KonstantinStarovoytov/agent-docs`, read only while `WATCH_FEED` is `shadow` or `live` (part 7); the sections of a page not on the list that hold a word of the list or a word for what Kitden shows make one piece of kind `doc` (`scripts/watch_feed.py`) |
 
 Codex pre-releases come several a day with empty notes (checked 2026-11-11), so the watcher
 reads stable releases only. The price: a change the ChatGPT app ships early is seen at the
@@ -212,10 +213,28 @@ many runs failed on each piece, the format the doc page hashes were made in (`do
 week of the last moved check with each address already said to be maybe or not found and
 where it may be (`moved`), the place in the sorted doc pages where the next run starts reading
 (`page_start`), how many runs in a row each page was left unread for lack of time (`skips`),
-and one log line per run. It also
+the feed's place and queue (`feed`, below), and one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.
+
+`feed` holds:
+
+- `day`: the last day of the feed taken. A day after it is new; so is an entry of that day
+  whose page is not in `taken`.
+- `taken`: the pages taken on `day`, so a second reindex on the same day is not lost.
+- `wait`: the entries not done yet, oldest first, at most 140, each with its day, kind,
+  address, product and new headings (at most 50, each cut to 200 characters). In live an
+  entry leaves when its piece is judged; in shadow, when its row is written.
+- `dropped`: entries dropped since the feed was first read: older than 14 days, an address
+  over 500 characters, or past the 140.
+- `held`: Cursor entries held back, not read, until the owner answers question 4 of the
+  [Agent Docs design](superpowers/specs/2026-11-15-agent-docs-design.md).
+- `gone`: entries whose page answered 404 or 410.
+
+`dropped`, `held` and `gone` are running totals. The log line of each run copies them under
+`feed`, with the mode and two counts of that run: `pieces` (made in live, or rows in shadow)
+and `waiting` (the size of `wait` after the run).
 
 The first run only fills the memory and opens nothing.
 
@@ -230,6 +249,16 @@ The first run only fills the memory and opens nothing.
   not reach in time waits for the next day, keeps its hashes and is not a failed read. The
   next run starts at the first page left unread, so on slow days every page is still read
   every few days; a page left unread three runs in a row is named in the next summary.
+- Agent Docs' feed has its own switch, the variable `WATCH_FEED`, which only the `Fetch` step
+  gets. `off` (or unset, or any other value): the feed is not read, so it is never a failed
+  read, and its memory is left as it is. `shadow`: the feed is read and its pieces made under
+  the limits of live (below), but none reaches the judge; `feed-shadow.json`, beside
+  `input.json` in the `watch-input` artifact, has one row a piece: the page, its day, the word
+  that kept its first section and its length. No page text or heading is in it. An entry
+  leaves the queue once its row is written and the feed's day moves, so going live does not
+  send the shadow week again. `live`: the pieces go to the judge.
+- At most 5 feed pieces a run, in the room the releases and the list's pages leave of the 20,
+  from at most 10 feed pages read, inside the same 7 minutes. The rest wait, at most 14 days.
 - The judge runs on `ANTHROPIC_API_KEY`. The eval measured about $0.05 a piece on Sonnet 5.5;
   at 10 to 12 new pieces a week that is about $2 to $5 a month.
 
@@ -291,6 +320,8 @@ In an eval the experiment owns the traces, one a task, so they are found under D
 - Saves `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `AGENTS_APP_CLIENT_ID` and `AGENTS_APP_PRIVATE_KEY` in `kitden-sdlc`
   and sets `AGENTS_ENABLED` there.
 - Sets `WATCH_LIVE` to `true` after seeing the eval table; until then the daily watcher is off.
+- Sets `WATCH_FEED` to `shadow`, reads seven runs' `feed-shadow.json`, then sets it to `live`
+  ([owner.md](owner.md#the-switches)).
 - Optional: saves `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and sets the variable
   `LANGFUSE_HOST` (the region's address) for traces and experiments in Langfuse.
 - Lets Lantern read and write issues in `kitden`.

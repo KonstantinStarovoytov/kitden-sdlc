@@ -33,6 +33,12 @@ KINDS = ("added", "changed", "removed")
 # How far `checked` may be after today: the feed is written on UTC days, and a run by hand
 # on a computer west of UTC can still be on the day before.
 AHEAD = timedelta(days=1)
+# The values of the repository variable WATCH_FEED (Task 6.6). off: the feed is not read.
+# shadow: its pieces are made and counted but none reaches the judge. live: they are judged.
+MODES = ("off", "shadow", "live")
+# The feed's counts in input.json and the run's line of log.jsonl. `pieces` and `waiting` are
+# this run's; `dropped`, `held` and `gone` are running totals kept in the memory.
+COUNTS = ("pieces", "waiting", "dropped", "held", "gone")
 
 
 class Entry(NamedTuple):
