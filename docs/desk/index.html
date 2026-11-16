@@ -14,32 +14,29 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Kitden's look (Kitden's docs/design.md): one framed window on the out colour, a rail on the
-   left, neutral panels with fine solid lines. A lamp is a small light: it glows in its colour
-   and lights its own card a little. Motion: the lamps light once when the page opens; an amber
-   or red lamp keeps a slow ring, because it needs you; nothing else moves on its own. */
+   left, neutral panels with fine solid lines, and Kitden's sockets for state. */
 :root{
   --brand:#c85835; --out:#e4e7ec; --canvas:#f5f6f8; --panel:#ffffff; --raised:#ffffff; --inset:#f0f2f5;
   --ink:#161a21; --ink-2:#464d5b; --ink-3:#626977; --wire:#e1e4e9;
   --route:#a44226; --route-soft:#f6e8e2;
-  --lamp-on:#1c8a4c; --lamp-warn:#97590a; --lamp-bad:#b23434; --lamp-off:#80868f;
-  --spill:10%; --halo:42%;
+  --lamp-on:#1c8a4c; --lamp-warn:#97590a; --lamp-warn-soft:rgba(151,89,10,.10); --lamp-bad:#c23b3b; --lamp-off:#80868f;
   --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  --calm:cubic-bezier(.2,.8,.2,1);
+  --calm:cubic-bezier(.2,.8,.2,1); --ease-in-out:cubic-bezier(.77,0,.175,1);
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
   --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
   --route:#f09a7c; --route-soft:#382a27;
-  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-bad:#f07070; --lamp-off:#707886;
-  --spill:13%; --halo:60%; color-scheme:dark } }
+  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-warn-soft:rgba(234,194,124,.12); --lamp-bad:#f07070; --lamp-off:#707886;
+  color-scheme:dark } }
 :root[data-theme="dark"]{
   --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
   --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
   --route:#f09a7c; --route-soft:#382a27;
-  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-bad:#f07070; --lamp-off:#707886;
-  --spill:13%; --halo:60%; color-scheme:dark }
+  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-warn-soft:rgba(234,194,124,.12); --lamp-bad:#f07070; --lamp-off:#707886;
+  color-scheme:dark }
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--out);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -64,31 +61,19 @@ code{font-family:var(--mono);font-size:.88em;background:var(--inset);padding:1px
 .rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
 .main{padding:34px 36px 40px;display:flex;flex-direction:column;gap:22px;min-width:0}
 
-/* --- a lamp: a small glass light in its colour --- */
-.lamp{--c:var(--lamp-off);position:relative;flex:none;width:10px;height:10px;border-radius:50%;
-  background:radial-gradient(circle at 34% 30%,color-mix(in srgb,#fff 38%,var(--c)) 0 14%,var(--c) 52%,color-mix(in srgb,#000 14%,var(--c)) 100%);
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 16%,transparent),0 0 12px 1px color-mix(in srgb,var(--c) var(--halo),transparent)}
+/* --- a lamp: Kitden's socket. Shape, colour and a word carry the state: green is a full green
+   dot, amber ("needs a look") an amber ring with a half dot, red a full red dot, grey (not read)
+   an empty dashed ring. When the page opens each fills from its middle, 45 ms after the one
+   before, as Kitden's sockets do; nothing glows and nothing loops. --- */
+.lamp{--c:var(--lamp-off);position:relative;flex:none;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--c);overflow:hidden}
+.lamp::after{content:"";position:absolute;inset:0;background:var(--c);border-radius:50%;transform:scale(1)}
 .lamp.green{--c:var(--lamp-on)} .lamp.amber{--c:var(--lamp-warn)} .lamp.red{--c:var(--lamp-bad)}
-.lamp.grey{background:transparent;box-shadow:inset 0 0 0 1.5px var(--lamp-off)}
-.lamp.big{width:16px;height:16px;box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 16%,transparent),0 0 22px 3px color-mix(in srgb,var(--c) var(--halo),transparent)}
-.lamp.grey.big{box-shadow:inset 0 0 0 2px var(--lamp-off)}
-/* The ring. A lamp that lights shows it once. An amber or red lamp shows it three times more,
-   then keeps it still; only the headline's lamp keeps it going, slowly, while something waits
-   for you. Nothing else loops. */
-.lamp::after{content:"";position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--c);opacity:0;pointer-events:none}
-.lamp.grey::after{display:none}
-.lamp.amber::after,.lamp.red::after{opacity:.35;transform:scale(1.7)}
-.lit .lamp.green::after{animation:ring .9s var(--calm) calc(var(--d,0ms) + 700ms) 1}
-.lit .lamp.amber::after{animation:ring 3.6s cubic-bezier(.2,.6,.3,1) calc(var(--d,0ms) + 700ms) 3 backwards}
-.lit .lamp.red::after{animation:ring 2.6s cubic-bezier(.2,.6,.3,1) calc(var(--d,0ms) + 700ms) 3 backwards}
-.lit .lamp.big.amber::after,.lit .lamp.big.red::after{animation-iteration-count:infinite}
-@keyframes ring{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
-/* Lighting up, once, when the page opens: dark, a short over-bright flash, then its colour. */
-.lit .lamp:not(.grey){animation:ignite .7s var(--calm) both;animation-delay:var(--d,0ms)}
-@keyframes ignite{
-  0%{opacity:0;transform:scale(.6);filter:brightness(.4)}
-  60%{opacity:1;filter:brightness(1.35)}
-  100%{opacity:1;transform:none;filter:none}}
+.lamp.amber::after{transform:scale(.5)}
+.lamp.grey{border-style:dashed} .lamp.grey::after{transform:scale(0)}
+.lamp.big{width:14px;height:14px;border-width:2px}
+.lit .lamp:not(.grey)::after{animation:fill .38s var(--ease-in-out) var(--d,0ms) backwards}
+@keyframes fill{from{transform:scale(0)}}
+.calm-line .lamp{width:6px;height:6px;border:0}
 
 /* --- the head --- */
 .head{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
@@ -98,7 +83,7 @@ code{font-family:var(--mono);font-size:.88em;background:var(--inset);padding:1px
 .note{border:1px solid var(--wire);border-radius:8px;padding:10px 14px;font-size:13px;background:var(--panel)}
 .note.amber{border-color:color-mix(in srgb,var(--lamp-warn) 40%,var(--wire));background:color-mix(in srgb,var(--lamp-warn) 8%,var(--panel))}
 .calm-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);padding-left:3px;margin-top:6px}
-.calm-line .lamp{width:8px;height:8px;margin:0 7px 0 4px}
+.calm-line .lamp{margin:0 2px}
 
 /* --- panels --- */
 section{min-width:0}
@@ -111,13 +96,9 @@ section{min-width:0}
 .light{--c:var(--lamp-off);position:relative;isolation:isolate;padding:18px 18px 20px;display:flex;flex-direction:column;gap:10px;min-height:160px;
   box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
 .light.green{--c:var(--lamp-on)} .light.amber{--c:var(--lamp-warn)} .light.red{--c:var(--lamp-bad)}
-/* The lamp's light on its card: faint when green, stronger when it needs you. */
-.light::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background:radial-gradient(140% 90% at 26px 26px,color-mix(in srgb,var(--c) var(--spill),transparent),transparent 62%);opacity:.45}
-.light.amber::before,.light.red::before{opacity:1}
-.light.grey::before{opacity:0}
-.lit .light::before{animation:spill .9s var(--calm) backwards;animation-delay:calc(var(--d,0ms) + 120ms)}
-@keyframes spill{from{opacity:0}}
+/* A card that needs you takes its colour's soft fill, as Kitden's callouts do. */
+.light.amber{background:var(--lamp-warn-soft)}
+.light.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
 .light .top{display:flex;align-items:center;gap:10px}
 .light .name{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
 .light .word{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3);white-space:nowrap}
@@ -144,7 +125,7 @@ ul.parts{list-style:none;margin:0 -1px -1px 0;padding:0;display:grid;grid-templa
 ul.parts .tile{--c:var(--lamp-off);padding:14px 18px;display:flex;flex-direction:column;gap:3px;min-width:0;box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
 ul.parts .tile.green{--c:var(--lamp-on)} ul.parts .tile.red{--c:var(--lamp-bad)}
 ul.parts.loud{grid-template-columns:1fr;margin-bottom:0}
-ul.parts .tile.wide.red{background:radial-gradient(120% 140% at 22px 22px,color-mix(in srgb,var(--c) var(--spill),transparent),transparent 60%)}
+ul.parts .tile.wide.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
 ul.parts .of,ul.parts .note-line,ul.parts .means{padding-left:20px;font-size:12px;color:var(--ink-3)}
 ul.parts .of{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 ul.parts .means{font-size:12.5px;color:var(--ink)}
@@ -218,7 +199,7 @@ const link = (text, href, label) => make('a', { href, rel: 'noopener noreferrer'
 let lampNo = 0; // each lamp lights a little after the one before it
 const lamp = (s, big) => {
   const el = make('span', { class: `lamp ${s}${big ? ' big' : ''}`, 'aria-hidden': 'true' });
-  el.style.setProperty('--d', `${lampNo++ * 90}ms`);
+  el.style.setProperty('--d', `${lampNo++ * 45}ms`);
   return el;
 };
 const panel = (title, aside, ...body) => make('div', { class: 'panel' },
@@ -305,7 +286,8 @@ function render(v) {
     make('section', { 'aria-label': 'Nightly tests' }, night),
     make('nav', { class: 'foot-links', 'aria-label': 'More' },
       v.summaries, { text: 'What each light means', href: HOW_TO }));
-  requestAnimationFrame(() => main.classList.add('lit'));
+  // A hidden tab shows the end at once, as in Kitden: no fill waits for the tab to be seen.
+  if (!document.hidden) requestAnimationFrame(() => main.classList.add('lit'));
 }
 
 function fail(why) {
