@@ -1,6 +1,9 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
+
+import pytest
 
 import bot_issues
 import watch_harvest
@@ -145,8 +148,6 @@ def test_fetch_pieces_skips_a_source_with_no_client(tmp_path, monkeypatch):
 
 
 def test_the_feed_source_of_the_config_changes_nothing_here(monkeypatch):
-    from pathlib import Path
-
     calls = []
 
     def fake_read(src):
@@ -183,3 +184,34 @@ def test_harvest_writes_the_task_without_text_and_the_text_to_the_folder(tmp_pat
         "made 1 tasks: issue-7",
         "upload their text: uv run --locked --only-group watch --only-group watch-io python "
         f"evals/watch_texts.py upload --tasks {tasks} --folder {texts}"]
+
+
+def run_main_with_texts(tmp_path, monkeypatch, texts):
+    tasks, archive = tmp_path / "tasks", tmp_path / "archive.jsonl"
+    tasks.mkdir()
+    archive.write_text(json.dumps(LINE) + "\n")
+
+    def fetched(*args):
+        raise AssertionError("fetched")
+
+    monkeypatch.setattr(watch_harvest, "_issues", fetched)
+    monkeypatch.setattr(watch_harvest, "_fetch_pieces", fetched)
+    monkeypatch.setattr(sys, "argv", ["watch_harvest.py", "--repo", "o/kitden", "--archive",
+                                      str(archive), "--tasks", str(tasks), "--texts", texts])
+    with pytest.raises(SystemExit) as stop:
+        watch_harvest.main()
+    assert stop.value.code == 1 and list(tasks.iterdir()) == []
+
+
+def test_harvest_refuses_langfuse_as_texts(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    run_main_with_texts(tmp_path, monkeypatch, "langfuse")
+    assert not (tmp_path / "langfuse").exists()
+    assert len(capsys.readouterr().err.splitlines()) == 1
+
+
+def test_harvest_refuses_a_texts_folder_inside_the_repository(tmp_path, monkeypatch, capsys):
+    inside = Path(__file__).parents[1] / "evals/watch/texts-harvest-test"
+    run_main_with_texts(tmp_path, monkeypatch, str(inside))
+    assert not inside.exists()
+    assert len(capsys.readouterr().err.splitlines()) == 1

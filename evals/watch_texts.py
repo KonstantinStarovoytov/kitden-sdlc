@@ -118,7 +118,11 @@ def dataset_items(tasks: list[dict]) -> list[dict]:
 
 
 def load(source: str, tasks: list[dict]) -> list[dict]:
-    return attach(tasks, read_langfuse() if source == "langfuse" else read_folder(source))
+    """The tasks with their text; a text missing, changed or failing check_texts is refused."""
+    tasks = attach(tasks, read_langfuse() if source == "langfuse" else read_folder(source))
+    if lines := check_texts(tasks):
+        raise TextsError("\n".join(lines))
+    return tasks
 
 
 def check_texts(tasks_with_text: list[dict]) -> list[str]:
@@ -164,9 +168,9 @@ def main(argv: list[str] | None = None) -> int:
         elif a.command == "upload":
             upload(attach(load_tasks(a.tasks), read_folder(a.folder)))
         else:
-            lines = check_texts(load(a.texts, load_tasks(a.tasks)))
+            load(a.texts, load_tasks(a.tasks))
     except TextsError as e:
-        lines = [str(e)]
+        lines = str(e).splitlines()
     for line in lines:
         print(line, file=sys.stderr)
     return 1 if lines else 0

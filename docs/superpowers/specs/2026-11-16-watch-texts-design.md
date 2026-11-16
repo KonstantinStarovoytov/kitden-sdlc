@@ -47,8 +47,8 @@ not `tests/fixtures`, not the `watch` branch (`archive.jsonl` holds the judge's 
 - **A small tool, `evals/watch_texts.py`:**
   - `split` (once): writes the copy from today's task files, then removes `text` from the
     task files and adds `text_sha256`; no network. The owner then runs `upload` with the
-    Langfuse keys and `check --langfuse` before the pull request is merged (my call: the keys
-    stay with the owner, and the move happens in two checked steps);
+    Langfuse keys and `check --texts langfuse` before the pull request is merged (my call: the
+    keys stay with the owner, and the move happens in two checked steps);
   - `upload`: folder → Langfuse (the folder is always the origin, so no copy back is
     needed);
   - `check`: the folder and Langfuse against the task files: same hashes, every text non-empty and

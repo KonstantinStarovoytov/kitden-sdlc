@@ -299,3 +299,12 @@ def test_main_with_langfuse_texts_and_no_keys_exits_1_with_one_line(tmp_path, mo
         watch_run.main()
     assert stop.value.code == 1 and model.pieces == []
     assert capsys.readouterr().err == "Langfuse keys are not set\n"
+
+
+def test_a_changed_text_stops_the_run_before_any_model_call(tmp_path):
+    kitden, folder, out, texts = split_setup(tmp_path, ONE, TWO)
+    write_folder(texts, {"002-b": "two note, edited"})
+    model = Fake()
+    with pytest.raises(TextsError, match="a text other than its text_sha256 for 002-b"):
+        run_tasks(folder, kitden, out, model, 10, texts=str(texts))
+    assert model.pieces == [] and not list(tmp_path.rglob("findings.json"))

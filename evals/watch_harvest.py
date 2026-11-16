@@ -3,7 +3,8 @@
 Usage: watch_harvest.py --repo OWNER/kitden --archive <archive.jsonl> --tasks evals/watch/tasks
                         --texts <the full texts folder> [--sources config/watch-sources.yml]
 
---texts is the whole folder `watch_texts.py split` wrote, since `upload` reads every text.
+--texts is the whole folder `watch_texts.py split` wrote, since `upload` reads every text; a
+folder inside the repository, or `langfuse`, is refused.
 Run by hand about once a month, on a branch; the new tasks reach main as a pull request. It
 reads the `client-change` issues, open and closed, with `gh`, joins each to its line of the
 watcher's archive, fetches the piece again by its source (a config id or a doc address) and key,
@@ -131,6 +132,10 @@ def main() -> None:
     ap.add_argument("--texts", required=True)
     ap.add_argument("--sources", default="config/watch-sources.yml")
     a = ap.parse_args()
+    if a.texts == "langfuse" or Path(a.texts).resolve().is_relative_to(
+            Path(__file__).resolve().parent.parent):
+        print("--texts must be a folder outside the repository", file=sys.stderr)
+        raise SystemExit(1)
     issues = _issues(a.repo)
     archive = [json.loads(x) for x in Path(a.archive).read_text(encoding="utf-8").splitlines()
                if x.strip()]

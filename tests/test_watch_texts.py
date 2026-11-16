@@ -10,6 +10,7 @@ from watch_texts import (
     attach,
     check_texts,
     dataset_items,
+    load,
     main,
     read_folder,
     read_langfuse,
@@ -138,6 +139,13 @@ def test_check_texts_finds_each_problem():
     lines = check_texts(tasks)
     assert len(lines) == 4
     assert [line.split(":")[0] for line in lines] == ["e", "long", "unmarked", "marked"]
+
+
+def test_load_refuses_an_empty_text(tmp_path):
+    empty, _ = split_task({**TASK, "piece": {**PIECE, "text": ""}})
+    write_folder(tmp_path, {"001-a": ""})
+    with pytest.raises(TextsError, match="001-a: the text is empty"):
+        load(str(tmp_path), [empty])
 
 
 def test_cli_split_then_check_with_the_folder(tmp_path, capsys):

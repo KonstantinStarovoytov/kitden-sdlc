@@ -110,7 +110,8 @@ def experiment(tasks: list[dict], run_one, model_name: str, run: int = 0) -> Non
 
 def run_tasks(tasks_dir, kitden, out, model, max_calls: int, model_name: str = "",
               runs: int = 1, texts: str | None = None) -> None:
-    """`texts` (langfuse or a folder) gives the tasks their text; None: the files hold it."""
+    """`texts` (langfuse or a folder) gives the tasks their text; the CLI always passes
+    --texts, and None is for tests whose tasks carry their text."""
     tasks = load_tasks(tasks_dir)
     if texts is not None:
         tasks = load(texts, tasks)

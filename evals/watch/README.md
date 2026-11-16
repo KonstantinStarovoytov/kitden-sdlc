@@ -176,5 +176,5 @@ the skipped issues. A piece from a doc page is read again from its address.
 
 A `false-alarm` issue becomes an `untouched` task for the whole piece, so the piece must touch
 nothing at all. Read such tasks, their text in the folder, before you merge the harvest pull
-request, and run the `upload` the harvest prints. The new tasks reach
-`main` as a pull request; no workflow runs this.
+request, and run the `upload` the harvest prints, then `check --texts <folder>`. The new tasks
+reach `main` as a pull request; no workflow runs this.

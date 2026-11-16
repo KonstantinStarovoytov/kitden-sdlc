@@ -1089,7 +1089,9 @@ input-actions.json --repo KonstantinStarovoytov/kitden-sdlc --memory memory/acti
   kitden-sdlc commit, and `--sdlc <clone>` (default this checkout) says where to read it.
   Tests for both, and that today's tasks build the same input as before.
 - [ ] **Step 2: Six tasks** from past releases of the two actions, written as
-  `evals/watch/README.md` says. Update the planned mix and the README's counts.
+  `evals/watch/README.md` says. Update the planned mix and the README's counts. Their
+  pieces' text, a vendor's, goes to the texts folder and `watch-eval`
+  (`evals/watch_texts.py`), never into git.
 - [ ] **Step 3: Run the eval.** The bar must pass before the owner sets `WATCH_ACTIONS`.
 - [ ] **Step 4: Docs. Commit** — "Measure the watcher on the two actions".
 
