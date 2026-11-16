@@ -1,6 +1,8 @@
 # What: after a new Kitden version is on PyPI, moves the `release` branch, publishes to the MCP
-# Registry and opens the Homebrew pull request.
-# Why: one tag updates every store, so no store is forgotten or updated by hand.
+# Registry, opens the Homebrew pull request when Kitden's runtime dependencies did not change,
+# and writes a table of every store.
+# Why: one tag updates the stores a script can reach, and the table shows which are behind or
+# must be checked by hand.
 #
 # Reusable workflow: after PyPI has a new Kitden version, put it everywhere else. Kitden's
 # release.yml calls it on a tag, after its own PyPI and GitHub release jobs. No job here runs a

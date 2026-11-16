@@ -1,7 +1,7 @@
 # What: Claude and GPT-6 Luna each read a pull request, and one "Agent review" comment with
 # their findings is posted.
-# Why: a second look at every change before the owner merges. It only comments; it never
-# approves or blocks.
+# Why: a second look at a pull request before the owner merges, up to a daily limit. It only
+# comments; it never approves or blocks.
 #
 # Reusable workflow: a pull request in the calling repository gets one review comment.
 # Claude and GPT-6 Luna (through OpenAI's Codex action) each read the change, and a job
