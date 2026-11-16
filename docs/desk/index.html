@@ -1,0 +1,311 @@
+<!doctype html>
+<!-- The desk: Kitden's five lights, what waits for the owner and the nightly tests, read from
+     desk.json on the `numbers` branch each time the page opens. desk.yml writes that file every
+     day; no model writes it or this page. The words are in view.js; this file only puts them on
+     the page, as text. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIGZvciAzMiBweCBhbmQgc21hbGxlcjogbm8gZGFzaGVzLCB0aGUgcmVhZGluZyBoYWxmIGlzIGEgdGludC4gLS0+CiAgPGRlZnM+CiAgICA8Y2xpcFBhdGggaWQ9InJlYWRzIj48cmVjdCB3aWR0aD0iMzYiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjQwIiB3aWR0aD0iMjQiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogIDwvZGVmcz4KICA8cGF0aCBjbGlwLXBhdGg9InVybCgjcmVhZHMpIiBmaWxsPSIjQzg1ODM1IiBmaWxsLW9wYWNpdHk9Ii40IiBkPSJNNiA1OEMzLjggNTggMiA1Ni4yIDIgNTRWMzIuNUMyIDMwLjUgMi45IDI4LjggNC41IDI3LjZMMTUuNSAxOS42QzE2LjYgMTguOCAxNy4zIDE3LjcgMTcuNiAxNi40TDE5LjMgOS4yQzIwLjEgNS44IDIzLjYgNC41IDI2LjYgNi4yTDU5IDI1LjRDNjEgMjYuNiA2MiAyOC41IDYyIDMwLjhWNTRDNjIgNTYuMiA2MC4yIDU4IDU4IDU4SDI4VjQ0QzI4IDM5LjYgMjQuNCAzNiAyMCAzNlMxMiAzOS42IDEyIDQ0VjU4WiIvPgogIDxwYXRoIGNsaXAtcGF0aD0idXJsKCN3cml0ZXMpIiBmaWxsPSIjQzg1ODM1IiBkPSJNNiA1OEMzLjggNTggMiA1Ni4yIDIgNTRWMzIuNUMyIDMwLjUgMi45IDI4LjggNC41IDI3LjZMMTUuNSAxOS42QzE2LjYgMTguOCAxNy4zIDE3LjcgMTcuNiAxNi40TDE5LjMgOS4yQzIwLjEgNS44IDIzLjYgNC41IDI2LjYgNi4yTDU5IDI1LjRDNjEgMjYuNiA2MiAyOC41IDYyIDMwLjhWNTRDNjIgNTYuMiA2MC4yIDU4IDU4IDU4SDI4VjQ0QzI4IDM5LjYgMjQuNCAzNiAyMCAzNlMxMiAzOS42IDEyIDQ0VjU4WiIvPgo8L3N2Zz4K">
+<title>Kitden desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Kitden's look (Kitden's docs/design.md): one framed window on the out colour, a rail on the
+   left, neutral panels with fine solid lines, and Kitden's sockets for state. */
+:root{
+  --brand:#c85835; --out:#e4e7ec; --canvas:#f5f6f8; --panel:#ffffff; --raised:#ffffff; --inset:#f0f2f5;
+  --ink:#161a21; --ink-2:#464d5b; --ink-3:#626977; --wire:#e1e4e9;
+  --route:#a44226; --route-soft:#f6e8e2;
+  --lamp-on:#1c8a4c; --lamp-warn:#97590a; --lamp-warn-soft:rgba(151,89,10,.10); --lamp-bad:#c23b3b; --lamp-off:#80868f;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --calm:cubic-bezier(.2,.8,.2,1); --ease-in-out:cubic-bezier(.77,0,.175,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
+  --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
+  --route:#f09a7c; --route-soft:#382a27;
+  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-warn-soft:rgba(234,194,124,.12); --lamp-bad:#f07070; --lamp-off:#707886;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
+  --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
+  --route:#f09a7c; --route-soft:#382a27;
+  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-warn-soft:rgba(234,194,124,.12); --lamp-bad:#f07070; --lamp-off:#707886;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--out);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+h1,h2{margin:0;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+p{margin:0}
+a{color:var(--route);text-underline-offset:3px;text-decoration-thickness:1px}
+a:focus-visible{outline:2px solid var(--route);outline-offset:2px;border-radius:5px}
+code{font-family:var(--mono);font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+
+/* --- the window --- */
+.shell{padding:16px}
+.app{max-width:1180px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden;min-height:calc(100vh - 32px)}
+.rail{border-right:1px solid var(--wire);padding:16px 10px;display:flex;flex-direction:column;gap:18px}
+.wordmark{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
+.rail nav{display:flex;flex-direction:column;gap:2px}
+.rail nav a,.rail .back{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;position:relative;white-space:nowrap;transition:background .18s,color .18s}
+.rail svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.rail nav a:hover,.rail .back:hover{background:var(--inset);color:var(--ink)}
+.rail nav a[aria-current="page"]{background:var(--route-soft);color:var(--route);font-weight:500}
+.rail nav a[aria-current="page"]::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--brand)}
+.rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
+.main{padding:34px 36px 40px;display:flex;flex-direction:column;gap:22px;min-width:0}
+
+/* --- a lamp: Kitden's socket. Shape, colour and a word carry the state: green is a full green
+   dot, amber ("needs a look") an amber ring with a half dot, red a full red dot, grey (not read)
+   an empty dashed ring. When the page opens each fills from its middle, 45 ms after the one
+   before, as Kitden's sockets do; nothing glows and nothing loops. --- */
+.lamp{--c:var(--lamp-off);position:relative;flex:none;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--c);overflow:hidden}
+.lamp::after{content:"";position:absolute;inset:0;background:var(--c);border-radius:50%;transform:scale(1)}
+.lamp.green{--c:var(--lamp-on)} .lamp.amber{--c:var(--lamp-warn)} .lamp.red{--c:var(--lamp-bad)}
+.lamp.amber::after{transform:scale(.5)}
+.lamp.grey{border-style:dashed} .lamp.grey::after{transform:scale(0)}
+.lamp.big{width:14px;height:14px;border-width:2px}
+.lit .lamp:not(.grey)::after{animation:fill .38s var(--ease-in-out) var(--d,0ms) backwards}
+@keyframes fill{from{transform:scale(0)}}
+.calm-line .lamp{width:6px;height:6px;border:0}
+
+/* --- the head --- */
+.head{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.head .eyebrow{font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:.02em}
+.head h1{display:flex;align-items:center;gap:16px;font-size:32px;font-weight:700}
+.head .updated{font-size:13px;color:var(--ink-3);padding-left:32px}
+.note{border:1px solid var(--wire);border-radius:8px;padding:10px 14px;font-size:13px;background:var(--panel)}
+.note.amber{border-color:color-mix(in srgb,var(--lamp-warn) 40%,var(--wire));background:color-mix(in srgb,var(--lamp-warn) 8%,var(--panel))}
+.calm-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);padding-left:3px;margin-top:6px}
+.calm-line .lamp{margin:0 2px}
+
+/* --- panels --- */
+section{min-width:0}
+.panel{background:var(--panel);border:1px solid var(--wire);border-radius:12px;min-width:0;overflow:hidden}
+.panel .bar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid var(--wire);font-size:12px;color:var(--ink-3)}
+.panel .bar h2{margin:0;font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+
+/* --- the five lights --- */
+.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0 -1px -1px 0}
+.light{--c:var(--lamp-off);position:relative;isolation:isolate;padding:18px 18px 20px;display:flex;flex-direction:column;gap:10px;min-height:160px;
+  box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
+.light.green{--c:var(--lamp-on)} .light.amber{--c:var(--lamp-warn)} .light.red{--c:var(--lamp-bad)}
+/* A card that needs you takes its colour's soft fill, as Kitden's callouts do. */
+.light.amber{background:var(--lamp-warn-soft)}
+.light.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
+.light .top{display:flex;align-items:center;gap:10px}
+.light .name{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.light .word{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3);white-space:nowrap}
+.light.amber .word,.light.red .word{color:color-mix(in srgb,var(--c) 85%,var(--ink))}
+.light .checks{font-size:12.5px;color:var(--ink-3);line-height:1.45}
+.light .why{font-size:13px;color:var(--ink);line-height:1.45;margin-top:auto;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--c) 22%,var(--wire))}
+.light .why a{font-size:12px;white-space:nowrap}
+
+/* --- waiting --- */
+ul.rows{list-style:none;margin:0;padding:0}
+ul.rows > li{padding:12px 18px;border-top:1px solid var(--wire);display:flex;flex-direction:column;gap:4px;font-size:13px}
+ul.rows > li:first-child{border-top:0}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.wait .row{flex-wrap:wrap;align-items:flex-start;row-gap:4px}
+.kind{display:inline-flex;font-size:11px;line-height:1;padding:4px 7px;border-radius:6px;border:1px solid var(--wire);color:var(--ink-2);background:var(--canvas);white-space:nowrap}
+.sub{font-size:12px;color:var(--ink-3)}
+
+/* --- nightly --- */
+.row .part{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.row .run{margin-left:auto;font-size:12px;white-space:nowrap}
+.row .state{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.row .state + .run{margin-left:14px}
+ul.parts{list-style:none;margin:0 -1px -1px 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+ul.parts .tile{--c:var(--lamp-off);padding:14px 18px;display:flex;flex-direction:column;gap:3px;min-width:0;box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
+ul.parts .tile.green{--c:var(--lamp-on)} ul.parts .tile.red{--c:var(--lamp-bad)}
+ul.parts.loud{grid-template-columns:1fr;margin-bottom:0}
+ul.parts .tile.wide.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
+ul.parts .of,ul.parts .note-line,ul.parts .means{padding-left:20px;font-size:12px;color:var(--ink-3)}
+ul.parts .of{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ul.parts .means{font-size:12.5px;color:var(--ink)}
+ul.parts .red .note-line{color:color-mix(in srgb,var(--c) 80%,var(--ink));font-weight:500}
+ul.failed{margin:2px 0 0;padding-left:38px;font-size:12px;color:var(--ink-2)}
+.calm{display:flex;align-items:center;gap:12px;padding:18px;color:var(--ink-2);font-size:13px;margin:0}
+
+.foot-links{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;border-top:1px solid var(--wire);padding-top:18px;margin-top:6px}
+.loading{color:var(--ink-3)}
+
+/* Five lights in a row; on narrower windows, rows with no hole: 3 + 2, then 2 + 2 + 1. */
+@media (max-width:1060px){ .board{grid-template-columns:repeat(6,minmax(0,1fr))} .light{grid-column:span 2} .light:nth-child(n+4):nth-last-child(-n+2){grid-column:span 3} }
+@media (max-width:860px){
+  .shell{padding:0}
+  .app{grid-template-columns:1fr;border-radius:0;border:0;min-height:100vh}
+  .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px 16px}
+  .rail nav{flex-direction:row} .rail nav a[aria-current="page"]::before{display:none}
+  .rail .foot{display:none} .main{padding:24px 16px 32px;gap:18px}
+  .board{grid-template-columns:repeat(2,minmax(0,1fr))} .light,.light:nth-child(n+4):nth-last-child(-n+2){grid-column:auto;min-height:0}
+  .light:last-child:nth-child(odd){grid-column:1/-1}
+  .head h1{font-size:26px;gap:14px} .head .updated{padding-left:30px}
+}
+@media (max-width:520px){ .board{grid-template-columns:1fr} .rail .back{display:none} }
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<div class="shell"><div class="app">
+  <aside class="rail">
+    <div class="wordmark"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIHdpdGggdGhlIGxpbmUgaW4gc2xvdyBtb3Rpb246IHRoZSBkYXNoZXMgZHJpZnQgZG93biwgb25lIHN0ZXAgZXZlcnkgMi40IHMuIC0tPgogIDxzdHlsZT4KLmxpbmUgeyBhbmltYXRpb246IGRyaWZ0IDIuNHMgbGluZWFyIGluZmluaXRlOyB9CkBrZXlmcmFtZXMgZHJpZnQgeyB0byB7IHN0cm9rZS1kYXNob2Zmc2V0OiAtNjsgfSB9CkBtZWRpYSAocHJlZmVycy1yZWR1Y2VkLW1vdGlvbjogcmVkdWNlKSB7IC5saW5lIHsgYW5pbWF0aW9uOiBub25lOyB9IH0KICA8L3N0eWxlPgogIDxkZWZzPgogICAgPGNsaXBQYXRoIGlkPSJob3VzZSI+PHBhdGggZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJyZWFkcyI+PHJlY3Qgd2lkdGg9IjM2LjUiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjM5LjUiIHdpZHRoPSIyNC41IiBoZWlnaHQ9IjY0Ii8+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGcgY2xpcC1wYXRoPSJ1cmwoI3JlYWRzKSI+CiAgICA8cGF0aCBjbGlwLXBhdGg9InVybCgjaG91c2UpIiBmaWxsPSJub25lIiBzdHJva2U9IiNDODU4MzUiIHN0cm9rZS13aWR0aD0iNCIgZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz4KICA8L2c+CiAgPHBhdGggY2xpcC1wYXRoPSJ1cmwoI3dyaXRlcykiIGZpbGw9IiNDODU4MzUiIGQ9Ik02IDU4QzMuOCA1OCAyIDU2LjIgMiA1NFYzMi41QzIgMzAuNSAyLjkgMjguOCA0LjUgMjcuNkwxNS41IDE5LjZDMTYuNiAxOC44IDE3LjMgMTcuNyAxNy42IDE2LjRMMTkuMyA5LjJDMjAuMSA1LjggMjMuNiA0LjUgMjYuNiA2LjJMNTkgMjUuNEM2MSAyNi42IDYyIDI4LjUgNjIgMzAuOFY1NEM2MiA1Ni4yIDYwLjIgNTggNTggNThIMjhWNDRDMjggMzkuNiAyNC40IDM2IDIwIDM2UzEyIDM5LjYgMTIgNDRWNThaIi8+CiAgPHBhdGggY2xhc3M9ImxpbmUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M4NTgzNSIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjIuNiAzLjQiIGQ9Ik0zOCA2LjZWNjEuNCIvPgo8L3N2Zz4K" width="30" height="30" alt="">kitden-sdlc</div>
+    <nav aria-label="Pages">
+      <a href="./" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg>Desk</a>
+      <a href="../map/"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7l4 9M17 7l-4 9M7.2 6h9.6"/></svg>Map</a>
+    </nav>
+    <a class="back" href="https://github.com/KonstantinStarovoytov/kitden-sdlc"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to the repo</a>
+    <div class="foot">No model wrote this page.</div>
+  </aside>
+  <main class="main" id="main">
+    <div class="head">
+      <span class="eyebrow">Kitden desk</span>
+      <h1 id="lead"><span class="lamp big grey"></span><span>Reading the desk…</span></h1>
+      <p class="updated loading" id="updated"></p>
+      <p class="calm-line" id="calm" hidden></p>
+    </div>
+  </main>
+</div></div>
+
+<script type="module">
+import { view, ticks, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js';
+
+const main = document.getElementById('main');
+
+// Every piece goes in as text. A piece: a node, a string, {code}, {text, href}, or a list.
+function put(el, piece) {
+  if (piece === null || piece === undefined || piece === '') return el;
+  if (Array.isArray(piece)) { piece.forEach(p => put(el, p)); return el; }
+  if (piece instanceof Node) { el.append(piece); return el; }
+  if (typeof piece === 'string') { el.append(document.createTextNode(piece)); return el; }
+  if ('code' in piece) { el.append(make('code', {}, piece.code)); return el; }
+  if ('href' in piece) { el.append(make('a', { href: piece.href, rel: 'noopener noreferrer' }, piece.text)); return el; }
+  el.append(document.createTextNode(String(piece.text ?? '')));
+  return el;
+}
+function make(tag, attrs = {}, ...pieces) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null && v !== false) el.setAttribute(k, v);
+  pieces.forEach(p => put(el, p));
+  return el;
+}
+const link = (text, href, label) => make('a', { href, rel: 'noopener noreferrer', 'aria-label': label }, text);
+let lampNo = 0; // each lamp lights a little after the one before it
+const lamp = (s, big) => {
+  const el = make('span', { class: `lamp ${s}${big ? ' big' : ''}`, 'aria-hidden': 'true' });
+  el.style.setProperty('--d', `${lampNo++ * 45}ms`);
+  return el;
+};
+const panel = (title, aside, ...body) => make('div', { class: 'panel' },
+  make('div', { class: 'bar' }, make('h2', {}, title), aside || ''), ...body);
+
+function render(v) {
+  lampNo = 0;
+  main.classList.remove('lit');
+  document.getElementById('lead').replaceChildren(lamp(v.overall, true), make('span', {}, v.lead));
+  const updated = document.getElementById('updated');
+  updated.className = 'updated';
+  updated.replaceChildren(make('time', { title: v.updatedAt || undefined }, v.updated));
+  main.querySelectorAll('section, .note, .foot-links').forEach(e => e.remove());
+
+  const notes = [];
+  if (v.old) notes.push(make('p', { class: 'note amber', role: 'status' }, 'The desk has not run for more than a day. ',
+    link('Look at its runs', RUNS), '.'));
+  if (v.map) notes.push(make('p', { class: 'note' }, ticks(v.map)));
+
+  // What waits for the owner: a panel above the lights when something does, else one quiet line.
+  let wait = null;
+  const calm = document.getElementById('calm');
+  calm.hidden = false;
+  if (v.waiting === null) calm.replaceChildren(lamp('grey'), 'What waits for you was not measured.');
+  else if (!v.waiting.length) calm.replaceChildren(lamp('green'), 'Nothing waits for you.');
+  else {
+    calm.hidden = true;
+    const ul = make('ul', { class: 'rows wait' });
+    v.waiting.forEach(i => ul.append(make('li', {},
+      make('div', { class: 'row' }, make('span', { class: 'kind' }, i.kind), make('span', {}, i.title)),
+      i.do.length || i.days ? make('p', { class: 'sub' }, i.do, i.do.length && i.days ? ' ' : '', i.days) : '')));
+    wait = panel('Waiting for you', v.waiting.length === 1 ? '1 thing' : `${v.waiting.length} things`, ul);
+  }
+
+  // The five lights.
+  const board = make('div', { class: 'board' });
+  v.lights.forEach(l => {
+    const card = make('article', { class: `light ${l.state}`, 'aria-label': `${l.name}: ${l.word}` },
+      make('div', { class: 'top' }, lamp(l.state), make('h3', { class: 'name' }, l.name), make('span', { class: 'word' }, l.word)),
+      l.checks.length ? make('p', { class: 'checks' }, l.checks) : '',
+      l.why ? make('p', { class: 'why' }, l.why, l.open ? [' ', link('Open', l.open, `Open what ${l.name} names`)] : '') : '');
+    card.style.setProperty('--d', card.querySelector('.lamp').style.getPropertyValue('--d'));
+    board.append(card);
+  });
+  const green = v.lights.filter(l => l.state === 'green').length;
+  const lights = panel('Lights', v.lights.length ? `${green} of ${v.lights.length} green` : '',
+    v.lights.length ? board : make('p', { class: 'calm' }, lamp('grey'), 'No light was read.'));
+
+  // The nightly tests: a tile per part; a part with something to say takes the whole row.
+  const n = v.nightly;
+  let nightBody;
+  if (n === null) nightBody = make('p', { class: 'calm' }, lamp('grey'), 'Not measured yet.');
+  else if (!n.parts.length) nightBody = make('p', { class: 'calm' }, lamp('grey'), 'No nightly job is expected.');
+  else {
+    // A part with something to say gets a whole row, above the others; the rest share a grid.
+    const loud = make('ul', { class: 'parts loud' });
+    const quiet = make('ul', { class: 'parts' });
+    nightBody = [loud, quiet];
+    n.parts.forEach(p => {
+      const wide = p.means || p.failed.length || p.note;
+      const li = make('li', { class: `tile ${p.state}${wide ? ' wide' : ''}` },
+        make('div', { class: 'row' }, lamp(p.state), make('span', { class: 'part' }, p.part),
+          p.state === 'green' ? '' : make('span', { class: 'state' }, p.word),
+          p.run ? link(n.mixed && p.night ? `Run of ${p.night}` : 'Run', p.run, `Run of ${p.part}, ${p.word}`) : ''),
+        p.of ? make('p', { class: 'of' }, p.of) : '');
+      if (p.run) li.querySelector('.row a').classList.add('run');
+      if (p.note) li.append(make('p', { class: 'note-line' }, p.note));
+      if (p.means) li.append(make('p', { class: 'means' }, p.means));
+      if (p.failed.length) {
+        const f = make('ul', { class: 'failed' });
+        p.failed.forEach(j => f.append(make('li', {}, j.job, `: ${j.step}`)));
+        li.append(f);
+      }
+      (wide ? loud : quiet).append(li);
+    });
+    nightBody = nightBody.filter(ul => ul.children.length);
+  }
+  const aside = n && n.night ? `Night of ${n.night}` : '';
+  const night = panel('Nightly tests', aside, nightBody);
+
+  main.append(...notes,
+    ...(wait ? [make('section', { 'aria-label': 'Waiting for you' }, wait)] : []),
+    make('section', { 'aria-label': 'Lights' }, lights),
+    make('section', { 'aria-label': 'Nightly tests' }, night),
+    make('nav', { class: 'foot-links', 'aria-label': 'More' },
+      v.summaries, { text: 'What each light means', href: HOW_TO }));
+  // A hidden tab shows the end at once, as in Kitden: no fill waits for the tab to be seen.
+  if (!document.hidden) requestAnimationFrame(() => main.classList.add('lit'));
+}
+
+function fail(why) {
+  document.getElementById('lead').replaceChildren(lamp('grey', true), make('span', {}, 'The desk could not be read.'));
+  const updated = document.getElementById('updated');
+  updated.className = 'updated';
+  updated.replaceChildren(document.createTextNode(`${why}. `), link('Open its data on GitHub', DATA_PAGE));
+}
+
+const theme = new URLSearchParams(location.search).get('theme');
+if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+// For a look at other data in the browser's console: renderDesk(desk).
+window.renderDesk = (desk, now = new Date()) => render(view(desk, now));
+
+fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .then(desk => render(view(desk, new Date())))
+  .catch(e => fail(e instanceof SyntaxError ? 'Its data is not JSON' : e.message || 'No answer'));
+</script>
+</body>
+</html>

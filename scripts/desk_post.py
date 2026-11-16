@@ -35,6 +35,7 @@ TITLE = "Kitden desk"
 LABELS = ["automated", "desk"]
 DATA = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json"
 HOW_TO = "https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/main/docs/owner.md"
+PAGE = "https://konstantinstarovoytov.github.io/kitden-sdlc/desk/"  # docs/desk, the same desk.json
 ROSTER = Path(__file__).resolve().parent.parent / "config" / "agents.json"
 LIMIT = 65_536  # GitHub's limit for an issue body; the page counts UTF-8 bytes, never fewer
 MARKS = {"green": "🟢", "amber": "🟡", "red": "🔴", "grey": "⚪"}
@@ -483,7 +484,9 @@ def _page(desk: dict, shown: dict[str, int]) -> str:
         ["### Links", "", *_links(desk)],
         ["### This week", "", *_this_week(desk, shown)],
         ["### Budget", "", *_budget(desk)],
-        ["### How to", "", f"What each light means and what to do: [docs/owner.md]({HOW_TO})."],
+        ["### How to", "", f"What each light means and what to do: [docs/owner.md]({HOW_TO}).",
+         "", f"The same desk as a page, read from desk.json when it opens: "
+         f"[the desk page]({PAGE})."],
         [_small(desk)],
     ]
     return "\n\n".join("\n".join(part) for part in parts) + "\n"

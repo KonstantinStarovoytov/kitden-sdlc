@@ -1,7 +1,9 @@
 # What you do
 
 Everything the agents leave to you, one row each. Each is a click on GitHub or a label. The
-daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for you.
+daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for you. The same
+desk, with every number, is [the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/):
+it reads `desk.json` each time it opens, and keeps updating when `AGENTS_ENABLED` is off.
 
 | You want to | You do |
 |---|---|
