@@ -34,7 +34,8 @@ LINE_MAX = 300
 PR_LINK = re.compile(r"/pull/(\d+)")
 PR_MENTION = re.compile(r"(?<![\w&])#(\d+)")
 BLOB_LINK = re.compile(r"blob/v{version}/([^)#\s]+)")
-PICTURE = re.compile(r'\b(?:src|srcset)="(docs/images/[^"\s,]+)')
+# A picture's path, without GitHub's theme mark (#gh-light-mode-only, #gh-dark-mode-only).
+PICTURE = re.compile(r'\b(?:src|srcset)="(docs/images/[^"\s,#]+)')
 FAILED = re.compile(r"FAILED (\S+?)::(\S+)(?: - (.*))?\Z")
 
 

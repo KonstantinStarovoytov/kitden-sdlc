@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Make the README pictures from docs/map/index.html: each story, light and dark.
+# The README shows both, each marked #gh-light-mode-only or #gh-dark-mode-only, so GitHub
+# swaps them when its theme is switched, without a reload.
 # Needs Google Chrome. Run it from the repository root after the map changes.
 set -euo pipefail
 chrome="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"

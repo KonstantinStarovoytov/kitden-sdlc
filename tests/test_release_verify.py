@@ -71,7 +71,9 @@ def test_a_readme_picture_must_exist(tmp_path):
     (tmp_path / "docs/images/readme/ok.png").write_bytes(b"x")
     readme = (
         '<img src="docs/images/readme/ok.png">\n'
+        '<img src="docs/images/readme/ok.png#gh-light-mode-only">\n'
         '<source srcset="docs/images/readme/x.png" media="(prefers-color-scheme: dark)">\n'
+        '<img src="docs/images/readme/x.png#gh-dark-mode-only">\n'
     )
     assert readme_problems(readme, tmp_path) == [
         "README.md: picture docs/images/readme/x.png is missing"
