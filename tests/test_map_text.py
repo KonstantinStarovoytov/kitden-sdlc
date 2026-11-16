@@ -221,3 +221,21 @@ def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():
     numbered = re.findall(r"<span class=\"si\">' \+ (.+?) \+ '</span>", HTML)
     assert numbered == ["(i + 1)"]
     assert "<span class=\"n\">' + (i + 1) + '</span>" in HTML  # the story cards' steps
+
+
+def test_the_tools_view_shows_what_the_nightly_tests_use():
+    tools = HTML.split("const TOOLS = [")[1].split("\n];")[0]
+    used = HTML.split("const USED = {")[1].split("\n};")[0]
+    assert "['shield','macOS Keychain','real secret tests']" in tools
+    assert "['shield','GNOME Keyring','real secret tests']" in tools
+    assert "'macOS Keychain':['k-nightly']" in used
+    assert "'GNOME Keyring':['k-release','k-nightly']" in used
+    for tile in ("['Clients watched and tested', [",
+                 "['claude','Claude Code','watched, tested nightly']",
+                 "['openai','Codex','watched, tested nightly']",
+                 "['cursor','Cursor','watched only']"):
+        assert tile in tools, tile
+    for name in ("Claude Code", "Codex", "pytest", "Node", "Playwright"):
+        assert re.search(rf"'{name}':\[[^\]]*'k-nightly'", used), name
+    assert "'Cursor':['s-watch']" in used
+    assert "'GitHub Actions':'All 22 workflows'" in used and len(map_ids(HTML)) == 22

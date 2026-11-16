@@ -821,17 +821,17 @@ $('hold').addEventListener('click', ev => { const b = ev.target.closest('.blk');
 const TOOLS = [
   ['Yours', [['kitden','Kitden','the product'],['sdlc','kitden-sdlc','the automation'],['lantern','Lantern','comments and issues'],['beacon','Beacon','releases'],['kettle','Kettle','the Homebrew tap']]],
   ['Models', [['claude','Claude Sonnet 5.5','review, watcher, release'],['openai','GPT-6 Luna','second reviewer']]],
-  ['Checks', [['ruff','ruff','lint'],['python','pyright','types'],['pytest','pytest','tests'],['nodedotjs','Node','page tests'],['zizmor','zizmor','workflow security'],['lint','actionlint','workflow mistakes'],['pypi','pip-audit','known vulnerabilities']]],
+  ['Checks', [['ruff','ruff','lint'],['python','pyright','types'],['pytest','pytest','tests'],['nodedotjs','Node','page tests'],['zizmor','zizmor','workflow security'],['lint','actionlint','workflow mistakes'],['pypi','pip-audit','known vulnerabilities'],['shield','macOS Keychain','real secret tests'],['shield','GNOME Keyring','real secret tests']]],
   ['Build and ship', [['githubactions','GitHub Actions','runs it all'],['uv','uv','install and build'],['python','Python','the code'],['pypi','PyPI','the package'],['github','GitHub Releases','files and notes'],['modelcontextprotocol','MCP Registry','the server list'],['homebrew','Homebrew','brew install'],['playwright','Playwright','README pictures, browser tests'],['ffmpeg','ffmpeg','README pictures']]],
   ['Guards', [['stepsecurity','Harden-Runner','records hosts'],['langfuse','Langfuse','model traces']]],
-  ['Clients watched', [['claude','Claude Code','by Anthropic'],['openai','Codex','by OpenAI'],['cursor','Cursor','by Anysphere']]]
+  ['Clients watched and tested', [['claude','Claude Code','watched, tested nightly'],['openai','Codex','watched, tested nightly'],['cursor','Cursor','watched only']]]
 ];
 const USED = {
   'Kitden':'Every workflow in kitden', 'kitden-sdlc':'Every workflow in kitden-sdlc',
   'Lantern':['s-review','s-watch','s-release-watch','s-desk'], 'Beacon':['k-release','s-release-prep','s-publish'], 'Kettle':['t-autobump'],
   'Claude Sonnet 5.5':['s-review','s-watch','s-release-prep'], 'GPT-6 Luna':['s-review'],
   'ruff':['k-release','s-checks'], 'pyright':['k-release'], 'pytest':['k-release','k-latest-deps','k-nightly','s-checks','s-release-prep'], 'Node':['k-release','k-nightly'],
-  'zizmor':['k-release','s-check','s-checks'], 'actionlint':['s-check','s-checks'], 'pip-audit':['k-release'],
+  'zizmor':['k-release','s-check','s-checks'], 'actionlint':['s-check','s-checks'], 'pip-audit':['k-release'], 'macOS Keychain':['k-nightly'], 'GNOME Keyring':['k-release','k-nightly'],
   'GitHub Actions':'All 22 workflows', 'uv':'Every workflow in kitden and kitden-sdlc', 'Python':'Every workflow in kitden and kitden-sdlc',
   'PyPI':['k-release','s-publish','t-autobump'], 'GitHub Releases':['k-release'], 'MCP Registry':['s-publish'],
   'Homebrew':['s-publish','t-autobump','t-tests','t-auto-pull','t-publish'], 'Playwright':['k-scenes','k-nightly','s-release-prep'], 'ffmpeg':['k-scenes','s-release-prep'],
