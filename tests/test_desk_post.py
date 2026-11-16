@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -6,10 +7,11 @@ import pytest
 import desk_post
 from bot_issues import BOT
 from desk import Facts, build
-from desk_post import LIMIT, TITLE, main, post, render, week_note
-from post_findings import one_line
+from desk_post import LIMIT, TITLE, ci_body, ci_title, main, post, post_nightly, render, week_note
+from post_findings import WORD_JOINER, one_line
 from tests.fakes import FakeIssues, issue
-from tests.test_desk import FACTS, NOW, ROSTER
+from tests.test_desk import FACTS, JOB_URL, NIGHT, NOW, ROSTER, RUN_URL
+from tests.test_desk import row as desk_row
 
 URL = "https://github.com/KonstantinStarovoytov/kitden/issues/12"
 SPOT = "https://github.com/KonstantinStarovoytov/kitden/pull/70"
@@ -430,7 +432,7 @@ def test_the_page_of_what_build_writes_from_every_fact():
     body = render(build(FACTS, ROSTER, NOW))
     assert lead(body) == "All five lights are green."
     assert "None" not in body and "null" not in body
-    assert "not measured" not in body.lower().replace("not measured yet: nightly, tester.", "")
+    assert "not measured" not in body.lower().replace("not measured yet: tester.", "")
     assert "| Claude reviewer | 12 | 1 | 1 | 0 | 0 | 0 |" in body
     assert "| Release prep | 1 | 0 | 1 | — | — | — |" in body
     assert "- Pull request: [p](https://github.com/KonstantinStarovoytov/kitden/pull/79)" in body
@@ -445,3 +447,177 @@ def test_the_page_of_what_build_writes_from_no_fact():
     assert "## Waiting for you\n\nNot measured." in body
     assert "The agents' week: not measured yet." in body
     assert "Reviews: not measured yet." in body and "Misses: not measured yet." in body
+
+
+# --- The nightly: one ci-failure issue per red part, and a line on the desk ---
+
+
+def row(part, state, failed=(), **keys):
+    """One row of desk.json's `nightly`, with its failed jobs."""
+    return {**desk_row(part, state, **keys), "failed": list(failed)}
+
+
+RED = row("clients", "red", since="2026-11-18")
+TITLE_RED = "Nightly tests: clients is red"
+
+
+def red_issue(number=5, title=TITLE_RED, login=BOT):
+    return issue(number, title, ("automated", "ci-failure"), login=login)
+
+
+def test_a_red_part_opens_one_issue_with_both_labels():
+    gh = FakeIssues()
+    post_nightly(gh, [RED])
+    ((title, body, labels),) = gh.created
+    assert (title, labels) == (TITLE_RED, ["automated", "ci-failure"])
+    assert "2026-11-18" in body and "no AI model" in body
+
+
+def test_the_next_day_the_same_issue_is_rewritten_not_opened_again():
+    gh = FakeIssues([red_issue()])
+    post_nightly(gh, [RED])
+    assert gh.created == [] and [number for number, _, _ in gh.edited] == [5]
+
+
+def test_a_grey_part_leaves_its_issue_alone_and_a_green_one_closes_it():
+    gh = FakeIssues([red_issue()])
+    post_nightly(gh, [row("clients", "grey")])
+    assert gh.closed == [] and gh.edited == []
+    post_nightly(gh, [row("clients", "green")])
+    assert gh.closed == [5]
+
+
+def test_an_issue_of_a_job_that_is_gone_closes_only_when_no_row_is_grey():
+    gh = FakeIssues([red_issue(6, "Nightly tests: old-job is red")])
+    post_nightly(gh, [row("systems", "green"), row("browser", "grey")])
+    assert gh.closed == []
+    post_nightly(gh, [row("systems", "green"), row("browser", "green")])
+    assert gh.closed == [6]
+
+
+def test_a_row_that_cannot_be_read_keeps_the_issues_of_gone_jobs_open():
+    gh = FakeIssues([red_issue(6, "Nightly tests: old-job is red")])
+    post_nightly(gh, [row("systems", "green"), "?", {"part": None, "state": "red"}])
+    assert (gh.created, gh.closed) == ([], [])
+
+
+def test_a_persons_issue_with_the_bots_title_and_label_is_never_touched():
+    gh = FakeIssues([red_issue(login="someone")])
+    post_nightly(gh, [RED])
+    assert (gh.edited, gh.closed, len(gh.created)) == ([], [], 1)
+
+
+def test_without_rows_nothing_is_opened_or_closed():
+    gh = FakeIssues([red_issue()])
+    post_nightly(gh, None)
+    assert (gh.created, gh.edited, gh.closed) == ([], [], [])
+
+
+def test_the_title_names_the_workflow_and_is_never_empty():
+    assert ci_title(RED) == TITLE_RED
+    assert ci_title({**RED, "name": None}) == "nightly.yml: clients is red"
+    assert ci_title({**RED, "name": " ", "workflow": None}) == "Nightly run: clients is red"
+    assert ci_title({**RED, "name": "a\nb"}) == "a b: clients is red"
+
+
+@pytest.mark.parametrize("name", ["@owner", "[x](http://e.example)", "<!-- x", "a | b", "a\nb",
+                                  "me@evil.example"])
+def test_a_job_or_step_name_cannot_ping_link_or_break_the_page(name):
+    body = ci_body(row("systems", "red", failed=[{"job": name, "step": name, "url": JOB_URL}]))
+    assert name not in body and "http://e.example" not in body
+    assert WORD_JOINER + "@" not in body  # a joiner before "@" would make "@evil" a mention
+    assert not re.search(r"(?<!\w)@evil", body)
+
+
+def test_the_issue_lists_each_failed_job_linked_and_says_what_to_do():
+    failed = [{"job": "systems (macos-15-intel, 3.13)", "step": "Run uv run pytest -q",
+               "url": JOB_URL},
+              {"job": "systems (b, 3.12)", "step": None, "url": "http://e.example/job"}]
+    body = ci_body(row("systems", "red", failed=failed, since="2026-11-13"))
+    assert body.startswith("<picture>") and 'alt="red since: 2026-11-13"' in body
+    assert "2 jobs of the nightly part systems failed." in body
+    one = ci_body(row("systems", "red", failed=failed[:1], since="2026-11-13"))
+    assert "1 job of the nightly part systems failed." in one
+    first, second = (one_line(item["job"]) for item in failed)
+    assert f"- [{first}]({JOB_URL}): the step \"Run uv run pytest -q\" failed" in body
+    assert f"- {second} (`http://e.example/job`): no failed step is named" in body
+    assert "Kitden may not work on that system or Python" in body
+    assert "`tests/set-aside.txt`" in body and f"]({RUN_URL})" in body
+    places = [body.index(part) for part in ("### Failed", "### What it means", "### What to do")]
+    assert places == sorted(places) and body.rstrip().endswith("</sub>")
+    assert "closes itself when the job is green" in body
+
+
+@pytest.mark.parametrize(("part", "means"), [
+    ("clients", "newest Claude Code or Codex"), ("browser", "in a real browser"),
+    ("test", "scheduled test run failed")])
+def test_what_it_means_depends_on_the_part(part, means):
+    assert means in ci_body(row(part, "red", since="2026-11-18"))
+
+
+def test_post_opens_the_red_parts_issue_after_the_desk_issue():
+    gh = FakeIssues()
+    post(gh, {**DESK, "nightly": [row("systems", "green"), RED]}, MONDAY)
+    assert [title for title, _, _ in gh.created] == [TITLE, TITLE_RED]
+    assert "ci-failure" in {name for name, *_ in gh.created_labels}
+
+
+def nightly_line(body):
+    return next(text for text in body.splitlines() if text.startswith("Nightly:"))
+
+
+def test_the_desk_page_shows_each_part_and_the_tests_set_aside():
+    rows = [row("systems", "green"), RED, row("browser", "grey")]
+    body = render({**DESK, "nightly": rows, "set_aside": 2})
+    line = nightly_line(body)
+    assert all(part in line for part in ("systems", "clients", "browser"))
+    assert "2026-11-18" in line and "Tests set aside: 2" in body
+    assert "Nightly:" not in render({**DESK, "nightly": None, "set_aside": None})
+
+
+def test_the_nightly_line_shows_the_night_and_a_grey_part_from_its_second_night():
+    rows = [row("systems", "green"), row("clients", "grey", grey_since=NIGHT, grey_nights=1),
+            row("browser", "grey", grey_since="2026-11-14", grey_nights=2),
+            {**row("test", "green"), "workflow": "latest-deps.yml", "night": "2026-11-14"}]
+    line = nightly_line(render({**DESK, "nightly": rows, "set_aside": 0}))
+    assert line.count("no finished run since") == 1
+    assert "browser](" in line and "(no finished run since 2026-11-14)" in line
+    assert f"the night of {NIGHT}" in line and "the night of 2026-11-14" in line
+    assert "Tests set aside: 0 ([tests/set-aside.txt](https://github.com/" in line
+
+
+def test_the_page_says_in_words_what_the_nightly_did_not_measure():
+    body = render({**DESK, "nightly": None, "set_aside": None})
+    assert "Nightly runs: not measured yet. Tests set aside: not measured yet." in body
+    line = nightly_line(render({**DESK, "nightly": [{**RED, "part": "[x](http://e.example)"}]}))
+    assert "http://e.example" not in line and "Tests set aside: not measured yet." in line
+
+
+def test_dry_run_prints_the_issue_of_each_red_part(tmp_path, capsys):
+    path = write_desk(tmp_path, {**DESK, "nightly": [row("systems", "green"), RED]})
+    assert main(["--desk", str(path), "--dry-run"], now=MONDAY) == 0
+    out = capsys.readouterr().out
+    assert f"----- The issue {TITLE_RED!r}, opened or rewritten -----" in out
+    assert ci_body(RED) in out and "systems is red" not in out
+
+
+def test_the_nightly_column_is_explained_when_it_is_shown():
+    found = [{**DESK["found_by"][0], "nightly": 1}]
+    week = render({**DESK, "found_by": found}).split("## This week")[1].split("## Budget")[0]
+    assert "Nightly: `ci-failure` issues the desk opened for a red nightly test job." in week
+    assert "| 2026-11 | 6 | 1 | 0 | 4 | 0 |" in week
+
+
+def test_no_rows_at_all_close_no_issue():
+    gh = FakeIssues([red_issue()])
+    post_nightly(gh, [])
+    assert (gh.created, gh.edited, gh.closed) == ([], [], [])
+
+
+def test_a_grey_part_that_was_red_still_says_since_when_on_the_desk():
+    grey = row("systems", "grey", since="2026-11-10", grey_since=NIGHT, grey_nights=1)
+    line = nightly_line(render({**DESK, "nightly": [grey], "set_aside": 0}))
+    assert "systems](" in line and "red since 2026-11-10 (no finished run since 2026-11-15)" in line
+    gh = FakeIssues([red_issue(title="Nightly tests: systems is red")])
+    post_nightly(gh, [grey])
+    assert (gh.edited, gh.closed) == ([], [])

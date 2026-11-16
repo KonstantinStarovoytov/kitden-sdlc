@@ -53,6 +53,40 @@ def check_run(name, run_id, conclusion="success", started="2026-11-13T21:46:00Z"
     return {"id": run_id * 10, "name": name, "status": "completed", "conclusion": conclusion,
             "started_at": started, "head_sha": SHA, "details_url": url, "html_url": url,
             "app": {"slug": "github-actions"}}
+
+
+def night_runs(workflow):
+    query = "branch=main&event=schedule&status=completed&per_page=1"
+    return f"repos/{REPO}/actions/workflows/{workflow}/runs?{query}"
+
+
+def night_jobs(run_id):
+    return f"repos/{REPO}/actions/runs/{run_id}/jobs?filter=latest&per_page=100"
+
+
+def night_run(run_id, name):
+    """A workflow run as GitHub gives it, with the fields the desk reads."""
+    return {"id": run_id, "name": name, "event": "schedule", "head_branch": "main",
+            "status": "completed", "conclusion": "success", "created_at": "2026-11-16T02:37:00Z",
+            "html_url": f"https://github.com/{REPO}/actions/runs/{run_id}"}
+
+
+def night_job(name, conclusion="success"):
+    return {"name": name, "status": "completed", "conclusion": conclusion,
+            "html_url": f"https://github.com/{REPO}/actions/runs/7/job/1",
+            "steps": [{"name": "Run uv run pytest -q", "conclusion": conclusion}]}
+
+
+# What tests/set-aside.txt holds on Kitden's main today (2026-11-16): only its two comments.
+SET_ASIDE = ("# One test per line, as pytest names it, then two spaces, #, the date and the "
+             "reason.\n# Blank lines and lines that start with # are comments. See "
+             "docs/development.md.\n")
+
+
+def fetched(url):
+    return SET_ASIDE if "set-aside" in url else DOWNLOADS
+
+
 # What GitHub answers, by address. The pulls lists are kept apart: see FakeApi.list_pulls.
 ANSWERS = {
     f"repos/{REPO}/issues?state=all&per_page=100": [
@@ -93,6 +127,12 @@ ANSWERS = {
         run("success", "workflow_dispatch"), run("skipped", "schedule"), run(None, "schedule"),
     ]},
     runs_address(REPO, "release-prep.yml"): {"workflow_runs": []},
+    night_runs("nightly.yml"): {"total_count": 1, "workflow_runs": [night_run(7, "Nightly tests")]},
+    night_jobs(7): {"total_count": 3, "jobs": [night_job("systems (ubuntu-latest, 3.13)"),
+                                               night_job("clients"), night_job("browser")]},
+    night_runs("latest-deps.yml"): {"total_count": 1,
+                                    "workflow_runs": [night_run(8, "Latest dependencies")]},
+    night_jobs(8): {"total_count": 1, "jobs": [night_job("test")]},
 }
 LISTED = [  # every state, newest update first, as count_reviews.list_pulls gives them
     pull(6, ago(2), created=ago(3), title="open now"),
@@ -136,7 +176,7 @@ class FakeApi:
         return []
 
 
-def read(answers=ANSWERS, log=None, fetch=lambda url: DOWNLOADS, **changes):
+def read(answers=ANSWERS, log=None, fetch=fetched, **changes):
     return gather(FakeApi({**answers, **changes}), REPO, ROSTER, NOW, log, fetch=fetch)
 
 
@@ -306,7 +346,8 @@ def test_each_failed_read_names_its_field_and_nothing_else(capsys):
 def test_a_failed_read_leaves_the_others_running(field, address):
     facts = read(**failing(address))
     assert getattr(facts, field) is None
-    others = {"issues", "checks", "required", "stars", "pulls", "reviews", "downloads"} - {field}
+    others = {"issues", "checks", "required", "stars", "pulls", "reviews", "downloads",
+              "nightly", "set_aside"} - {field}
     assert all(getattr(facts, name) is not None for name in others)
 
 
@@ -346,6 +387,115 @@ def test_an_empty_watch_log_is_read_and_has_no_lines(tmp_path):
 def test_no_watch_log_path_is_none_without_a_warning(capsys):
     assert read().watch_log is None
     assert "watch_log" not in capsys.readouterr().out
+
+
+# --- the nightly runs ---
+
+
+def test_nightly_holds_the_newest_finished_scheduled_run_and_its_jobs():
+    night = read().nightly
+    assert [entry["workflow"] for entry in night] == ["nightly.yml", "latest-deps.yml"]
+    assert night[0]["name"] == "Nightly tests" and night[0]["run"]["id"] == 7
+    assert [job["name"] for job in night[0]["jobs"]] == [
+        "systems (ubuntu-latest, 3.13)", "clients", "browser"]
+    assert night[1]["run"]["id"] == 8 and [job["name"] for job in night[1]["jobs"]] == ["test"]
+
+
+def test_the_newest_run_is_one_call_not_every_page():
+    class Paged(FakeApi):
+        def pages(self, address, key=None):
+            self.asked.append(f"paged {address}")
+            return super().pages(address, key)
+
+    api = Paged(ANSWERS)
+    gather(api, REPO, ROSTER, NOW, None, fetch=fetched)
+    assert f"paged {night_runs('nightly.yml')}" not in api.asked  # per_page=1 over every run
+    assert f"paged {night_jobs(7)}" in api.asked  # a matrix can have more than 100 jobs
+
+
+def test_a_workflow_with_no_scheduled_run_has_no_run_and_no_warning(capsys):
+    night = read(**{night_runs("nightly.yml"): {"workflow_runs": []}}).nightly
+    assert (night[0]["run"], night[0]["jobs"]) == (None, None)
+    assert "nightly" not in capsys.readouterr().out
+
+
+def test_a_workflow_that_cannot_be_read_warns_and_leaves_the_other(capsys):
+    night = read(**failing(night_runs("nightly.yml"))).nightly
+    assert night[0]["run"] is None and night[1]["run"] is not None
+    assert "::warning::desk: could not read nightly (nightly.yml)" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("changes", [
+    failing(night_jobs(7)),
+    {night_jobs(7): {"jobs": {}}},
+    {night_jobs(7): {"jobs": ["x"]}},
+    {night_runs("nightly.yml"): {"workflow_runs": {}}},
+    {night_runs("nightly.yml"): {"workflow_runs": [{"id": "7"}]}},
+    {night_runs("nightly.yml"): []},
+])
+def test_a_run_or_jobs_of_another_shape_is_a_failed_read(changes, capsys):
+    night = read(**changes).nightly
+    assert night[0] == {"workflow": "nightly.yml", "name": None, "run": None, "jobs": None}
+    assert night[1]["run"]["id"] == 8
+    assert "::warning::desk: could not read nightly (nightly.yml)" in capsys.readouterr().out
+
+
+def test_set_aside_counts_the_tests_not_the_comments():
+    text = "# why\n\ntests/unit/test_a.py::test_x  # 2026-11-20 gave up waiting\n"
+    assert read(fetch=lambda url: text if "set-aside" in url else DOWNLOADS).set_aside == 1
+
+
+def test_set_aside_of_today_holds_no_test(capsys):
+    asked = []
+    assert read(fetch=lambda url: asked.append(url) or fetched(url)).set_aside == 0
+    assert f"https://raw.githubusercontent.com/{REPO}/main/tests/set-aside.txt" in asked
+    assert "set_aside" not in capsys.readouterr().out
+
+
+def test_a_set_aside_file_of_another_shape_is_a_failed_read(capsys):
+    assert read(fetch=lambda url: "<html>" if "set-aside" in url else DOWNLOADS).set_aside is None
+    assert "::warning::desk: could not read set_aside" in capsys.readouterr().out
+
+
+def test_a_set_aside_file_that_cannot_be_fetched_is_a_failed_read(capsys):
+    def fetch(url):
+        if "set-aside" in url:
+            raise OSError("404")
+        return DOWNLOADS
+
+    facts = read(fetch=fetch)
+    assert facts.set_aside is None and facts.downloads == 340
+    assert "::warning::desk: could not read set_aside" in capsys.readouterr().out
+
+
+def test_yesterdays_rows_come_from_the_desk_file_already_in_out(tmp_path):
+    (tmp_path / "desk.json").write_text(json.dumps({"nightly": [{"part": "systems"}]}))
+    assert desk_gather.before(tmp_path) == [{"part": "systems"}]
+    assert desk_gather.before(tmp_path / "none") is None
+
+
+def test_a_desk_file_without_rows_has_none_and_a_broken_one_warns(tmp_path, capsys):
+    (tmp_path / "desk.json").write_text(json.dumps({"version": 1, "lights": []}))
+    assert desk_gather.before(tmp_path) is None  # yesterday's desk did not read the nights yet
+    (tmp_path / "desk.json").write_text(json.dumps({"nightly": None}))
+    assert desk_gather.before(tmp_path) is None
+    assert capsys.readouterr().out == ""
+    for broken in ("{", json.dumps({"nightly": {}}), json.dumps({"nightly": ["x"]}), "[]"):
+        (tmp_path / "desk.json").write_text(broken)
+        assert desk_gather.before(tmp_path) is None
+        assert "::warning::desk: could not read before" in capsys.readouterr().out
+
+
+def test_main_reads_yesterdays_rows_before_it_writes_the_new_desk(tmp_path, monkeypatch):
+    (tmp_path / "desk.json").write_text(json.dumps({"nightly": [{"part": "browser"}]}))
+    seen = []
+    real = desk_gather.build
+    monkeypatch.setattr(desk_gather, "build",
+                        lambda facts, *args: seen.append(facts.before) or real(facts, *args))
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    assert main(argv, api=FakeApi(ANSWERS), now=NOW) == 0
+    assert seen == [[{"part": "browser"}]]
+    assert json.loads((tmp_path / "desk.json").read_text())["nightly"][2]["part"] == "browser"
 
 
 # --- gh ---

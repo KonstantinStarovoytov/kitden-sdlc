@@ -8,7 +8,7 @@ carries its own title, on one line and cut short; the page that shows it escapes
 
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from bot_issues import BOT, names, paused_title, verdict
 from count_reviews import MAINTAINER, REPO, Review, summary
@@ -37,6 +37,21 @@ CAUSED_BY = re.compile(r"^###[ \t]*Caused by[ \t\r]*$(.*?)(?=^###|\Z)", re.I | r
 # "#N" or "PR#N", or the address of a pull request in REPO. Not a bare N, "owner/repo#N", "&#N;".
 REFERENCE = re.compile(
     rf"(?:(?<![\w&])|(?<=\bPR))#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
+# The workflows in Kitden that test it every night, and the job ids of each.
+NIGHTLY = (("nightly.yml", ("systems", "clients", "browser")), ("latest-deps.yml", ("test",)))
+# GitHub starts scheduled runs hours late, so the desk may see the night before; each reason
+# gives the run's date.
+# A run is current when its date (UTC) is the desk's day or at most NIGHT_DAYS days before:
+# with 1, today or yesterday. An older run means GitHub skipped a night: grey.
+NIGHT_DAYS = 1
+NIGHT_RED_DAYS = 3  # red since this many days before its newest run, or grey this many nights
+CLIENT_PARTS = ("clients",)  # the nightly parts the Clients light judges; Works judges the rest
+# A nightly job that ended so is red. Not "cancelled": Kitden's nightly.yml has fail-fast off, so
+# a cancelled job was stopped by hand or by a newer run of its concurrency group, or ran past
+# its timeout-minutes. It proves no test failed, so it is grey (see the grey nights below).
+NIGHT_RED = tuple(ending for ending in RED_ENDINGS if ending != "cancelled")
+CANCELLED = "stopped, or past its time limit"
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 @dataclass
@@ -56,6 +71,10 @@ class Facts:
     watch_log: list[dict] | None = None  # the watcher's log.jsonl
     stars: int | None = None
     downloads: int | None = None  # PyPI, last month
+    # One entry per workflow of NIGHTLY: its newest finished scheduled run on main and the jobs.
+    nightly: list[dict] | None = None
+    before: list[dict] | None = None  # the `nightly` rows of yesterday's desk.json
+    set_aside: int | None = None  # the tests in Kitden's tests/set-aside.txt
 
 
 # --- Time and who wrote what ---
@@ -129,6 +148,154 @@ def _opened(item: dict) -> tuple[datetime, int]:
 
 def _oldest(issues: list[dict]) -> dict | None:
     return min(issues, key=_opened, default=None)
+
+
+# --- The nightly runs ---
+
+
+def part(job_name: str) -> str:
+    """The part a nightly job tests: its name up to " (", so a matrix's jobs are one part."""
+    return job_name.split(" (", 1)[0]
+
+
+def _date(text) -> date | None:
+    """The day 'YYYY-MM-DD' names; None for anything else."""
+    if not isinstance(text, str) or not DATE.fullmatch(text):
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _text(value) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _readable(jobs) -> bool:
+    """Jobs in the shape GitHub gives them: each a name, an ending and a list of steps."""
+    return isinstance(jobs, list) and all(
+        isinstance(job, dict) and isinstance(job.get("name"), str)
+        and isinstance(job.get("conclusion"), str) and isinstance(job.get("steps"), list)
+        and all(isinstance(step, dict) for step in job["steps"])
+        for job in jobs
+    )
+
+
+def _first_failed_step(job: dict) -> str | None:
+    return next((_text(step.get("name")) for step in job["steps"]
+                 if step.get("conclusion") in NIGHT_RED), None)
+
+
+def _yesterdays(workflow: str, name: str, before: list[dict] | None) -> dict:
+    """The row of yesterday's desk.json for this workflow and part; {} when it has none."""
+    return next((row for row in before or [] if isinstance(row, dict)
+                 and row.get("workflow") == workflow and row.get("part") == name), {})
+
+
+def _kept(row: dict, key: str, night: str) -> str | None:
+    """A date of yesterday's row, when it is one and not after `night`."""
+    value = row.get(key)
+    return value if _date(value) and value <= night else None
+
+
+def _history(row: dict, before: list[dict] | None, night: str) -> dict:
+    """`since`, `grey_since` and `grey_nights` of a row about `night`. A grey night does not
+    reset what came before it: it keeps yesterday's `since` when the part was red or grey,
+    and counts its grey nights from the first of the stretch. A red row keeps the `since` the
+    part had before the grey nights; only a green row ends both."""
+    last = _yesterdays(row["workflow"], row["part"], before)
+    was = last.get("state")
+    since = _kept(last, "since", night) if was in ("red", "grey") else None
+    if row["state"] == "red":
+        return {**row, "since": since or night}
+    if row["state"] != "grey":
+        return row
+    start = (_kept(last, "grey_since", night) if was == "grey" else None) or night
+    nights = (date.fromisoformat(night) - date.fromisoformat(start)).days + 1
+    return {**row, "since": since, "grey_since": start, "grey_nights": nights}
+
+
+def _night_rows(workflow: str, parts: tuple[str, ...], entry: dict | None,
+                now: datetime) -> tuple[list[dict], str]:
+    """The rows of one workflow of NIGHTLY, one per job id, from its entry in Facts.nightly,
+    and the night they are about: the run's date when it is current, else yesterday."""
+    entry = entry or {}
+    run = entry.get("run")
+    head = {"workflow": workflow, "name": _text(entry.get("name"))}
+    expected = (now.date() - timedelta(days=NIGHT_DAYS)).isoformat()
+    night = url = None
+
+    def row(name: str, state: str, why: str = "", failed=()) -> dict:
+        return {**head, "part": name, "state": state, "failed": list(failed), "run": url,
+                "night": night, "since": None, "grey_since": None, "grey_nights": None,
+                "why": why}
+
+    def grey(why: str) -> tuple[list[dict], str]:
+        return [row(name, "grey", why) for name in parts], expected
+
+    if run is None:
+        return grey(f"the nightly runs of {workflow} were not read, or it has no finished "
+                    "scheduled run on main.")
+    if not isinstance(run, dict):
+        return grey(f"the newest nightly run of {workflow} could not be read.")
+    url = _text(run.get("html_url"))
+    try:
+        made = _at(run.get("created_at"))
+    except (TypeError, ValueError):
+        return grey(f"the newest nightly run of {workflow} has no readable date.")
+    if made > now:
+        return grey(f"the newest nightly run of {workflow} is dated {run['created_at']}, after "
+                    "the desk's own time.")
+    night = made.date().isoformat()
+    if night < expected:
+        return grey(f"{workflow} had no run on {expected}; its newest was made {night}.")
+    jobs = entry.get("jobs")
+    if not _readable(jobs):
+        return grey(f"the jobs of the nightly run of {workflow} made {night} could not be read.")
+    if not jobs:
+        ended = _text(run.get("conclusion"))
+        return grey(f"the nightly run of {workflow} made {night} has no jobs"
+                    + (f"; it ended {ended}." if ended else "."))
+    rows = []
+    for name in parts:
+        mine = [job for job in jobs if part(job["name"]) == name]
+        red = [job for job in mine if job["conclusion"] in NIGHT_RED]
+        if red:
+            failed = [{"job": job["name"], "step": _first_failed_step(job),
+                       "url": _text(job.get("html_url"))} for job in red]
+            rows.append(row(name, "red", failed=failed))
+        elif mine and all(job["conclusion"] == "success" for job in mine):
+            rows.append(row(name, "green"))
+        elif mine:
+            ended = sorted({job["conclusion"] for job in mine} - {"success"})
+            note = ("" if "cancelled" not in ended else f": {CANCELLED}" if len(ended) == 1
+                    else f"; cancelled: {CANCELLED}")
+            rows.append(row(name, "grey", f"the nightly job {name} ended {_and(ended)} in the "
+                                          f"run made {night}{note}."))
+        else:
+            rows.append(row(name, "grey", f"the nightly run of {workflow} made {night} has no "
+                                          f"job {name}."))
+    return rows, night
+
+
+def nightly(found: list[dict] | None, before: list[dict] | None,
+            now: datetime) -> list[dict] | None:
+    """The `nightly` rows of desk.json: one per job id of each workflow of NIGHTLY, in its
+    order. `found` is Facts.nightly; `before` yesterday's rows, None when there were none.
+    A row is red when a job of its part ended in NIGHT_RED, green when every job of it
+    succeeded, and grey, with `why`, otherwise (see _history for the dates it carries).
+    None when the runs were not read. The rows only show: a grey row must never open or
+    close an issue, since grey proves neither a failure nor a fix."""
+    if not isinstance(found, list):
+        return None
+    now = _utc(now)
+    given = {entry.get("workflow"): entry for entry in found if isinstance(entry, dict)}
+    rows = []
+    for workflow, parts in NIGHTLY:
+        made, night = _night_rows(workflow, parts, given.get(workflow), now)
+        rows += [_history(row, before, night) for row in made]
+    return rows
 
 
 # --- The lights ---
@@ -224,24 +391,78 @@ def _failed(failed: list[str], required: list[str] | None, partial: bool) -> dic
                   f"On main, {', '.join(failed)} failed; main does not require {them}.")
 
 
+def _stretch_end(row: dict) -> date | None:
+    """The last night of a grey row's grey stretch; None when it has none."""
+    start, nights = _date(row.get("grey_since")), row.get("grey_nights")
+    if start is None or not isinstance(nights, int) or isinstance(nights, bool) or nights < 1:
+        return None
+    return start + timedelta(days=nights - 1)
+
+
+def _night_light(light_id: str, rows: list[dict] | None) -> tuple[list[dict], list[str]]:
+    """What the nightly rows of this light's parts prove: a light for each red row, amber and
+    red once it has been red since NIGHT_RED_DAYS before its newest run; the same for a grey
+    row that keeps a red `since`, since nothing has fixed it; an amber light for each other
+    row grey for NIGHT_RED_DAYS nights or more, so a nightly that hangs every night is seen;
+    and what is not measured, from the other grey rows. Rows None: the nightly runs were not
+    read."""
+    if rows is None:
+        return [], ["the nightly runs were not read."]
+    found, missing = [], []
+    for row in rows:
+        if (row.get("part") in CLIENT_PARTS) != (light_id == "clients"):
+            continue
+        name, night, since = row.get("part"), row.get("night"), row.get("since")
+        # A grey row can carry the date of an old run (a skipped night) or none (no run): the
+        # last night of its grey stretch counts too, so the red clock keeps going.
+        began = _date(since)
+        last = max(filter(None, (_date(night), _stretch_end(row))), default=None)
+        late = began and last and (last - began).days >= NIGHT_RED_DAYS
+        if row.get("state") == "red":
+            found.append(_light(light_id, "red" if late else "amber",
+                                f"Nightly: {name} has been red since {since}; its newest run "
+                                f"was made {night}.", row.get("run") or ""))
+        elif row.get("state") != "green":
+            why = row.get("why") or f"the nightly job {name} has no finished green or red run."
+            nights = row.get("grey_nights")
+            if began:  # red before the grey nights, and not green since: still not fixed
+                found.append(_light(
+                    light_id, "red" if late else "amber",
+                    f"Nightly: {name} was red since {since}; it has had no finished green or "
+                    f"red run since {row.get('grey_since')} ({why.rstrip('.')}).",
+                    row.get("run") or ""))
+            elif isinstance(nights, int) and nights >= NIGHT_RED_DAYS:
+                found.append(_light(light_id, "amber",
+                                    f"Nightly: {name} has had no finished green or red run "
+                                    f"since {row.get('grey_since')} ({why.rstrip('.')}).",
+                                    row.get("run") or ""))
+            else:
+                missing.append(why)
+    return found, missing
+
+
 def light_works(checks: list[dict] | None, required: list[str] | None = None,
-                partial: bool = False) -> dict:
+                partial: bool = False, nightly: list[dict] | None = ()) -> dict:
     """Main's newest commit: the newest run of each check its push started, and of each check
     main requires (see _judged). Each check main requires must also have passed. `required`
     None: main's rules were not read, so passing checks are not yet good news. `partial`:
     `required` is only part of main's rules, so nothing bad found there is not yet good news
-    either. A check run's `event` is that of its workflow run; None when not known."""
+    either. A check run's `event` is that of its workflow run; None when not known.
+    `nightly`: the rows of desk.json (see _night_light); () when no nightly job is expected."""
+    night_found, night_missing = _night_light("works", nightly)
     if checks is None:
-        return _light("works", "grey", "Not measured yet: no check run of main was read.")
+        return _settle("works", night_found,
+                       " ".join(["no check run of main was read.", *night_missing]))
     missing = ["main's rules were not read."] if required is None else []
     if partial:
         missing.append(PARTLY)
+    missing += night_missing
     if not checks:
         found = None
         if required:
             found = _light("works", "amber", f"{', '.join(required)} {_verb(required)} not run "
                                              "on main's newest commit.")
-        return _settle("works", [found], " ".join(missing),
+        return _settle("works", [found, *night_found], " ".join(missing),
                        "no check has run on main's newest commit.")
     judged = _judged(checks, required)
     done = [c for c in judged if c.get("status") == "completed"]
@@ -256,6 +477,7 @@ def light_works(checks: list[dict] | None, required: list[str] | None = None,
         _light("works", "amber", f"On main, {', '.join(odd)} ended neither well nor badly.")
         if odd else None,
         _not_passed(required, passed),
+        *night_found,
     ]
     unproven = "" if passed else "no check on main's newest commit passed."
     return _settle("works", found, " ".join(missing), unproven)
@@ -289,16 +511,21 @@ def _watch_log_age(watch_log: list[dict] | None, now: datetime) -> float | None:
     return (now - max(days) - timedelta(days=1)).total_seconds() / 86400
 
 
-def light_clients(issues: list[dict] | None, watch_log: list[dict] | None, now: datetime) -> dict:
+def light_clients(issues: list[dict] | None, watch_log: list[dict] | None, now: datetime,
+                  nightly: list[dict] | None = ()) -> dict:
+    """`nightly`: the rows of desk.json, of which Clients judges the parts in CLIENT_PARTS
+    (see _night_light); () when no nightly job is expected."""
     now = _utc(now)
+    night_found, night_missing = _night_light("clients", nightly)
     if issues is None:
-        return _light("clients", "grey", "Not measured yet: the issues were not read.")
+        return _settle("clients", night_found,
+                       " ".join(["the issues were not read.", *night_missing]))
     late = _oldest(_bots(issues, "client-change", "confirmed", "major"))
     found = _limits("clients", late, now, 3.5, 7, "(a confirmed major client change)")
     age = _watch_log_age(watch_log, now)
     stale = age is None or age > WATCH_LOG_DAYS
-    missing = f"the watcher logged no run in the last {WATCH_LOG_DAYS} days." if stale else ""
-    return _settle("clients", [found], missing)
+    missing = [f"the watcher logged no run in the last {WATCH_LOG_DAYS} days."] if stale else []
+    return _settle("clients", [found, *night_found], " ".join([*missing, *night_missing]))
 
 
 def _open_bugs_on(issues: list[dict], monday: datetime) -> int:
@@ -595,6 +822,7 @@ def _found_in(month: str, reviews: list[Review] | None, issues: list[dict] | Non
         bugs = [item for item in opened if "bug" in names(item)]
         row["watcher"] = sum(verdict(item) == "confirmed"
                              for item in _bots(opened, "client-change", open_only=False))
+        row["nightly"] = len(_bots(opened, "ci-failure", open_only=False))
         row["owner"] = sum(1 for item in bugs if _login(item).lower() == MAINTAINER.lower())
         row["others"] = sum(1 for item in bugs if _by_a_person_not_the_owner(item))
     return row
@@ -602,7 +830,8 @@ def _found_in(month: str, reviews: list[Review] | None, issues: list[dict] | Non
 
 def found_by(reviews: list[Review] | None, issues: list[dict] | None,
              now: datetime) -> list[dict]:
-    """Who found what, this month and the two before, newest first."""
+    """Who found what, this month and the two before, newest first. `nightly` counts the
+    bot's `ci-failure` issues: a nightly test job was red."""
     now = _utc(now)
     return [_found_in(_month(now, back), reviews, issues) for back in range(3)]
 
@@ -641,9 +870,10 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
     wait = waiting(facts.issues, facts.pulls, facts.reviews, now)
     rows = week(roster, facts.reviews, facts.issues, facts.pulls, facts.runs, now,
                 failed=facts.failed, silent=facts.silent)
+    nights = nightly(facts.nightly, facts.before, now)
     lights = [
-        light_works(facts.checks, facts.required, facts.required_partial),
-        light_clients(facts.issues, facts.watch_log, now),
+        light_works(facts.checks, facts.required, facts.required_partial, nights),
+        light_clients(facts.issues, facts.watch_log, now, nights),
         light_bugs(facts.issues, now),
         light_agents(facts.issues, facts.required, now, facts.required_partial, rows),
         light_queue(_waits(facts.issues, facts.pulls, facts.reviews, now),
@@ -663,6 +893,8 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
         "review": review,
         "found_by": found_by(facts.reviews, facts.issues, now),
         "misses": misses(facts.issues, facts.reviews, now),
+        "nightly": nights,
+        "set_aside": facts.set_aside,
         "budget": {
             "agents": [{"agent": a["id"], "runs": facts.runs.get(a["id"]), "cap": a["cap"]}
                        for a in roster["agents"]],

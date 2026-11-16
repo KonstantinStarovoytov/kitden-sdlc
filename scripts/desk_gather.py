@@ -19,11 +19,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from count_reviews import REPO, SINCE_DAYS, GhNumbersApi, collect, write_numbers
-from desk import Facts, build
+from desk import NIGHTLY, Facts, build
 
 Fetch = Callable[[str], str]
 
 PYPISTATS = "https://pypistats.org/api/packages/kitden/recent"
+SET_ASIDE = "https://raw.githubusercontent.com/{repo}/main/tests/set-aside.txt"
 FETCH_SECONDS = 10
 RUN_DAYS = 7
 BRANCH = "main"
@@ -210,6 +211,59 @@ def fetch_downloads(fetch: Fetch) -> int:
     return _count(json.loads(fetch(PYPISTATS))["data"]["last_month"])
 
 
+def fetch_set_aside(fetch: Fetch, repo: str) -> int:
+    """The tests Kitden's tests/set-aside.txt names: its lines that are not blank and not a
+    comment. Any other line is a failed read: a page of another shape is never a count."""
+    count = 0
+    for line in fetch(SET_ASIDE.format(repo=repo)).splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if not line.startswith("tests/") or ".py::" not in line:
+            raise ValueError("a line that names no test")
+        count += 1
+    return count
+
+
+def _night(api, repo: str, workflow: str) -> dict:
+    """The newest finished scheduled run of `workflow` on main, and that run's jobs; both None
+    when it has no such run. The run is one call: paging per_page=1 would read every run."""
+    address = (f"repos/{repo}/actions/workflows/{workflow}/runs"
+               f"?branch={BRANCH}&event=schedule&status=completed&per_page=1")
+    runs = _dicts(page_items(api.get(address), "workflow_runs"))
+    if not runs:
+        return {"workflow": workflow, "name": None, "run": None, "jobs": None}
+    run = runs[0]
+    if not isinstance(run.get("id"), int) or isinstance(run["id"], bool):
+        raise TypeError("a run without an id")
+    jobs = _dicts(api.pages(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest"
+                            "&per_page=100", "jobs"))
+    return {"workflow": workflow, "name": run.get("name"), "run": run, "jobs": jobs}
+
+
+def _nightly(api, repo: str) -> list[dict]:
+    """One entry per workflow of NIGHTLY, each read on its own."""
+    found = []
+    for workflow, _jobs in NIGHTLY:
+        night = _read(f"nightly ({workflow})", lambda w=workflow: _night(api, repo, w))
+        found.append(night or {"workflow": workflow, "name": None, "run": None, "jobs": None})
+    return found
+
+
+def _before(path: Path) -> list[dict] | None:
+    rows = json.loads(path.read_text()).get("nightly")
+    return None if rows is None else _dicts(rows)
+
+
+def before(out: Path) -> list[dict] | None:
+    """The `nightly` rows of the desk.json already in `out`: yesterday's. None when there is no
+    such file, or it holds no rows; a file that cannot be read also warns."""
+    path = out / "desk.json"
+    if not path.is_file():
+        return None
+    return _read("before", lambda: _before(path))
+
+
 def _agent_runs(api, roster: dict, now: datetime) -> tuple[dict[str, int | None],
                                                             dict[str, int | None]]:
     """Per agent, its runs that ended well or badly in the last RUN_DAYS, and those of them
@@ -288,6 +342,8 @@ def gather(api, repo: str, roster: dict, now: datetime, watch_log: Path | None,
         watch_log=None if watch_log is None else _read("watch_log", lambda: _watch_log(watch_log)),
         stars=_read("stars", lambda: _stars(api, repo)),
         downloads=_read("downloads", lambda: fetch_downloads(fetch)),
+        nightly=_nightly(api, repo),
+        set_aside=_read("set_aside", lambda: fetch_set_aside(fetch, repo)),
     )
 
 
@@ -303,6 +359,7 @@ def main(argv: list[str], api=None, now: datetime | None = None) -> int:
     roster = json.loads(args.roster.read_text())
     facts = gather(api or GhDeskApi(), args.repo, roster, now, args.watch_log,
                    fetch=lambda url: fetch_url(url))
+    facts.before = before(args.out)  # read before the new desk.json takes its place
     try:
         args.out.mkdir(parents=True, exist_ok=True)
         (args.out / "desk.json").write_text(json.dumps(build(facts, roster, now), indent=2) + "\n")

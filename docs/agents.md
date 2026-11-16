@@ -11,7 +11,7 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | `luna` reviewer | the same | GPT-6 Luna | read in a sandbox with no network, answer with findings | see below | the same |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only | none |
 | list check | a Kitden pull request changes `docs/clients.md` | none: a script, not an agent | read the doc page of each row it adds or changes, and warn | read only, no secret; 10 minutes; at most 20 pages, 40 exact words a row and 3 minutes of checking; never turns red for a page | none |
-| the desk | every day at 06:41 UTC, or by hand | none | count reviews, read Kitden's facts, commit `numbers.md`, `numbers.json` and `desk.json` to the `numbers` branch; a second job shows `desk.json` as the issue "Kitden desk" in Kitden, as Lantern | no model, no pull request code; 10 and 5 minutes, one run at a time | `AGENTS_ENABLED`, in kitden-sdlc, for the issue only: the numbers update without it |
+| the desk | every day at 06:41 UTC, or by hand | none | count reviews, read Kitden's facts, commit `numbers.md`, `numbers.json` and `desk.json` to the `numbers` branch; a second job shows `desk.json` as the issue "Kitden desk" in Kitden, and opens a `ci-failure` issue for each red nightly part, as Lantern | no model, no pull request code; 10 and 5 minutes, one run at a time | `AGENTS_ENABLED`, in kitden-sdlc, for the issue only: the numbers update without it |
 | client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time | `AGENTS_ENABLED` and `WATCH_LIVE`, in kitden-sdlc |
 | release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context; write the notes, the README, the guide, the policy files and the plugin README to one output folder; scripts check them, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs with the same read-only tools: 25 minutes and 60 turns, then 10 minutes and 15 turns; one run at a time; it does not start while a release pull request is open or three bot pull requests wait, and stops when the branch `prepare-vX.Y.Z` exists | `AGENTS_ENABLED`, in Kitden; started by hand |
 | release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time | `AGENTS_ENABLED`, in Kitden |
@@ -62,10 +62,43 @@ Works judges the newest run of each check on `main`'s newest commit, among the c
 the push to `main` started. A check `main` requires counts whatever started it, and so does a
 check whose start is not known. Release prep started by hand and scheduled runs do not count.
 
+Works and Clients also judge Kitden's nightly tests: the newest finished scheduled run on
+`main` of `nightly.yml` (parts `systems`, `clients`, `browser`) and of `latest-deps.yml` (part
+`test`). The jobs of one matrix are one part. A part is red when one of its jobs ended
+`failure`, `timed_out`, `action_required` or `startup_failure`, green when every one of its
+jobs passed, and grey otherwise. Grey covers a job that ended `cancelled` (stopped by hand or
+by a newer run, or past its time limit: `nightly.yml` has fail-fast off), a skipped job, no job
+of the part, and a run that could not be read. It also covers a skipped night: the run must be
+dated (UTC) the desk's day or the day before. Clients judges the part `clients`, Works the
+rest. GitHub starts scheduled runs hours late, so the desk may show the night before; each
+reason gives the run's date.
+
+A grey night does not wipe what came before it. A red part keeps the day it turned red
+through grey nights, and its light stays as a red part's would (amber, then red from 3 days
+after that day), because nothing has shown it fixed; the "Nightly:" line still says "red
+since". A part grey for 3 nights in a row with no red before turns its light amber, so a
+nightly that hangs every night is seen. Grey never opens or closes an issue.
+
+`desk.json` keeps one row per part under `nightly`. A row holds the state, the failed jobs
+with their first failed step, the run, and the run's date as `night`. It also holds `since`
+(the day a red part turned red), `grey_since` and `grey_nights` (the grey stretch), and `why`
+for a grey part. The count of the tests in Kitden's `tests/set-aside.txt` is `set_aside`.
+`nightly` and `set_aside` are `null` when they were not read.
+
+The second job also gives each red part one issue in Kitden, "<workflow>: <part> is red" (for
+example "Nightly tests: clients is red"; the workflow is the run's name, or its file's name when
+the run has none), with the labels `automated` and `ci-failure` and the bots' one look. It is
+rewritten each day and closed when the part is green: one issue per part, not per night or per
+system. A grey part's issue stays as it is. When no part is grey, an open `ci-failure` issue of
+the bot that names no part of today is closed, because its job no longer exists. The desk issue's
+Health section has one "Nightly:" line: each part's mark, since when a red part is red, since
+when a part grey for a second night has had no finished run, the night the rows are about, and
+the count of the tests set aside.
+
 | Light | Red | Amber | Grey |
 |---|---|---|---|
-| Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part |
-| Clients | a `confirmed` `major` client change has been open over 7 days | the same, over 3.5 days | the issues were not read; the watcher logged no run that read something in the last 2 days |
+| Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole; a nightly part has been red since 3 or more days before its newest run, or was before grey nights | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass; a nightly part is red, or has been grey 3 nights in a row | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part; the nightly runs were not read, or a nightly part is grey |
+| Clients | a `confirmed` `major` client change has been open over 7 days; the nightly part `clients` has been red since 3 or more days before its newest run, or was before grey nights | the same change, over 3.5 days; the nightly part `clients` is red, or has been grey 3 nights in a row | the issues were not read; the watcher logged no run that read something in the last 2 days; the nightly runs were not read, or the part `clients` is grey |
 | Bugs | a `confirmed` `major` bot issue has been open over 14 days; open bugs grew on each of the last 3 Mondays | the same issue over 7 days; open bugs grew on the last 2 Mondays | the issues were not read |
 | Agents | `main` requires a review check; the watcher opened more than 2 issues this week | an issue says an agent is paused; in 7 days an agent failed more than half of 4 or more runs, or a reviewer gave no answer in more than half of 4 or more review comments | `main`'s rules, the issues, an agent's runs or the reviews were not read; `main`'s rules were read only in part |
 | Queue | something has waited for you over 7 days | something has waited over 3.5 days | what waits was not read, or not all of it |
@@ -145,6 +178,7 @@ holds each one's badges, so the items under it do not repeat them; words of a ro
 | `client-change` | Opened by the watcher: a client changed |
 | `release` | Opened by the release watch |
 | `desk` | The owner's desk |
+| `ci-failure` | Opened by the desk: a nightly test job is red |
 | `claude-code`, `codex`, `cursor` | Which client |
 | `breaks` | A Kitden action stops working |
 | `wrong-data` | Kitden shows one thing while the client has another |

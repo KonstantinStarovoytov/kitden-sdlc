@@ -1,11 +1,14 @@
-"""Show desk.json as one issue in Kitden, "Kitden desk", rewritten on each run. No model.
+"""Show desk.json as one issue in Kitden, "Kitden desk", rewritten on each run, and open one
+`ci-failure` issue for each red nightly test job. No model.
 
     desk_post.py --desk desk.json --repo OWNER/kitden [--dry-run]
 
 The bot (bot_issues.BOT) rewrites its own open issue with this title, or opens one; an issue a
 person opened is never touched. The week's first run (weeks start on Monday, UTC) also leaves
-one short comment, so the owner gets one notice a week. `--dry-run` prints the page and the
-week's note, and calls nothing.
+one short comment, so the owner gets one notice a week. Then each red row of desk.json's
+`nightly` gets its issue, opened or rewritten, and each green row's issue is closed (see
+post_nightly). `--dry-run` prints the page, the week's note and the issue of each red row,
+and calls nothing.
 
 None in desk.json means "not measured": the page says so in words. Every title and `why` was
 written by a person or a model, so each goes through `one_line`; only a github.com address
@@ -26,7 +29,7 @@ from pathlib import Path
 import bot_style as style
 from bot_issues import BOT, GhIssues, ensure_labels, upsert
 from count_reviews import REPO, SINCE_DAYS
-from post_findings import one_line
+from post_findings import WORD_JOINER, one_line
 
 TITLE = "Kitden desk"
 LABELS = ["automated", "desk"]
@@ -58,6 +61,23 @@ SEARCHES = (  # (what, page, query)
     ("The watcher's weekly summaries", "issues", "is:issue label:client-change label:summary"),
 )
 CUT = ("waiting", "misses")  # the lists that can grow long; the longest is cut first
+# The nightly test jobs: one issue per red part, rewritten each day (see post_nightly).
+CI_LABELS = ["automated", "ci-failure"]
+NO_NAME = "Nightly run"  # the title's workflow when the run gave no name and no file
+SET_ASIDE = "https://github.com/{repo}/blob/main/tests/set-aside.txt"
+GREY_SHOWN = 2  # from its second grey night, a part says since when it has had no run
+# What a red part means, by part; any other part: MEANS_ELSE.
+MEANS = {
+    "systems": "Kitden may not work on that system or Python.",
+    "clients": "The newest Claude Code or Codex writes or answers something Kitden's tests "
+               "do not expect.",
+    "browser": "A main flow of the page is broken in a real browser.",
+}
+MEANS_ELSE = "A scheduled test run failed."
+# An address GitHub would make a link of by itself, in text: the scheme's "//", "www." or an
+# email address. The joiner goes after the "@", as quiet_mentions puts it after one that starts
+# a word: before it, the "@" would start a mention.
+AUTOLINK = re.compile(r"(?<=[A-Za-z]:)(?=//)|(?<=\bwww)(?=\.)|(?<=\w@)", re.I)
 
 
 class Safe(str):
@@ -153,6 +173,17 @@ def _table(rows: list[dict], columns: list[tuple[str, object]]) -> list[str] | N
     return lines + (["", f"Not measured yet: {', '.join(dropped)}."] if dropped else [])
 
 
+def _name(value) -> str:
+    """A name from a run (a job, a step, a part) as `_cell` gives it, with a word joiner where
+    GitHub would see an address, so the text is no link even after its entities are read."""
+    return AUTOLINK.sub(WORD_JOINER, _cell(value if isinstance(value, str) else ""))
+
+
+def _repo(desk: dict) -> str:
+    repo = desk.get("repo")
+    return repo if isinstance(repo, str) and SLUG.match(repo) else REPO
+
+
 def _more(items: list, shown: int) -> list[str]:
     return ["", f"…and {len(items) - shown} more."] if shown < len(items) else []
 
@@ -243,9 +274,60 @@ def _lead(desk: dict) -> str:
     return OVERALL[state if state in MARKS else "grey"]
 
 
+def _set_aside(desk: dict) -> str:
+    count = desk.get("set_aside")
+    if not isinstance(count, int) or isinstance(count, bool):
+        return f"Tests set aside: {NOT_MEASURED_YET}."
+    return (f"Tests set aside: {_figure(count)} "
+            f"([tests/set-aside.txt]({SET_ASIDE.format(repo=_repo(desk))})).")
+
+
+def _part_mark(row: dict) -> str:
+    """A nightly part: its mark, its name linked to its run, and since when it is red. A grey
+    part that was red before its grey nights says since when it was red and since when it has
+    had no finished run; another grey part says the second from its GREY_SHOWN-th grey night."""
+    state = row.get("state") if row.get("state") in ("green", "red") else "grey"
+    text = f"{MARKS[state]} {_link(_name(row.get('part')), row.get('run'))}"
+    since, grey_since, nights = row.get("since"), row.get("grey_since"), row.get("grey_nights")
+    if state == "red" and isinstance(since, str):
+        return f"{text} since {_name(since)}"
+    if state != "grey":
+        return text
+    if isinstance(since, str):
+        text += f" red since {_name(since)}"
+        if isinstance(grey_since, str):
+            text += f" (no finished run since {_name(grey_since)})"
+        return text
+    if isinstance(grey_since, str) and isinstance(nights, int) and nights >= GREY_SHOWN:
+        return f"{text} (no finished run since {_name(grey_since)})"
+    return text
+
+
+def _nightly(desk: dict) -> str:
+    """One line: each nightly part, grouped by the night its row is about (GitHub starts
+    scheduled runs hours late, so the desk may see the night before), then the tests set
+    aside."""
+    rows = desk.get("nightly")
+    if not isinstance(rows, list):
+        return f"Nightly runs: {NOT_MEASURED_YET}. {_set_aside(desk)}"
+    nights: dict[str | None, list[str]] = {}
+    for row in rows:
+        if isinstance(row, dict):
+            night = row.get("night")
+            nights.setdefault(_name(night) if isinstance(night, str) else None,
+                              []).append(_part_mark(row))
+    if not nights:
+        return f"Nightly: no nightly job is expected. {_set_aside(desk)}"
+    parts = "; ".join(f"{', '.join(marks)} "
+                      f"({'the night of ' + night if night else 'the night is not known'})"
+                      for night, marks in nights.items())
+    return f"Nightly: {parts}. {_set_aside(desk)}"
+
+
 def _health(desk: dict) -> list[str]:
-    """How Kitden is used. The lights are the badges on top."""
-    return [_use(desk.get("use") or {})]
+    """How Kitden is used, and how the nightly tests stand. The lights are the badges on
+    top."""
+    return [_use(desk.get("use") or {}), _nightly(desk)]
 
 
 def _wait(item: dict) -> str:
@@ -269,8 +351,7 @@ def _waiting(items: list | None, shown: int) -> list[str]:
 
 
 def _links(desk: dict) -> list[str]:
-    repo = desk.get("repo")
-    repo = repo if isinstance(repo, str) and SLUG.match(repo) else REPO
+    repo = _repo(desk)
     return [
         f"- [{what}](https://github.com/{repo}/{page}?{urllib.parse.urlencode({'q': query})})"
         for what, page, query in SEARCHES
@@ -348,8 +429,12 @@ def _this_week(desk: dict, shown: dict[str, int]) -> list[str]:
             ("Watcher", "watcher"), ("You", "owner"), ("Others", "others"))],
     ])
     if found:
+        # The Nightly column is named only when it is shown (see _table).
+        nightly = ("Nightly: `ci-failure` issues the desk opened for a red nightly test job. "
+                   if any(r.get("nightly") is not None for r in _rows(desk, "found_by")) else "")
         lines += ["Who found problems, by month. Review: findings fixed before the merge. "
-                  "Watcher: confirmed client changes. You and Others: bugs opened.", "", *found]
+                  f"{nightly}Watcher: confirmed client changes. You and Others: bugs opened.", "",
+                  *found]
     else:
         lines += [f"Who found problems: {NOT_MEASURED_YET}."]
     return [*lines, "", *_misses(_list(desk, "misses"), shown["misses"])]
@@ -449,19 +534,110 @@ def _first_line(comment: dict) -> str:
     return (comment.get("body") or "").split("\n", 1)[0].strip()
 
 
-def post(gh: GhIssues, desk: dict, now: datetime) -> None:
-    """Rewrite the desk issue; comment the week's note once a week: its first line, "Week of
-    <that Monday>", tells whether this week's is there already."""
-    ensure_labels(gh)
-    number = upsert(gh, TITLE, render(desk), LABELS)
-    if number is None:
+# --- The ci-failure issues ---
+
+
+def _readable(row) -> bool:
+    """A row that says which part it is and whether it is green or red."""
+    return (isinstance(row, dict) and isinstance(row.get("part"), str)
+            and bool(row["part"].strip()) and row.get("state") in ("green", "red"))
+
+
+def _workflow(row: dict) -> str:
+    """The run's name; the file's name when the run gave none, and NO_NAME when there is no
+    file either: never empty."""
+    named = (" ".join(value.split()) for value in (row.get("name"), row.get("workflow"))
+             if isinstance(value, str))
+    return next((text for text in named if text), NO_NAME)
+
+
+def ci_title(row: dict) -> str:
+    """"<workflow>: <part> is red", the workflow as _workflow names it."""
+    return f"{_workflow(row)}: {' '.join(row['part'].split())} is red"
+
+
+def _failed_job(item: dict) -> str:
+    name, url, step = _name(item.get("job")), item.get("url"), item.get("step")
+    if isinstance(url, str) and GITHUB.match(url):
+        name = _link(name, url)
+    elif isinstance(url, str) and url.strip():
+        name = f"{name} ({_address(url)})"
+    return f"- {name}: " + (f'the step "{_name(step)}" failed' if isinstance(step, str)
+                            else "no failed step is named")
+
+
+def ci_body(row: dict) -> str:
+    """The issue of a red nightly part, in the bots' one look (bot_style.py), as drift_body in
+    release_watch.py: badges, one line, Failed, What it means, What to do, the small print.
+    Names go through _name, addresses through _address or _link."""
+    part = _name(row.get("part"))
+    since = row.get("since") if isinstance(row.get("since"), str) else "unknown"
+    night = row.get("night")
+    failed = [item for item in row.get("failed") or [] if isinstance(item, dict)]
+    jobs = _n(len(failed), "job of the nightly part", "jobs of the nightly part")
+    lead = (f"{jobs} {part} failed." if failed else f"The nightly part {part} failed.")
+    if isinstance(night, str):
+        lead += f" Its newest run was made {_name(night)}."
+    run = row.get("run")
+    opened = (_link("Open the run", run) if isinstance(run, str) and GITHUB.match(run)
+              else f"Open the run: {_address(run)}")
+    set_aside = SET_ASIDE.format(repo=REPO)
+    parts = [
+        style.row(style.info(_workflow(row), str(row.get("part") or "?")),
+                  style.bad("red since", since)),
+        lead,
+        "### Failed\n" + ("\n".join(_failed_job(item) for item in failed)
+                          or "No failed job is named."),
+        f"### What it means\n{MEANS.get(row.get('part'), MEANS_ELSE)}",
+        f"### What to do\n{opened}. If it failed by chance, re-run the failed jobs; if the same "
+        f"test fails by chance again, add it to [`tests/set-aside.txt`]({set_aside}). If it is "
+        "real, fix it.",
+        style.small("Opened by the desk, a daily script in kitden-sdlc with no AI model",
+                    "updated every day", "closes itself when the job is green"),
+    ]
+    return "\n\n".join(parts) + "\n"
+
+
+def post_nightly(gh: GhIssues, rows: list[dict] | None) -> None:
+    """One `ci-failure` issue per red nightly part, rewritten each day; a green part's issue
+    is closed. A grey row proves neither a failure nor a fix, so its issue is left alone, as
+    is the issue of a row that cannot be read. When there are rows and every one is green or
+    red, an open
+    `ci-failure` issue of the bot whose title is no row's title is closed: its job no longer
+    exists. With `rows` None (not read) nothing is opened or closed."""
+    if not isinstance(rows, list):
         return
+    titles, sure = set(), True
+    for row in rows:
+        if not _readable(row):
+            sure = False
+            continue
+        titles.add(ci_title(row))
+        upsert(gh, ci_title(row), ci_body(row) if row["state"] == "red" else "", CI_LABELS)
+    if sure and titles:  # no row at all proves no job is gone
+        for item in gh.by_bot("open", "ci-failure"):
+            if item["title"] not in titles:
+                gh.close(item["number"])
+
+
+def _week_note(gh: GhIssues, number: int, desk: dict, now: datetime) -> None:
+    """Comment the week's note once a week: its first line, "Week of <that Monday>", tells
+    whether this week's is there already."""
     note = week_note(desk, now)
     week = note.split("\n", 1)[0]
     if any((c.get("user") or {}).get("login") == BOT and _first_line(c) == week
            for c in gh.comments(number)):
         return
     gh.comment(number, note)
+
+
+def post(gh: GhIssues, desk: dict, now: datetime) -> None:
+    """Rewrite the desk issue and comment the week's note; then the nightly's issues."""
+    ensure_labels(gh)
+    number = upsert(gh, TITLE, render(desk), LABELS)
+    if number is not None:
+        _week_note(gh, number, desk, now)
+    post_nightly(gh, desk.get("nightly"))
 
 
 def main(argv: list[str], now: datetime | None = None) -> int:
@@ -478,6 +654,11 @@ def main(argv: list[str], now: datetime | None = None) -> int:
         print(render(desk), end="")
         print("\n----- The week's note, posted with the week's first run -----\n")
         print(week_note(desk, now), end="")
+        rows = desk.get("nightly")
+        for row in rows if isinstance(rows, list) else []:
+            if _readable(row) and row["state"] == "red":
+                print(f"\n----- The issue {ci_title(row)!r}, opened or rewritten -----\n")
+                print(ci_body(row), end="")
         return 0
     post(GhIssues(args.repo), desk, now)
     return 0
