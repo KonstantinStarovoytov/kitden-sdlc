@@ -62,10 +62,22 @@ Works judges the newest run of each check on `main`'s newest commit, among the c
 the push to `main` started. A check `main` requires counts whatever started it, and so does a
 check whose start is not known. Release prep started by hand and scheduled runs do not count.
 
+Works and Clients also judge Kitden's nightly tests: the newest finished scheduled run on
+`main` of `nightly.yml` (parts `systems`, `clients`, `browser`) and of `latest-deps.yml` (part
+`test`). The jobs of one matrix are one part. A part is red when one of its jobs failed, timed
+out, needed an action or failed to start, green when every one of its jobs passed, and grey
+otherwise: a cancelled or skipped job, no job of the part, a run that could not be read, or no
+run in the last 2 days. Clients judges the part `clients`, Works the rest. GitHub starts the
+nightly run hours late, after the desk's run, so the desk mostly shows the night before: each
+nightly reason gives the date of the run. `desk.json` keeps one row per part under `nightly`
+(its state, the failed jobs and their first failed step, the run, the run's date as `night`,
+`since` for a red part, `why` for a grey one), and the count of the tests in Kitden's
+`tests/set-aside.txt` as `set_aside`; either is `null` when it was not read.
+
 | Light | Red | Amber | Grey |
 |---|---|---|---|
-| Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part |
-| Clients | a `confirmed` `major` client change has been open over 7 days | the same, over 3.5 days | the issues were not read; the watcher logged no run that read something in the last 2 days |
+| Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole; a nightly part has been red since 3 or more days before its newest run | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass; a nightly part is red | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part; the nightly runs were not read, or a nightly part is grey |
+| Clients | a `confirmed` `major` client change has been open over 7 days; the nightly part `clients` has been red since 3 or more days before its newest run | the same change, over 3.5 days; the nightly part `clients` is red | the issues were not read; the watcher logged no run that read something in the last 2 days; the nightly runs were not read, or the part `clients` is grey |
 | Bugs | a `confirmed` `major` bot issue has been open over 14 days; open bugs grew on each of the last 3 Mondays | the same issue over 7 days; open bugs grew on the last 2 Mondays | the issues were not read |
 | Agents | `main` requires a review check; the watcher opened more than 2 issues this week | an issue says an agent is paused; in 7 days an agent failed more than half of 4 or more runs, or a reviewer gave no answer in more than half of 4 or more review comments | `main`'s rules, the issues, an agent's runs or the reviews were not read; `main`'s rules were read only in part |
 | Queue | something has waited for you over 7 days | something has waited over 3.5 days | what waits was not read, or not all of it |

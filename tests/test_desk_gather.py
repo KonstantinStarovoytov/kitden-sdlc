@@ -128,8 +128,8 @@ ANSWERS = {
     ]},
     runs_address(REPO, "release-prep.yml"): {"workflow_runs": []},
     night_runs("nightly.yml"): {"total_count": 1, "workflow_runs": [night_run(7, "Nightly tests")]},
-    night_jobs(7): {"total_count": 2, "jobs": [night_job("systems (ubuntu-latest, 3.13)"),
-                                               night_job("browser")]},
+    night_jobs(7): {"total_count": 3, "jobs": [night_job("systems (ubuntu-latest, 3.13)"),
+                                               night_job("clients"), night_job("browser")]},
     night_runs("latest-deps.yml"): {"total_count": 1,
                                     "workflow_runs": [night_run(8, "Latest dependencies")]},
     night_jobs(8): {"total_count": 1, "jobs": [night_job("test")]},
@@ -396,7 +396,8 @@ def test_nightly_holds_the_newest_finished_scheduled_run_and_its_jobs():
     night = read().nightly
     assert [entry["workflow"] for entry in night] == ["nightly.yml", "latest-deps.yml"]
     assert night[0]["name"] == "Nightly tests" and night[0]["run"]["id"] == 7
-    assert [job["name"] for job in night[0]["jobs"]] == ["systems (ubuntu-latest, 3.13)", "browser"]
+    assert [job["name"] for job in night[0]["jobs"]] == [
+        "systems (ubuntu-latest, 3.13)", "clients", "browser"]
     assert night[1]["run"]["id"] == 8 and [job["name"] for job in night[1]["jobs"]] == ["test"]
 
 
@@ -494,7 +495,7 @@ def test_main_reads_yesterdays_rows_before_it_writes_the_new_desk(tmp_path, monk
     argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
     assert main(argv, api=FakeApi(ANSWERS), now=NOW) == 0
     assert seen == [[{"part": "browser"}]]
-    assert "nightly" not in json.loads((tmp_path / "desk.json").read_text())  # not yet shown
+    assert json.loads((tmp_path / "desk.json").read_text())["nightly"][2]["part"] == "browser"
 
 
 # --- gh ---

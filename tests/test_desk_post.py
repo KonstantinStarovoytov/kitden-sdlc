@@ -430,7 +430,7 @@ def test_the_page_of_what_build_writes_from_every_fact():
     body = render(build(FACTS, ROSTER, NOW))
     assert lead(body) == "All five lights are green."
     assert "None" not in body and "null" not in body
-    assert "not measured" not in body.lower().replace("not measured yet: nightly, tester.", "")
+    assert "not measured" not in body.lower().replace("not measured yet: tester.", "")
     assert "| Claude reviewer | 12 | 1 | 1 | 0 | 0 | 0 |" in body
     assert "| Release prep | 1 | 0 | 1 | — | — | — |" in body
     assert "- Pull request: [p](https://github.com/KonstantinStarovoytov/kitden/pull/79)" in body

@@ -38,8 +38,10 @@ mark is green with a check ("ok"), amber with a question mark ("look"), red with
 table one line says how the five stand.
 
 - **Works:** on `main`'s newest commit, the checks its push started passed, and so did every
-  check `main` requires.
-- **Clients:** no major client change you confirmed has been open long.
+  check `main` requires; last night's tests passed, except the client tests.
+- **Clients:** no major client change you confirmed has been open long, and last night's client
+  tests passed. "Last night" is the newest nightly run: GitHub starts it hours late, so the
+  desk mostly shows the night before, and its reason gives the run's date.
 - **Bugs:** open bugs did not grow three Mondays in a row, and no confirmed major bot issue is
   over 14 days old.
 - **Agents:** none is paused, the watcher is within its two urgent issues a week, no agent job
