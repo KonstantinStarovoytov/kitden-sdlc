@@ -454,7 +454,7 @@ const WF = [
     steps:['Install','Install Chromium with Playwright','Browser tests: the page on the demo sample, in Chromium']}
   ]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
-  trigger:'A pull request that changes `src/kitden`',
+  trigger:'A pull request that changes `src/kitden`, the recorder or `tests/conftest.py`',
   stages:[['scenes']],
   jobs:[{n:'scenes', tags:['macOS'], when:'always', steps:['Install the tools','Record every scene','Upload the pictures']}]},
 
