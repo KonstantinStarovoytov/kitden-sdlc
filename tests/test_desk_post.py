@@ -621,3 +621,35 @@ def test_a_grey_part_that_was_red_still_says_since_when_on_the_desk():
     gh = FakeIssues([red_issue(title="Nightly tests: systems is red")])
     post_nightly(gh, [grey])
     assert (gh.edited, gh.closed) == ([], [])
+
+
+# Task 17: the desk says when the workflow map is out of date.
+
+MAP_LINE = ("The workflow map is out of date in 2 places. "
+            "Run `scripts/map_text.py --write`.")
+
+
+def health(body):
+    return body.split("### Health\n\n")[1].split("\n\n")[0]
+
+
+def test_a_stale_map_adds_one_line_to_health():
+    body = render({**DESK, "map": {"stale": ["a: name is x", "b: its file has no why"]}})
+    assert health(body).splitlines()[-1] == MAP_LINE
+    assert body.count("workflow map") == 1 and "a: name is x" not in body
+    one = render({**DESK, "map": {"stale": ["a: name is x"]}})
+    assert "The workflow map is out of date in 1 place. Run" in health(one)
+
+
+@pytest.mark.parametrize("value", [None, {"stale": []}, {"stale": None}, {"stale": "a"},
+                                   {}, "stale", ["a"]])
+def test_a_map_up_to_date_or_not_read_adds_nothing(value):
+    body = render({**DESK, "map": value})
+    assert "workflow map" not in body
+    assert health(body) == health(render(DESK))
+
+
+def test_a_stale_map_is_no_light_and_no_waiting_item():
+    stale = render({**DESK, "map": {"stale": ["a"]}})
+    assert stale.split("### Health")[0] == render(DESK).split("### Health")[0]
+    assert stale.split("### Waiting for you")[1] == render(DESK).split("### Waiting for you")[1]

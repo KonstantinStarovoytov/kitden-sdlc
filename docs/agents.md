@@ -95,6 +95,14 @@ Health section has one "Nightly:" line: each part's mark, since when a red part 
 when a part grey for a second night has had no finished run, the night the rows are about, and
 the count of the tests set aside.
 
+The desk also checks the [workflow map](map/index.html) against the workflow files, as
+`map_text.py --check` does: this repository's from the desk's checkout of `main`, Kitden's and
+the tap's from their `main` (their lists of files through `gh`, with the job's token).
+`desk.json` keeps each difference under `map.stale`; `map` is `null` when a file or a list
+could not be read. With one or more differences the Health section has one more line, "The
+workflow map is out of date in N places. Run `scripts/map_text.py --write`." It is no light
+and waits for nobody.
+
 | Light | Red | Amber | Grey |
 |---|---|---|---|
 | Works | a check `main` requires failed, timed out, was cancelled, needs an action or failed to start; any check did, when `main`'s rules were not read whole; a nightly part has been red since 3 or more days before its newest run, or was before grey nights | a check `main` does not require failed; a check has not finished or ended neither well nor badly; a check `main` requires has not run or did not pass; a nightly part is red, or has been grey 3 nights in a row | no check run of `main` was read, or none passed; `main`'s rules were not read, or only in part; the nightly runs were not read, or a nightly part is grey |

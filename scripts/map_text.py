@@ -31,6 +31,7 @@ HERE = "s"
 FIELDS = ("name", "what", "why")
 FETCH_SECONDS = 15
 UNREADABLE = (OSError, ValueError, http.client.HTTPException)
+NOT_READ = "could not be read"  # the end of each line about a file or a list that was not read
 
 BLOCK = re.compile(r'(<script type="application/json" id="wf-text">\n)(.*?)(\n</script>)', re.S)
 WF_LIST = re.compile(r"\nconst WF = \[\n(.*?)\n\];", re.S)
@@ -177,7 +178,7 @@ def _read_files(html: str, root: Path, fetch: Fetch | None):
                           and item["name"].endswith((".yml", ".yaml"))}
             except (*UNREADABLE, KeyError, TypeError, AttributeError):
                 listed = None
-                lines.append(f"{name}: its list of workflow files could not be read")
+                lines.append(f"{name}: its list of workflow files {NOT_READ}")
         if listed is not None:
             lines += [f"{name}: {file} is not on the map" for file in sorted(listed - set(on_map))]
         for file, wf_id in on_map.items():
@@ -191,7 +192,7 @@ def _read_files(html: str, root: Path, fetch: Fetch | None):
                     text = fetch(
                         f"https://raw.githubusercontent.com/{slug}/main/.github/workflows/{file}")
             except UNREADABLE:
-                lines.append(f"{wf_id}: its file could not be read")
+                lines.append(f"{wf_id}: its file {NOT_READ}")
                 continue
             said = header(text)
             empty = [field for field in FIELDS if not said[field]]

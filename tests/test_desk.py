@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -269,7 +270,7 @@ def test_build_has_every_part():
         "works", "clients", "bugs", "agents", "queue"]
     assert set(desk) == {"version", "updated", "repo", "overall", "lights", "use", "waiting",
                          "week", "review", "found_by", "misses", "budget", "nightly",
-                         "set_aside"}
+                         "set_aside", "map"}
 
 
 def test_build_without_facts_is_grey_never_green():
@@ -991,6 +992,23 @@ def test_desk_json_gains_nightly_and_set_aside_and_stays_version_1():
     assert (desk["version"], desk["set_aside"]) == (1, 2)
     assert desk["nightly"][0]["part"] == "systems"
     assert build(Facts(), ROSTER, NOW)["nightly"] is None
+
+
+# Task 17: the desk says when the workflow map is out of date.
+
+
+def test_desk_json_gains_the_maps_stale_places_or_null():
+    stale = ['k-release: name is "Release", the file says "Release and publish"']
+    assert build(Facts(map_stale=stale), ROSTER, NOW)["map"] == {"stale": stale}
+    assert build(Facts(map_stale=[]), ROSTER, NOW)["map"] == {"stale": []}
+    assert build(Facts(), ROSTER, NOW)["map"] is None
+
+
+def test_a_stale_map_is_no_light_and_waits_for_nobody():
+    stale = build(replace(FACTS, map_stale=["a", "b"]), ROSTER, NOW)
+    fresh = build(FACTS, ROSTER, NOW)
+    assert (stale["lights"], stale["overall"], stale["waiting"]) == (
+        fresh["lights"], fresh["overall"], fresh["waiting"])
 
 
 # --- Beyond the brief: the nightly rows read with care ---

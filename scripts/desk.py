@@ -75,6 +75,8 @@ class Facts:
     nightly: list[dict] | None = None
     before: list[dict] | None = None  # the `nightly` rows of yesterday's desk.json
     set_aside: int | None = None  # the tests in Kitden's tests/set-aside.txt
+    # Each place the workflow map differs from the workflow files (map_text.differences).
+    map_stale: list[str] | None = None
 
 
 # --- Time and who wrote what ---
@@ -895,6 +897,7 @@ def build(facts: Facts, roster: dict, now: datetime) -> dict:
         "misses": misses(facts.issues, facts.reviews, now),
         "nightly": nights,
         "set_aside": facts.set_aside,
+        "map": None if facts.map_stale is None else {"stale": facts.map_stale},
         "budget": {
             "agents": [{"agent": a["id"], "runs": facts.runs.get(a["id"]), "cap": a["cap"]}
                        for a in roster["agents"]],
