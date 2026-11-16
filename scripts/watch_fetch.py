@@ -54,10 +54,17 @@ def _unreadable(meta: dict, source: str) -> dict:
     }
 
 
-def _out_of_time(client: str, address: str) -> dict:
-    return {**_unreadable({"client": client, "url": address}, address),
-            "title": f"{address} was not read for {FAIL_DAYS} days: out of time",
-            "changed": f"{address} was not read: each run ran out of time before it"}
+def _out_of_time(addresses: list[str], pages: dict[str, str]) -> dict:
+    """One item for the doc pages that reached FAIL_DAYS skipped runs in one run. The title
+    stays short (the summary's table cuts at 80 characters); the text lists the pages."""
+    count = len(addresses)
+    pages_were = "1 doc page was" if count == 1 else f"{count} doc pages were"
+    clients = {pages[a] for a in addresses}
+    listed = ", ".join(f"`{a}`" for a in addresses)
+    return {**_unreadable({"client": clients.pop() if len(clients) == 1 else "", "url": ""},
+                          "doc pages"),
+            "title": f"{pages_were} not read for {FAIL_DAYS} runs: out of time",
+            "changed": f"Each of the last {FAIL_DAYS} runs ran out of time before {listed}."}
 
 
 def _start(state, count: int) -> int:
@@ -81,24 +88,22 @@ def plan_skips(state, pages: dict[str, str], read: int) -> dict:
 
     `page_start` moves to the first page left unread, or stays when every page was read.
     `skips` counts, for each page left unread, the runs in a row that left it unread; a page
-    whose read was started is dropped from it, and so is a page that left the list. On the
-    third run in a row an item goes to `kept`, once, like the "Cannot read" one.
+    whose read was started is dropped from it, and so is a page that left the list. The
+    pages that reach their third run in a row today go to `kept` as one item, so a slow site
+    makes one line of the summary, not one for each page.
     """
     new = copy.deepcopy(state)
     order = page_order(state, pages)
     new["page_start"] = (_start(state, len(order)) + read) % len(order) if order else 0
     old = state.get("skips") if isinstance(state.get("skips"), dict) else {}
-    titles = {k["title"] for k in new["kept"]}
     new["skips"] = {}
     for address in order[read:]:
         count = old.get(address, 0)
         new["skips"][address] = (count if type(count) is int else 0) + 1
-        if new["skips"][address] != FAIL_DAYS:
-            continue
-        item = _out_of_time(pages[address], address)
-        if item["title"] not in titles:
-            titles.add(item["title"])
-            new["kept"].append(item)
+    # == and not >=: a page is in the item of the run it reaches its third skip, not again.
+    third = [address for address, count in new["skips"].items() if count == FAIL_DAYS]
+    if third:
+        new["kept"].append(_out_of_time(third, pages))
     return new
 
 

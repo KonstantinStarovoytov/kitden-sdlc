@@ -18,6 +18,9 @@ from pathlib import Path
 RUN_MIN = 32
 HEADING_MARKS = " -_.,:()/"
 HEADING = "heading"  # the field `clean` checks as clean_heading shows it, unless told otherwise
+# Characters that show as nothing, or only as a mark on the one before: format characters
+# (zero-width spaces and joiners, the BOM) and combining marks (U+034F, U+FE0F, accents).
+HIDDEN = ("Cf", "Mn", "Me")
 RUN = re.compile(rf"[A-Za-z0-9_-]{{{RUN_MIN},}}")
 
 
@@ -58,8 +61,9 @@ def clean(
     Other fields are not looked at. The caller passes post_findings.SECRET_LIKE: that module
     imports this one.
 
-    Each field is checked as written and without its format characters (Unicode category
-    Cf, such as zero-width spaces and joiners and the BOM). The fields also named in `kept`,
+    Each field is checked as written and without its hidden characters (Unicode categories
+    Cf, Mn and Me: zero-width spaces and joiners, the BOM, combining marks such as U+034F and
+    U+FE0F). The fields also named in `kept`,
     those the caller will show through doc_address.clean_heading, are checked a third time
     as `kept_marks` leaves them: cleaning drops marks, and that could join a split token
     again. `kept` None, the default, means the field named "heading" when it is in
@@ -87,7 +91,7 @@ def clean(
 def _field_safe(text, cleaned: bool, secret_like: re.Pattern[str]) -> bool:
     if not isinstance(text, str):
         return False
-    forms = [text, _without_format(text)] + ([kept_marks(text)] if cleaned else [])
+    forms = [text, _without_hidden(text)] + ([kept_marks(text)] if cleaned else [])
     return all(_safe(form, secret_like) for form in forms)
 
 
@@ -103,8 +107,8 @@ def _safe(text: str, secret_like: re.Pattern[str]) -> bool:
     return not secret_like.search(text) and not random_runs(text)
 
 
-def _without_format(text: str) -> str:
-    return "".join(c for c in text if unicodedata.category(c) != "Cf")
+def _without_hidden(text: str) -> str:
+    return "".join(c for c in text if unicodedata.category(c) not in HIDDEN)
 
 
 def in_text(*sources: str) -> Callable[[str], bool]:

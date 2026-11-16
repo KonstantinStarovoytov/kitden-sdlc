@@ -248,3 +248,15 @@ def test_secret_filter_imports_only_the_standard_library():
     names |= {node.module.split(".")[0] for node in ast.walk(tree)
               if isinstance(node, ast.ImportFrom) and node.module}
     assert names <= sys.stdlib_module_names, names - sys.stdlib_module_names
+
+
+@pytest.mark.parametrize("mark", ["\u034f", "\ufe0f", "\u20dd"])  # Mn, Mn, Me
+def test_a_token_in_text_split_by_a_combining_mark_is_left_out(mark):
+    item = passage("token: ghp_" + "aB3" * 5 + mark + "cD4" * 6)
+    assert not SECRET_LIKE.search(item["text"])
+    assert clean([item], FIELDS, SECRET_LIKE) == ([], 1)
+
+
+def test_a_model_line_with_an_accent_mark_still_stays():
+    item = passage("export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-5 # cafe\u0301")
+    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)

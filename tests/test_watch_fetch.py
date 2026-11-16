@@ -580,25 +580,28 @@ def test_no_doc_page_reads_nothing_and_starts_at_0():
     assert state["page_start"] == 0 and state["skips"] == {}
 
 
-def out_of_time(page):
-    return f"{page} was not read for {FAIL_DAYS} days: out of time"
+def out_of_time(count):
+    pages = "1 doc page was" if count == 1 else f"{count} doc pages were"
+    return f"{pages} not read for {FAIL_DAYS} runs: out of time"
 
 
-def test_the_third_skipped_day_in_a_row_is_kept_once(tmp_path, monkeypatch, capsys):
+def test_the_third_skipped_run_in_a_row_makes_one_item_for_its_pages(
+        tmp_path, monkeypatch, capsys):
     # One page a run: DOCS[3] and DOCS[4] are left out of the first three runs.
     done = runs(tmp_path, monkeypatch, capsys, 4, slow_after=1)
     _, third = done[2]
     assert third["skips"] == {DOCS[3]: 3, DOCS[4]: 3, DOCS[0]: 2, DOCS[1]: 1}
-    titles = [k["title"] for k in third["kept"]]
-    assert titles == [out_of_time(DOCS[3]), out_of_time(DOCS[4])]
-    item = third["kept"][0]
+    [item] = third["kept"]
+    assert item["title"] == out_of_time(2)
     assert (item["effect"], item["severity"], item["sure"]) == ("unknown", "medium", True)
-    assert item["client"] == "codex" and item["url"] == DOCS[3]
+    assert item["client"] == "codex" and item["url"] == ""
+    assert f"`{DOCS[3]}`, `{DOCS[4]}`" in item["changed"]
+    assert DOCS[0] not in item["changed"]
     _, fourth = done[3]
-    # DOCS[4] is on its fourth day: not said again. DOCS[0] reaches its third.
-    titles = [k["title"] for k in fourth["kept"]]
-    assert titles == [out_of_time(DOCS[3]), out_of_time(DOCS[4]), out_of_time(DOCS[0])]
-    assert not [t for t in titles if t.startswith("Cannot read")]
+    # DOCS[4] is on its fourth run: not said again. DOCS[0] reaches its third.
+    assert [k["title"] for k in fourth["kept"]] == [out_of_time(2), out_of_time(1)]
+    new = fourth["kept"][1]
+    assert DOCS[0] in new["changed"] and DOCS[4] not in new["changed"]
     assert all(fourth["fails"].get(page, 0) == 0 for page in DOCS[:4])
 
 
@@ -615,15 +618,42 @@ def test_a_page_whose_read_was_started_is_not_skipped_even_if_the_read_failed():
     state = old({}, skips={"https://d/a": 2, "https://d/b": 2})
     new = watch_fetch.plan_skips(state, pages, 1)
     assert new["skips"] == {"https://d/b": 3}
-    assert [k["title"] for k in new["kept"]] == [out_of_time("https://d/b")]
+    [item] = new["kept"]
+    assert item["title"] == out_of_time(1) and "https://d/a" not in item["changed"]
     assert new["page_start"] == 1
 
 
-def test_an_out_of_time_title_already_kept_is_not_added_again():
+def test_a_page_past_its_third_run_adds_nothing():
     pages = {"https://d/a": "codex"}
-    kept = [{"title": out_of_time("https://d/a")}]
-    new = watch_fetch.plan_skips(old({}, skips={"https://d/a": 2}, kept=kept), pages, 0)
-    assert new["kept"] == kept and new["skips"] == {"https://d/a": 3}
+    new = watch_fetch.plan_skips(old({}, skips={"https://d/a": 3}), pages, 0)
+    assert new["kept"] == [] and new["skips"] == {"https://d/a": 4}
+
+
+def test_many_pages_on_their_third_run_make_one_short_item():
+    pages = {f"https://docs.example.com/a/{'x' * 40}{n:02d}": "codex" for n in range(19)}
+    state = old({}, skips=dict.fromkeys(pages, 2))
+    [item] = watch_fetch.plan_skips(state, pages, 0)["kept"]
+    assert item["title"] == out_of_time(19) and len(item["title"]) <= 80
+    assert all(f"`{page}`" in item["changed"] for page in pages)
+
+
+def test_pages_of_several_clients_make_an_item_of_no_one_client():
+    pages = {"https://d/a": "codex", "https://d/b": "cursor"}
+    state = old({}, skips=dict.fromkeys(pages, 2))
+    [item] = watch_fetch.plan_skips(state, pages, 0)["kept"]
+    assert item["client"] == "" and item["title"] == out_of_time(2)
+
+
+def test_the_grouped_item_renders_in_the_summary():
+    from datetime import date
+
+    from watch_post import render_summary
+
+    pages = {"https://d/a": "codex", "https://d/b": "cursor"}
+    state = old({}, skips=dict.fromkeys(pages, 2))
+    kept = watch_fetch.plan_skips(state, pages, 0)["kept"]
+    _, body, rest = render_summary(kept, date(2026, 11, 16))
+    assert rest == [] and out_of_time(2) in body and "`https://d/b`" in body
 
 
 def test_a_page_that_left_the_list_is_forgotten_from_skips():
@@ -638,17 +668,18 @@ def test_plan_skips_does_not_change_its_input():
     assert before == old({}, skips={"https://d/a": 2})
 
 
-def test_an_out_of_time_item_is_built_only_on_the_third_day(monkeypatch):
+def test_the_skip_item_is_built_only_when_a_page_reaches_its_third_run(monkeypatch):
     built = []
     real = watch_fetch._out_of_time
 
-    def counting(client, address):
-        built.append(address)
-        return real(client, address)
+    def counting(addresses, pages):
+        built.append(list(addresses))
+        return real(addresses, pages)
 
     monkeypatch.setattr(watch_fetch, "_out_of_time", counting)
     pages = {"https://d/a": "codex", "https://d/b": "codex", "https://d/c": "codex"}
-    state = old({}, skips={"https://d/b": 2, "https://d/c": 3})
-    new = watch_fetch.plan_skips(state, pages, 0)
-    assert built == ["https://d/b"]
-    assert [k["title"] for k in new["kept"]] == [out_of_time("https://d/b")]
+    watch_fetch.plan_skips(old({}, skips={"https://d/c": 3}), pages, 0)
+    assert built == []
+    new = watch_fetch.plan_skips(old({}, skips={"https://d/b": 2, "https://d/c": 3}), pages, 0)
+    assert built == [["https://d/b"]]
+    assert [k["title"] for k in new["kept"]] == [out_of_time(1)]
