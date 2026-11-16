@@ -16,6 +16,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 RUN_MIN = 32
+HEADING_MARKS = " -_.,:()/"
 RUN = re.compile(rf"[A-Za-z0-9_-]{{{RUN_MIN},}}")
 
 
@@ -55,9 +56,10 @@ def clean(
     Other fields are not looked at. The caller passes post_findings.SECRET_LIKE: that module
     imports this one.
 
-    Each field is checked twice: as written, and without its format characters (Unicode
-    category Cf, such as zero-width spaces and joiners and the BOM). A token split by one of
-    them is still caught, since cleaning (doc_address.clean_heading) would join it again.
+    Each field is checked in three forms: as written, without its format characters
+    (Unicode category Cf, such as zero-width spaces and joiners and the BOM), and as
+    `kept_marks` leaves it. A token split by a character that cleaning drops is still
+    caught, though doc_address.clean_heading would join it again.
 
     Raises ValueError when `fields` is empty: that would let every item through unchecked.
     """
@@ -66,10 +68,20 @@ def clean(
     kept = []
     for item in items:
         texts = [item.get(name) for name in fields] if isinstance(item, dict) else [None]
-        if all(isinstance(text, str) and _safe(text, secret_like)
-               and _safe(_without_format(text), secret_like) for text in texts):
+        if all(isinstance(text, str) and all(
+                _safe(form, secret_like) for form in (text, _without_format(text),
+                                                      kept_marks(text)))
+               for text in texts):
             kept.append(item)
     return kept, len(items) - len(kept)
+
+
+def kept_marks(text: str) -> str:
+    """`text` with only letters, digits, whitespace and HEADING_MARKS: each whitespace
+    character becomes a space, nothing is cut. doc_address.clean_heading starts from this,
+    so `clean` checks the very characters a shown heading keeps."""
+    return "".join(" " if c.isspace() else c for c in text
+                   if c.isalnum() or c in HEADING_MARKS or c.isspace())
 
 
 def _safe(text: str, secret_like: re.Pattern[str]) -> bool:

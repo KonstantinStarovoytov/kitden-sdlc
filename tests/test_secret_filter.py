@@ -1,7 +1,15 @@
 import pytest
 
 from post_findings import SECRET_LIKE
-from secret_filter import clean, has_commit, in_git, in_text, random_runs, unknown_runs
+from secret_filter import (
+    clean,
+    has_commit,
+    in_git,
+    in_text,
+    kept_marks,
+    random_runs,
+    unknown_runs,
+)
 from tests.fakes import KEY_TAIL, repo
 
 
@@ -144,3 +152,57 @@ def test_harmless_format_characters_without_a_secret_stay():
 def test_clean_with_no_fields_is_a_caller_bug():
     with pytest.raises(ValueError):
         clean([passage()], (), SECRET_LIKE)
+
+
+# Every character clean_heading drops can split a token that cleaning then joins again.
+SEPARATORS = ["*", "`", "'", "#", "!", "|", "\u0301", "\ufe0f", "\x00", "\x7f",
+              "\ue000", "\u0378", "\u200b", "\u200d", "\ufeff"]
+
+
+@pytest.mark.parametrize("mark", SEPARATORS)
+def test_a_token_split_by_any_mark_that_cleaning_drops_is_left_out(mark):
+    from doc_address import clean_heading
+
+    heading = "ghp_" + "aB3" * 5 + mark + "cD4" * 6
+    assert not SECRET_LIKE.search(heading)
+    assert SECRET_LIKE.search(clean_heading(heading))
+    kept, left_out = clean([passage(heading=heading), passage()], FIELDS, SECRET_LIKE)
+    assert kept == [passage()] and left_out == 1
+
+
+def test_an_ordinary_heading_with_punctuation_stays():
+    item = passage(heading="Install the plugin: step 2 (macOS)",
+                   text="Run `zork --frob`, then *restart*! It's #1 | done.")
+    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)
+
+
+def test_kept_marks_keeps_letters_digits_spaces_and_a_few_marks():
+    assert kept_marks("a*b`c'd#e!f|g\u0301h\x00i é 2-a_b.c,d:e(f)/g") == (
+        "abcdefghi é 2-a_b.c,d:e(f)/g")
+    assert kept_marks("One\nTwo\tThree") == "One Two Three"  # no collapse, no cut
+
+
+def test_clean_heading_drops_exactly_what_kept_marks_drops():
+    from doc_address import clean_heading
+
+    for code in range(0x10000):
+        mark = chr(code)
+        if mark.isspace() or 0xD800 <= code <= 0xDFFF:
+            continue
+        assert clean_heading("a" + mark + "b") == "a" + kept_marks(mark) + "b", hex(code)
+
+
+def test_secret_filter_imports_only_the_standard_library():
+    # The post job imports it without the project's dependencies.
+    import ast
+    import sys
+    from pathlib import Path
+
+    import secret_filter
+
+    tree = ast.parse(Path(secret_filter.__file__).read_text(encoding="utf-8"))
+    names = {a.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.Import)
+             for a in node.names}
+    names |= {node.module.split(".")[0] for node in ast.walk(tree)
+              if isinstance(node, ast.ImportFrom) and node.module}
+    assert names <= sys.stdlib_module_names, names - sys.stdlib_module_names

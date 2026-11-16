@@ -15,13 +15,15 @@ from pathlib import Path
 
 import yaml
 
+from secret_filter import HEADING_MARKS as HEADING_MARKS  # shown here too
+from secret_filter import kept_marks
+
 CONFIG = Path(__file__).resolve().parent.parent / "config" / "doc-hosts.yml"
 USER_AGENT = "kitden-sdlc-watcher (+https://github.com/KonstantinStarovoytov/kitden-sdlc)"
 TIMEOUT = 20
 LIMIT = 2 * 1024 * 1024
 REDIRECTS = (301, 302, 303, 307, 308)
 HEADING_MAX = 80
-HEADING_MARKS = " -_.,:()/"
 # An address is shown only with these characters: none of them can break a table cell or a
 # code span.
 SHOWABLE = re.compile(r"https://[A-Za-z0-9._~:/%@!$&'()*+,;=-]+")
@@ -147,10 +149,9 @@ def location(address: str, hosts, opener=None) -> str | None:
 
 
 def clean_heading(text: str) -> str:
-    """Letters, digits, spaces and -_.,:()/ only, at most 80 characters."""
-    kept = "".join(" " if c.isspace() else c for c in text
-                   if c.isalnum() or c in HEADING_MARKS or c.isspace())
-    return " ".join(kept.split())[:HEADING_MAX].strip()
+    """Letters, digits, spaces and -_.,:()/ only, at most 80 characters. Which characters
+    stay is decided by secret_filter.kept_marks, the same one its `clean` checks."""
+    return " ".join(kept_marks(text).split())[:HEADING_MAX].strip()
 
 
 def page_of(url, hosts) -> str:
