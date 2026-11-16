@@ -1,5 +1,6 @@
-# What: when a Kitden pull request changes docs/clients.md, checks each row it adds or changes
-# against the row's doc page, and warns when a word of the row is not on that page.
+# What: when a Kitden pull request changes docs/clients.md, Kitden's list of client facts,
+# checks each row it adds or changes that names a doc page against that page (at most 20
+# pages), and warns when a word the row writes in backticks is not on it.
 # Why: the list says what Kitden relies on in each client. A row that no page backs should be
 # seen while the pull request is open, not after the release.
 #

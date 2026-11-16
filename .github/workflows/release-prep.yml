@@ -1,8 +1,9 @@
 # What: prepares a Kitden release: Claude drafts the notes, the README and the policy edits,
 # scripts check them, and one pull request, `Kitden X.Y.Z`, is opened.
-# Why: the owner only reviews and merges. No step of a release is done by hand or forgotten.
+# Why: the owner starts it, reviews and merges. No step of a release is forgotten: the pull
+# request lists the ones still done by hand.
 #
-# Reusable workflow: Kitden's owner presses "Prepare release" and gets one pull request,
+# Reusable workflow: Kitden's owner runs "Release prep" and gets one pull request,
 # `Kitden X.Y.Z`, to review and merge. Two jobs run a model (the agent and its one fix pass),
 # each with read-only tools and a folder to write in; every job that writes to Kitden runs no
 # model. In order:
