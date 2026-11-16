@@ -413,3 +413,52 @@ def test_an_item_with_no_client_is_named_agent_docs():
 def test_the_week_is_named_by_its_iso_year_and_number():
     assert week_of(date(2026, 11, 15)) == "2026-W46"
     assert week_of(date(2027, 1, 1)) == "2026-W53"
+
+
+# A feed piece through route and back to plan_feed (Task 6.5)
+
+FEED_DAY = "2026-11-10"
+FEED_PAGE = "https://code.claude.com/docs/en/planted-feed"
+
+
+def feed_piece_and_state():
+    from doc_address import load_hosts
+    from watch_feed import Entry
+    from watch_fetch import plan_feed, plan_run
+    from watch_pages import Section
+
+    _, state = plan_run(None, {}, {})
+    # This week's summary is out already, so `kept` holds what route adds.
+    state["summary_week"] = week_of(NOW)
+    state["feed"] = {"day": "2026-11-09", "wait": [], "dropped": 0, "held": 0}
+    entry = Entry(FEED_DAY, "added", FEED_PAGE + ".md", "claude-code", ())
+
+    def plan(state, entries):
+        return plan_feed(state, entries, set(), load_hosts(), lambda page: (
+            [Section("Hooks", "## Hooks\nA planted hook.", "h")], page), {}, NOW, 20)
+
+    [p], state = plan(state, [entry])
+    return p, state, plan
+
+
+def test_a_judged_feed_piece_is_recorded_and_leaves_the_queue_next_run():
+    p, state, plan = feed_piece_and_state()
+    done = route([], state, [p["id"]], make_inp([p]), NOW)
+    assert done.state["sources"]["agent-docs-feed"] == {f"{FEED_PAGE}@{FEED_DAY}": p["hash"]}
+    pieces, after = plan(done.state, [])
+    assert pieces == [] and after["feed"]["wait"] == []
+    assert "agent-docs-feed" not in after["sources"]
+
+
+def test_a_feed_piece_failed_three_times_is_could_not_judge_and_leaves_the_queue():
+    p, state, plan = feed_piece_and_state()
+    for _ in range(TRIES_MAX):
+        state = route([], state, [], make_inp([p]), NOW, failed=[p["id"]]).state
+        if len(state["kept"]) == 0:
+            [p], state = plan(state, [])  # offered again on the next run
+    [item] = state["kept"]
+    assert item["title"].startswith("Could not judge agent-docs-feed#")
+    assert (item["client"], item["url"], item["version"]) == ("claude-code", FEED_PAGE, "")
+    pieces, after = plan(state, [])
+    assert pieces == [] and after["feed"]["wait"] == []
+    assert "agent-docs-feed" not in after["sources"]

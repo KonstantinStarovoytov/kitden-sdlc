@@ -317,3 +317,36 @@ def test_a_noisy_watcher_opens_only_its_pause_issue(tmp_path):
     assert "desk" in {name for name, *_ in gh.created_labels}
     state = json.loads((tmp_path / "state.json").read_text())
     assert [k["title"] for k in state["kept"]] == ["skillOverrides renamed"]
+
+
+# The feed's counts in the log (Task 6.6)
+
+FEED = {"mode": "shadow", "pieces": 5, "waiting": 3, "dropped": 1, "held": 2, "gone": 0,
+        "failed": 4}
+
+
+def test_the_feed_counts_go_into_the_runs_log_line(tmp_path):
+    run({**inp(0), "feed": FEED}, None, FakeIssues(), tmp_path, WED)
+    log = json.loads((tmp_path / "log.jsonl").read_text())
+    assert log["feed"] == FEED and log["pieces"] == 0
+
+
+def test_an_input_with_no_feed_counts_logs_none(tmp_path):
+    run(inp(0), None, FakeIssues(), tmp_path, WED)
+    assert "feed" not in json.loads((tmp_path / "log.jsonl").read_text())
+
+
+def test_only_the_known_counts_are_logged(tmp_path):
+    run({**inp(0), "feed": {**FEED, "note": "planted text"}}, None, FakeIssues(), tmp_path, WED)
+    assert json.loads((tmp_path / "log.jsonl").read_text())["feed"] == FEED
+
+
+@pytest.mark.parametrize("feed", [
+    "shadow", [], {**FEED, "mode": "planted text"}, {**FEED, "pieces": "5"},
+    {**FEED, "held": -1}, {**FEED, "gone": True}, {k: v for k, v in FEED.items() if k != "gone"},
+    {k: v for k, v in FEED.items() if k != "failed"}, {**FEED, "failed": "1"}])
+def test_feed_counts_of_another_shape_are_not_logged(tmp_path, capsys, feed):
+    run({**inp(0), "feed": feed}, None, FakeIssues(), tmp_path, WED)
+    assert "feed" not in json.loads((tmp_path / "log.jsonl").read_text())
+    assert "The feed's counts have another shape; they are not logged." in capsys.readouterr().out
+    assert "planted" not in (tmp_path / "log.jsonl").read_text()

@@ -49,12 +49,27 @@ table one line says how the five stand.
 ## The switches
 
 A switch is a repository variable, set to `true` or `false` on the repository's Variables page.
+`WATCH_FEED` is the one switch with three values.
 
 | Variable | Where | Stops |
 |---|---|---|
 | `AGENTS_ENABLED` | both repositories | every agent of that repository; in kitden-sdlc also the desk's posting of its issue in Kitden |
 | `REVIEW_LIVE` | Kitden | the two reviewers |
 | `WATCH_LIVE` | kitden-sdlc | the client watcher's daily run |
+| `WATCH_FEED` | kitden-sdlc | the watcher's reading of Agent Docs' feed of new doc pages. `off` (or unset, or any other value): the feed is not read at all. `shadow`: the watcher reads the new pages and makes their pieces, but gives none to the model; it only counts them. `live`: the model judges them like any other piece. Set `shadow` only once `reports/docs-changes/feed.json` exists in agent-docs: before that the feed is a failed read each run, and on the third day the summary gets "Cannot read agent-docs-feed for 3 days" |
+
+After a shadow week (seven daily runs), look at what live would have sent:
+
+- Each run's `watch-input` artifact (kept seven days, on the run's page in Actions) holds
+  `feed-shadow.json`: one row a piece, with the page, its day in the feed, the words that kept
+  its sections (each once) and its length in characters. No page text is in it: open the page to read it.
+- Each run's line in `log.jsonl` on the `watch` branch has `feed`: `pieces`, `waiting` and
+  `failed` (feed pages whose read failed) are that run's, `dropped`, `held` and `gone` are
+  totals since the feed was first read. A `failed` that stays high run after run means feed
+  pages the watcher cannot read: they go to the back of the queue, so the others still get
+  read, and each leaves after 14 days.
+- If the pieces look about what Kitden shows, set `WATCH_FEED` to `live`. The pieces of the
+  shadow week are not sent again.
 
 The Variables pages:
 

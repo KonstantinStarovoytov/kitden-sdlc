@@ -18,3 +18,9 @@
 - id: agent-docs-manifest
   kind: manifest
   url: https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/data/manifests/agent_docs_hybrid_v1.json
+# Agent Docs' feed of the doc pages it added and the sections it found new, for the last 14
+# days: fetch makes pieces of the pages that touch Kitden (scripts/watch_feed.py and plan_feed
+# in scripts/watch_fetch.py). It has no client: each page's client comes from its address.
+- id: agent-docs-feed
+  kind: feed
+  url: https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/reports/docs-changes/feed.json

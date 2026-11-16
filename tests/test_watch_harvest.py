@@ -140,3 +140,24 @@ def test_fetch_pieces_skips_a_source_with_no_client(tmp_path, monkeypatch):
     sources.write_text("- id: m\n  kind: manifest\n  url: https://example.com/m.json\n")
     monkeypatch.setattr(watch_harvest, "_read", lambda src: [Section("x", "text", "h")])
     assert watch_harvest._fetch_pieces([{**LINE, "piece": "m#x"}], sources) == {}
+
+
+def test_the_feed_source_of_the_config_changes_nothing_here(monkeypatch):
+    from pathlib import Path
+
+    calls = []
+
+    def fake_read(src):
+        calls.append(src["id"])
+        return [Section("2.1.320", "text", "h")]
+
+    def no_get(url):
+        raise AssertionError(url)
+
+    monkeypatch.setattr(watch_harvest, "_read", fake_read)
+    monkeypatch.setattr(watch_harvest, "get", no_get)
+    config = Path(__file__).parents[1] / "config/watch-sources.yml"
+    feed_line = {**LINE, "piece": "agent-docs-feed#https://code.claude.com/docs/en/x@2026-11-15",
+                 "version": "", "url": "https://code.claude.com/docs/en/x"}
+    pieces = watch_harvest._fetch_pieces([LINE, feed_line], config)
+    assert list(pieces) == [PID] and calls == ["claude-code-changelog"]

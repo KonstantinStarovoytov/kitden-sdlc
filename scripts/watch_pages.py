@@ -123,6 +123,42 @@ def sections(body: str, content_type: str, level: int = 3,
     return _build([(k, t) for k, t in parts])
 
 
+def _loose(key: str) -> str:
+    """`key` with no spacing at all and in one case: how pick compares a second time."""
+    return "".join(key.split()).casefold()
+
+
+# The number _build adds to a heading found again on the page: "Example (2)".
+NUMBERED = re.compile(r"(.*) \((?:[2-9]|[1-9][0-9]+)\)", re.DOTALL)
+
+
+def pick(all_sections: list[Section], headings: list[str]) -> list[Section]:
+    """The sections of a page that `headings` name, in page order, each once.
+
+    A heading names every section whose key is the heading, or the heading with the number
+    `sections()` adds to a repeat (" (2)", " (3)", ...): a page that gains a second
+    "Example" has the new one as "Example (2)", and the feed names it "Example". When no key
+    is the heading that way, it names those whose key reads the same ignoring case and
+    spacing. A heading that is not on the page, or is blank, is skipped. Headings are only
+    compared here.
+    """
+    exact: dict[str, list[int]] = {}
+    loose: dict[str, list[int]] = {}
+    for place, section in enumerate(all_sections):
+        numbered = NUMBERED.fullmatch(section.key)
+        names = {section.key, numbered.group(1)} if numbered else {section.key}
+        for name in names:
+            exact.setdefault(name, []).append(place)
+        for name in {_loose(n) for n in names}:
+            loose.setdefault(name, []).append(place)
+    chosen: set[int] = set()
+    for heading in headings:
+        if not heading.strip():
+            continue
+        chosen.update(exact.get(heading) or loose.get(_loose(heading)) or [])
+    return [all_sections[place] for place in sorted(chosen)]
+
+
 def releases(payload: list[dict]) -> list[Section]:
     return _build([
         (r["tag_name"], r.get("body") or "")

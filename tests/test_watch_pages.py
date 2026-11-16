@@ -5,7 +5,7 @@ import pytest
 import watch_pages
 from doc_address import USER_AGENT, load_hosts, make_opener
 from tests.test_doc_address import FakeWeb
-from watch_pages import get, get_doc, releases, sections
+from watch_pages import get, get_doc, pick, releases, sections
 
 HOSTS = load_hosts()
 DOC = "https://code.claude.com/docs/en/mcp"
@@ -312,3 +312,73 @@ def test_get_sends_the_watcher_user_agent(monkeypatch):
     assert get("https://example.com/changes") == ("changes", "text/plain")
     assert asked[0].full_url == "https://example.com/changes"
     assert asked[0].get_header("User-agent") == USER_AGENT
+
+
+PICK_PAGE = sections("intro\n## Setup\na\n## Remote  MCP servers\nb\n## setup\nc\n## Limits\nd\n",
+                "text/markdown")
+
+
+def test_pick_takes_a_section_by_its_exact_key():
+    assert [s.key for s in pick(PICK_PAGE, ["Limits"])] == ["Limits"]
+
+
+def test_pick_prefers_the_exact_key_over_one_of_another_case():
+    assert [s.text for s in pick(PICK_PAGE, ["setup"])] == ["## setup\nc"]
+    assert [s.text for s in pick(PICK_PAGE, ["Setup"])] == ["## Setup\na"]
+
+
+def test_pick_then_ignores_case_and_spacing():
+    assert [s.key for s in pick(PICK_PAGE, ["remote mcp servers"])] == ["Remote  MCP servers"]
+    assert [s.key for s in pick(PICK_PAGE, [" REMOTE\tMCP  SERVERS "])] == ["Remote  MCP servers"]
+    assert [s.key for s in pick(PICK_PAGE, ["LIMITS"])] == ["Limits"]
+
+
+def test_pick_skips_a_heading_that_is_not_on_the_page():
+    assert pick(PICK_PAGE, ["Gone", "Limit", "Limits and more"]) == []
+    assert [s.key for s in pick(PICK_PAGE, ["Gone", "Limits"])] == ["Limits"]
+
+
+def test_pick_gives_page_order_and_each_section_once():
+    got = pick(PICK_PAGE, ["Limits", "Setup", "limits", "Limits"])
+    assert [s.key for s in got] == ["Setup", "Limits"]
+
+
+def test_pick_never_takes_the_text_before_the_first_heading_for_a_blank_heading():
+    assert PICK_PAGE[0].key == ""
+    assert pick(PICK_PAGE, ["", " ", "\n"]) == []
+
+
+REPEATS = sections("## X\na\n## X\nb\n## Xylophone\nc\n## X (2) more\nd\n## Y\ne\n## Y\nf\n"
+                   "## Y\ng\n", "text/markdown")
+
+
+def test_a_heading_picks_every_section_numbered_after_it():
+    assert [s.key for s in REPEATS] == ["X", "X (2)", "Xylophone", "X (2) more",
+                                        "Y", "Y (2)", "Y (3)"]
+    assert [s.text for s in pick(REPEATS, ["X"])] == ["## X\na", "## X\nb"]
+    assert [s.key for s in pick(REPEATS, ["Y"])] == ["Y", "Y (2)", "Y (3)"]
+
+
+def test_a_numbered_heading_picks_only_that_section():
+    assert [s.text for s in pick(REPEATS, ["X (2)"])] == ["## X\nb"]
+    assert [s.key for s in pick(REPEATS, ["Y (3)"])] == ["Y (3)"]
+
+
+def test_a_heading_does_not_pick_a_longer_heading_that_starts_with_it():
+    assert "Xylophone" not in [s.key for s in pick(REPEATS, ["X"])]
+    assert "X (2) more" not in [s.key for s in pick(REPEATS, ["X", "X (2)"])]
+
+
+def test_repeats_are_also_picked_ignoring_case_and_spacing():
+    assert [s.key for s in pick(REPEATS, ["x"])] == ["X", "X (2)"]
+    assert [s.key for s in pick(REPEATS, [" y  (2) "])] == ["Y (2)"]
+
+
+def test_a_number_sections_does_not_add_is_not_a_repeat():
+    page = sections("## Z\na\n## Z (1)\nb\n## Z (02)\nc\n## Z (2)\nd\n", "text/markdown")
+    assert [s.key for s in pick(page, ["Z"])] == ["Z", "Z (2)"]
+
+
+def test_pick_with_no_headings_or_no_sections_is_empty():
+    assert pick(PICK_PAGE, []) == []
+    assert pick([], ["Setup"]) == []

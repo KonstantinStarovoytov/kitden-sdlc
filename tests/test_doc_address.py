@@ -1,5 +1,7 @@
+import copy
 import email.message
 import io
+import pickle
 import urllib.error
 import urllib.request
 import urllib.response
@@ -11,11 +13,13 @@ from doc_address import (
     NO_TEXT_CLIENTS,
     allowed,
     clean_heading,
+    client_of,
     load_hosts,
     location,
     make_opener,
     read,
 )
+from watch_feed import PRODUCTS
 
 HOSTS = load_hosts()
 PAGE = "https://code.claude.com/docs/en/mcp.md"
@@ -249,6 +253,80 @@ def test_load_hosts_reads_a_given_file(tmp_path):
 def test_load_hosts_refuses_a_path_without_slashes_at_both_ends(tmp_path, start):
     path = tmp_path / "hosts.yml"
     path.write_text(f"- {{host: docs.example.com, path: {start}}}\n")
+    with pytest.raises(ValueError):
+        load_hosts(path)
+
+
+CLIENTS = {
+    ("code.claude.com", "/docs/"): "claude-code",
+    ("cursor.com", "/docs/"): "cursor",
+    ("cursor.com", "/help/"): "cursor",
+    ("learn.chatgpt.com", "/docs/"): "codex",
+    ("developers.openai.com", "/codex/"): "codex",
+    ("developers.openai.com", "/plugins/"): "codex",
+}
+
+
+def test_every_doc_host_in_the_config_names_its_client():
+    assert {pair: pair.client for pair in HOSTS} == CLIENTS
+    assert all(pair.client in PRODUCTS for pair in HOSTS)
+
+
+def test_the_hosts_are_still_plain_pairs():
+    assert list(CLIENTS) == HOSTS
+    assert all(len(pair) == 2 for pair in HOSTS)
+    host, start = HOSTS[0]
+    assert (host, start) == ("code.claude.com", "/docs/")
+
+
+def test_the_hosts_copy_and_pickle_with_their_clients():
+    for again in (copy.deepcopy(HOSTS), copy.copy(HOSTS), pickle.loads(pickle.dumps(HOSTS))):
+        assert again == HOSTS
+        assert [pair.client for pair in again] == [pair.client for pair in HOSTS]
+
+
+@pytest.mark.parametrize(("url", "client"), [
+    ("https://code.claude.com/docs/en/mcp.md", "claude-code"),
+    ("https://cursor.com/docs/context/rules", "cursor"),
+    ("https://cursor.com/help/models", "cursor"),
+    ("https://learn.chatgpt.com/docs/codex", "codex"),
+    ("https://developers.openai.com/codex/config", "codex"),
+    ("https://developers.openai.com/plugins/build", "codex"),
+    ("https://CURSOR.com/docs/x.md#part", "cursor"),
+])
+def test_client_of_names_the_client_of_the_address_host_and_path(url, client):
+    assert client_of(url, HOSTS) == client
+
+
+@pytest.mark.parametrize("url", [
+    "https://cursor.com/blog/x", "https://evil.example.com/docs/x",
+    "https://cursor.com/docs/x?y=1", "http://cursor.com/docs/x", "", None, 1,
+])
+def test_client_of_an_address_that_is_not_allowed_is_none(url):
+    assert client_of(url, HOSTS) is None
+
+
+def test_client_of_with_pairs_that_name_no_client_is_none():
+    assert client_of(PAGE, [("code.claude.com", "/docs/")]) is None
+
+
+def test_load_hosts_reads_each_client(tmp_path):
+    path = tmp_path / "hosts.yml"
+    path.write_text("- {host: docs.example.com, path: /a/, client: codex}\n"
+                    "- {host: docs.example.com, path: /a/b/, client: cursor}\n"
+                    "- {host: other.example.com, path: /z/}\n")
+    hosts = load_hosts(path)
+    assert [pair.client for pair in hosts] == ["codex", "cursor", None]
+    # The longest path an address is under decides.
+    assert client_of("https://docs.example.com/a/x", hosts) == "codex"
+    assert client_of("https://docs.example.com/a/b/x", hosts) == "cursor"
+    assert client_of("https://other.example.com/z/x", hosts) is None
+
+
+def test_load_hosts_refuses_the_same_host_and_path_twice(tmp_path):
+    path = tmp_path / "hosts.yml"
+    path.write_text("- {host: docs.example.com, path: /a/, client: codex}\n"
+                    "- {host: Docs.example.com, path: /a/, client: cursor}\n")
     with pytest.raises(ValueError):
         load_hosts(path)
 

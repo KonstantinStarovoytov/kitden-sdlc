@@ -1,20 +1,33 @@
+import copy
+import hashlib
+import itertools
 import json
+from datetime import date, timedelta
 
 import pytest
 
 import watch_fetch
+from doc_address import load_hosts, page_of
+from watch_feed import ADDRESS_MAX, COUNTS, KEEP_DAYS, Entry, page_key
 from watch_fetch import (
     DOC_FORMAT,
     FAIL_DAYS,
+    FEED_PAGES_MAX,
+    FEED_PIECES_MAX,
+    HEADING_CHARS,
+    HEADINGS_MAX,
     PIECE_CHARS,
     PIECES_MAX,
+    TAKEN_MAX,
+    WAIT_MAX,
     _moved_item,
     build_input,
+    plan_feed,
     plan_moved,
     plan_run,
     read_or_none,
 )
-from watch_pages import Section
+from watch_pages import Section, sections
 
 META = {"s": {"client": "codex", "kind": "release", "url": "https://x/s"}}
 EMPTY = {"fails": {}, "kept": [], "urgent": {"week": "", "count": 0}, "doc_format": DOC_FORMAT}
@@ -421,49 +434,84 @@ def budget_state():
                fails={DOCS[4]: 2})
 
 
-def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None, state=None):
+def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None, state=None,
+              sources=BUDGET_SOURCES, release=None, entries=None, feed_pages=None,
+              feed_mode="live", ended_at=None):
     """main() on a list of five doc pages, every read a fake, with `state` as the memory
-    (budget_state() when None). The release read takes `release_seconds`; the clock jumps
-    past the budget during doc read number `slow_after`. Gives the output, stderr, the pages
-    read, and the meta and fetched plan_run got."""
+    (budget_state() when None) and WATCH_FEED set to `feed_mode` (unset when None). The
+    release read takes `release_seconds` and gives `release` (one known section when None);
+    the clock jumps past the budget during page read number `slow_after`, doc and feed pages
+    counted together. The feed gives `entries`, or raises it when it is an exception; a feed
+    page gives its sections in `feed_pages`, read from the address in `ended_at` (itself when
+    not there). Gives the output, stderr, the pages read, and the
+    meta and fetched plan_run got (and the weeks plan_moved was called for, under "moved";
+    the `pieces` output, under "output"; the shadow file's rows, under "shadow", when there is
+    one)."""
     clock = Clock()
     (tmp_path / "kitden/docs").mkdir(parents=True, exist_ok=True)
     (tmp_path / "kitden/docs/clients.md").write_text(BUDGET_LIST)
-    (tmp_path / "sources.yml").write_text(BUDGET_SOURCES)
+    (tmp_path / "sources.yml").write_text(sources)
     (tmp_path / "titles.json").write_text("[]")
+    (tmp_path / "feed-shadow.json").unlink(missing_ok=True)
+    (tmp_path / "github-output").write_text("")
+    if feed_mode is None:
+        monkeypatch.delenv("WATCH_FEED", raising=False)
+    else:
+        monkeypatch.setenv("WATCH_FEED", feed_mode)
     state = budget_state() if state is None else state
     (tmp_path / "state.json").write_text(json.dumps(state))
     read = []
+    feed_pages = feed_pages or {}
 
     def fake_read(source):
         clock.now += release_seconds
-        return [Section("1.0", "t", "h")]
+        return [Section("1.0", "t", "h")] if release is None else release
 
     def fake_read_doc(address, hosts):
         read.append(address)
         if len(read) == slow_after:
             clock.now += watch_fetch.PAGES_SECONDS + 1
+        if address in feed_pages:
+            return feed_pages[address]
         return [Section("Install", "t", f"old-{address}")]
 
-    planned = {}
+    def fake_read_feed(source, today):
+        planned["feed_day"] = today
+        if isinstance(entries, Exception):
+            raise entries
+        return entries or []
+
+    planned = {"moved": []}
 
     def spy(state, fetched, meta):
         planned.update(fetched=dict(fetched), meta=dict(meta))
         return plan_run(state, fetched, meta)
+
+    def moved_spy(state, manifest, pages, hosts, locate, week):
+        planned["moved"].append(week)
+        return plan_moved(state, manifest, pages, hosts, lambda address: None, week)
 
     class Done:
         stdout, returncode = "v1", 0
 
     monkeypatch.setattr(watch_fetch, "_read", fake_read)
     monkeypatch.setattr(watch_fetch, "_read_doc", fake_read_doc)
+    monkeypatch.setattr(watch_fetch, "_read_feed_page", lambda address, hosts: (
+        fake_read_doc(address, hosts), (ended_at or {}).get(address, address)))
+    monkeypatch.setattr(watch_fetch, "read_feed", fake_read_feed)
+    monkeypatch.setattr(watch_fetch, "read_manifest", lambda source: set())
     monkeypatch.setattr(watch_fetch, "plan_run", spy)
+    monkeypatch.setattr(watch_fetch, "plan_moved", moved_spy)
     monkeypatch.setattr(watch_fetch, "_git", lambda kitden, *args: Done())
-    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "github-output"))
     watch_fetch.main([
         "--sources", str(tmp_path / "sources.yml"), "--kitden", str(tmp_path / "kitden"),
         "--state", str(tmp_path / "state.json"), "--titles", str(tmp_path / "titles.json"),
         "--out", str(tmp_path / "out.json")], clock=clock)
     out = json.loads((tmp_path / "out.json").read_text())
+    planned["output"] = (tmp_path / "github-output").read_text()
+    if (tmp_path / "feed-shadow.json").exists():
+        planned["shadow"] = json.loads((tmp_path / "feed-shadow.json").read_text())
     return out, capsys.readouterr().err, read, planned
 
 
@@ -683,3 +731,1072 @@ def test_the_skip_item_is_built_only_when_a_page_reaches_its_third_run(monkeypat
     new = watch_fetch.plan_skips(old({}, skips={"https://d/b": 2, "https://d/c": 3}), pages, 0)
     assert built == [["https://d/b"]]
     assert [k["title"] for k in new["kept"]] == [out_of_time(1)]
+
+
+# Feed pieces: a cap, a queue and the page budget (Task 6.5, Review Focus 2 and 10)
+
+FEED_ID = "agent-docs-feed"
+FEED_HOSTS = load_hosts()
+FEED_TODAY = date(2026, 11, 16)
+DAY = "2026-11-15"
+LAST = "2026-11-14"
+CC = "https://code.claude.com/docs/en/"
+CX = "https://learn.chatgpt.com/docs/"
+CU = "https://cursor.com/docs/"
+PRODUCT = {CC: "claude-code", CX: "codex", CU: "cursor"}
+# Made-up list words: no fact about a real client.
+FEED_WORDS = {"claude-code": ["zorkSetting"], "codex": [], "cursor": []}
+
+
+def md(*parts):
+    """A made-up markdown page cut as fetch cuts it; each part is (heading, text)."""
+    return sections("".join(f"## {h}\n{t}\n" for h, t in parts), "text/markdown")
+
+
+HOOK_PAGE = md(("Hooks", "A planted hook runs here."))
+
+
+def at(n, base=CC):
+    return f"{base}planted-{n}"
+
+
+def fentry(n, day=DAY, kind="added", headings=(), base=CC):
+    return Entry(day, kind, at(n, base) + ".md", PRODUCT[base], tuple(headings))
+
+
+def stored(e):
+    return {**e._asdict(), "sections": list(e.sections)}
+
+
+def feed_state(**feed):
+    _, state = plan_run(None, {}, {})
+    return {**state, "feed": {"day": LAST, "wait": [], "dropped": 0, "held": 0, "gone": 0,
+                              **feed}}
+
+
+class Pages:
+    """read_page: the page of `pages`, or HOOK_PAGE, read from the address asked; raises for
+    an address in `fail`."""
+
+    def __init__(self, pages=None, fail=()):
+        self.pages, self.fail, self.read = pages or {}, set(fail), []
+
+    def __call__(self, address):
+        self.read.append(address)
+        if address in self.fail:
+            raise TimeoutError(f"made-up detail {address}")
+        return self.pages.get(address, HOOK_PAGE), address
+
+
+def feed_plan(state, entries, reader=None, room=PIECES_MAX, in_time=lambda: True, listed=(),
+              today=FEED_TODAY):
+    reader = reader or Pages()
+    pieces, new = plan_feed(state, entries, set(listed), FEED_HOSTS, reader, FEED_WORDS, today,
+                            room, in_time)
+    return pieces, new, reader
+
+
+def judged(state, pieces):
+    """The memory after route marked `pieces` judged: sources[<source>][<key>] = hash."""
+    new = copy.deepcopy(state)
+    for p in pieces:
+        new["sources"].setdefault(p["source"], {})[p["key"]] = p["hash"]
+    return new
+
+
+def waiting(state):
+    return [w["url"] for w in state["feed"]["wait"]]
+
+
+def test_feed_constants():
+    assert (FEED_PIECES_MAX, FEED_PAGES_MAX) == (5, 10)
+    assert WAIT_MAX == FEED_PAGES_MAX * KEEP_DAYS
+
+
+def test_plan_run_counts_a_failed_feed_read_and_says_so_on_the_third_day():
+    meta = {**META, FEED_ID: {"kind": "feed", "url": "https://raw.example.com/feed.json"}}
+    _, state = plan_run(old({"s": {}}, fails={FEED_ID: 2}), {"s": [], FEED_ID: None}, meta)
+    assert state["fails"][FEED_ID] == FAIL_DAYS and FEED_ID not in state["sources"]
+    [item] = state["kept"]
+    assert item["title"] == f"Cannot read {FEED_ID} for 3 days" and item["client"] == ""
+    assert item["url"] == "https://raw.example.com/feed.json"
+
+
+def test_plan_run_never_hash_compares_the_feed_and_makes_no_piece_of_it():
+    meta = {**META, FEED_ID: {"kind": "feed", "url": "https://raw.example.com/feed.json"}}
+    recorded = {"https://code.claude.com/docs/en/a@2026-11-15": "h"}
+    state = old({"s": {"1.0": "h"}, FEED_ID: recorded}, fails={FEED_ID: 2})
+    pieces, new = plan_run(state, {"s": [Section("1.0", "t", "h")], FEED_ID: [fentry(1)]}, meta)
+    assert pieces == [] and new["sources"][FEED_ID] == recorded
+    assert new["fails"][FEED_ID] == 0
+
+
+def test_an_unread_feed_leaves_the_memory_as_it_was_and_reads_no_page():
+    state = feed_state(wait=[stored(fentry(1))])
+    state["sources"][FEED_ID] = {f"{at(1)}@{DAY}": "h"}
+    pieces, new, reader = feed_plan(state, None)
+    assert pieces == [] and new == state and reader.read == []
+
+
+def test_with_no_feed_in_the_memory_the_newest_day_is_taken_and_nothing_is_read():
+    _, state = plan_run(None, {}, {})
+    pieces, new, reader = feed_plan(state, [fentry(1, day="2026-11-13"), fentry(2)])
+    assert pieces == [] and reader.read == []
+    assert new["feed"] == {"day": DAY, "wait": [], "dropped": 0, "held": 0, "gone": 0,
+                           "taken": [page_key(at(2))]}
+
+
+def test_with_no_feed_in_the_memory_and_an_empty_feed_every_later_day_is_new():
+    _, state = plan_run(None, {}, {})
+    _, new, _ = feed_plan(state, [])
+    assert new["feed"]["day"] == "" and new["feed"]["taken"] == []
+    pieces, _, _ = feed_plan(new, [fentry(1)])
+    assert [p["url"] for p in pieces] == [at(1)]
+
+
+@pytest.mark.parametrize("feed", ["x", [], {"wait": []}, {"day": 7}, {"day": "soon"}])
+def test_a_feed_memory_of_another_shape_starts_again(feed):
+    state = {**feed_state(), "feed": feed}
+    pieces, new, reader = feed_plan(state, [fentry(1)])
+    assert pieces == [] and reader.read == []
+    assert new["feed"] == {"day": DAY, "wait": [], "dropped": 0, "held": 0, "gone": 0,
+                           "taken": [page_key(at(1))]}
+
+
+def test_eight_pages_make_five_pieces_and_three_wait_and_come_first_the_next_day():
+    eight = [fentry(n) for n in range(8)]
+    pieces, state, reader = feed_plan(feed_state(), eight)
+    assert len(pieces) == FEED_PIECES_MAX
+    assert [p["url"] for p in pieces] == [at(n) for n in range(5)] == reader.read
+    # A page made into a piece waits too, until route marks it judged.
+    assert waiting(state) == [e.url for e in eight]
+    assert state["feed"]["day"] == DAY
+    tomorrow = [fentry(n, day="2026-11-16") for n in (8, 9, 10)]
+    pieces, state, _ = feed_plan(judged(state, pieces), tomorrow, today=date(2026, 11, 17))
+    assert [p["url"] for p in pieces] == [at(n) for n in (5, 6, 7, 8, 9)]
+    assert state["feed"]["day"] == "2026-11-16" and FEED_ID not in state["sources"]
+    assert waiting(state) == [fentry(n, day="2026-11-16").url for n in (5, 6, 7, 8, 9, 10)]
+
+
+def test_a_piece_not_judged_is_offered_again_first():
+    pieces, state, _ = feed_plan(feed_state(), [fentry(n) for n in range(8)])
+    again, _, _ = feed_plan(state, [])
+    assert [p["id"] for p in again] == [p["id"] for p in pieces]
+
+
+def test_only_the_room_left_is_used_and_with_no_room_no_page_is_read():
+    eight = [fentry(n) for n in range(8)]
+    two, _, reader = feed_plan(feed_state(), eight, room=2)
+    assert len(two) == 2 and len(reader.read) == 2
+    none, state, reader = feed_plan(feed_state(), eight, room=0)
+    assert none == [] and reader.read == []
+    assert waiting(state) == [e.url for e in eight]
+
+
+def test_an_entry_more_than_keep_days_old_is_dropped_and_counted():
+    too_old = fentry(1, day=(FEED_TODAY - timedelta(days=KEEP_DAYS + 1)).isoformat())
+    oldest = fentry(2, day=(FEED_TODAY - timedelta(days=KEEP_DAYS)).isoformat())
+    state = feed_state(wait=[stored(too_old), stored(oldest)], dropped=3)
+    pieces, new, reader = feed_plan(state, [])
+    assert reader.read == [at(2)] and [p["url"] for p in pieces] == [at(2)]
+    assert new["feed"]["dropped"] == 4 and waiting(new) == [oldest.url]
+
+
+def test_a_page_whose_read_fails_waits_and_is_not_a_failed_read(capsys):
+    reader = Pages(fail={at(1)})
+    pieces, state, _ = feed_plan(feed_state(), [fentry(1), fentry(2)], reader=reader)
+    assert [p["url"] for p in pieces] == [at(2)]
+    assert waiting(state) == [fentry(2).url, fentry(1).url]
+    assert state["fails"] == {} and state["kept"] == []
+    err = capsys.readouterr().err
+    assert "TimeoutError" in err and "planted" not in err and "made-up" not in err
+
+
+def test_a_page_with_no_kept_section_makes_no_piece_and_leaves_the_queue():
+    reader = Pages({at(1): md(("Pricing", "It costs money."))})
+    pieces, state, _ = feed_plan(feed_state(), [fentry(1), fentry(2)], reader=reader)
+    assert [p["url"] for p in pieces] == [at(2)] and waiting(state) == [fentry(2).url]
+
+
+def test_after_feed_pages_max_reads_the_rest_wait_and_are_not_failed_reads():
+    twelve = [fentry(n) for n in range(12)]
+    reader = Pages({at(n): md(("Pricing", "None.")) for n in range(12)})
+    pieces, state, _ = feed_plan(feed_state(), twelve, reader=reader)
+    assert pieces == [] and reader.read == [at(n) for n in range(FEED_PAGES_MAX)]
+    assert waiting(state) == [e.url for e in twelve[FEED_PAGES_MAX:]]
+    assert state["fails"] == {}
+
+
+def test_a_failed_read_counts_toward_feed_pages_max():
+    twelve = [fentry(n) for n in range(12)]
+    reader = Pages(fail={at(n) for n in range(12)})
+    _, state, _ = feed_plan(feed_state(), twelve, reader=reader)
+    assert len(reader.read) == FEED_PAGES_MAX
+    assert waiting(state) == [e.url for e in twelve[FEED_PAGES_MAX:] + twelve[:FEED_PAGES_MAX]]
+
+
+def test_once_the_budget_is_spent_no_page_is_read_and_the_rest_wait():
+    reader = Pages()
+    five = [fentry(n) for n in range(5)]
+    pieces, state, _ = feed_plan(feed_state(), five, reader=reader,
+                                 in_time=lambda: len(reader.read) < 2)
+    assert reader.read == [at(0), at(1)] and len(pieces) == 2
+    assert waiting(state) == [e.url for e in five] and state["fails"] == {}
+
+
+def test_a_page_found_on_two_days_is_read_once_and_makes_one_piece_of_the_later_day():
+    reader = Pages()
+    both = [fentry(1, day=LAST), fentry(1)]
+    pieces, state, _ = feed_plan(feed_state(day="2026-11-13"), both, reader=reader)
+    assert reader.read == [at(1)]
+    assert [p["key"] for p in pieces] == [f"{at(1)}@{DAY}"]
+    # The earlier day's entry is taken into the later one and leaves the queue.
+    assert [(w["url"], w["day"]) for w in state["feed"]["wait"]] == [(fentry(1).url, DAY)]
+
+
+def test_one_page_waiting_from_two_days_keeps_the_new_headings_of_both():
+    page = md(("Hooks", "A hook."), ("Plugins", "A plugin."), ("Skills", "A skill."))
+    state = feed_state(wait=[stored(fentry(1, day=LAST, kind="changed", headings=["Hooks"]))])
+    later = fentry(1, kind="changed", headings=["Skills"])
+    [piece], new, _ = feed_plan(state, [later], reader=Pages({at(1): page}))
+    assert piece["key"] == f"{at(1)}@{DAY}"
+    assert piece["text"] == "## Hooks\nA hook.\n\n## Skills\nA skill."
+    [entry] = new["feed"]["wait"]
+    assert (entry["day"], entry["kind"], entry["sections"]) == (DAY, "changed", ["Hooks", "Skills"])
+
+
+def test_an_added_entry_and_a_changed_one_of_a_page_make_it_added():
+    state = feed_state(wait=[stored(fentry(1, day=LAST))])
+    _, new, _ = feed_plan(state, [fentry(1, kind="changed", headings=["Hooks"])], room=0)
+    [entry] = new["feed"]["wait"]
+    assert (entry["day"], entry["kind"], entry["sections"]) == (DAY, "added", [])
+
+
+def test_a_judged_earlier_day_is_not_taken_into_the_later_one():
+    page = md(("Hooks", "A hook."), ("Skills", "A skill."))
+    state = feed_state(wait=[stored(fentry(1, day=LAST, kind="changed", headings=["Hooks"]))])
+    state["sources"][FEED_ID] = {f"{at(1)}@{LAST}": "h"}
+    later = fentry(1, kind="changed", headings=["Skills"])
+    [piece], _, _ = feed_plan(state, [later], reader=Pages({at(1): page}))
+    assert piece["text"] == "## Skills\nA skill."
+
+
+def test_in_shadow_a_page_from_two_days_makes_one_row():
+    rows, state, _ = shadow_plan(feed_state(day="2026-11-13"), [fentry(1, day=LAST), fentry(1)])
+    assert [(r["page"], r["day"]) for r in rows] == [(at(1), DAY)] and waiting(state) == []
+
+
+def test_an_added_page_offers_every_section_and_a_changed_page_only_its_new_ones():
+    page = md(("Hooks", "A hook."), ("Plugins", "A plugin."))
+    reader = Pages({at(1): page, at(2): page})
+    entries = [fentry(1), fentry(2, kind="changed", headings=["Plugins"])]
+    added, changed = feed_plan(feed_state(), entries, reader=reader)[0]
+    assert added["text"] == "## Hooks\nA hook.\n\n## Plugins\nA plugin."
+    assert changed["text"] == "## Plugins\nA plugin."
+
+
+def test_a_changed_page_whose_new_section_holds_no_word_makes_no_piece():
+    reader = Pages({at(1): md(("Hooks", "A hook."), ("Pricing", "None."))})
+    entry = fentry(1, kind="changed", headings=["Pricing"])
+    pieces, state, _ = feed_plan(feed_state(), [entry], reader=reader)
+    assert pieces == [] and waiting(state) == []
+
+
+def test_the_text_is_the_kept_sections_in_page_order_cut_to_piece_chars():
+    page = md(("Skills", "A skill."), ("Pricing", "None."), ("Hooks", "A hook."))
+    [piece], _, _ = feed_plan(feed_state(), [fentry(1)], reader=Pages({at(1): page}))
+    assert piece["text"] == "## Skills\nA skill.\n\n## Hooks\nA hook."
+    long = md(("Hooks", "a hook " * PIECE_CHARS))
+    [piece], _, _ = feed_plan(feed_state(), [fentry(1)], reader=Pages({at(1): long}))
+    assert len(piece["text"]) == PIECE_CHARS
+    assert piece["hash"] == hashlib.sha256(piece["text"].encode()).hexdigest()
+
+
+def test_a_feed_piece_has_the_shape_of_a_doc_piece():
+    entry = fentry(1, base=CX)
+    [piece], _, reader = feed_plan(feed_state(), [entry])
+    page = at(1, CX)
+    key = f"{page}@{DAY}"
+    assert reader.read == [page]  # page_of: no .md, read through read_page (get_doc)
+    assert piece == {"id": f"{FEED_ID}#{key}", "kind": "doc", "client": "codex",
+                     "version": "", "url": page, "text": HOOK_PAGE[0].text,
+                     "source": FEED_ID, "key": key, "hash": piece["hash"]}
+
+
+def test_the_page_read_is_page_of_the_entry_address():
+    entry = Entry(DAY, "added", at(1) + ".md#part", "claude-code", ())
+    [piece], _, reader = feed_plan(feed_state(), [entry])
+    assert reader.read == [at(1)] and piece["url"] == at(1)
+
+
+def test_a_list_word_of_the_page_client_keeps_a_section():
+    page = md(("New", "Set zorkSetting to true."))
+    reader = Pages({at(1): page, at(1, CX): page})
+    pieces, _, _ = feed_plan(feed_state(), [fentry(1), fentry(1, base=CX)], reader=reader)
+    assert [p["client"] for p in pieces] == ["claude-code"]
+
+
+def test_no_page_the_feed_should_not_send_is_read():
+    # Review Focus 1: a listed page, another host, a query, a page outside the allowed path.
+    bad = [Entry(DAY, "added", url, "claude-code", ()) for url in (
+        at(1) + ".md", "https://evil.example/docs/en/x.md", at(2) + ".md?x=1",
+        "https://code.claude.com/blog/x.md", "http://code.claude.com/docs/en/x.md")]
+    state = feed_state(wait=[stored(e) for e in bad])
+    pieces, new, reader = feed_plan(state, bad, listed={at(1)})
+    assert pieces == [] and reader.read == [] and waiting(new) == []
+
+
+def test_a_cursor_entry_is_not_read_makes_no_piece_and_is_counted_as_held(capsys):
+    entries = [fentry(1, base=CU), fentry(2), fentry(3, base=CU)]
+    pieces, state, reader = feed_plan(feed_state(held=4), entries)
+    assert reader.read == [at(2)] and [p["url"] for p in pieces] == [at(2)]
+    assert waiting(state) == [fentry(2).url] and state["feed"]["held"] == 6
+    assert "2 held back (no text for cursor)" in capsys.readouterr().err
+
+
+def test_a_cursor_entry_is_held_back_even_with_no_room():
+    _, state, _ = feed_plan(feed_state(), [fentry(1, base=CU)], room=0)
+    assert waiting(state) == [] and state["feed"]["held"] == 1
+
+
+def test_a_waiting_page_that_joined_the_list_leaves_the_queue_unread():
+    state = feed_state(wait=[stored(fentry(1)), stored(fentry(2))])
+    pieces, new, reader = feed_plan(state, [], listed={at(1)})
+    assert reader.read == [at(2)] and waiting(new) == [fentry(2).url]
+
+
+def test_a_waiting_entry_of_another_shape_is_skipped():
+    bad = [{"day": DAY}, "x", {**stored(fentry(1)), "sections": "Hooks"},
+           {**stored(fentry(2)), "day": "soon"}, {**stored(fentry(3)), "kind": "removed"}]
+    state = feed_state(wait=[*bad, stored(fentry(4))])
+    pieces, new, _ = feed_plan(state, [])
+    assert [p["url"] for p in pieces] == [at(4)] and waiting(new) == [fentry(4).url]
+
+
+def test_the_queue_is_cut_at_wait_max_and_the_rest_counted_as_dropped():
+    many = [fentry(n) for n in range(WAIT_MAX + 10)]
+    _, state, _ = feed_plan(feed_state(), many, room=0)
+    assert waiting(state) == [e.url for e in many[:WAIT_MAX]]
+    assert state["feed"]["dropped"] == 10
+
+
+def test_a_waiting_entry_keeps_the_writer_caps_on_its_headings():
+    headings = [f"{n:02d}" + "x" * 300 for n in range(80)]
+    _, state, _ = feed_plan(feed_state(), [fentry(1, kind="changed", headings=headings)],
+                            room=0)
+    [entry] = state["feed"]["wait"]
+    assert entry["sections"] == [h[:HEADING_CHARS] for h in headings[:HEADINGS_MAX]]
+    assert (HEADINGS_MAX, HEADING_CHARS) == (50, 200)
+
+
+def test_the_memory_keeps_entries_as_json():
+    _, state, _ = feed_plan(feed_state(), [fentry(1, kind="changed", headings=["Hooks"])],
+                            room=0)
+    assert json.loads(json.dumps(state))["feed"]["wait"] == [
+        {"day": DAY, "kind": "changed", "url": fentry(1).url, "product": "claude-code",
+         "sections": ["Hooks"]}]
+
+
+def test_one_line_of_counts_says_what_the_feed_did(capsys):
+    too_old = stored(fentry(9, day="2026-10-01"))
+    reader = Pages(fail={at(1)})
+    feed_plan(feed_state(wait=[too_old]), [fentry(n) for n in range(8)] + [fentry(1, base=CU)],
+              reader=reader)
+    [line] = capsys.readouterr().err.splitlines()[-1:]
+    assert line == ("feed: 5 pieces, 8 waiting, 6 pages read, 1 failed, 1 dropped, 0 gone, "
+                    "1 held back (no text for cursor)")
+
+
+def test_plan_feed_does_not_change_its_input():
+    state = feed_state(wait=[stored(fentry(1))])
+    state["sources"][FEED_ID] = {f"{at(1)}@{DAY}": "h"}
+    before = copy.deepcopy(state)
+    feed_plan(state, [fentry(2)])
+    assert state == before
+
+
+def test_list_words_gives_each_client_its_words_once():
+    text = ("## Claude Code\n\n| What | Kind | Files | Seen in | Systems | Source |\n"
+            "|---|---|---|---|---|---|\n"
+            "| `zorkSetting` key | key | `a.py` | 1 | all | install |\n"
+            "| `zorkSetting` and `zork-flag` | key | `a.py` | 1 | all | install |\n"
+            "## Codex\n\n| What | Kind | Files | Seen in | Systems | Source |\n"
+            "|---|---|---|---|---|---|\n"
+            "| `zork_codex` | key | `a.py` | 1 | all | install |\n")
+    assert watch_fetch.list_words(text) == {"claude-code": ["zorkSetting", "zork-flag"],
+                                            "codex": ["zork_codex"]}
+
+
+# The feed in main()
+
+FEED_URL = "https://raw.example.com/feed.json"
+FEED_SOURCES = BUDGET_SOURCES + f"- {{id: {FEED_ID}, kind: feed, url: {FEED_URL}}}\n"
+MANIFEST_SOURCES = BUDGET_SOURCES + "- {id: m, kind: manifest, url: https://raw.example.com/m.json}\n"
+
+
+def days_ago(n):
+    return (date.today() - timedelta(days=n)).isoformat()
+
+
+def main_state(**feed):
+    """budget_state() with a feed memory that took the day before yesterday."""
+    return {**budget_state(),
+            "feed": {"day": days_ago(2), "wait": [], "dropped": 0, "held": 0, **feed}}
+
+
+def new_releases(n):
+    return [Section(f"2.{i}", "t", f"h{i}") for i in range(n)] + [Section("1.0", "t", "h")]
+
+
+def eight_today():
+    return [fentry(n, day=days_ago(1)) for n in range(8)]
+
+
+HOOK_PAGES = {at(n): HOOK_PAGE for n in range(8)}
+
+
+def test_main_reads_the_feed_as_a_source_of_kind_feed(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), entries=eight_today())
+    assert planned["meta"][FEED_ID] == {"kind": "feed", "url": FEED_URL}
+    assert planned["fetched"][FEED_ID] == eight_today()
+    assert planned["feed_day"] == date.today()
+    assert out["state"]["fails"][FEED_ID] == 0 and FEED_ID not in out["state"]["sources"]
+
+
+def test_feed_pieces_come_after_the_releases_and_use_the_room_left(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), release=new_releases(17),
+                                        entries=eight_today(), feed_pages=HOOK_PAGES)
+    kinds = [p["source"] for p in out["pieces"]]
+    assert kinds == ["r"] * 17 + [FEED_ID] * 3
+    assert read == DOCS + [at(n) for n in range(3)]
+    assert [w["url"] for w in out["state"]["feed"]["wait"]] == [e.url for e in eight_today()]
+
+
+def test_with_twenty_release_pieces_no_feed_page_is_read_and_the_old_one_is_dropped(
+        tmp_path, monkeypatch, capsys):
+    # Review Focus 2: no feed piece pushes out a release or a list page.
+    state = main_state(wait=[stored(fentry(9, day=days_ago(KEEP_DAYS + 1)))])
+    state["sources"][DOCS[0]] = {"Install": "older"}
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=state, release=new_releases(19),
+                                        entries=eight_today(), feed_pages=HOOK_PAGES)
+    assert [p["source"] for p in out["pieces"]] == ["r"] * 19 + [DOCS[0]]
+    assert read == DOCS
+    feed = out["state"]["feed"]
+    assert [w["url"] for w in feed["wait"]] == [e.url for e in eight_today()]
+    assert feed["dropped"] == 1 and feed["day"] == days_ago(1)
+
+
+def test_feed_pages_are_not_read_once_the_page_budget_is_spent(tmp_path, monkeypatch, capsys):
+    # Review Focus 10: the list's pages and the feed's share one budget.
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), entries=eight_today(),
+                                        slow_after=3, feed_pages=HOOK_PAGES)
+    assert read == DOCS[:3] and out["pieces"] == []
+    state = out["state"]
+    assert [w["url"] for w in state["feed"]["wait"]] == [e.url for e in eight_today()]
+    assert not [sid for sid in state["fails"] if "planted" in sid]
+    assert not [k for k in state["kept"] if k["title"].startswith("Cannot read")]
+
+
+def test_the_feed_stops_reading_when_the_budget_runs_out_in_its_pages(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), entries=eight_today(),
+                                        slow_after=len(DOCS) + 2, feed_pages=HOOK_PAGES)
+    assert read == DOCS + [at(0), at(1)]
+    assert [p["url"] for p in out["pieces"]] == [at(0), at(1)]
+
+
+def test_an_unreadable_feed_is_a_failed_read_and_the_rest_is_judged(
+        tmp_path, monkeypatch, capsys):
+    state = main_state(wait=[stored(fentry(1, day=days_ago(1)))])
+    state["fails"][FEED_ID] = 2
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=state, release=new_releases(2),
+                                        entries=TimeoutError("made-up detail"))
+    assert [p["source"] for p in out["pieces"]] == ["r", "r"] and read == DOCS
+    assert out["state"]["fails"][FEED_ID] == FAIL_DAYS
+    assert [k["title"] for k in out["state"]["kept"]] == [f"Cannot read {FEED_ID} for 3 days"]
+    assert out["state"]["feed"] == state["feed"]
+    assert f"cannot read {FEED_ID}: TimeoutError" in err and "made-up" not in err
+
+
+def test_a_run_with_no_feed_source_leaves_the_feed_memory_alone(tmp_path, monkeypatch, capsys):
+    state = main_state(wait=[stored(fentry(1, day=days_ago(1)))])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, state=state)
+    assert out["state"]["feed"] == state["feed"] and read == DOCS and err == ""
+
+
+def test_two_feed_sources_are_refused(tmp_path, monkeypatch, capsys):
+    twice = FEED_SOURCES + f"- {{id: other-feed, kind: feed, url: {FEED_URL}}}\n"
+    with pytest.raises(ValueError, match="one feed source"):
+        fetch_run(tmp_path, monkeypatch, capsys, sources=twice, state=main_state())
+
+
+def test_the_moved_check_waits_while_the_page_budget_is_spent(tmp_path, monkeypatch, capsys):
+    # Carried from Task 6.3's final review.
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys,
+                                        sources=MANIFEST_SOURCES, slow_after=3)
+    assert planned["moved"] == [] and "moved" not in out["state"]
+    assert "the weekly check for moved pages waits for the next run" in err
+    again, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys,
+                                          sources=MANIFEST_SOURCES, state=out["state"])
+    week = watch_fetch.week_of(date.today())
+    assert planned["moved"] == [week] and again["state"]["moved"]["week"] == week
+    assert "moved pages" not in err
+
+
+def test_with_time_left_the_moved_check_runs_and_says_nothing(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=MANIFEST_SOURCES)
+    assert planned["moved"] == [watch_fetch.week_of(date.today())] and err == ""
+
+
+def test_a_spent_budget_says_nothing_of_a_moved_check_already_done_this_week(
+        tmp_path, monkeypatch, capsys):
+    week = watch_fetch.week_of(date.today())
+    state = {**budget_state(), "moved": {"week": week, "told": {}}}
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, state=state,
+                                        sources=MANIFEST_SOURCES, slow_after=3)
+    assert planned["moved"] == [] and "moved pages" not in err
+
+
+def test_the_config_has_the_feed_after_the_manifest_with_no_client():
+    from pathlib import Path
+
+    from watch_pages import load_sources
+
+    config = load_sources(Path(__file__).parents[1] / "config/watch-sources.yml")
+    ids = [s["id"] for s in config]
+    assert ids.index(FEED_ID) == ids.index("agent-docs-manifest") + 1
+    [src] = [s for s in config if s["kind"] == "feed"]
+    assert src == {"id": FEED_ID, "kind": "feed", "url": (
+        "https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/"
+        "reports/docs-changes/feed.json")}
+
+
+# A day of the feed written twice: `taken` (Task 6.5, ruling follow-up)
+
+
+def keys(*ns, base=CC):
+    return [page_key(at(n, base)) for n in ns]
+
+
+def test_a_run_between_two_reindex_runs_of_one_day_takes_only_the_second_runs_new_entries():
+    first = [fentry(1), fentry(2)]
+    pieces, state, reader = feed_plan(feed_state(), first)
+    assert reader.read == [at(1), at(2)] and state["feed"]["taken"] == keys(1, 2)
+    # Agent Docs merges its second run of the day into that day: 3 is new, 1 and 2 are not.
+    merged = [fentry(1), fentry(2), fentry(3)]
+    pieces, state, reader = feed_plan(judged(state, pieces), merged)
+    assert reader.read == [at(3)] and [p["url"] for p in pieces] == [at(3)]
+    assert state["feed"]["day"] == DAY and state["feed"]["taken"] == keys(1, 2, 3)
+    pieces, state, reader = feed_plan(judged(state, pieces), merged)
+    assert pieces == [] and reader.read == [] and state["feed"]["wait"] == []
+    # Every entry of the day has left the queue; the keys stay taken all the same.
+    assert state["feed"]["taken"] == keys(1, 2, 3)
+    _, _, reader = feed_plan(state, merged)
+    assert reader.read == []
+
+
+def test_a_memory_without_taken_takes_nothing_more_of_its_day():
+    state = feed_state(day=DAY)
+    pieces, new, reader = feed_plan(state, [fentry(1), fentry(2)])
+    assert pieces == [] and reader.read == [] and "taken" not in new["feed"]
+    pieces, new, reader = feed_plan(new, [fentry(1), fentry(3, day="2026-11-16")])
+    assert reader.read == [at(3)] and new["feed"]["taken"] == keys(3)
+
+
+@pytest.mark.parametrize("taken", ["x", None, [1], {"a": 1}])
+def test_taken_of_another_shape_is_read_as_missing(taken):
+    state = feed_state(day=DAY, taken=taken)
+    pieces, new, reader = feed_plan(state, [fentry(1)])
+    assert pieces == [] and reader.read == [] and "taken" not in new["feed"]
+
+
+def test_when_the_day_moves_taken_holds_only_the_new_days_keys():
+    state = feed_state(day=LAST, taken=keys(7, 8))
+    _, new, _ = feed_plan(state, [fentry(1, day=LAST), fentry(2), fentry(3)])
+    assert new["feed"]["day"] == DAY and new["feed"]["taken"] == keys(2, 3)
+
+
+def test_the_first_run_marks_the_newest_days_pages_taken():
+    _, state = plan_run(None, {}, {})
+    # A changed page with no new section is not wanted, so it is not taken.
+    _, new, reader = feed_plan(state, [fentry(1, day=LAST), fentry(2), fentry(4, kind="changed")])
+    assert reader.read == [] and new["feed"]["taken"] == keys(2)
+    later = [fentry(1, day=LAST), fentry(2), fentry(3),
+             fentry(4, kind="changed", headings=["Hooks"])]
+    pieces, _, reader = feed_plan(new, later)
+    assert reader.read == [at(3), at(4)]
+
+
+def test_a_held_entry_is_taken_and_not_counted_again():
+    entries = [fentry(1, base=CU)]
+    _, state, _ = feed_plan(feed_state(), entries)
+    assert state["feed"]["held"] == 1 and state["feed"]["taken"] == keys(1, base=CU)
+    _, state, _ = feed_plan(state, entries)
+    assert state["feed"]["held"] == 1
+
+
+def test_a_changed_page_that_gains_new_sections_later_that_day_is_taken_then():
+    bare = fentry(1, kind="changed")
+    pieces, state, reader = feed_plan(feed_state(), [bare, fentry(2)])
+    assert reader.read == [at(2)] and state["feed"]["taken"] == keys(2)
+    merged = [fentry(1, kind="changed", headings=["Hooks"]), fentry(2)]
+    pieces, _, reader = feed_plan(judged(state, pieces), merged)
+    assert reader.read == [at(1)] and [p["url"] for p in pieces] == [at(1)]
+
+
+def test_a_page_key_matches_any_spelling_of_the_page():
+    state = feed_state(day=DAY, taken=keys(1))
+    spelled = Entry(DAY, "added", at(1).replace("code.claude.com", "CODE.claude.com") + "/",
+                    "claude-code", ())
+    _, _, reader = feed_plan(state, [spelled])
+    assert reader.read == []
+
+
+def test_taken_is_cut_at_taken_max():
+    many = [fentry(n) for n in range(TAKEN_MAX + 10)]
+    _, state, _ = feed_plan(feed_state(), many, room=0)
+    assert state["feed"]["taken"] == keys(*range(TAKEN_MAX))
+
+
+# Review fixes: long addresses, gone pages (Task 6.5)
+
+
+def long_entry(length, day=DAY):
+    """An added page whose feed address is `length` characters long."""
+    url = CC + "x" * (length - len(CC) - len(".md")) + ".md"
+    assert len(url) == length
+    return Entry(day, "added", url, "claude-code", ())
+
+
+LONG_LINE = "feed: 1 entries with an address over 500 characters dropped"
+
+
+def test_an_entry_with_an_address_over_address_max_is_dropped_never_stored_or_taken(capsys):
+    assert ADDRESS_MAX == 500
+    too_long, longest = long_entry(ADDRESS_MAX + 1), long_entry(ADDRESS_MAX)
+    pieces, state, reader = feed_plan(feed_state(), [too_long, longest])
+    assert reader.read == [page_of(longest.url, FEED_HOSTS)] and len(pieces) == 1
+    assert waiting(state) == [longest.url] and state["feed"]["dropped"] == 0
+    assert state["feed"]["taken"] == [page_key(page_of(longest.url, FEED_HOSTS))]
+    assert LONG_LINE in capsys.readouterr().err.splitlines()
+
+
+def test_a_long_address_is_dropped_with_no_room_too():
+    _, state, reader = feed_plan(feed_state(), [long_entry(ADDRESS_MAX + 1)], room=0)
+    assert reader.read == [] and waiting(state) == [] and state["feed"]["taken"] == []
+
+
+def test_a_waiting_entry_with_a_long_address_is_dropped(capsys):
+    state = feed_state(wait=[stored(long_entry(ADDRESS_MAX + 1))])
+    _, new, reader = feed_plan(state, [])
+    assert reader.read == [] and waiting(new) == []
+    assert LONG_LINE in capsys.readouterr().err.splitlines()
+
+
+def test_a_long_address_on_the_newest_day_does_not_grow_dropped_run_after_run(capsys):
+    state = feed_state()
+    for _ in range(3):
+        _, state, _ = feed_plan(state, [long_entry(ADDRESS_MAX + 1), fentry(1)])
+        assert state["feed"]["dropped"] == 0 and state["feed"]["day"] == DAY
+        assert LONG_LINE in capsys.readouterr().err.splitlines()
+
+
+def test_the_first_run_takes_no_long_address():
+    _, state = plan_run(None, {}, {})
+    _, new, _ = feed_plan(state, [long_entry(ADDRESS_MAX + 1), fentry(1)])
+    assert new["feed"]["taken"] == keys(1)
+
+
+def gone_web(pages):
+    """read_page through the real get_doc: an address not in `pages` answers 404."""
+    from doc_address import make_opener
+    from tests.test_doc_address import FakeWeb
+
+    opener = make_opener(FEED_HOSTS, True, FakeWeb(pages))
+    return lambda page: watch_fetch._read_feed_page(page, FEED_HOSTS, opener)
+
+
+MD_HOOK = (200, {"Content-Type": "text/markdown"}, b"## Hooks\nA planted hook.\n")
+
+
+@pytest.mark.parametrize("status", [404, 410])
+def test_a_gone_page_leaves_the_queue_and_is_counted(status):
+    read_page = gone_web({at(1) + ".md": (status, {}, b"gone"), at(1): (status, {}, b"gone"),
+                          at(2) + ".md": MD_HOOK})
+    entries = [fentry(1, day=LAST), fentry(1), fentry(2)]
+    pieces, state, _ = feed_plan(feed_state(day="2026-11-13", gone=3), entries,
+                                 reader=read_page)
+    assert [p["url"] for p in pieces] == [at(2)] and waiting(state) == [fentry(2).url]
+    assert state["feed"]["gone"] == 4 and state["fails"] == {}
+
+
+@pytest.mark.parametrize("status", [500, 429, 403])
+def test_a_page_that_fails_another_way_keeps_waiting(status):
+    read_page = gone_web({at(1) + ".md": (status, {}, b"busy")})
+    _, state, _ = feed_plan(feed_state(), [fentry(1)], reader=read_page)
+    assert waiting(state) == [fentry(1).url] and state["feed"]["gone"] == 0
+
+
+def test_a_timeout_keeps_waiting_and_is_not_gone():
+    _, state, _ = feed_plan(feed_state(), [fentry(1)], reader=Pages(fail={at(1)}))
+    assert waiting(state) == [fentry(1).url] and state["feed"]["gone"] == 0
+
+
+# The switch: WATCH_FEED off, shadow or live (Task 6.6)
+
+
+@pytest.mark.parametrize("value", [None, "", "off"])
+def test_unset_empty_or_off_is_off_and_says_nothing(value, capsys):
+    assert watch_fetch.feed_mode(value) == "off"
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("value", ["shadow", "live"])
+def test_shadow_and_live_are_their_own_modes(value, capsys):
+    assert watch_fetch.feed_mode(value) == value
+    assert capsys.readouterr().err == ""
+
+
+def test_an_unknown_word_is_off_and_named_on_one_line(capsys):
+    assert watch_fetch.feed_mode("liev") == "off"
+    assert capsys.readouterr().err == (
+        'WATCH_FEED is "liev", not off, shadow or live: the feed is treated as off.\n')
+
+
+@pytest.mark.parametrize("value", [
+    "Shadow", " live", "live\n", "abcdefghijk", "on1", "::warning::x", "a b", "é", "-"])
+def test_any_other_unknown_value_is_off_and_never_shown(value, capsys):
+    assert watch_fetch.feed_mode(value) == "off"
+    err = capsys.readouterr().err
+    assert err == ("WATCH_FEED has an unknown value, not off, shadow or live: the feed is "
+                   "treated as off.\n")
+
+
+def shadow_plan(state, entries, reader=None, room=PIECES_MAX, in_time=lambda: True, listed=(),
+                today=FEED_TODAY, words=FEED_WORDS):
+    reader = reader or Pages()
+    rows, new = watch_fetch.plan_shadow(state, entries, set(listed), FEED_HOSTS, reader, words,
+                                        today, room, in_time)
+    return rows, new, reader
+
+
+def test_in_shadow_eight_pages_write_five_rows_and_three_wait():
+    eight = [fentry(n) for n in range(8)]
+    rows, state, reader = shadow_plan(feed_state(), eight)
+    assert reader.read == [at(n) for n in range(5)]
+    text = "\n\n".join(s.text for s in HOOK_PAGE)
+    assert rows == [{"page": at(n), "day": DAY, "words": ["hook"], "chars": len(text)}
+                    for n in range(5)]
+    # A row written is done: only the three not reached wait, and the day moves.
+    assert waiting(state) == [e.url for e in eight[5:]]
+    assert state["feed"]["day"] == DAY and state["feed"]["taken"] == keys(*range(8))
+
+
+def test_a_shadow_row_holds_no_page_text_and_no_heading():
+    page = md(("Planted heading words", "Secret-looking planted body with a hook."))
+    rows, _, _ = shadow_plan(feed_state(), [fentry(1, kind="changed",
+                                                   headings=["Planted heading words"])],
+                             reader=Pages({at(1): page}))
+    [row] = rows
+    assert set(row) == {"page", "day", "words", "chars"}
+    assert "planted" not in json.dumps(rows).replace(at(1), "").lower()
+
+
+def caps_case(case):
+    """The keyword arguments of one case of the caps, made new for each call."""
+    reads = itertools.count()
+    return {"plain": {}, "room 2": {"room": 2}, "room 0": {"room": 0},
+            "out of time": {"in_time": lambda: next(reads) < 2},
+            "failed reads": {"reader": Pages(fail={at(0), at(2)})}}[case]
+
+
+@pytest.mark.parametrize("case", ["plain", "room 2", "room 0", "out of time", "failed reads"])
+def test_shadow_uses_the_caps_of_live(case):
+    eight = [fentry(n) for n in range(8)]
+    live, shadow = {"reader": Pages(), **caps_case(case)}, {"reader": Pages(), **caps_case(case)}
+    pieces, _, _ = feed_plan(feed_state(), eight, **live)
+    rows, _, _ = shadow_plan(feed_state(), eight, **shadow)
+    assert [r["page"] for r in rows] == [p["url"] for p in pieces]
+    assert shadow["reader"].read == live["reader"].read
+
+
+def test_shadow_reads_past_feed_pages_max_no_more_than_live():
+    many = [fentry(n) for n in range(FEED_PAGES_MAX + 3)]
+    reader = Pages(fail={at(n) for n in range(FEED_PAGES_MAX)})
+    rows, state, _ = shadow_plan(feed_state(), many, reader=reader)
+    assert rows == [] and len(reader.read) == FEED_PAGES_MAX
+    assert waiting(state) == [e.url for e in many[FEED_PAGES_MAX:] + many[:FEED_PAGES_MAX]]
+
+
+def test_after_a_shadow_week_going_live_does_not_replay_it():
+    eight = [fentry(n) for n in range(8)]
+    _, state, _ = shadow_plan(feed_state(), eight)
+    rows, state, _ = shadow_plan(state, eight + [fentry(n, day="2026-11-16") for n in (8, 9)],
+                                 today=date(2026, 11, 17))
+    assert [r["page"] for r in rows] == [at(n) for n in (5, 6, 7, 8, 9)]
+    assert waiting(state) == [] and state["feed"]["day"] == "2026-11-16"
+    # The same feed, now live: every entry of it was shown in shadow, so none comes again.
+    pieces, state, reader = feed_plan(state, eight + [fentry(n, day="2026-11-16")
+                                                      for n in (8, 9, 10)],
+                                      today=date(2026, 11, 17))
+    assert [p["url"] for p in pieces] == [at(10)] and reader.read == [at(10)]
+
+
+def test_live_then_shadow_writes_a_row_for_a_piece_still_waiting_for_route():
+    pieces, state, _ = feed_plan(feed_state(), [fentry(1)])
+    rows, state, _ = shadow_plan(state, [])
+    assert [r["page"] for r in rows] == [p["url"] for p in pieces] and waiting(state) == []
+
+
+def test_the_row_names_each_word_that_kept_a_section_once_in_first_seen_order():
+    page = md(("Intro", "Nothing here."), ("Servers", "Add an MCP server and a hook."),
+              ("Hooks", "A hook runs."), ("More", "Another MCP server."),
+              ("Settings", "The zorkSetting key and a hook."))
+    rows, _, _ = shadow_plan(feed_state(), [fentry(1)], reader=Pages({at(1): page}))
+    # One word a section, as kept_sections gives it: a list word before a topic word, and
+    # of the topic words the first of TOPIC_WORDS; then each word once.
+    assert [r["words"] for r in rows] == [["mcp", "hook", "zorkSetting"]]
+
+
+def test_a_changed_page_names_only_the_words_of_its_new_sections():
+    page = md(("Old", "An old MCP server."), ("New", "A new hook."))
+    rows, _, _ = shadow_plan(feed_state(), [fentry(1, kind="changed", headings=["New"])],
+                             reader=Pages({at(1): page}))
+    assert [r["words"] for r in rows] == [["hook"]]
+
+
+def test_the_row_counts_the_characters_the_judge_would_get():
+    page = md(("Hooks", "a hook " + "x" * PIECE_CHARS))
+    rows, _, _ = shadow_plan(feed_state(), [fentry(1)], reader=Pages({at(1): page}))
+    assert rows[0]["chars"] == PIECE_CHARS
+
+
+def test_shadow_holds_cursor_back_and_counts_it():
+    rows, state, reader = shadow_plan(feed_state(), [fentry(1, base=CU), fentry(2)])
+    assert [r["page"] for r in rows] == [at(2)] and reader.read == [at(2)]
+    assert state["feed"]["held"] == 1
+
+
+def test_the_shadow_count_line_says_shadow(capsys):
+    shadow_plan(feed_state(), [fentry(n) for n in range(8)])
+    [line] = capsys.readouterr().err.splitlines()[-1:]
+    assert line == ("feed (shadow): 5 pieces, 3 waiting, 5 pages read, 0 failed, 0 dropped, "
+                    "0 gone, 0 held back (no text for cursor)")
+
+
+def test_plan_shadow_does_not_change_its_input():
+    state = feed_state(wait=[stored(fentry(1))])
+    before = copy.deepcopy(state)
+    shadow_plan(state, [fentry(2)])
+    assert state == before
+
+
+def test_feed_counts_give_this_runs_pieces_and_waiting_and_the_running_totals():
+    state = feed_state(wait=[stored(fentry(1)), stored(fentry(2))], dropped=4, held=2, gone=1)
+    state["feed"]["failed"] = 6
+    assert watch_fetch.feed_counts("shadow", state, 3) == {
+        "mode": "shadow", "pieces": 3, "waiting": 2, "dropped": 4, "held": 2, "gone": 1,
+        "failed": 6}
+
+
+@pytest.mark.parametrize("feed", [None, "x", {"wait": "x", "dropped": -1, "held": True}])
+def test_feed_counts_of_a_memory_with_no_feed_of_its_shape_are_zero(feed):
+    state = feed_state()
+    if feed is None:
+        del state["feed"]
+    else:
+        state["feed"] = feed
+    assert watch_fetch.feed_counts("off", state, 0) == {
+        "mode": "off", "pieces": 0, "waiting": 0, "dropped": 0, "held": 0, "gone": 0,
+        "failed": 0}
+
+
+# The switch in main()
+
+
+def test_in_shadow_main_gives_no_feed_piece_to_the_judge_and_writes_the_rows(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), entries=eight_today(),
+                                        feed_pages=HOOK_PAGES, feed_mode="shadow")
+    assert out["pieces"] == [] and planned["output"] == "pieces=0\n"
+    assert read == DOCS + [at(n) for n in range(5)]
+    assert [(r["page"], r["day"], r["words"]) for r in planned["shadow"]] == [
+        (at(n), days_ago(1), ["hook"]) for n in range(5)]
+    assert out["feed"] == {"mode": "shadow", "pieces": 5, "waiting": 3, "dropped": 0,
+                           "held": 0, "gone": 0, "failed": 0}
+    assert [w["url"] for w in out["state"]["feed"]["wait"]] == [e.url for e in eight_today()[5:]]
+    assert "feed (shadow): 5 pieces" in err
+
+
+def test_in_shadow_the_rows_use_only_the_room_live_would_have(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), release=new_releases(17),
+                                        entries=eight_today(), feed_pages=HOOK_PAGES,
+                                        feed_mode="shadow")
+    assert [p["source"] for p in out["pieces"]] == ["r"] * 17
+    assert planned["output"] == "pieces=17\n"
+    assert [r["page"] for r in planned["shadow"]] == [at(n) for n in range(3)]
+
+
+def test_in_shadow_an_unread_feed_writes_no_row_and_is_a_failed_read(
+        tmp_path, monkeypatch, capsys):
+    state = main_state()
+    state["fails"][FEED_ID] = 2
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=state, entries=TimeoutError("made-up detail"),
+                                        feed_mode="shadow")
+    assert planned["shadow"] == [] and out["state"]["feed"] == state["feed"]
+    assert [k["title"] for k in out["state"]["kept"]] == [f"Cannot read {FEED_ID} for 3 days"]
+
+
+def test_live_gives_the_feed_pieces_to_the_judge_and_writes_no_shadow_file(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(dropped=2), entries=eight_today(),
+                                        feed_pages=HOOK_PAGES, feed_mode="live")
+    assert [p["url"] for p in out["pieces"]] == [at(n) for n in range(5)]
+    assert planned["output"] == "pieces=5\n" and "shadow" not in planned
+    assert out["feed"] == {"mode": "live", "pieces": 5, "waiting": 8, "dropped": 2,
+                           "held": 0, "gone": 0, "failed": 0}
+
+
+@pytest.mark.parametrize("mode", [None, "", "off", "bogus"])
+def test_off_never_reads_the_feed_and_leaves_its_memory_alone(
+        tmp_path, monkeypatch, capsys, mode):
+    state = main_state(wait=[stored(fentry(1, day=days_ago(1)))], dropped=3)
+    state["sources"][FEED_ID] = {f"{at(1)}@{days_ago(1)}": "h"}
+    for _ in range(FAIL_DAYS):
+        out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                            state=state, entries=TimeoutError("made-up"),
+                                            feed_pages=HOOK_PAGES, feed_mode=mode)
+        assert "feed_day" not in planned and read == DOCS
+        assert FEED_ID not in planned["meta"] and FEED_ID not in planned["fetched"]
+        state = out["state"]
+    assert FEED_ID not in state["fails"] and state["kept"] == []
+    assert state["feed"] == main_state(wait=[stored(fentry(1, day=days_ago(1)))],
+                                       dropped=3)["feed"]
+    assert state["sources"][FEED_ID] == {f"{at(1)}@{days_ago(1)}": "h"}
+    assert "shadow" not in planned and out["pieces"] == []
+    assert out["feed"] == {"mode": "off", "pieces": 0, "waiting": 1, "dropped": 3,
+                           "held": 0, "gone": 0, "failed": 0}
+    assert ("treated as off" in err) == (mode == "bogus") and "feed:" not in err
+
+
+def test_off_still_refuses_two_feed_sources(tmp_path, monkeypatch, capsys):
+    twice = FEED_SOURCES + f"- {{id: other-feed, kind: feed, url: {FEED_URL}}}\n"
+    with pytest.raises(ValueError, match="one feed source"):
+        fetch_run(tmp_path, monkeypatch, capsys, sources=twice, state=main_state(),
+                  feed_mode="off")
+
+
+def test_a_run_with_no_feed_source_still_gives_the_counts(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, feed_mode="shadow")
+    assert out["feed"] == {"mode": "shadow", "pieces": 0, "waiting": 0, "dropped": 0,
+                           "held": 0, "gone": 0, "failed": 0}
+    assert planned["shadow"] == []
+
+
+# Final review fixes: failing pages, the counts, redirects to another client
+
+
+def test_pages_that_keep_failing_go_to_the_back_and_the_good_ones_get_read():
+    # The probe: ten pages answering 403 at the head of the queue, three good ones behind.
+    pages = {at(n) + ".md": (403, {}, b"no") for n in range(10)}
+    pages.update({at(n) + ".md": MD_HOOK for n in range(10, 13)})
+    read_page = gone_web(pages)
+    thirteen = [fentry(n) for n in range(13)]
+    pieces, state, _ = feed_plan(feed_state(), thirteen, reader=read_page)
+    assert pieces == [] and state["feed"]["failed"] == FEED_PAGES_MAX
+    assert waiting(state) == [e.url for e in thirteen[10:] + thirteen[:10]]
+    pieces, state, _ = feed_plan(state, [], reader=read_page)
+    assert [p["url"] for p in pieces] == [at(n) for n in range(10, 13)]
+    assert state["feed"]["failed"] == FEED_PAGES_MAX - 3
+    pieces, state, _ = feed_plan(judged(state, pieces), [], reader=read_page)
+    assert pieces == [] and state["feed"]["failed"] == FEED_PAGES_MAX
+    assert waiting(state) == [e.url for e in thirteen[7:10] + thirteen[:7]]
+
+
+def test_a_failed_entry_goes_after_the_entries_not_reached():
+    reader = Pages(fail={at(0)})
+    _, state, _ = feed_plan(feed_state(), [fentry(n) for n in range(4)], reader=reader, room=1)
+    assert waiting(state) == [fentry(n).url for n in (1, 2, 3, 0)]
+
+
+def test_the_feed_counts_are_built_from_watch_feed_counts():
+    assert "failed" in COUNTS
+    assert list(watch_fetch.feed_counts("live", feed_state(), 0)) == ["mode", *COUNTS]
+
+
+def test_failed_counts_only_this_run():
+    _, state, _ = feed_plan(feed_state(), [fentry(1), fentry(2)], reader=Pages(fail={at(1)}))
+    assert watch_fetch.feed_counts("live", state, 1)["failed"] == 1
+    _, state, _ = feed_plan(state, [], reader=Pages())
+    assert watch_fetch.feed_counts("live", state, 1)["failed"] == 0
+
+
+def test_feed_counts_of_a_run_that_did_not_plan_the_feed_have_no_failed_reads():
+    state = feed_state(failed=4)
+    assert watch_fetch.feed_counts("live", state, 0, planned=False)["failed"] == 0
+
+
+def test_main_logs_no_failed_reads_when_the_feed_could_not_be_read(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(failed=4), feed_mode="live",
+                                        entries=TimeoutError("made-up detail"))
+    assert out["feed"]["failed"] == 0 and out["state"]["feed"]["failed"] == 4
+
+
+def redirect_web(target):
+    """read_page through the real get_doc, where at(1).md redirects to `target`."""
+    return gone_web({at(1) + ".md": (301, {"Location": target}, b""), target: MD_HOOK})
+
+
+@pytest.mark.parametrize("target", [CU + "planted-x.md", "https://cursor.com/help/x.md",
+                                    CX + "planted-x.md"])
+def test_a_page_that_redirects_to_another_client_makes_no_piece_and_is_held(target, capsys):
+    read_page = redirect_web(target)
+    pieces, state, _ = feed_plan(feed_state(), [fentry(1), fentry(2)], reader=read_page)
+    assert [p["url"] for p in pieces] == [] and waiting(state) == []
+    assert state["feed"]["held"] == 1
+    assert "planted-x" not in capsys.readouterr().err
+
+
+def test_a_page_that_redirects_within_its_client_makes_its_piece():
+    read_page = redirect_web(CC + "planted-moved.md")
+    [piece], _, _ = feed_plan(feed_state(), [fentry(1)], reader=read_page)
+    assert piece["url"] == at(1) and piece["client"] == "claude-code"
+
+
+def test_in_shadow_a_redirect_to_cursor_makes_no_row():
+    rows, state, _ = shadow_plan(feed_state(), [fentry(1)], reader=redirect_web(CU + "x.md"))
+    assert rows == [] and state["feed"]["held"] == 1
+
+
+def test_a_feed_page_is_read_with_the_address_it_ended_at(monkeypatch):
+    seen = []
+
+    def fake_get_doc(address, hosts, opener=None):
+        seen.append(address)
+        return "## Hooks\nA hook.\n", "text/markdown", CU + "x.md"
+
+    monkeypatch.setattr(watch_fetch, "get_doc", fake_get_doc)
+    found, read_from = watch_fetch._read_feed_page(at(1), FEED_HOSTS)
+    assert [s.key for s in found] == ["Hooks"] and read_from == CU + "x.md"
+    assert seen == [at(1)]
+
+
+def test_main_holds_back_a_feed_page_whose_read_ended_on_cursor(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, sources=FEED_SOURCES,
+                                        state=main_state(), entries=eight_today()[:2],
+                                        feed_pages=HOOK_PAGES, ended_at={at(0): CU + "x.md"})
+    assert [p["url"] for p in out["pieces"]] == [at(1)]
+    assert out["state"]["feed"]["held"] == 1 and out["feed"]["held"] == 1

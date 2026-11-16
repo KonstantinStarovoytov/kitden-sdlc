@@ -2,18 +2,32 @@
 
 import argparse
 import copy
+import hashlib
 import json
 import os
+import re
 import subprocess  # noqa: S404
 import sys
 import time
+import urllib.error
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
-from doc_address import load_hosts, location
-from watch_list import doc_pages, parse_list
+from doc_address import NO_TEXT_CLIENTS, client_of, load_hosts, location, page_of
+from watch_feed import (
+    COUNTS,
+    KEEP_DAYS,
+    MODES,
+    Entry,
+    kept_sections,
+    page_key,
+    read_feed,
+    wanted,
+)
+from watch_list import doc_pages, parse_list, terms
 from watch_moved import manifest_addresses, moved
-from watch_pages import get, get_doc, load_sources, releases, sections
+from watch_pages import GONE, get, get_doc, load_sources, pick, releases, sections
 from watch_route import TEXT_MAX, TITLE_MAX, _quiet, week_of
 
 PIECES_MAX = 20
@@ -27,6 +41,30 @@ DOC_FORMAT = 2
 # list's files come before the pages. A page not started in time waits for tomorrow: it is
 # not a failed read and keeps its hashes.
 PAGES_SECONDS = 420
+# Agent Docs' feed of new doc pages and sections (scripts/watch_feed.py). Its pieces come after
+# the releases and the list's own pages, in the room they leave: at most FEED_PIECES_MAX a run,
+# from at most FEED_PAGES_MAX pages read, under the same PAGES_SECONDS. An entry not reached
+# waits in the memory for the next run, at most KEEP_DAYS days after its day.
+FEED_PIECES_MAX = 5
+FEED_PAGES_MAX = 10
+# The entries kept waiting. More could not all be read before KEEP_DAYS at FEED_PAGES_MAX pages
+# a run, so the rest are dropped and counted.
+WAIT_MAX = FEED_PAGES_MAX * KEEP_DAYS
+# A waiting entry keeps at most this many headings, each cut to this many characters: the
+# feed's writer has the same caps, so a real heading is never cut. The memory stays small even
+# when a feed breaks them.
+HEADINGS_MAX = 50
+HEADING_CHARS = 200
+# The page keys kept as taken on the last day taken. Agent Docs merges a second reindex of a
+# day into that day, so a run between the two takes that day again for the pages it has not
+# taken. Past this number a page of that day may be taken twice: read again, not lost.
+TAKEN_MAX = WAIT_MAX
+FEED_SOURCE = "agent-docs-feed"
+# In shadow (WATCH_FEED), the feed's rows go into this file beside input.json, one a piece.
+SHADOW_FILE = "feed-shadow.json"
+# An unknown WATCH_FEED is named on stderr only when it looks like this: a short word cannot
+# be a workflow command or a secret.
+SHOWN_MODE = re.compile(r"[a-z]{1,10}")
 
 
 class Budget:
@@ -135,7 +173,9 @@ def plan_run(state, fetched, meta):
                 new["kept"].append(item)
             continue
         new["fails"][sid] = 0
-        if meta[sid]["kind"] == "manifest":  # read for the weekly moved check only
+        # The manifest is read for the weekly moved check only; the feed's pieces are made by
+        # plan_feed. Neither is hash-compared here.
+        if meta[sid]["kind"] in ("manifest", "feed"):
             continue
         if sid not in known:
             new["sources"][sid] = {s.key: s.hash for s in found}
@@ -214,6 +254,275 @@ def plan_moved(state, manifest, pages, hosts, locate, week):
     return new
 
 
+def _is_day(value) -> bool:
+    """Whether `value` is a day written YYYY-MM-DD."""
+    try:
+        return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def _waiting(items) -> list[Entry]:
+    """The memory's waiting entries, in their order; one of another shape is skipped."""
+    out = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        day, kind, url, product, headings = (item.get(k) for k in Entry._fields)
+        if (_is_day(day) and kind in ("added", "changed") and isinstance(url, str)
+                and isinstance(product, str) and isinstance(headings, list)
+                and all(isinstance(h, str) for h in headings)):
+            out.append(Entry(day, kind, url, product, tuple(headings)))
+    return out
+
+
+def _stored(e: Entry) -> dict:
+    return {**e._asdict(), "sections": [h[:HEADING_CHARS] for h in e.sections[:HEADINGS_MAX]]}
+
+
+def _taken(feed: dict) -> set[str] | None:
+    """The memory's taken page keys, or None when it has none (as before `taken` was kept):
+    then no more entries of its day are taken."""
+    taken = feed.get("taken")
+    if isinstance(taken, list) and all(isinstance(k, str) for k in taken):
+        return set(taken)
+    return None
+
+
+def _keys(entries: list[Entry], day: str, hosts) -> list[str]:
+    """The page keys of the entries of `day`, in order, each once, at most TAKEN_MAX."""
+    found = [page_key(page_of(e.url, hosts)) for e in entries if e.day == day]
+    return list(dict.fromkeys(found))[:TAKEN_MAX]
+
+
+def _one_a_page(entries: list[Entry], hosts) -> list[Entry]:
+    """`entries` with one entry a page (watch_feed.page_key), in the place of its first: a
+    page in the queue from two days makes one piece a run. The later day names it, and its new
+    headings are both days': added when either is added."""
+    out: dict[str, Entry] = {}
+    for e in entries:
+        key = page_key(page_of(e.url, hosts))
+        first = out.get(key)
+        if first is None:
+            out[key] = e
+            continue
+        early, late = sorted((first, e), key=lambda x: x.day)
+        added = "added" in (first.kind, e.kind)
+        out[key] = late._replace(
+            kind="added" if added else "changed",
+            sections=() if added else tuple(dict.fromkeys(early.sections + late.sections)))
+    return list(out.values())
+
+
+def _count(feed: dict, name: str) -> int:
+    n = feed.get(name, 0)
+    return n if type(n) is int and n >= 0 else 0
+
+
+class Made(NamedTuple):
+    """A feed piece of this run, its entry's day and the words that kept its sections: each
+    once, in the order first found."""
+
+    piece: dict
+    day: str
+    words: tuple[str, ...]
+
+
+def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
+              in_time=lambda: True, *, source=FEED_SOURCE):
+    """The feed's pieces of this run and the memory after them, in live (WATCH_FEED).
+
+    `entries` are the feed's (watch_feed.read_feed), or None when it could not be read: then
+    the memory is left as it was. With no `feed` in the memory, the feed's newest day is
+    taken and nothing is read, as on any source's first run.
+
+    Otherwise the queue is the entries waiting in `feed.wait`, then the feed's entries not
+    taken yet, both through watch_feed.wanted (so a page that joined the list, `listed`,
+    leaves it). Not taken yet: of a day after `feed.day`, or of that day with a page key
+    (watch_feed.page_key) not in `feed.taken`, since Agent Docs merges a second reindex of a
+    day into it. `taken` holds the keys of the entries taken on the last day taken; a memory
+    without it takes no more of its day. In that order, an entry leaves the queue when:
+    - route marked its piece judged, or given up after its third failed try: its key is in
+      `sources[source]`. That map is emptied each run, so it does not grow;
+    - its day is more than KEEP_DAYS days before `today` (counted in `dropped`);
+    - its page is in the queue from a later day too: the two make one entry of the later day
+      (`_one_a_page`), so a page makes one piece a run;
+    - its page's client (doc_address.client_of, never the feed's product) is in
+      NO_TEXT_CLIENTS: the page is not read (counted in `held`). So is a page whose read
+      ended, after redirects, at an address of another client or of one in NO_TEXT_CLIENTS;
+    - its page holds no section that watch_feed.kept_sections keeps, from every section of an
+      added page or the sections `pick` finds for a changed page's new headings;
+    - its page is gone: the read answered 404 or 410 (counted in `gone`).
+    The rest make a piece each, read with `read_page(page_of(url))`, which gives the page's
+    sections and the address read from, until there are min(room, FEED_PIECES_MAX) pieces,
+    FEED_PAGES_MAX pages were read or `in_time()` is false (the run's page budget). An entry
+    that made a piece, was not reached, or whose read failed another way stays in the queue;
+    neither is a failed read of the feed. A failed one goes to the back of the queue, so pages
+    that keep failing cannot take every read of each run; `feed.failed` counts them, this
+    run's only. A page is read once a run. The queue keeps WAIT_MAX entries; the rest are
+    dropped and counted.
+
+    `words` maps a client to its list words. Prints one line of counts (and the class of each
+    failed read); no address or heading.
+    """
+    made, new = _plan_feed(state, entries, listed, hosts, read_page, words, today, room,
+                           in_time, source=source, shadow=False)
+    return [m.piece for m in made], new
+
+
+def plan_shadow(state, entries, listed, hosts, read_page, words, today, room,
+                in_time=lambda: True, *, source=FEED_SOURCE):
+    """plan_feed in shadow (WATCH_FEED): the rows of this run and the memory after them.
+
+    The same entries are read and the same pieces made, under the same caps, so the rows show
+    what live would send. But no piece goes to the judge, so route never marks one judged:
+    an entry leaves the queue as soon as its row is made. A row is the page's address (it
+    passed doc_address.allowed), the entry's day, the words that kept its sections (one a
+    section from watch_feed.kept_sections, which made the piece; each word once, in page
+    order) and the length of the piece's text. It holds no page text and no heading.
+    """
+    made, new = _plan_feed(state, entries, listed, hosts, read_page, words, today, room,
+                           in_time, source=source, shadow=True)
+    return [{"page": m.piece["url"], "day": m.day, "words": list(m.words),
+             "chars": len(m.piece["text"])} for m in made], new
+
+
+def _plan_feed(state, entries, listed, hosts, read_page, words, today, room, in_time, *,
+               source, shadow):
+    new = copy.deepcopy(state)
+    if entries is None:
+        return [], new
+    feed = new.get("feed")
+    newest = max((e.day for e in entries), default="")
+    if not (isinstance(feed, dict) and (feed.get("day") == "" or _is_day(feed.get("day")))):
+        fill = wanted([e for e in entries if e.day == newest], hosts, listed, "")
+        new["feed"] = {"day": newest, "wait": [], "dropped": 0, "held": 0, "gone": 0,
+                       "taken": _keys(fill, newest, hosts)}
+        return [], new
+    day, taken = feed["day"], _taken(feed)
+    done = new.setdefault("sources", {}).pop(source, None)
+    done = done if isinstance(done, dict) else {}
+    fresh = [e for e in entries if e.day > day or (
+        e.day == day and taken is not None and page_key(page_of(e.url, hosts)) not in taken)]
+    queue = wanted(_waiting(feed.get("wait")) + fresh, hosts, listed, "")
+    cap = max(0, min(room, FEED_PIECES_MAX))
+    made, wait, retry, pages, live = [], [], [], {}, []
+    dropped = held = failed = gone = 0
+    for e in queue:
+        if f"{page_of(e.url, hosts)}@{e.day}" in done:
+            continue
+        if (today - date.fromisoformat(e.day)).days > KEEP_DAYS:
+            dropped += 1
+            continue
+        live.append(e)
+    for e in _one_a_page(live, hosts):
+        page = page_of(e.url, hosts)
+        key = f"{page}@{e.day}"
+        client = client_of(page, hosts)
+        if client in NO_TEXT_CLIENTS:
+            held += 1
+            continue
+        if len(made) >= cap:
+            wait.append(e)
+            continue
+        if page not in pages:
+            if len(pages) >= FEED_PAGES_MAX or not in_time():
+                wait.append(e)
+                continue
+            try:
+                found, read_from = read_page(page)
+                # A redirect may end on another client's page: its text is that client's.
+                other = client_of(read_from, hosts)
+                pages[page] = found if other == client and other not in NO_TEXT_CLIENTS else "held"
+            except urllib.error.HTTPError as error:
+                if error.code not in GONE:
+                    print(f"feed: cannot read a page: {type(error).__name__}", file=sys.stderr)
+                    failed += 1
+                # A gone page (deleted after it was indexed) would cost a read every run.
+                pages[page] = "gone" if error.code in GONE else None
+            except Exception as error:  # noqa: BLE001 - the entry waits for the next run
+                print(f"feed: cannot read a page: {type(error).__name__}", file=sys.stderr)
+                pages[page] = None
+                failed += 1
+        if pages[page] == "gone":
+            gone += 1
+            continue
+        if pages[page] == "held":
+            held += 1
+            continue
+        if pages[page] is None:
+            retry.append(e)
+            continue
+        offered = pages[page] if e.kind == "added" else pick(pages[page], list(e.sections))
+        kept = kept_sections(offered, words.get(client, []))
+        if not kept:
+            continue
+        text = "\n\n".join(section.text for section, _ in kept)[:PIECE_CHARS]
+        made.append(Made({
+            "id": f"{source}#{key}", "kind": "doc", "client": client, "version": "",
+            "url": page, "text": text, "source": source, "key": key,
+            "hash": hashlib.sha256(text.encode()).hexdigest(),
+        }, e.day, tuple(dict.fromkeys(word for _, word in kept))))
+        # Live: it waits until route marks it judged. Shadow: its row is the end of it.
+        if not shadow:
+            wait.append(e)
+    wait += retry
+    dropped += max(0, len(wait) - WAIT_MAX)
+    wait = wait[:WAIT_MAX]
+    new["feed"] = {"day": max(day, newest), "wait": [_stored(e) for e in wait],
+                   "dropped": _count(feed, "dropped") + dropped,
+                   "held": _count(feed, "held") + held, "gone": _count(feed, "gone") + gone,
+                   "failed": failed}
+    if new["feed"]["day"] != day:
+        new["feed"]["taken"] = _keys(queue, new["feed"]["day"], hosts)
+    elif taken is not None:
+        # The memory's own order first, so the cut never drops a key already kept.
+        both = feed["taken"] + _keys(queue, day, hosts)
+        new["feed"]["taken"] = list(dict.fromkeys(both))[:TAKEN_MAX]
+    print(f"feed{' (shadow)' if shadow else ''}: {len(made)} pieces, {len(wait)} waiting, "
+          f"{len(pages)} pages read, {failed} failed, {dropped} dropped, {gone} gone, "
+          f"{held} held back (no text for {'/'.join(NO_TEXT_CLIENTS)})", file=sys.stderr)
+    return made, new
+
+
+def feed_counts(mode: str, state, pieces: int, planned: bool = True) -> dict:
+    """The feed's counts for input.json and the log, one for each name of watch_feed.COUNTS:
+    `pieces` (this run's pieces, or rows in shadow), `waiting` (the queue after this run),
+    `failed` (this run's failed page reads; 0 when this run did not plan the feed, `planned`),
+    and the memory's running totals for the rest. A memory with no feed of its shape counts 0.
+    """
+    feed = state.get("feed") if isinstance(state, dict) else None
+    feed = feed if isinstance(feed, dict) else {}
+    wait = feed.get("wait")
+    this_run = {"pieces": pieces, "waiting": len(wait) if isinstance(wait, list) else 0,
+                "failed": _count(feed, "failed") if planned else 0}
+    return {"mode": mode, **{name: this_run[name] if name in this_run else _count(feed, name)
+                             for name in COUNTS}}
+
+
+def feed_mode(value: str | None) -> str:
+    """The feed's mode (watch_feed.MODES) from the value of WATCH_FEED. Unset, empty or `off`
+    is off; any other value is off too, with one line on stderr. That line shows the value
+    only when it is a short lower-case word."""
+    if value in (None, "", "off"):
+        return "off"
+    if value in MODES:
+        return value
+    shown = f'is "{value}"' if SHOWN_MODE.fullmatch(value) else "has an unknown value"
+    print(f"WATCH_FEED {shown}, not off, shadow or live: the feed is treated as off.",
+          file=sys.stderr)
+    return "off"
+
+
+def list_words(list_text: str) -> dict[str, list[str]]:
+    """The list's words (watch_list.terms) of each client, in the list's order, each once."""
+    out: dict[str, list[str]] = {}
+    for (client, _), found in terms(list_text).items():
+        words = out.setdefault(client, [])
+        words.extend(w for w in dict.fromkeys(found) if w not in words)
+    return out
+
+
 def build_input(pieces, kitden, list_text, file_names, same, release, titles, new_state):
     files = {}
     for name in file_names:
@@ -248,6 +557,13 @@ def _read_doc(address, hosts):
     return sections(body, ctype)
 
 
+def _read_feed_page(address, hosts, opener=None):
+    """A feed page's sections and the address it was read from, after redirects: plan_feed
+    checks that address's client."""
+    body, ctype, read_from = get_doc(address, hosts, opener)
+    return sections(body, ctype), read_from
+
+
 def read_or_none(sid, reader, address):
     """`reader(address)`, or None with one line on stderr when it fails."""
     try:
@@ -267,12 +583,26 @@ def main(argv=None, clock=time.monotonic):
     rows = parse_list(list_text)
     fetched, meta = {}, {}
     hosts = load_hosts()
-    manifests = []
+    today = date.today()
+    mode = feed_mode(os.environ.get("WATCH_FEED"))
+    manifests, feed = [], None
     for src in load_sources(a.sources):
         if src["kind"] == "manifest":
             meta[src["id"]] = {"kind": "manifest", "url": src["url"]}
             fetched[src["id"]] = read_or_none(src["id"], read_manifest, src)
             manifests.append(fetched[src["id"]])
+            continue
+        if src["kind"] == "feed":
+            # The memory has one `feed`: a second feed source would share its queue.
+            if feed is not None:
+                raise ValueError("the sources may hold only one feed source")
+            feed = src["id"]
+            if mode == "off":
+                # Skipped before it is read: out of meta and fetched, it is never a failed
+                # read, and plan_feed never touches the memory's `feed`.
+                continue
+            meta[feed] = {"kind": "feed", "url": src["url"]}
+            fetched[feed] = read_or_none(feed, lambda s: read_feed(s, today), src)
             continue
         meta[src["id"]] = {"client": src["client"], "kind": "release",
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
@@ -293,10 +623,25 @@ def main(argv=None, clock=time.monotonic):
     pieces, new_state = plan_run(state, fetched, meta)
     # plan_run keeps the memory's page_start, so plan_skips sees today's order.
     new_state = plan_skips(new_state, pages, done)
-    if manifests:
+    week = week_of(today)
+    if manifests and budget.left():
         read = None if None in manifests else set().union(*manifests)
         new_state = plan_moved(new_state, read, pages, hosts,
-                               lambda u: location(u, hosts), week_of(date.today()))
+                               lambda u: location(u, hosts), week)
+    elif manifests and new_state.get("moved", {}).get("week") != week:
+        # Its requests are page reads too. The week stays open, so the next run with time
+        # does it.
+        print("Out of time: the weekly check for moved pages waits for the next run.",
+              file=sys.stderr)
+    found = []
+    if feed is not None and mode != "off":
+        # Shadow has the caps of live: the same room, the same budget, the same page cap.
+        plan = plan_shadow if mode == "shadow" else plan_feed
+        found, new_state = plan(new_state, fetched[feed], set(pages), hosts,
+                                lambda u: _read_feed_page(u, hosts), list_words(list_text),
+                                today, PIECES_MAX - len(pieces), budget.left, source=feed)
+    if mode == "live":
+        pieces = pieces + found
     release = _git(a.kitden, "describe", "--tags", "--abbrev=0").stdout.strip()
     names = sorted({f for r in rows for f in r.files})
 
@@ -309,6 +654,13 @@ def main(argv=None, clock=time.monotonic):
     # The Kitden commit the pieces are judged at: the archive keeps it, so a harvested task is
     # pinned to it (evals/watch_harvest.py).
     out["kitden"] = _git(a.kitden, "rev-parse", "HEAD").stdout.strip()
+    # A run that did not plan the feed (off, or the feed unread) read none of its pages.
+    planned = feed is not None and mode != "off" and fetched.get(feed) is not None
+    out["feed"] = feed_counts(mode, new_state, len(found), planned)
+    if mode == "shadow":
+        # Rows only: an address, a day, words, a number. The judge never reads this file.
+        Path(a.out).with_name(SHADOW_FILE).write_text(json.dumps(found, indent=1),
+                                                      encoding="utf-8")
     Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:

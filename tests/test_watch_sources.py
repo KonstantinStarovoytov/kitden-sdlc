@@ -882,6 +882,27 @@ def test_moved_pages_gives_none_when_the_manifest_cannot_be_read(tmp_path, monke
     assert "cannot read agent-docs-manifest: ValueError" in capsys.readouterr().err
 
 
+def test_the_feed_source_of_the_config_changes_nothing_in_moved_pages(monkeypatch):
+    read = []
+
+    def fake_read(source):
+        read.append(source["id"])
+        return {"https://cursor.com/docs/a.md"}
+
+    monkeypatch.setattr(watch_sources, "read_manifest", fake_read)
+    sources = watch_sources.load_sources(watch_sources.SOURCES)
+    assert "agent-docs-feed" in [s["id"] for s in sources]
+    pages = {"https://cursor.com/docs/a": "cursor"}
+    assert watch_sources.moved_pages(pages, HOSTS, locate=lambda address: None) == []
+    assert read == ["agent-docs-manifest"]
+
+
+def test_a_feed_source_alone_is_no_manifest(tmp_path):
+    sources = tmp_path / "sources.yml"
+    sources.write_text("- id: agent-docs-feed\n  kind: feed\n  url: https://example.com/f.json\n")
+    assert watch_sources.moved_pages({}, HOSTS, sources, locate=lambda a: None) is None
+
+
 def test_moved_pages_gives_none_without_a_manifest_source(tmp_path):
     sources = tmp_path / "sources.yml"
     sources.write_text("- id: other\n  client: codex\n  kind: page\n  url: https://example.com/x\n")
