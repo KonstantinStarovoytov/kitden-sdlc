@@ -37,6 +37,8 @@ CAUSED_BY = re.compile(r"^###[ \t]*Caused by[ \t\r]*$(.*?)(?=^###|\Z)", re.I | r
 # "#N" or "PR#N", or the address of a pull request in REPO. Not a bare N, "owner/repo#N", "&#N;".
 REFERENCE = re.compile(
     rf"(?:(?<![\w&])|(?<=\bPR))#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
+# The workflows in Kitden that test it every night, and the job ids of each.
+NIGHTLY = (("nightly.yml", ("systems", "clients", "browser")), ("latest-deps.yml", ("test",)))
 
 
 @dataclass
@@ -56,6 +58,10 @@ class Facts:
     watch_log: list[dict] | None = None  # the watcher's log.jsonl
     stars: int | None = None
     downloads: int | None = None  # PyPI, last month
+    # One entry per workflow of NIGHTLY: its newest finished scheduled run on main and the jobs.
+    nightly: list[dict] | None = None
+    before: list[dict] | None = None  # the `nightly` rows of yesterday's desk.json
+    set_aside: int | None = None  # the tests in Kitden's tests/set-aside.txt
 
 
 # --- Time and who wrote what ---
