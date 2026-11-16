@@ -12,7 +12,9 @@ from watch_stale import (
     ADDRESS,
     LABELS_SHOWN,
     Fact,
+    _title,
     list_facts,
+    page_address,
     page_hash,
     rule_facts,
     stale,
@@ -517,3 +519,32 @@ def test_a_fact_with_a_bad_checked_day_is_not_stale():
 
 def test_stale_of_nothing():
     assert stale([], {}) == []
+
+
+# For fetch (Task 7.2): the page of a list Source, and a title with another ending
+
+
+@pytest.mark.parametrize("source, page", [
+    ("https://docs.example.com/en/servers", "https://docs.example.com/en/servers"),
+    ("https://docs.example.com/en/servers#remove", "https://docs.example.com/en/servers"),
+    ("https://docs.example.com/en/list.", "https://docs.example.com/en/list"),
+    ("https://docs.example.com/en/a (and more)", "https://docs.example.com/en/a"),
+    ("install", None), ("https://", None), ("https://#x", None),
+])
+def test_page_address_is_the_page_a_source_names(source, page):
+    assert page_address(source) == page
+
+
+def test_every_list_fact_is_on_the_page_its_source_names():
+    facts, _ = list_facts(LIST)
+    rows = {f.label: f.address for f in facts}
+    assert rows["CC-01"] == page_address("https://docs.example.com/en/servers")
+
+
+def test_a_title_can_end_another_way_and_still_stays_under_80():
+    end = " cannot be watched: it reads differently twice"
+    address = "https://docs.example.com/a"
+    assert _title(address, end) == address + end
+    long = "https://docs.example.com/" + "a" * 40 + "/plugins/install"
+    assert _title(long, end) == "plugins/install" + end
+    assert len(_title("https://docs.example.com/" + "b" * 400, end)) <= 79

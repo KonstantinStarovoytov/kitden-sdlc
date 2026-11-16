@@ -77,6 +77,13 @@ def _address(found: str) -> str | None:
     return address if len(address) > len("https://") else None
 
 
+def page_address(source: str) -> str | None:
+    """The page a list `Source` starts with, as a Fact keeps it (no fragment), or None when
+    it starts with no address. Fetch uses it to match a doc page of the list to its facts."""
+    found = ADDRESS.match(source)
+    return _address(found.group()) if found else None
+
+
 def list_facts(text: str) -> tuple[list[Fact], int]:
     """The facts of Kitden's list, and the number of rows with an address and no date.
 
@@ -91,8 +98,7 @@ def list_facts(text: str) -> tuple[list[Fact], int]:
     undated = 0
     for row_id, (_, client, cells) in row_places(text).items():
         what, seen_in, source = cells[0], cells[3], cells[5]
-        found = ADDRESS.match(source)
-        address = found and _address(found.group())
+        address = page_address(source)
         if not address:
             continue
         days = [d for cell in (what, seen_in) for pair in LIST_DATE.findall(cell)
@@ -157,26 +163,27 @@ def page_hash(sections: list[Section]) -> str:
     return hashlib.sha256(json.dumps(pairs).encode()).hexdigest()
 
 
-def _title(address: str) -> str:
-    """"<address> changed after its facts were checked", under 80 characters.
+def _title(address: str, end: str = TITLE_END) -> str:
+    """"<address><end>", under 80 characters: by default "<address> changed after its facts
+    were checked".
 
     When the whole address does not fit, or may not be shown, the longest tail of its path
     parts that fits stands for it ("plugins/install"), each part through clean_heading; when
     not even the last part fits, the last part is cut. An address with no path uses its host.
     """
     if SHOWABLE.fullmatch(address):
-        title = _quiet(address + TITLE_END, TITLE_MAX)
+        title = _quiet(address + end, TITLE_MAX)
         if len(title) <= TITLE_LONGEST:
             return title
-    room = TITLE_LONGEST - len(TITLE_END)
+    room = TITLE_LONGEST - len(end)
     host, _, path = address.removeprefix("https://").partition("/")
     parts = ([c for p in path.split("/") if (c := clean_heading(p))]
              or [c for c in (clean_heading(host),) if c] or ["A page"])
     for start in range(len(parts)):
         tail = _quiet("/".join(parts[start:]), TITLE_MAX)
         if len(tail) <= room:
-            return tail + TITLE_END
-    return _quiet(parts[-1], room) + TITLE_END
+            return tail + end
+    return _quiet(parts[-1], room) + end
 
 
 def _item(address: str, day: str, old: list[Fact]) -> dict:

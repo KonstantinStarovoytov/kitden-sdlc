@@ -10,11 +10,22 @@ import subprocess  # noqa: S404
 import sys
 import time
 import urllib.error
+import urllib.parse
 from datetime import date
 from pathlib import Path
 from typing import NamedTuple
 
-from doc_address import NO_TEXT_CLIENTS, client_of, load_hosts, location, page_of
+import doc_address
+from doc_address import (
+    NO_TEXT_CLIENTS,
+    SHOWABLE,
+    allowed,
+    client_of,
+    load_hosts,
+    location,
+    make_opener,
+    page_of,
+)
 from watch_feed import (
     COUNTS,
     KEEP_DAYS,
@@ -27,8 +38,18 @@ from watch_feed import (
 )
 from watch_list import doc_pages, parse_list, terms
 from watch_moved import manifest_addresses, moved
-from watch_pages import GONE, get, get_doc, load_sources, pick, releases, sections
+from watch_pages import GONE, Section, get, get_doc, load_sources, pick, releases, sections
 from watch_route import TEXT_MAX, TITLE_MAX, _quiet, week_of
+from watch_stale import (
+    RULES_CLIENT,
+    Fact,
+    _title,
+    list_facts,
+    page_address,
+    page_hash,
+    rule_facts,
+    stale,
+)
 
 PIECES_MAX = 20
 PIECE_CHARS = 12000
@@ -65,6 +86,19 @@ SHADOW_FILE = "feed-shadow.json"
 # An unknown WATCH_FEED is named on stderr only when it looks like this: a short word cannot
 # be a workflow command or a secret.
 SHOWN_MODE = re.compile(r"[a-z]{1,10}")
+# The rules of the stores, in this checkout: on main, a reviewed file. Each page a rule names
+# (scripts/watch_stale.py) is read by fetch itself, as a source of kind `rule-page`: hashed
+# whole, never given to the judge, and read only at its own address (read_rule_page).
+RULES_FILE = Path(__file__).resolve().parent.parent / "docs" / "platform-rules.md"
+# Reads of rule pages a run, the second read of a page included, after the list's pages and
+# under the same PAGES_SECONDS. A page not reached waits for the next run, which starts at it
+# (`rule_start`); it keeps its entry in `fact_pages` and is not a failed read.
+RULE_PAGES_MAX = 40
+# A rule page on GitHub written as a blob address is read from its raw file, which holds the
+# rule's text without GitHub's page around it. The memory and the summary keep the blob address.
+BLOB = re.compile(r"https://github\.com/([^/]+)/([^/]+)/blob/(.+)")
+RAW_HOST = "raw.githubusercontent.com"
+UNSTABLE_END = " cannot be watched: it reads differently twice"
 
 
 class Budget:
@@ -105,19 +139,20 @@ def _out_of_time(addresses: list[str], pages: dict[str, str]) -> dict:
             "changed": f"Each of the last {FAIL_DAYS} runs ran out of time before {listed}."}
 
 
-def _start(state, count: int) -> int:
-    start = state.get("page_start", 0) if state else 0
+def _start(state, count: int, key: str = "page_start") -> int:
+    start = state.get(key, 0) if state else 0
     # A bool is an int in Python; it is not a place in the list.
     if type(start) is not int or not count:
         return 0
     return start % count
 
 
-def page_order(state, pages: dict[str, str]) -> list[str]:
-    """The doc pages in the order to read them: sorted, from the memory's `page_start`,
-    wrapping around. So on a slow day the pages a run did not reach come first the next day."""
+def page_order(state, pages, key: str = "page_start") -> list[str]:
+    """The pages in the order to read them: sorted, from the memory's `key` (`page_start`
+    for the list's doc pages, `rule_start` for the rule pages), wrapping around. So on a slow
+    day the pages a run did not reach come first the next day."""
     order = sorted(pages)
-    start = _start(state, len(order))
+    start = _start(state, len(order), key)
     return order[start:] + order[:start]
 
 
@@ -174,8 +209,8 @@ def plan_run(state, fetched, meta):
             continue
         new["fails"][sid] = 0
         # The manifest is read for the weekly moved check only; the feed's pieces are made by
-        # plan_feed. Neither is hash-compared here.
-        if meta[sid]["kind"] in ("manifest", "feed"):
+        # plan_feed; a rule page is hashed whole for plan_stale. None is hash-compared here.
+        if meta[sid]["kind"] in ("manifest", "feed", "rule-page"):
             continue
         if sid not in known:
             new["sources"][sid] = {s.key: s.hash for s in found}
@@ -251,6 +286,97 @@ def plan_moved(state, manifest, pages, hosts, locate, week):
     # Only the addresses absent or maybe today: one that is fixed, or left the list, is
     # forgotten.
     new["moved"] = {"week": week, "told": told}
+    return new
+
+
+# The page's address is in the item's `url` (when SHOWABLE matches it), never in its text.
+UNSTABLE_TEXT = {
+    "changed": "Two reads of this page in one run gave different text, so a real change "
+               "cannot be told from what changes on each read. The watcher no longer reads it.",
+    "fix": "Check the facts that name this page by hand when you check the others. To watch it "
+           "again, point them at a page that reads the same each time, such as the raw file, or "
+           "take its entry out of `fact_pages` in the watcher's memory.",
+    "why": "The watcher keeps a hash of each page a fact names and tells when it changes. A "
+           "page that reads differently each time would look changed every day.",
+}
+
+
+def _unstable_item(address: str, client: str) -> dict:
+    text = {k: _quiet(t, TEXT_MAX) for k, t in UNSTABLE_TEXT.items()}
+    return {
+        "effect": "unknown", "severity": "minor", "sure": True,
+        "title": _title(address, UNSTABLE_END), "client": client, **text,
+        "user_gets": "not checked", "systems": "", "row": "", "files": [],
+        "version": "", "url": address if SHOWABLE.fullmatch(address) else "",
+    }
+
+
+def _fact_pages(state) -> dict[str, dict]:
+    """The memory's `fact_pages`, each entry in its shape. An entry with no hash is left out, so
+    its page is new again; a `changed` that is not a day is "", an `unstable` that is not true
+    is false."""
+    pages = state.get("fact_pages") if isinstance(state, dict) else None
+    out = {}
+    for address, e in pages.items() if isinstance(pages, dict) else ():
+        if isinstance(e, dict) and isinstance(e.get("hash"), str):
+            out[address] = {"hash": e["hash"],
+                            "changed": e["changed"] if _is_day(e.get("changed")) else "",
+                            "unstable": e.get("unstable") is True}
+    return out
+
+
+def plan_stale(state, facts: list[Fact], hashes: dict[str, str | None], unstable: set[str],
+               today: date, week: str) -> dict:
+    """The memory after today's reads of the pages the facts name, and once a week the stale
+    pages in `kept`.
+
+    `fact_pages` keeps, for each page a fact names (Fact.address), its hash (watch_stale.
+    page_hash), the last day that hash changed and whether the page cannot be watched. A page
+    seen for the first time gets its hash and the day ""; a hash that differs sets the day to
+    `today`; a page not read today (None in `hashes`, or not there) keeps its entry; a page no
+    fact names any more is dropped. A page in `unstable` (its two reads today differed) keeps
+    its old hash and day, is marked, and gets one item in `kept`. A page already marked is
+    never compared again.
+
+    In a new `week` (`stale_week`), watch_stale.stale gives one item a page that changed after
+    one of its facts was checked; an item whose title is already in `kept` is not added. It
+    comes again each week until the facts' dates are later. The items wait for the summary,
+    as the moved check's do: none is an urgent issue.
+    """
+    new = copy.deepcopy(state)
+    kept = new.setdefault("kept", [])
+    titles = {k["title"] for k in kept}
+    old = _fact_pages(state)
+    clients: dict[str, str] = {}
+    for fact in facts:
+        clients.setdefault(fact.address, fact.client)
+    pages = {}
+    for address, client in clients.items():
+        entry, found = old.get(address), hashes.get(address)
+        if entry and entry["unstable"]:
+            pages[address] = entry
+        elif address in unstable:
+            pages[address] = {**(entry or {"hash": "", "changed": ""}), "unstable": True}
+            item = _unstable_item(address, client)
+            if item["title"] not in titles:
+                titles.add(item["title"])
+                kept.append(item)
+        elif found is None:
+            if entry:
+                pages[address] = entry
+        elif entry is None:
+            pages[address] = {"hash": found, "changed": "", "unstable": False}
+        elif entry["hash"] != found:
+            pages[address] = {"hash": found, "changed": today.isoformat(), "unstable": False}
+        else:
+            pages[address] = entry
+    new["fact_pages"] = pages
+    if new.get("stale_week") != week:
+        for item in stale(facts, {a: e["changed"] for a, e in pages.items()}):
+            if item["title"] not in titles:
+                titles.add(item["title"])
+                kept.append(item)
+        new["stale_week"] = week
     return new
 
 
@@ -557,6 +683,90 @@ def _read_doc(address, hosts):
     return sections(body, ctype)
 
 
+def rule_read_address(address: str) -> str:
+    """Where a rule page is read from: a GitHub blob address
+    (https://github.com/OWNER/REPO/blob/REF/PATH) from its raw file
+    (https://raw.githubusercontent.com/OWNER/REPO/REF/PATH); any other at itself."""
+    found = BLOB.fullmatch(address)
+    return f"https://{RAW_HOST}/{found[1]}/{found[2]}/{found[3]}" if found else address
+
+
+def read_rule_page(address: str, hosts, handlers=()) -> list[Section]:
+    """The sections of a page of docs/platform-rules.md.
+
+    An address the config's `hosts` allow is read as any doc page (get_doc). Any other is read
+    at rule_read_address(address) only, with that address's host and path as the one allowed
+    pair: a redirect to another host, or out from under that path, raises ValueError before it
+    is followed, and so does an address with a user, a port or a query. The pair is used for
+    this read only; `hosts` is not changed. `handlers` go into the opener: tests use them to
+    answer without the network. Raises like doc_address.read.
+    """
+    if allowed(address, hosts):
+        body, ctype, _ = get_doc(address, hosts, make_opener(hosts, True, *handlers))
+        return sections(body, ctype)
+    source = rule_read_address(address)
+    parts = urllib.parse.urlsplit(source)
+    if not parts.hostname:
+        raise ValueError("a rule page's address has no host")
+    pair = [(parts.hostname, parts.path)]
+    body, ctype, _ = doc_address.read(source, pair, make_opener(pair, True, *handlers))
+    return sections(body, ctype)
+
+
+class RuleReads(NamedTuple):
+    """What read_rules read: each page read and its sections (None for a failed read), the
+    hash of each page whose hash is sure today, the pages whose two reads differed, and how
+    many pages of the order were done."""
+
+    fetched: dict[str, list[Section] | None]
+    hashes: dict[str, str]
+    unstable: set[str]
+    done: int
+
+
+def read_rules(order: list[str], known: dict[str, str], reader, in_time) -> RuleReads:
+    """Read the rule pages in `order` with `reader` (sections, or None when the read failed),
+    at most RULE_PAGES_MAX reads, while `in_time()`.
+
+    A page whose hash is not its hash in `known` (a new page, or one that changed) is read once
+    more: the same hash twice is its hash today; two hashes make it unstable; a failed second
+    read is a failed read. A page whose second read finds no room or no time stops the reads
+    there: its first read counts, and it is not done, so the next run starts at it.
+    """
+    fetched: dict[str, list[Section] | None] = {}
+    hashes: dict[str, str] = {}
+    unstable: set[str] = set()
+    reads = done = 0
+
+    def room():
+        return reads < RULE_PAGES_MAX and in_time()
+
+    for address in order:
+        if not room():
+            break
+        found = reader(address)
+        reads += 1
+        fetched[address] = found
+        if found is not None:
+            first = page_hash(found)
+            if known.get(address) != first:
+                if not room():
+                    break
+                again = reader(address)
+                reads += 1
+                if again is None:
+                    fetched[address] = None
+                    done += 1
+                    continue
+                if page_hash(again) != first:
+                    unstable.add(address)
+                    done += 1
+                    continue
+            hashes[address] = first
+        done += 1
+    return RuleReads(fetched, hashes, unstable, done)
+
+
 def _read_feed_page(address, hosts, opener=None):
     """A feed page's sections and the address it was read from, after redirects: plan_feed
     checks that address's client."""
@@ -581,6 +791,13 @@ def main(argv=None, clock=time.monotonic):
     state = json.loads(Path(a.state).read_text()) if Path(a.state).is_file() else None
     list_text = (Path(a.kitden) / "docs/clients.md").read_text(encoding="utf-8")
     rows = parse_list(list_text)
+    list_found, undated = list_facts(list_text)
+    rule_found, skipped = rule_facts(RULES_FILE.read_text(encoding="utf-8"))
+    facts = list_found + rule_found
+    print(f"Facts with a page and a date: {len(facts)} ({len(list_found)} in the list, "
+          f"{len(rule_found)} in the rules); skipped for want of a date: {undated} "
+          f"row{'' if undated == 1 else 's'} of the list, {skipped} in the rules.",
+          file=sys.stderr)
     fetched, meta = {}, {}
     hosts = load_hosts()
     today = date.today()
@@ -620,10 +837,37 @@ def main(argv=None, clock=time.monotonic):
         meta[address] = {"client": pages[address], "kind": "doc", "url": address}
         fetched[address] = read_or_none(address, lambda u: _read_doc(u, hosts), address)
         done += 1
+    # The rules' pages, after the list's, in the same budget. A page the list names too was
+    # read above; one that cannot be watched is not read again.
+    known = _fact_pages(state)
+    rule_pages = ({f.address for f in rule_found} - {page_address(p) for p in pages}
+                  - {a for a, e in known.items() if e["unstable"]})
+    rule_order = page_order(state, rule_pages, key="rule_start")
+    got = read_rules(rule_order, {a: e["hash"] for a, e in known.items()},
+                     lambda u: read_or_none(u, lambda x: read_rule_page(x, hosts), u),
+                     budget.left)
+    for address, found in got.fetched.items():
+        meta[address] = {"client": RULES_CLIENT, "kind": "rule-page", "url": address}
+        fetched[address] = found
+    if got.done < len(rule_order):
+        # Left out of meta: plan_run counts no fail, and plan_stale keeps their entries.
+        why = (f"Out of time for rule pages after {PAGES_SECONDS} seconds" if not budget.left()
+               else f"{RULE_PAGES_MAX} reads of rule pages, the most a run, are used")
+        print(f"{why}; left for tomorrow: {len(rule_order) - got.done}.", file=sys.stderr)
     pieces, new_state = plan_run(state, fetched, meta)
     # plan_run keeps the memory's page_start, so plan_skips sees today's order.
     new_state = plan_skips(new_state, pages, done)
+    new_state["rule_start"] = ((_start(state, len(rule_order), "rule_start") + got.done)
+                               % len(rule_order) if rule_order else 0)
     week = week_of(today)
+    # A list page's hash is made from the sections read above: it is not read again.
+    hashes: dict[str, str | None] = dict(got.hashes)
+    named = {f.address for f in facts}
+    for page in pages:
+        address = page_address(page)
+        if address in named and fetched.get(page) is not None:
+            hashes.setdefault(address, page_hash(fetched[page]))
+    new_state = plan_stale(new_state, facts, hashes, got.unstable, today, week)
     if manifests and budget.left():
         read = None if None in manifests else set().union(*manifests)
         new_state = plan_moved(new_state, read, pages, hosts,
