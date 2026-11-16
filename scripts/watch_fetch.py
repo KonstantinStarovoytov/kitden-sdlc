@@ -54,6 +54,52 @@ def _unreadable(meta: dict, source: str) -> dict:
     }
 
 
+def _out_of_time(client: str, address: str) -> dict:
+    return {**_unreadable({"client": client, "url": address}, address),
+            "title": f"{address} was not read for {FAIL_DAYS} days: out of time",
+            "changed": f"{address} was not read: each run ran out of time before it"}
+
+
+def _start(state, count: int) -> int:
+    start = state.get("page_start", 0) if state else 0
+    # A bool is an int in Python; it is not a place in the list.
+    if type(start) is not int or not count:
+        return 0
+    return start % count
+
+
+def page_order(state, pages: dict[str, str]) -> list[str]:
+    """The doc pages in the order to read them: sorted, from the memory's `page_start`,
+    wrapping around. So on a slow day the pages a run did not reach come first the next day."""
+    order = sorted(pages)
+    start = _start(state, len(order))
+    return order[start:] + order[:start]
+
+
+def plan_skips(state, pages: dict[str, str], read: int) -> dict:
+    """The memory after a run that started `read` pages of page_order(state, pages).
+
+    `page_start` moves to the first page left unread, or stays when every page was read.
+    `skips` counts, for each page left unread, the runs in a row that left it unread; a page
+    whose read was started is dropped from it, and so is a page that left the list. On the
+    third run in a row an item goes to `kept`, once, like the "Cannot read" one.
+    """
+    new = copy.deepcopy(state)
+    order = page_order(state, pages)
+    new["page_start"] = (_start(state, len(order)) + read) % len(order) if order else 0
+    old = state.get("skips") if isinstance(state.get("skips"), dict) else {}
+    titles = {k["title"] for k in new["kept"]}
+    new["skips"] = {}
+    for address in order[read:]:
+        count = old.get(address, 0)
+        new["skips"][address] = (count if type(count) is int else 0) + 1
+        item = _out_of_time(pages[address], address)
+        if new["skips"][address] == FAIL_DAYS and item["title"] not in titles:
+            titles.add(item["title"])
+            new["kept"].append(item)
+    return new
+
+
 def plan_run(state, fetched, meta):
     new = copy.deepcopy(state) if state else {}
     new.setdefault("sources", {})
@@ -225,16 +271,21 @@ def main(argv=None, clock=time.monotonic):
                            "url": src.get("url") or f"https://github.com/{src['repo']}/releases"}
         fetched[src["id"]] = read_or_none(src["id"], _read, src)
     pages = doc_pages(rows)
+    order = page_order(state, pages)
     budget = Budget(PAGES_SECONDS, clock)
-    for done, (address, client) in enumerate(pages.items()):
+    done = 0
+    for address in order:
         if not budget.left():
             # Left out of meta and fetched: plan_run keeps their hashes and counts no fail.
             print(f"Out of time for doc pages after {PAGES_SECONDS} seconds; left for "
-                  f"tomorrow: {len(pages) - done}.", file=sys.stderr)
+                  f"tomorrow: {len(order) - done}.", file=sys.stderr)
             break
-        meta[address] = {"client": client, "kind": "doc", "url": address}
+        meta[address] = {"client": pages[address], "kind": "doc", "url": address}
         fetched[address] = read_or_none(address, lambda u: _read_doc(u, hosts), address)
+        done += 1
     pieces, new_state = plan_run(state, fetched, meta)
+    # plan_run keeps the memory's page_start, so plan_skips sees today's order.
+    new_state = plan_skips(new_state, pages, done)
     if manifests:
         read = None if None in manifests else set().union(*manifests)
         new_state = plan_moved(new_state, read, pages, hosts,

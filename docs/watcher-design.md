@@ -210,7 +210,9 @@ holds the last version seen per source, the section hashes of each doc page, the
 the next summary, the number of urgent issues this week, the week of the last summary, how
 many runs failed on each piece, the format the doc page hashes were made in (`doc_format`), the
 week of the last moved check with each address already said to be maybe or not found and
-where it may be (`moved`), and one log line per run. It also
+where it may be (`moved`), the place in the sorted doc pages where the next run starts reading
+(`page_start`), how many runs in a row each page was left unread for lack of time (`skips`),
+and one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.
@@ -225,7 +227,9 @@ The first run only fills the memory and opens nothing.
 - One run at a time, 15 minutes at most per job (the model gets 10 of them), a fixed top
   number of model calls and of new pieces per run; what does not fit waits for the next day
   (call). The fetch reads doc pages for 7 minutes at most (`PAGES_SECONDS`); a page it does
-  not reach in time waits for the next day, keeps its hashes and is not a failed read.
+  not reach in time waits for the next day, keeps its hashes and is not a failed read. The
+  next run starts at the first page left unread, so on slow days every page is still read
+  every few days; a page left unread three runs in a row is named in the next summary.
 - The judge runs on `ANTHROPIC_API_KEY`. The eval measured about $0.05 a piece on Sonnet 5.5;
   at 10 to 12 new pieces a week that is about $2 to $5 a month.
 
