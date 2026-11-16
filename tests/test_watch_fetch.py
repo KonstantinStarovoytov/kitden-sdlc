@@ -7,7 +7,7 @@ import pytest
 
 import watch_fetch
 from doc_address import load_hosts
-from watch_feed import KEEP_DAYS, Entry
+from watch_feed import KEEP_DAYS, Entry, page_key
 from watch_fetch import (
     DOC_FORMAT,
     FAIL_DAYS,
@@ -17,6 +17,7 @@ from watch_fetch import (
     HEADINGS_MAX,
     PIECE_CHARS,
     PIECES_MAX,
+    TAKEN_MAX,
     WAIT_MAX,
     _moved_item,
     build_input,
@@ -823,13 +824,14 @@ def test_with_no_feed_in_the_memory_the_newest_day_is_taken_and_nothing_is_read(
     _, state = plan_run(None, {}, {})
     pieces, new, reader = feed_plan(state, [fentry(1, day="2026-11-13"), fentry(2)])
     assert pieces == [] and reader.read == []
-    assert new["feed"] == {"day": DAY, "wait": [], "dropped": 0, "held": 0}
+    assert new["feed"] == {"day": DAY, "wait": [], "dropped": 0, "held": 0,
+                           "taken": [page_key(at(2))]}
 
 
 def test_with_no_feed_in_the_memory_and_an_empty_feed_every_later_day_is_new():
     _, state = plan_run(None, {}, {})
     _, new, _ = feed_plan(state, [])
-    assert new["feed"]["day"] == ""
+    assert new["feed"]["day"] == "" and new["feed"]["taken"] == []
     pieces, _, _ = feed_plan(new, [fentry(1)])
     assert [p["url"] for p in pieces] == [at(1)]
 
@@ -839,7 +841,8 @@ def test_a_feed_memory_of_another_shape_starts_again(feed):
     state = {**feed_state(), "feed": feed}
     pieces, new, reader = feed_plan(state, [fentry(1)])
     assert pieces == [] and reader.read == []
-    assert new["feed"] == {"day": DAY, "wait": [], "dropped": 0, "held": 0}
+    assert new["feed"] == {"day": DAY, "wait": [], "dropped": 0, "held": 0,
+                           "taken": [page_key(at(1))]}
 
 
 def test_eight_pages_make_five_pieces_and_three_wait_and_come_first_the_next_day():
@@ -1220,3 +1223,90 @@ def test_the_config_has_the_feed_after_the_manifest_with_no_client():
     assert src == {"id": FEED_ID, "kind": "feed", "url": (
         "https://raw.githubusercontent.com/KonstantinStarovoytov/agent-docs/main/"
         "reports/docs-changes/feed.json")}
+
+
+# A day of the feed written twice: `taken` (Task 6.5, ruling follow-up)
+
+
+def keys(*ns, base=CC):
+    return [page_key(at(n, base)) for n in ns]
+
+
+def test_a_run_between_two_reindex_runs_of_one_day_takes_only_the_second_runs_new_entries():
+    first = [fentry(1), fentry(2)]
+    pieces, state, reader = feed_plan(feed_state(), first)
+    assert reader.read == [at(1), at(2)] and state["feed"]["taken"] == keys(1, 2)
+    # Agent Docs merges its second run of the day into that day: 3 is new, 1 and 2 are not.
+    merged = [fentry(1), fentry(2), fentry(3)]
+    pieces, state, reader = feed_plan(judged(state, pieces), merged)
+    assert reader.read == [at(3)] and [p["url"] for p in pieces] == [at(3)]
+    assert state["feed"]["day"] == DAY and state["feed"]["taken"] == keys(1, 2, 3)
+    pieces, state, reader = feed_plan(judged(state, pieces), merged)
+    assert pieces == [] and reader.read == [] and state["feed"]["wait"] == []
+    # Every entry of the day has left the queue; the keys stay taken all the same.
+    assert state["feed"]["taken"] == keys(1, 2, 3)
+    _, _, reader = feed_plan(state, merged)
+    assert reader.read == []
+
+
+def test_a_memory_without_taken_takes_nothing_more_of_its_day():
+    state = feed_state(day=DAY)
+    pieces, new, reader = feed_plan(state, [fentry(1), fentry(2)])
+    assert pieces == [] and reader.read == [] and "taken" not in new["feed"]
+    pieces, new, reader = feed_plan(new, [fentry(1), fentry(3, day="2026-11-16")])
+    assert reader.read == [at(3)] and new["feed"]["taken"] == keys(3)
+
+
+@pytest.mark.parametrize("taken", ["x", None, [1], {"a": 1}])
+def test_taken_of_another_shape_is_read_as_missing(taken):
+    state = feed_state(day=DAY, taken=taken)
+    pieces, new, reader = feed_plan(state, [fentry(1)])
+    assert pieces == [] and reader.read == [] and "taken" not in new["feed"]
+
+
+def test_when_the_day_moves_taken_holds_only_the_new_days_keys():
+    state = feed_state(day=LAST, taken=keys(7, 8))
+    _, new, _ = feed_plan(state, [fentry(1, day=LAST), fentry(2), fentry(3)])
+    assert new["feed"]["day"] == DAY and new["feed"]["taken"] == keys(2, 3)
+
+
+def test_the_first_run_marks_the_newest_days_pages_taken():
+    _, state = plan_run(None, {}, {})
+    # A changed page with no new section is not wanted, so it is not taken.
+    _, new, reader = feed_plan(state, [fentry(1, day=LAST), fentry(2), fentry(4, kind="changed")])
+    assert reader.read == [] and new["feed"]["taken"] == keys(2)
+    later = [fentry(1, day=LAST), fentry(2), fentry(3),
+             fentry(4, kind="changed", headings=["Hooks"])]
+    pieces, _, reader = feed_plan(new, later)
+    assert reader.read == [at(3), at(4)]
+
+
+def test_a_held_entry_is_taken_and_not_counted_again():
+    entries = [fentry(1, base=CU)]
+    _, state, _ = feed_plan(feed_state(), entries)
+    assert state["feed"]["held"] == 1 and state["feed"]["taken"] == keys(1, base=CU)
+    _, state, _ = feed_plan(state, entries)
+    assert state["feed"]["held"] == 1
+
+
+def test_a_changed_page_that_gains_new_sections_later_that_day_is_taken_then():
+    bare = fentry(1, kind="changed")
+    pieces, state, reader = feed_plan(feed_state(), [bare, fentry(2)])
+    assert reader.read == [at(2)] and state["feed"]["taken"] == keys(2)
+    merged = [fentry(1, kind="changed", headings=["Hooks"]), fentry(2)]
+    pieces, _, reader = feed_plan(judged(state, pieces), merged)
+    assert reader.read == [at(1)] and [p["url"] for p in pieces] == [at(1)]
+
+
+def test_a_page_key_matches_any_spelling_of_the_page():
+    state = feed_state(day=DAY, taken=keys(1))
+    spelled = Entry(DAY, "added", at(1).replace("code.claude.com", "CODE.claude.com") + "/",
+                    "claude-code", ())
+    _, _, reader = feed_plan(state, [spelled])
+    assert reader.read == []
+
+
+def test_taken_is_cut_at_taken_max():
+    many = [fentry(n) for n in range(TAKEN_MAX + 10)]
+    _, state, _ = feed_plan(feed_state(), many, room=0)
+    assert state["feed"]["taken"] == keys(*range(TAKEN_MAX))

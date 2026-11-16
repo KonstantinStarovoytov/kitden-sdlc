@@ -135,7 +135,7 @@ def load_feed(body: str, today: date) -> list[Entry]:
     return out
 
 
-def _page_key(address: str) -> str:
+def page_key(address: str) -> str:
     """`address` as pages are compared: no fragment, no last `/`, no `.md`, host in lower
     case. An address Python cannot split is compared as written."""
     try:
@@ -158,7 +158,7 @@ def wanted(entries: list[Entry], hosts, listed: set[str], after_day: str) -> lis
     page found again on the same day is kept once, the first time. The entries dropped for
     their product are counted on stderr.
     """
-    listed_keys = {_page_key(address) for address in listed}
+    listed_keys = {page_key(address) for address in listed}
     out, taken, mislabeled = [], set(), 0
     for e in entries:
         if not (e.kind == "added" or (e.kind == "changed" and e.sections)):
@@ -171,7 +171,7 @@ def wanted(entries: list[Entry], hosts, listed: set[str], after_day: str) -> lis
             mislabeled += 1
             continue
         page = page_of(e.url, hosts)
-        key = _page_key(page)
+        key = page_key(page)
         if not page or key in listed_keys or (key, e.day) in taken:
             continue
         taken.add((key, e.day))

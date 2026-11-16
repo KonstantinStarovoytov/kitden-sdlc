@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 
 from doc_address import NO_TEXT_CLIENTS, client_of, load_hosts, location, page_of
-from watch_feed import KEEP_DAYS, Entry, kept_sections, read_feed, wanted
+from watch_feed import KEEP_DAYS, Entry, kept_sections, page_key, read_feed, wanted
 from watch_list import doc_pages, parse_list, terms
 from watch_moved import manifest_addresses, moved
 from watch_pages import get, get_doc, load_sources, pick, releases, sections
@@ -43,6 +43,10 @@ WAIT_MAX = FEED_PAGES_MAX * KEEP_DAYS
 # when a feed breaks them.
 HEADINGS_MAX = 50
 HEADING_CHARS = 200
+# The page keys kept as taken on the last day taken. Agent Docs merges a second reindex of a
+# day into that day, so a run between the two takes that day again for the pages it has not
+# taken. Past this number a page of that day may be taken twice: read again, not lost.
+TAKEN_MAX = WAIT_MAX
 FEED_SOURCE = "agent-docs-feed"
 
 
@@ -259,6 +263,21 @@ def _stored(e: Entry) -> dict:
     return {**e._asdict(), "sections": [h[:HEADING_CHARS] for h in e.sections[:HEADINGS_MAX]]}
 
 
+def _taken(feed: dict) -> set[str] | None:
+    """The memory's taken page keys, or None when it has none (as before `taken` was kept):
+    then no more entries of its day are taken."""
+    taken = feed.get("taken")
+    if isinstance(taken, list) and all(isinstance(k, str) for k in taken):
+        return set(taken)
+    return None
+
+
+def _keys(entries: list[Entry], day: str, hosts) -> list[str]:
+    """The page keys of the entries of `day`, in order, each once, at most TAKEN_MAX."""
+    found = [page_key(page_of(e.url, hosts)) for e in entries if e.day == day]
+    return list(dict.fromkeys(found))[:TAKEN_MAX]
+
+
 def _count(feed: dict, name: str) -> int:
     n = feed.get(name, 0)
     return n if type(n) is int and n >= 0 else 0
@@ -272,9 +291,12 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
     the memory is left as it was. With no `feed` in the memory, the feed's newest day is
     taken and nothing is read, as on any source's first run.
 
-    Otherwise the queue is the entries waiting in `feed.wait`, then the feed's entries of the
-    days after `feed.day`, both through watch_feed.wanted (so a page that joined the list,
-    `listed`, leaves it). In that order, an entry leaves the queue when:
+    Otherwise the queue is the entries waiting in `feed.wait`, then the feed's entries not
+    taken yet, both through watch_feed.wanted (so a page that joined the list, `listed`,
+    leaves it). Not taken yet: of a day after `feed.day`, or of that day with a page key
+    (watch_feed.page_key) not in `feed.taken`, since Agent Docs merges a second reindex of a
+    day into it. `taken` holds the keys of the entries taken on the last day taken; a memory
+    without it takes no more of its day. In that order, an entry leaves the queue when:
     - route marked its piece judged, or given up after its third failed try: its key is in
       `sources[source]`. That map is emptied each run, so it does not grow;
     - its day is more than KEEP_DAYS days before `today` (counted in `dropped`);
@@ -297,13 +319,16 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
     feed = new.get("feed")
     newest = max((e.day for e in entries), default="")
     if not (isinstance(feed, dict) and (feed.get("day") == "" or _is_day(feed.get("day")))):
-        new["feed"] = {"day": newest, "wait": [], "dropped": 0, "held": 0}
+        fill = wanted([e for e in entries if e.day == newest], hosts, listed, "")
+        new["feed"] = {"day": newest, "wait": [], "dropped": 0, "held": 0,
+                       "taken": _keys(fill, newest, hosts)}
         return [], new
-    day = feed["day"]
+    day, taken = feed["day"], _taken(feed)
     done = new.setdefault("sources", {}).pop(source, None)
     done = done if isinstance(done, dict) else {}
-    queue = wanted(_waiting(feed.get("wait")) + [e for e in entries if e.day > day],
-                   hosts, listed, "")
+    fresh = [e for e in entries if e.day > day or (
+        e.day == day and taken is not None and page_key(page_of(e.url, hosts)) not in taken)]
+    queue = wanted(_waiting(feed.get("wait")) + fresh, hosts, listed, "")
     cap = max(0, min(room, FEED_PIECES_MAX))
     pieces, wait, pages = [], [], {}
     dropped = held = failed = 0
@@ -351,6 +376,12 @@ def plan_feed(state, entries, listed, hosts, read_page, words, today, room,
     new["feed"] = {"day": max(day, newest), "wait": [_stored(e) for e in wait],
                    "dropped": _count(feed, "dropped") + dropped,
                    "held": _count(feed, "held") + held}
+    if new["feed"]["day"] != day:
+        new["feed"]["taken"] = _keys(queue, new["feed"]["day"], hosts)
+    elif taken is not None:
+        # The memory's own order first, so the cut never drops a key already kept.
+        kept = [k for k in feed["taken"] if k in taken]
+        new["feed"]["taken"] = list(dict.fromkeys(kept + _keys(queue, day, hosts)))[:TAKEN_MAX]
     print(f"feed: {len(pieces)} pieces, {len(wait)} waiting, {len(pages)} pages read, "
           f"{failed} failed, {dropped} dropped, {held} held back "
           f"(no text for {'/'.join(NO_TEXT_CLIENTS)})", file=sys.stderr)
