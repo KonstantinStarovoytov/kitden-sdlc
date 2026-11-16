@@ -150,15 +150,25 @@ def page_hash(sections: list[Section]) -> str:
 
 
 def _title(address: str) -> str:
-    """"<address> changed after its facts were checked", under 80 characters. When the whole
-    address does not fit, or may not be shown, its last part stands for it, cleaned."""
+    """"<address> changed after its facts were checked", under 80 characters.
+
+    When the whole address does not fit, or may not be shown, the longest tail of its path
+    parts that fits stands for it ("plugins/install"), each part through clean_heading; when
+    not even the last part fits, the last part is cut. An address with no path uses its host.
+    """
     if SHOWABLE.fullmatch(address):
         title = _quiet(address + TITLE_END, TITLE_MAX)
         if len(title) <= TITLE_LONGEST:
             return title
-    parts = [p for p in address.removeprefix("https://").split("/") if p]
-    name = clean_heading(parts[-1]) if parts else ""
-    return _quiet(name or "A page", TITLE_LONGEST - len(TITLE_END)) + TITLE_END
+    room = TITLE_LONGEST - len(TITLE_END)
+    host, _, path = address.removeprefix("https://").partition("/")
+    parts = ([c for p in path.split("/") if (c := clean_heading(p))]
+             or [c for c in (clean_heading(host),) if c] or ["A page"])
+    for start in range(len(parts)):
+        tail = _quiet("/".join(parts[start:]), TITLE_MAX)
+        if len(tail) <= room:
+            return tail + TITLE_END
+    return _quiet(parts[-1], room) + TITLE_END
 
 
 def _item(address: str, day: str, old: list[Fact]) -> dict:

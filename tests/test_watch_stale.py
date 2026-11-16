@@ -381,14 +381,48 @@ def test_text_is_cut_by_quiet():
     assert item["url"] == "https://docs.example.com/@team"
 
 
-@pytest.mark.parametrize("length", [43, 60, 120, 500])
-def test_the_title_stays_under_80_for_a_long_address(length):
+@pytest.mark.parametrize(("length", "name"), [
+    (43, "aaaaaa/last-part-x"),
+    (67, "a" * 30 + "/last-part-x"),
+    (68, "last-part-x"),
+    (120, "last-part-x"),
+    (500, "last-part-x"),
+])
+def test_the_title_stays_under_80_for_a_long_address(length, name):
     address = "https://docs.example.com/" + "a" * (length - 25 - 12) + "/last-part-x"
     assert len(address) == length
     (item,) = stale([fact(address, checked="2026-11-01")], {address: "2026-11-02"})
     assert len(item["title"]) < 80
-    assert item["title"] == "last-part-x changed after its facts were checked"
+    assert item["title"] == f"{name} changed after its facts were checked"
     assert item["url"] == address
+
+
+def test_the_title_uses_the_longest_tail_that_fits():
+    address = "https://docs.example.com/" + "a" * 40 + "/plugins/install"
+    (item,) = stale([fact(address, checked="2026-11-01")], {address: "2026-11-02"})
+    assert item["title"] == "plugins/install changed after its facts were checked"
+    address = "https://code.example.com/docs/en/plugins/install"  # 48 characters
+    (item,) = stale([fact(address, checked="2026-11-01")], {address: "2026-11-02"})
+    assert item["title"] == "docs/en/plugins/install changed after its facts were checked"
+
+
+def test_two_long_addresses_with_one_last_part_get_two_titles():
+    one = "https://learn.example.com/docs/config-file/config-reference"
+    two = "https://learn.example.com/docs/other-file/config-reference"
+    items = stale([fact(one, checked="2026-11-01"), fact(two, checked="2026-11-01")],
+                  {one: "2026-11-02", two: "2026-11-02"})
+    assert [i["title"] for i in items] == [
+        "docs/config-file/config-reference changed after its facts were checked",
+        "docs/other-file/config-reference changed after its facts were checked"]
+
+
+def test_an_address_with_no_path_uses_its_host():
+    address = "https://" + "h" * 30 + ".example.com/"
+    (item,) = stale([fact(address, checked="2026-11-01")], {address: "2026-11-02"})
+    assert item["title"] == "h" * 30 + ".example.com changed after its facts were checked"
+    address = "https://" + "h" * 60 + ".example.com"
+    (item,) = stale([fact(address, checked="2026-11-01")], {address: "2026-11-02"})
+    assert item["title"] == "h" * 42 + " changed after its facts were checked"
 
 
 def test_a_title_that_fits_keeps_the_whole_address():
