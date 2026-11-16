@@ -93,8 +93,10 @@ def plan_skips(state, pages: dict[str, str], read: int) -> dict:
     for address in order[read:]:
         count = old.get(address, 0)
         new["skips"][address] = (count if type(count) is int else 0) + 1
+        if new["skips"][address] != FAIL_DAYS:
+            continue
         item = _out_of_time(pages[address], address)
-        if new["skips"][address] == FAIL_DAYS and item["title"] not in titles:
+        if item["title"] not in titles:
             titles.add(item["title"])
             new["kept"].append(item)
     return new

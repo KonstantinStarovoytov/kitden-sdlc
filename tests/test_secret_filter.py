@@ -116,3 +116,31 @@ def test_clean_uses_the_pattern_it_is_given():
 
     kept, left_out = clean([passage("say SESAME"), passage()], FIELDS, re.compile("SESAME"))
     assert kept == [passage()] and left_out == 1
+
+
+@pytest.mark.parametrize("mark", ["\u200b", "\u200d", "\ufeff"])
+def test_a_token_split_by_a_format_character_is_left_out(mark):
+    from doc_address import clean_heading
+
+    heading = "ghp_" + "aB3" * 5 + mark + "cD4" * 6
+    assert not SECRET_LIKE.search(heading)  # as written, the mark hides it
+    assert SECRET_LIKE.search(clean_heading(heading))  # and cleaning would join it again
+    kept, left_out = clean([passage(heading=heading), passage()], FIELDS, SECRET_LIKE)
+    assert kept == [passage()] and left_out == 1
+
+
+def test_a_random_string_split_by_a_format_character_is_left_out():
+    half = len(KEY_TAIL) // 2
+    text = KEY_TAIL[:half] + "\u200b" + KEY_TAIL[half:]
+    assert not random_runs(text)
+    assert clean([passage(text)], FIELDS, SECRET_LIKE) == ([], 1)
+
+
+def test_harmless_format_characters_without_a_secret_stay():
+    item = passage("zero\u200bwidth and joined\u200dwords\ufeff", heading="\u200bInstall")
+    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)
+
+
+def test_clean_with_no_fields_is_a_caller_bug():
+    with pytest.raises(ValueError):
+        clean([passage()], (), SECRET_LIKE)

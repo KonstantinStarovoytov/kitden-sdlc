@@ -636,3 +636,19 @@ def test_plan_skips_does_not_change_its_input():
     before = old({}, skips={"https://d/a": 2})
     watch_fetch.plan_skips(before, {"https://d/a": "codex"}, 0)
     assert before == old({}, skips={"https://d/a": 2})
+
+
+def test_an_out_of_time_item_is_built_only_on_the_third_day(monkeypatch):
+    built = []
+    real = watch_fetch._out_of_time
+
+    def counting(client, address):
+        built.append(address)
+        return real(client, address)
+
+    monkeypatch.setattr(watch_fetch, "_out_of_time", counting)
+    pages = {"https://d/a": "codex", "https://d/b": "codex", "https://d/c": "codex"}
+    state = old({}, skips={"https://d/b": 2, "https://d/c": 3})
+    new = watch_fetch.plan_skips(state, pages, 0)
+    assert built == ["https://d/b"]
+    assert [k["title"] for k in new["kept"]] == [out_of_time("https://d/b")]

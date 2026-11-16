@@ -11,6 +11,7 @@ only: the scripts that use this run without the project's dependencies.
 import os
 import re
 import subprocess
+import unicodedata
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -53,14 +54,30 @@ def clean(
     dict, or whose named field is missing or not a string, is left out too, never an error.
     Other fields are not looked at. The caller passes post_findings.SECRET_LIKE: that module
     imports this one.
+
+    Each field is checked twice: as written, and without its format characters (Unicode
+    category Cf, such as zero-width spaces and joiners and the BOM). A token split by one of
+    them is still caught, since cleaning (doc_address.clean_heading) would join it again.
+
+    Raises ValueError when `fields` is empty: that would let every item through unchecked.
     """
+    if not fields:
+        raise ValueError("clean needs at least one field to check")
     kept = []
     for item in items:
         texts = [item.get(name) for name in fields] if isinstance(item, dict) else [None]
-        if all(isinstance(text, str) and not secret_like.search(text)
-               and not random_runs(text) for text in texts):
+        if all(isinstance(text, str) and _safe(text, secret_like)
+               and _safe(_without_format(text), secret_like) for text in texts):
             kept.append(item)
     return kept, len(items) - len(kept)
+
+
+def _safe(text: str, secret_like: re.Pattern[str]) -> bool:
+    return not secret_like.search(text) and not random_runs(text)
+
+
+def _without_format(text: str) -> str:
+    return "".join(c for c in text if unicodedata.category(c) != "Cf")
 
 
 def in_text(*sources: str) -> Callable[[str], bool]:
