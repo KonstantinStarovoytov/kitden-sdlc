@@ -32,8 +32,10 @@ A date in brackets is when that fact was last checked.
 | `demo add <name>` takes the entry as an argument (2026-10-01) | command | `src/a.py` | adding a server (2026-10-20) | same | https://docs.example.com/en/servers |
 | `demo remove <name>` | command | `src/a.py` | removing a server | same | https://docs.example.com/en/servers#remove |
 | Keys in `~/.demo.json` (2026-10-05) | key | `src/a.py` | scan | same | install |
-| `demo list` prints one line a server (2026-09-01, version 1.2) | command | `src/a.py` | scan | same | https://docs.example.com/en/list. |
+| `demo list` prints one line a server (2026-09-01) | command | `src/a.py` | scan | same | https://docs.example.com/en/list. |
 | `demo show` (2026-13-01) | command | `src/a.py` | scan | same | https://docs.example.com/en/show |
+| `demo run` prints its plan (2026-11-15, version 1.4, macOS) | command | `src/a.py` | scan | same | https://docs.example.com/en/run |
+| Hooks in `~/.demo/hooks.json` (2026-11-09); the client's own code reads `hooks` (2026-11-15, Linux) | key | `src/a.py` | scan (checked 2026-11-12 on the page) | same | https://docs.example.com/en/hooks |
 
 ## Codex
 
@@ -68,12 +70,12 @@ def fact(address="https://docs.example.com/a", checked="2026-11-10", label="CC-0
 
 
 @pytest.mark.parametrize(("text", "found"), [
-    ("Source: <https://example.com/a>.", "https://example.com/a>"),
-    ("the [Guide](https://example.com/b) and", "https://example.com/b)"),
-    ("[x](https://example.com/c]", "https://example.com/c]"),
+    ("Source: <https://example.com/a>.", "https://example.com/a"),
+    ("the [Guide](https://example.com/b) and", "https://example.com/b"),
+    ("[x](https://example.com/c]", "https://example.com/c"),
 ])
 def test_address_takes_no_bracket(text, found):
-    assert ADDRESS.search(text).group() == found[:-1]
+    assert ADDRESS.search(text).group() == found
 
 
 # list_facts
@@ -84,11 +86,12 @@ def test_list_facts_reads_rows_with_an_address_and_a_date():
     assert facts == [
         Fact("https://docs.example.com/en/servers", "2026-10-20", "CC-01", "claude-code"),
         Fact("https://docs.example.com/en/list", "2026-09-01", "CC-04", "claude-code"),
+        Fact("https://docs.example.com/en/hooks", "2026-11-12", "CC-07", "claude-code"),
         Fact("https://docs.example.org/config", "2026-10-12", "CX-01", "codex"),
     ]
-    # CC-02 has an address and no date; CC-05's only date is not a day. CC-03 and CX-02
-    # have no address, so they are not counted.
-    assert undated == 2
+    # CC-02 has an address and no date; CC-05's only date is not a day; CC-06's only date
+    # was seen on an install. CC-03 and CX-02 have no address, so they are not counted.
+    assert undated == 3
 
 
 def test_a_row_with_two_dates_uses_the_latest():
@@ -103,12 +106,60 @@ def test_a_date_in_seen_in_counts():
     assert Fact("https://docs.example.org/config", "2026-10-12", "CX-01", "codex") in facts
 
 
+def row(what, seen_in="scan"):
+    return ("## Cursor\n\n| What | Kind | Files | Seen in | macOS and Linux | Source |\n"
+            "|---|---|---|---|---|---|\n"
+            f"| {what} | key | `src/c.py` | {seen_in} | same | https://docs.example.com/c |\n")
+
+
+@pytest.mark.parametrize("what", [
+    "Rules in `.demo/rules` (2026-11-01)",
+    "Rules in `.demo/rules` (checked 2026-11-01)",
+    "Rules in `.demo/rules` (Checked 2026-11-01 against the page)",
+    "Rules in `.demo/rules` (checked 2026-11-01, by hand)",
+])
+def test_a_date_alone_or_after_checked_is_a_check(what):
+    assert list_facts(row(what)) == (
+        [Fact("https://docs.example.com/c", "2026-11-01", "CU-01", "cursor")], 0)
+
+
+@pytest.mark.parametrize("what", [
+    "Rules in `.demo/rules` (2026-11-01, version 3.2, macOS)",
+    "Rules in `.demo/rules` (2026-11-01, Linux)",
+    "Rules in `.demo/rules` (2026-11-01 in the client's own code)",
+    "Rules in `.demo/rules` ( 2026-11-01)",
+    "Rules in `.demo/rules` (2026-11-01",
+    "Rules in `.demo/rules` (seen 2026-11-01)",
+    "Rules in `.demo/rules` (checked: 2026-11-01)",
+])
+def test_a_date_with_more_in_its_bracket_is_no_check(what):
+    assert list_facts(row(what)) == ([], 1)
+    assert list_facts(row("Rules", seen_in=what)) == ([], 1)
+
+
+def test_a_date_seen_in_the_code_does_not_make_the_page_look_fresh():
+    # The shape of CU-13: two checks of the docs, then a later date for the client's code.
+    text = row("Skills in `.demo/skills` (2026-11-14); a switch (2026-11-09). Its own code "
+               "drops them (2026-11-15, version 3.29.9, macOS)")
+    facts, _ = list_facts(text)
+    assert [f.checked for f in facts] == ["2026-11-14"]
+    (item,) = stale(facts, {"https://docs.example.com/c": "2026-11-15"})
+    assert item["changed"].endswith(": CU-01.")
+
+
+def test_a_date_after_checked_in_seen_in_counts():
+    facts, _ = list_facts(LIST)
+    # CC-07: "(2026-11-09)" in What, "(checked 2026-11-12 on the page)" in Seen in, and a
+    # later "(2026-11-15, Linux)" that does not count.
+    assert Fact("https://docs.example.com/en/hooks", "2026-11-12", "CC-07", "claude-code") in facts
+
+
 def test_a_date_in_another_cell_does_not_count():
     text = LIST.replace("| `src/b.py` | scan (2026-10-12) | same |",
                         "| `src/b.py` | scan | same (2026-10-12) |")
     facts, undated = list_facts(text)
-    assert [f.label for f in facts] == ["CC-01", "CC-04"]
-    assert undated == 3
+    assert [f.label for f in facts] == ["CC-01", "CC-04", "CC-07"]
+    assert undated == 4
 
 
 def test_list_facts_of_no_list():

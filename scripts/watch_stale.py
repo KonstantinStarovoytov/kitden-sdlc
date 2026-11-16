@@ -24,8 +24,11 @@ from watch_route import TEXT_MAX, TITLE_MAX, _quiet
 # last "." or ",".
 ADDRESS = re.compile(r"https://[^\s<>()\[\]]+")
 DAY = r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
-# In the list, a date stands in brackets: "(2026-10-22)" or "(2026-11-15, version 2.1.325)".
-LIST_DATE = re.compile(rf"\(({DAY})")
+# In the list, a date in brackets is a check against the page when the bracket holds the
+# date alone, "(2026-10-22)", or starts with "checked", "(checked 2026-10-22 ...)". A date
+# with more after it in its bracket, "(2026-11-15, version 2.1.325, macOS)", is something
+# seen on an install or in a client's own code: it says nothing about the page.
+LIST_DATE = re.compile(rf"\((?:({DAY})\)|(?i:checked)\s+({DAY})\b)")
 # A mark: after its indent and an optional "- ", a line starts with "Source:" or "Sources:".
 MARK = re.compile(r"\s*(?:- )?Sources?:")
 CHECKED = re.compile(rf"\bChecked: ?({DAY})\b")
@@ -78,7 +81,11 @@ def list_facts(text: str) -> tuple[list[Fact], int]:
     """The facts of Kitden's list, and the number of rows with an address and no date.
 
     A row is a fact when its `Source` starts with an address and its `What` or `Seen in`
-    cell holds a date written "(YYYY-MM-DD"; the latest such date is its `checked`.
+    cell holds a check against the page: a date alone in its bracket, "(YYYY-MM-DD)", or a
+    bracket that starts with "checked YYYY-MM-DD". The latest such date is its `checked`. A
+    date with more after it in its bracket ("(YYYY-MM-DD, version 1.2, macOS)") was seen on
+    an install or in a client's own code, so it does not count: a row with only such dates
+    is counted with the rows with no date.
     """
     facts: list[Fact] = []
     undated = 0
@@ -88,7 +95,8 @@ def list_facts(text: str) -> tuple[list[Fact], int]:
         address = found and _address(found.group())
         if not address:
             continue
-        days = [d for cell in (what, seen_in) for d in LIST_DATE.findall(cell) if _day(d)]
+        days = [d for cell in (what, seen_in) for pair in LIST_DATE.findall(cell)
+                for d in pair if _day(d)]
         if days:
             facts.append(Fact(address, max(days), row_id, client))
         else:
