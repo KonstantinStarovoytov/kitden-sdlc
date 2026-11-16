@@ -14,7 +14,7 @@ import urllib.parse
 from datetime import date, timedelta
 from typing import NamedTuple
 
-from doc_address import allowed, page_of
+from doc_address import allowed, client_of, page_of
 from watch_list import held
 from watch_pages import Section, get
 
@@ -150,13 +150,16 @@ def wanted(entries: list[Entry], hosts, listed: set[str], after_day: str) -> lis
     """The entries whose page the watcher reads, in their order.
 
     Kept: an added page, or a changed page with at least one new section; of a product in
-    PRODUCTS; whose address passes `doc_address.allowed` and can be shown (`page_of`); that
-    is not one of the list's pages in `listed` (compared without `.md`, a fragment or a last
-    `/`); of a day after `after_day` (YYYY-MM-DD, or "" for every day). A page found again
-    on the same day is kept once, the first time.
+    PRODUCTS; of a day after `after_day` (YYYY-MM-DD, or "" for every day); whose address
+    passes `doc_address.allowed` and can be shown (`page_of`); whose product is the client
+    config/doc-hosts.yml gives its host and path (`doc_address.client_of`), so a feed cannot
+    call a Cursor page another client's; that is not one of the list's pages in `listed`. Pages
+    are compared without `.md`, a fragment or a last `/`, and with the host in lower case; a
+    page found again on the same day is kept once, the first time. The entries dropped for
+    their product are counted on stderr.
     """
     listed_keys = {_page_key(address) for address in listed}
-    out, taken = [], set()
+    out, taken, mislabeled = [], set(), 0
     for e in entries:
         if not (e.kind == "added" or (e.kind == "changed" and e.sections)):
             continue
@@ -164,11 +167,18 @@ def wanted(entries: list[Entry], hosts, listed: set[str], after_day: str) -> lis
             continue
         if not allowed(e.url, hosts):
             continue
-        page = page_of(e.url, hosts)
-        if not page or _page_key(page) in listed_keys or (page, e.day) in taken:
+        if e.product != client_of(e.url, hosts):
+            mislabeled += 1
             continue
-        taken.add((page, e.day))
+        page = page_of(e.url, hosts)
+        key = _page_key(page)
+        if not page or key in listed_keys or (key, e.day) in taken:
+            continue
+        taken.add((key, e.day))
         out.append(e)
+    if mislabeled:
+        print(f"feed: {mislabeled} entries whose product is not their host's dropped",
+              file=sys.stderr)
     return out
 
 

@@ -441,6 +441,57 @@ def test_the_same_page_twice_in_one_day_is_kept_once():
     assert wanted(entries, HOSTS, set(), "") == [entries[0], entries[2]]
 
 
+@pytest.mark.parametrize("twin", [
+    "https://CODE.claude.com/docs/en/example-new.md",
+    "https://code.claude.com/docs/en/example-new/",
+    "https://code.claude.com/docs/en/example-new.md#a-section",
+])
+def test_two_spellings_of_one_page_on_one_day_are_kept_once(twin):
+    entries = [entry("2026-11-15", "added", NEW),
+               entry("2026-11-15", "changed", twin, sections=["A"])]
+    assert wanted(entries, HOSTS, set(), "") == [entries[0]]
+
+
+@pytest.mark.parametrize(("url", "product"), [
+    ("https://code.claude.com/docs/en/x.md", "claude-code"),
+    ("https://cursor.com/docs/x.md", "cursor"),
+    ("https://cursor.com/help/x.md", "cursor"),
+    ("https://learn.chatgpt.com/docs/x.md", "codex"),
+    ("https://developers.openai.com/codex/x.md", "codex"),
+    ("https://developers.openai.com/plugins/x.md", "codex"),
+])
+def test_an_entry_of_each_client_on_its_own_host_passes(url, product, capsys):
+    entries = [entry("2026-11-15", "added", url, product)]
+    assert wanted(entries, HOSTS, set(), "") == entries
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(("url", "product"), [
+    ("https://cursor.com/docs/x.md", "codex"),
+    ("https://cursor.com/help/x.md", "claude-code"),
+    ("https://code.claude.com/docs/en/x.md", "cursor"),
+    ("https://developers.openai.com/codex/x.md", "claude-code"),
+])
+def test_an_entry_whose_product_is_not_its_host_client_is_dropped_and_counted(
+        url, product, capsys):
+    # Else a feed that calls a Cursor page "codex" would send Cursor text to the judge.
+    good = entry("2026-11-15", "added", NEW)
+    assert wanted([entry("2026-11-15", "added", url, product), good], HOSTS, set(), "") == [
+        good]
+    assert capsys.readouterr().err == "feed: 1 entries whose product is not their host's dropped\n"
+
+
+def test_a_mislabeled_entry_already_taken_is_not_counted_again(capsys):
+    entries = [entry("2026-11-14", "added", "https://cursor.com/docs/x.md", "codex")]
+    assert wanted(entries, HOSTS, set(), "2026-11-14") == []
+    assert capsys.readouterr().err == ""
+
+
+def test_hosts_that_name_no_client_let_no_entry_through():
+    entries = [entry("2026-11-15", "added", NEW)]
+    assert wanted(entries, [("code.claude.com", "/docs/")], set(), "") == []
+
+
 # --- kept_sections ----------------------------------------------------------------------
 
 LIST = """## Codex

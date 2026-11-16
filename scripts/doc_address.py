@@ -34,19 +34,50 @@ SHOWABLE = re.compile(r"https://[A-Za-z0-9._~:/%@!$&'()*+,;=-]+")
 NO_TEXT_CLIENTS = ("cursor",)
 
 
-def load_hosts(path=CONFIG) -> list[tuple[str, str]]:
-    """The (host, path_start) pairs in the config, with the host in lower case.
+class Host(tuple):
+    """A (host, path_start) pair of the config. It compares and unpacks as the plain pair;
+    `client` is the client the entry names, or None."""
 
-    Raises ValueError when a path does not start and end with "/": "/docs" would also allow
-    "/docsx".
+    client: str | None
+
+    def __new__(cls, host: str, start: str, client: str | None = None):
+        pair = super().__new__(cls, (host, start))
+        pair.client = client
+        return pair
+
+    def __getnewargs__(self):
+        # copy and pickle rebuild a tuple from these: all three, not the pair alone.
+        return (*self, self.client)
+
+
+def load_hosts(path=CONFIG) -> list[tuple[str, str]]:
+    """The (host, path_start) pairs in the config, with the host in lower case. Each is a
+    Host, so it also carries its `client`.
+
+    Raises ValueError when a path does not start and end with "/" ("/docs" would also allow
+    "/docsx"), or when the same host and path come twice.
     """
     with open(path, encoding="utf-8") as f:
         entries = yaml.safe_load(f)
-    pairs = [(str(e["host"]).lower(), str(e["path"])) for e in entries]
+    pairs = [Host(str(e["host"]).lower(), str(e["path"]),
+                  None if e.get("client") is None else str(e["client"])) for e in entries]
     for host, start in pairs:
         if not (start.startswith("/") and start.endswith("/")):
             raise ValueError(f"path for {host} must start and end with '/': {start}")
+    if len(set(pairs)) != len(pairs):
+        raise ValueError("the same host and path come twice")
     return pairs
+
+
+def client_of(url, hosts) -> str | None:
+    """The client of the config entry `url` falls under (the longest path, when it is under
+    more than one), or None when `url` is not allowed or the entry names no client."""
+    if not allowed(url, hosts):
+        return None
+    parts = urllib.parse.urlsplit(url)
+    under = [pair for pair in hosts
+             if parts.netloc.lower() == pair[0].lower() and parts.path.startswith(pair[1])]
+    return getattr(max(under, key=lambda pair: len(pair[1])), "client", None)
 
 
 def allowed(address: str, hosts) -> bool:
@@ -61,6 +92,7 @@ def allowed(address: str, hosts) -> bool:
     if parts.scheme != "https" or "?" in address or not parts.netloc:
         return False
     # The whole netloc must be the host: this refuses a user, a password and any port.
+    # client_of matches an allowed address to its entry the same way.
     netloc = parts.netloc.lower()
     # A ".." or "." step could climb out of the allowed path once the server cleans it up.
     steps = urllib.parse.unquote(parts.path).split("/")

@@ -1,9 +1,11 @@
 # The doc pages a watcher script may read: an https address on this host whose path starts
 # with this path. scripts/doc_address.py refuses every other address, and any redirect to one.
-- {host: code.claude.com, path: /docs/}
-- {host: cursor.com, path: /docs/}
-- {host: cursor.com, path: /help/}
-- {host: learn.chatgpt.com, path: /docs/}
-- {host: developers.openai.com, path: /codex/}
+# `client` is the client whose docs these pages are (doc_address.client_of): a feed entry
+# that names another client for a page here is dropped.
+- {host: code.claude.com, path: /docs/, client: claude-code}
+- {host: cursor.com, path: /docs/, client: cursor}
+- {host: cursor.com, path: /help/, client: cursor}
+- {host: learn.chatgpt.com, path: /docs/, client: codex}
+- {host: developers.openai.com, path: /codex/, client: codex}
 # OpenAI's plugin docs cover both ChatGPT and Codex; Kitden's list cites them for Codex rows.
-- {host: developers.openai.com, path: /plugins/}
+- {host: developers.openai.com, path: /plugins/, client: codex}
