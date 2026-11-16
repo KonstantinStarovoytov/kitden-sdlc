@@ -195,13 +195,22 @@ def test_a_reads_link_is_read_and_the_page_shows_it():
     page = HTML.replace("{id:'s-desk', r:'s', file:'desk.yml', kind:'own',",
                         "{id:'s-desk', r:'s', file:'desk.yml', kind:'own', reads:['k-nightly'],")
     assert map_links(page)["s-desk"] == {"reads": ["k-nightly"]}
-    assert "'<span class=\"cap\">Reads</span>" not in HTML  # built from w.reads, not written
-    assert "w.reads ?" in HTML and "w.readBy ?" in HTML
+    for kind, label in (("reads", "Reads"), ("readBy", "Read by")):
+        shown = (f"(w.{kind} ? '<div class=\"fact\"><span class=\"cap\">{label}</span>"
+                 f"<span>' + w.{kind}.map(ref)")
+        assert shown in HTML, kind
+
+
+def test_a_link_to_a_workflow_opens_it_because_the_start_keeps_the_hash():
+    start = HTML.index("const first = location.hash.slice(1);")
+    assert HTML.index("select('s-review'); setHash(first);") > start
+    assert "setHash('')" not in HTML
 
 
 def test_the_every_day_story_draws_the_nightly_run():
     day = HTML.split("day:{")[1].split("\n};")[0]
     assert "{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}" in day
-    assert "t:'Green or red jobs'" in day
+    assert "t:'Nightly tests: green or red'" in day and "a real browser" in day
+    assert "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
     assert "the desk reads it" not in day

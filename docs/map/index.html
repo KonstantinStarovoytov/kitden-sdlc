@@ -615,7 +615,7 @@ function setHash(h){ try { history.replaceState(null, '', '#' + h); } catch (e) 
    An edge is [from, to, why, shape]: h = same row, z = down to the next row, l = down then right. */
 const LANE = {you:1, k:2, s:3, t:4, get:5};
 const STORIES = {
-  pr:{note:'Agents never block a merge. After you merge, the daily release watch notices: see Every day.',
+  pr:{note:'Agents never block a merge. After you merge, the daily release watch notices, and every night nightly.yml runs the tests a pull request does not: see Every day.',
     rows:[
       [{id:'you', kind:'you', t:'You open a pull request'}],
       [{id:'ci', wf:'k-release', stages:[['build']]}, {id:'t1', kind:'thing', ic:'github', t:'Checks', sub:'green or red'}],
@@ -646,7 +646,7 @@ const STORIES = {
       ['bump','t-tests','starts','z'],['t-tests','t-auto-pull','tests pass','z'],['t-auto-pull','t-publish','starts','z'],['t-publish','brew','','h']]},
   day:{note:'Times are UTC. Nothing here needs you until an issue, a pull request or a red run shows up.',
     rows:[
-      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Green or red jobs', sub:'on a red night GitHub emails you'}],
+      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Nightly tests: green or red', sub:'4 systems, the newest Claude Code and Codex, a real browser'}],
       [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Issue in kitden', sub:'you confirm or close'}],
       [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A red run', sub:'if a new version breaks'}],
       [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'“Time for a release?”', go:'rel'}],
@@ -773,8 +773,8 @@ function tag(t){
   return '<span class="chip">' + (TAGIC[t] ? ico(TAGIC[t], 12) : '') + esc(t) + '</span>';
 }
 const STEPIC = [[/Record hosts/,'stepsecurity'],[/Lantern/,'lantern'],[/Beacon/,'beacon'],[/Kettle/,'kettle'],[/Luna|no network/,'openai'],[/Claude|Model judges|no shell/,'claude'],[/Playwright|Chromium|Browser tests/,'playwright'],
-  [/ruff/,'ruff'],[/zizmor/,'zizmor'],[/actionlint/,'lint'],[/pytest|[Tt]ests/,'pytest'],[/pyright/,'python'],[/PyPI|pip-audit/,'pypi'],[/MCP|server\.json/,'modelcontextprotocol'],
-  [/brew|formula|bottle|the tap/,'homebrew'],[/Node/,'nodedotjs'],[/scene|picture/,'playwright'],[/uv sync|Install|package/,'uv'],[/Call /,'githubactions'],
+  [/ruff/,'ruff'],[/zizmor/,'zizmor'],[/actionlint/,'lint'],[/Node/,'nodedotjs'],[/pytest|[Tt]ests/,'pytest'],[/pyright/,'python'],[/PyPI|pip-audit/,'pypi'],[/MCP|server\.json/,'modelcontextprotocol'],
+  [/brew|formula|bottle|the tap/,'homebrew'],[/scene|picture/,'playwright'],[/uv sync|Install|package/,'uv'],[/Call /,'githubactions'],
   [/GitHub|pull request|PR|issue|comment|tag|branch|Commit|Push|`main`|diff/,'github'],[/Rule checker|secret/,'shield']];
 const stepIcon = (text, i) => { const hit = STEPIC.find(([re]) => re.test(text)); return hit ? ico(hit[1], 13) : String(i + 1); };
 const hasModel = j => j.tags.some(t => t.startsWith('model:'));

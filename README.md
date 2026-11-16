@@ -47,7 +47,7 @@ next thing starts; a dot on a job means a model runs in it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/map-every-day-dark.png">
-  <img src="docs/images/map-every-day-light.png" width="820" alt="By the clock, in UTC. 02:37: nightly.yml in Kitden runs the tests on four systems and two Pythons, against the newest Claude Code and Codex, and in a real browser; on a red night GitHub emails you. 05:17: watch.yml reads what Claude Code, Codex and Cursor changed, and Lantern opens an issue in Kitden. 05:17: latest-deps.yml tests Kitden on the newest dependencies. 06:23: release-watch.yml in Kitden uses release-watch.yml in kitden-sdlc, and Lantern opens Time for a release. 06:41: desk.yml updates the Kitden desk issue. 13:10: autobump.yml in the tap opens a pull request for a new version.">
+  <img src="docs/images/map-every-day-light.png" width="820" alt="By the clock, in UTC. 02:37: nightly.yml in Kitden runs the tests on four systems and two Pythons, against the newest Claude Code and Codex, and in a real browser. 05:17: watch.yml reads what Claude Code, Codex and Cursor changed, and Lantern opens an issue in Kitden. 05:17: latest-deps.yml tests Kitden on the newest dependencies. 06:23: release-watch.yml in Kitden uses release-watch.yml in kitden-sdlc, and Lantern opens Time for a release. 06:41: desk.yml updates the Kitden desk issue. 13:10: autobump.yml in the tap opens a pull request for a new version.">
 </picture>
 
 ## The bots
