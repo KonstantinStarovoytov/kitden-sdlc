@@ -49,8 +49,8 @@ not `tests/fixtures`, not the `watch` branch (`archive.jsonl` holds the judge's 
     task files and adds `text_sha256`; no network. The owner then runs `upload` with the
     Langfuse keys and `check --langfuse` before the pull request is merged (my call: the keys
     stay with the owner, and the move happens in two checked steps);
-  - `backup`: Langfuse → folder;
-  - `upload`: folder → Langfuse;
+  - `upload`: folder → Langfuse (the folder is always the origin, so no copy back is
+    needed);
   - `check`: the folder and Langfuse against the task files: same hashes, every text non-empty and
     at most the fetcher's length, `WATCH-OVERRIDE` only in the injection tasks (the checks
     `tests/test_watch_tasks.py` makes today on the text).
@@ -74,5 +74,5 @@ not `tests/fixtures`, not the `watch` branch (`archive.jsonl` holds the judge's 
 
 - The Langfuse key opens the whole project for reading and writing (Langfuse has no read-only
   key). The eval job already holds it, so this adds no exposure.
-- Deleting the dataset by mistake loses the online copy: the Mac folder is the backup, and
-  `backup` refreshes it after each `upload`.
+- Deleting the dataset by mistake loses the online copy: `upload` from the Mac folder puts
+  it back.

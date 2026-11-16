@@ -32,6 +32,8 @@ check, and the checks on the text. `watch_run.py` joins the texts before any mod
   `uv run python scripts/check_agent_workflows.py .github/workflows` (AGENTS.md). Whoever
   edits a workflow runs the `agentic-actions-auditor` skill.
 - Never run `uv cache clean`.
+- No over-engineering (the owner): only what a step names; no extra options, classes,
+  retries or abstractions. `watch_texts.py` should stay around 120 lines.
 
 ## Review Focus
 
@@ -41,8 +43,7 @@ check, and the checks on the text. `watch_run.py` joins the texts before any mod
    unreachable: exit 1 with one clear line, no traceback, no key; unlike the experiment, this
    failure is not swallowed.
 3. `--texts <folder>` that does not exist: a clear error naming the folder, not a traceback.
-4. `split` run a second time on stripped files: changes nothing and loses nothing; a folder
-   file that already exists with a different hash stops it.
+4. `split` run a second time on stripped files: changes nothing and writes nothing.
 5. A new harvested task: its file has no text, its text lands in the folder with the right
    hash, and a later `check` with the folder passes.
 
@@ -69,8 +70,8 @@ check, and the checks on the text. `watch_run.py` joins the texts before any mod
     differs. Ids in `texts` with no task are ignored.
   - `read_folder(folder) -> dict[str, str]`: raises `TextsError` when the folder does not exist,
     or a file's `sha256` is not the hash of its `text`.
-  - `write_folder(folder, texts: dict[str, str]) -> None`: raises `TextsError` before writing
-    anything if a file already there holds a different text.
+  - `write_folder(folder, texts: dict[str, str]) -> None`: creates the folder, writes one file
+    per text.
   - `read_langfuse() -> dict[str, str]`: id to `input["text"]` of each item of `DATASET`
     (items with no text are left out); raises `TextsError("Langfuse keys are not set")` when
     `watch_trace.enabled()` is false, and `TextsError(f"Langfuse failed: {type(e).__name__}")`
@@ -84,22 +85,20 @@ check, and the checks on the text. `watch_run.py` joins the texts before any mod
     text, a text longer than `PIECE_CHARS + 400`, an injection task without `WATCH-OVERRIDE`,
     another task with it.
   - CLI `main()`: `split --tasks T --folder F`, `upload --tasks T --folder F`,
-    `backup --tasks T --folder F` (Langfuse to the folder, for the tasks' ids), `check --tasks
-    T --texts langfuse|F`. Exit 0 on success; on `TextsError` or a non-empty `check_texts`, the
+    `check --tasks T --texts langfuse|F`. Exit 0 on success; on `TextsError` or a non-empty `check_texts`, the
     lines to stderr and exit 1.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_watch_texts.py`:
   - `test_split_removes_the_text_and_keeps_its_hash`: `split_task` of a task with
     `piece.text == "é note"` gives no `text`, `text_sha256 == sha("é note")`, every other field
     equal, and the input task unchanged.
-  - `test_split_twice_changes_nothing`: splitting the split task returns it and `None`.
+  - `test_split_twice_changes_nothing`: splitting the split task returns it and `None`; the
+    CLI `split` on split files leaves the task files and the folder as they were.
   - `test_attach_puts_the_text_back`: `attach([split], {id: text})[0] == original`.
   - `test_attach_names_every_missing_and_changed_task`: two tasks, one missing, one with
     `"other"`; `TextsError` message holds both ids.
   - `test_folder_round_trip` and `test_folder_with_a_wrong_hash_fails` and
     `test_a_missing_folder_is_named` (message holds the path).
-  - `test_write_folder_refuses_a_different_text_and_writes_nothing` (two texts, one clashing:
-    neither file changes).
   - `test_upload_then_read_langfuse_gives_the_texts` with `FakeLangfuse`; the items equal
     `dataset_items` of the tasks with text.
   - `test_read_langfuse_without_keys_says_so` and
@@ -180,7 +179,7 @@ check, and the checks on the text. `watch_run.py` joins the texts before any mod
 - [ ] **Step 4: Docs.** README: where the text is (the dataset, and the owner's folder as the
   backup), the `--texts` flag in both commands, the four `watch_texts.py` commands, that the
   harvest's new tasks are read in the folder before the merge, and that old commits still hold
-  the text. watcher-design.md: the dataset is now the source of the texts and is not deleted by
+  the text. Keep it short: a few lines, not a section per command. watcher-design.md: the dataset is now the source of the texts and is not deleted by
   the plan's data window. The Agent Docs plan: one sentence in each of the places named above.
 - [ ] **Step 5: Run** the full checks from Global Constraints. Expected: all pass.
 - [ ] **Step 6: Commit** `Move the watch tasks' vendor text out of git (owner's answer to
