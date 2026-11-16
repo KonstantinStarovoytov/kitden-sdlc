@@ -17,9 +17,9 @@ GitHub Actions; in agent-docs: FastAPI, pydantic, pytest.
 
 **Spec:** `docs/superpowers/specs/2026-11-15-agent-docs-design.md`, approved by the owner on
 2026-11-15 and brought in line with the code on 2026-11-16. Read it first, with its "Built"
-notes. "Spec part N" below is its numbering. Question 1 is answered: Part 8 is built, on the
-trial key. Cursor passages wait for question 4. Questions 7 to 11 are new and do not block
-the first step of any part; question 11 (with 6) decides where recorded vendor text lives.
+notes. "Spec part N" below is its numbering. All of the design's questions are answered
+(2026-11-16): Part 8 is built, on the watcher's own paid key; Cursor's text stays out for good; recorded vendor text lives in a
+private place, never in this repository.
 
 **Written against** kitden-sdlc `main` at `7bc1432` and agent-docs `main` at `a9ea802`
 (2026-11-16). Every function and file a task names under "Consumes" is in that code or is
@@ -76,13 +76,13 @@ the truth, this plan is a map.
 - A fact about a client comes from Agent Docs or the vendor's page, with the address and the
   date; a subagent that cannot reach them writes `not checked`.
 - No vendor text is committed. The recorded eval passages (Task 8.8) and the recorded
-  packs (Task 9.3) stay out of git until the owner answers questions 11 and 6: until then
-  they live in a path given on the command line (a local folder, or a private store the
-  owner names), and the eval reads them from there. Fixtures for doc pages, and the planted
+  packs (Task 9.3) are never in git (the owner's answer to questions 11 and 6): they live in
+  a path given on the command line (a local folder, or a private store the owner names), and
+  the eval reads them from there. Fixtures for doc pages, and the planted
   passages of the injection tasks, are written by hand, a few lines each, and are in git.
-  The memory keeps hashes only. No Cursor text reaches the judge, the reviewers or a
-  recorded file until the owner answers question 4 (`doc_address.NO_TEXT_CLIENTS`, Task
-  6.3).
+  The memory keeps hashes only. No Cursor text ever reaches the judge, the reviewers or a
+  recorded file (`doc_address.NO_TEXT_CLIENTS`, Task 6.3; the owner's answer to question
+  4).
 - Agent Docs down, asleep or wrong must leave the watcher's run green and its other pieces
   judged. Every task that reads from it has a test for that.
 - A change to a prompt, a skill or a model comes with its eval table, before and after, in
@@ -179,9 +179,9 @@ Merged on 2026-11-15 and 2026-11-16. The spec's "Built" notes say what each sett
 | 5 — the list check | 5 | KonstantinStarovoytov/kitden-sdlc#43, KonstantinStarovoytov/kitden#119 |
 | On the way | | KonstantinStarovoytov/kitden-sdlc#42 (uv runs from the temp folder in `check.yml`), KonstantinStarovoytov/kitden#115 (rows CC-04 and CX-09 were real bugs) |
 
-Left open by them, for the owner (spec question 8): no `WATCH_COHERE_KEY` is saved yet.
-Spec question 7 is answered: KonstantinStarovoytov/kitden-sdlc#44 lets the watcher read
-`developers.openai.com/plugins/`.
+Since then: `WATCH_COHERE_KEY` is saved, a paid key of the watcher's own (question 8);
+KonstantinStarovoytov/kitden-sdlc#44 lets the watcher read `developers.openai.com/plugins/`
+(question 7); parts 6 and 7 are merged (#47, #48, #50).
 
 Parts 6 to 10 do not wait for each other. Task 6.3 is a small pull request of its own that
 Parts 6, 7, 8 and 9 need; do it first.
@@ -774,11 +774,11 @@ docs=None)` and `--docs docs.json`. A finding that has a link carries it as `"do
 **Interfaces:** Passages depend on the row alone, and the judge may pick any row, so they
 are recorded by row, not by task (spec part 3, changed 2026-11-16). The recording is one
 file, `{<client>: {<the row's What as the list writes it>: [{"url", "heading", "text"}]}}`.
-It is vendors' text and is **not in git** until the owner answers questions 11 and 6: its
+It is vendors' text and is **never in git** (the owner's answer to questions 11 and 6): its
 path is given on the command line and has no default. `watch_run.py` gains
 - `--docs off|replay|record` (default `off`) and `--docs-file <path>`, required with
-  `replay` and `record`, refused when it lies inside the repository while the questions are
-  open (a constant `RECORDED_IN_GIT = False`, with a comment naming the questions);
+  `replay` and `record`, refused when it lies inside the repository (a constant
+  `RECORDED_IN_GIT = False`, with a comment naming the owner's answer to questions 6 and 11);
 - `docs_for(task, task_input, recorded) -> dict[tuple[str, str], list[dict]]`. A task file
   may hold its own `"docs": {<row What>: [passages]}`; for that task those rows win over
   the recording. This is how an injection task gets its planted passage without any other

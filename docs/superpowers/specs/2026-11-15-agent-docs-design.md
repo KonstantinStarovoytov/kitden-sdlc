@@ -822,39 +822,34 @@ how a section is found again by its heading in the eval replay.
 
 ## Questions for the owner
 
-1. **Answered, 2026-11-16: yes, build part 3.** It is built on the owner's trial Cohere key,
-   as `WATCH_COHERE_KEY`, behind `WATCH_DOCS`, off by default. The owner accepts for now the
-   risk that this goes against the trial key's terms (part 11) and swaps in a paid key
-   later. The eval decides whether it ships.
-2. The feed makes the watcher depend on Agent Docs for one kind of news (new pages, new
-   sections). When Agent Docs is down the watcher says so after three days. Enough?
-3. `feed.json` changes every day, so Agent Docs gets one commit a day even when no page
-   changed. Fine, or should `checked` live elsewhere?
-4. Cursor's terms: ask Cursor for leave, accept the risk, or keep Cursor's text out of
-   parts 3 and 7 for good?
-5. Agent Docs' own fallback key and guest token on trial keys: keep, or move the server to a
-   paid key (about $2 to $4 a month)?
-6. The watcher's eval tasks already hold about 183 thousand characters of vendors' text in a
-   public repository. Keep, or move them out?
+All answered by 2026-11-16.
 
-New on 2026-11-16:
-
-7. Answered 2026-11-16: the owner chose to allow the page. KonstantinStarovoytov/kitden-sdlc#44
-   added the path start `/plugins/` for `developers.openai.com` to `config/doc-hosts.yml`, so
-   the watcher reads `https://developers.openai.com/plugins/build/plugins` (kitden#115's
-   `Source` for CX-09).
-8. Is the watcher's Cohere key a key of its own, or the one Agent Docs' server already
-   uses? Part 12 asks for its own, so it can be taken back alone.
-9. Part 8 changed in two ways (marked there): the watcher reads every page of the stores'
-   rules itself, since Agent Docs holds none of them; and a page that is gone is told after
-   three failed days, not at once. Fine?
-10. Parts 3 and 7 now leave out a passage or a section that holds a long random string,
-    where the first text had the posting job read the reviewers' doc file to know such a
-    string. Fine?
-11. The evals of parts 3 and 7 need recorded vendors' text: passages for every row of
-    Claude Code and Codex (up to about 0.3 MB) and the reviewers' packs. May they be in the
-    public repository, on top of what question 6 asks about? Until you answer, they are
-    not: they stay where you keep them and the tables are run by hand.
+1. **Yes, build part 3.** It runs behind `WATCH_DOCS`, off by default, and the eval decides
+   whether it ships. Its key `WATCH_COHERE_KEY` is a paid key since 2026-11-16, so the trial
+   key's terms (part 11) no longer apply to it.
+2. **The feed's dependence on Agent Docs:** accepted as designed, by merging the feed
+   (KonstantinStarovoytov/agent-docs#68, KonstantinStarovoytov/kitden-sdlc#48). The watcher
+   says so after three days when the feed cannot be read.
+3. **One commit a day in Agent Docs:** accepted, by merging agent-docs#68.
+4. **Cursor:** keep Cursor's doc text out for good. It is never given to a model and never
+   stored; `doc_address.NO_TEXT_CLIENTS = ("cursor",)` stays, and Cursor pages are only
+   counted.
+5. **Agent Docs' own keys:** the owner's calls run on a paid Cohere key; everyone else
+   brings their own key in `X-Cohere-Api-Key`; no guest token and no fallback key on the
+   server. The evals and the daily smoke check use a trial key, which is what a trial key
+   is for (KonstantinStarovoytov/agent-docs#69).
+6. **Vendors' text already in the public repository:** move it out. The watcher's eval tasks
+   keep their vendor text in a private place, not in kitden-sdlc.
+7. **The plugins page:** allowed. KonstantinStarovoytov/kitden-sdlc#44 added the path start
+   `/plugins/` for `developers.openai.com` to `config/doc-hosts.yml`.
+8. **The watcher's key:** a key of its own, not the server's, so each can be taken back
+   alone.
+9. **Part 8's two changes:** accepted, by merging KonstantinStarovoytov/kitden-sdlc#50.
+10. **Passages with a long random string left out:** accepted, by merging
+    KonstantinStarovoytov/kitden-sdlc#47.
+11. **Recorded vendors' text for the evals of parts 3 and 7:** not in the public repository,
+    like question 6. Recordings live in a private place and the evals read them from a path
+    given on the command line.
 
 ## Checked facts
 
