@@ -271,9 +271,10 @@ jobs:
           version: "0.10.10"
       # MAX_MODEL_CALLS is the limit for each task. A long piece can touch many rows, and each
       # one is a call or two, so 30 (evals/watch/README.md). The model named in
-      # `model` uses its maker's key: OpenAI's, or Anthropic's for a `claude-` model. With the
-      # Langfuse keys the run is also an experiment there, with traces and the scores of each
-      # task; without them it is off.
+      # `model` uses its maker's key: OpenAI's, or Anthropic's for a `claude-` model. The task
+      # files hold no vendor text: it comes from the Langfuse dataset `watch-eval`, so the job
+      # needs the Langfuse keys; without them it stops before any model call. The run is also
+      # an experiment there, with traces and the scores of each task.
       - name: Judge the tasks
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -291,7 +292,7 @@ jobs:
           LANGFUSE_RELEASE: ${{ github.sha }}
         run: >-
           uv run --locked --only-group watch --only-group watch-io python evals/watch_run.py
-          --kitden kitden --tasks evals/watch/tasks --out eval-out
+          --kitden kitden --tasks evals/watch/tasks --out eval-out --texts langfuse
       # Score and keep what there is, also when the tasks step failed or ran out of time.
       - name: Score
         if: always()

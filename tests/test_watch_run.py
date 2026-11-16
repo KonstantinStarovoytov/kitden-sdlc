@@ -9,8 +9,9 @@ import pytest
 
 import watch_run
 import watch_trace
-from watch_run import dataset_items, run_name, run_tasks
+from watch_run import run_name, run_tasks
 from watch_score import load_tasks
+from watch_texts import TextsError, dataset_items, split_task, write_folder
 
 LIST_TEXT = (
     "## Claude Code\n\n| What | Kind | Files | Seen in | macOS and Linux | Source |\n"
@@ -23,10 +24,11 @@ PIECE = {"id": "s#1", "client": "claude-code", "kind": "release", "version": "1"
 
 class Fake:
     def __init__(self):
-        self.pieces = []
+        self.pieces, self.texts = [], []
 
     def screen(self, piece, list_text, known_titles):
         self.pieces.append(piece["id"])
+        self.texts.append(piece["text"])
         return [{"row": "the `skillOverrides` key", "title": "t", "changed": "c",
                  "user_gets": "u", "sure": False, "why": "w", "quote": piece["text"]}]
 
@@ -181,7 +183,7 @@ def test_a_langfuse_failure_does_not_fail_the_run(tmp_path, monkeypatch, capsys)
     run_tasks(folder, kitden, out, model, 10, "gpt-test")
     assert model.pieces == ["s#1", "s#2"]
     assert (out / "002-b/findings.json").exists()
-    assert "langfuse failed: ConnectionError\n" in capsys.readouterr().err
+    assert "Langfuse failed: ConnectionError\n" in capsys.readouterr().err
 
 
 def test_without_keys_nothing_of_langfuse_is_imported(tmp_path, monkeypatch, capsys):
@@ -251,3 +253,48 @@ def test_a_pinned_task_reads_kitden_as_it_was_at_its_commit(tmp_path):
     assert inp["release"] == "v1" and inp["list"] == LIST_TEXT
     unpinned = watch_run.build_task_input(PIECE, kitden)
     assert unpinned["files"]["src/skills.py"]["text"] == "new = 2\n"
+
+
+def split_setup(tmp_path, *tasks):
+    """The tasks written without their text; the texts in their own folder."""
+    kitden, folder, out = setup(tmp_path, *(split_task(t)[0] for t in tasks))
+    texts = tmp_path / "texts"
+    write_folder(texts, {t["id"]: t["piece"]["text"] for t in tasks})
+    return kitden, folder, out, texts
+
+
+ONE = {**TOUCHED, "piece": {**PIECE, "text": "one note"}}
+TWO = {**UNTOUCHED, "piece": {**UNTOUCHED["piece"], "text": "two note"}}
+
+
+def test_run_reads_the_texts_from_the_folder_before_any_model_call(tmp_path):
+    kitden, folder, out, texts = split_setup(tmp_path, ONE, TWO)
+    assert "text" not in load_tasks(folder)[0]["piece"]
+    model = Fake()
+    run_tasks(folder, kitden, out, model, 10, texts=str(texts))
+    assert model.pieces == ["s#1", "s#2"] and model.texts == ["one note", "two note"]
+    assert (out / "001-a/findings.json").exists() and (out / "002-b/findings.json").exists()
+
+
+def test_a_missing_text_stops_the_run_before_any_model_call(tmp_path):
+    kitden, folder, out, texts = split_setup(tmp_path, ONE, TWO)
+    (texts / "002-b.json").unlink()
+    model = Fake()
+    with pytest.raises(TextsError, match="no text for 002-b"):
+        run_tasks(folder, kitden, out, model, 10, texts=str(texts))
+    assert model.pieces == [] and not list(tmp_path.rglob("findings.json"))
+
+
+def test_main_with_langfuse_texts_and_no_keys_exits_1_with_one_line(tmp_path, monkeypatch,
+                                                                     capsys):
+    kitden, folder, out, _ = split_setup(tmp_path, ONE)
+    model = Fake()
+    model.name = "gpt-test"
+    monkeypatch.setenv("WATCH_MODEL", "gpt-test")
+    monkeypatch.setattr(watch_run, "chat_model", lambda name: model)
+    monkeypatch.setattr(sys, "argv", ["watch_run.py", "--kitden", str(kitden), "--tasks",
+                                      str(folder), "--out", str(out), "--texts", "langfuse"])
+    with pytest.raises(SystemExit) as stop:
+        watch_run.main()
+    assert stop.value.code == 1 and model.pieces == []
+    assert capsys.readouterr().err == "Langfuse keys are not set\n"

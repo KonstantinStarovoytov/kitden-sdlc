@@ -176,6 +176,12 @@ def test_the_watch_input_artifact_takes_the_input_and_the_shadow_rows():
     assert upload["with"]["if-no-files-found"] == "error"
 
 
+def test_the_eval_job_reads_the_texts_from_langfuse():
+    doc = yaml.safe_load((WORKFLOWS / "watch.yml").read_text())
+    run = " ".join(_step(doc, "eval", "Judge the tasks")["run"].split())
+    assert "python evals/watch_run.py " in run and " --texts langfuse" in run
+
+
 # --- Guards that LOG.md names. Each is a function of the file's text, so a negative case can
 # --- check the same function on a copy of the text with the guard cut out.
 

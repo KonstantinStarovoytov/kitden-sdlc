@@ -1,10 +1,12 @@
 import json
 import subprocess
+import sys
 
 import bot_issues
 import watch_harvest
 from watch_harvest import harvest
 from watch_pages import Section
+from watch_texts import sha, split_task
 
 ADDRESS = "https://github.com/o/kitden/issues/7"
 PID = "claude-code-changelog#2.1.320"
@@ -161,3 +163,23 @@ def test_the_feed_source_of_the_config_changes_nothing_here(monkeypatch):
                  "version": "", "url": "https://code.claude.com/docs/en/x"}
     pieces = watch_harvest._fetch_pieces([LINE, feed_line], config)
     assert list(pieces) == [PID] and calls == ["claude-code-changelog"]
+
+
+def test_harvest_writes_the_task_without_text_and_the_text_to_the_folder(tmp_path, monkeypatch,
+                                                                       capsys):
+    tasks, texts, archive = tmp_path / "tasks", tmp_path / "texts", tmp_path / "archive.jsonl"
+    tasks.mkdir()
+    archive.write_text(json.dumps(LINE) + "\n")
+    monkeypatch.setattr(watch_harvest, "_issues", lambda repo: [issue(7, "confirmed")])
+    monkeypatch.setattr(watch_harvest, "_fetch_pieces", lambda archive, sources: {PID: PIECE})
+    monkeypatch.setattr(sys, "argv", ["watch_harvest.py", "--repo", "o/kitden", "--archive",
+                                      str(archive), "--tasks", str(tasks), "--texts", str(texts)])
+    watch_harvest.main()
+    made = harvest([issue(7, "confirmed")], [LINE], {PID: PIECE})[0][0]
+    assert json.loads((tasks / "issue-7/task.json").read_text()) == split_task(made)[0]
+    assert json.loads((texts / "issue-7.json").read_text()) == {
+        "id": "issue-7", "sha256": sha("text"), "text": "text"}
+    assert capsys.readouterr().out.splitlines() == [
+        "made 1 tasks: issue-7",
+        "upload their text: uv run --locked --only-group watch --only-group watch-io python "
+        f"evals/watch_texts.py upload --tasks {tasks} --folder {texts}"]

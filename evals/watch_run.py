@@ -1,15 +1,17 @@
 """Run the watcher's judge on the watch tasks and save what it finds.
 
 Usage: watch_run.py --kitden <clone> --tasks evals/watch/tasks --out <folder>
+                    --texts langfuse|<folder>
 
 For each task: an input.json built the way watch_fetch.py builds it (the clone's
 docs/clients.md and the files it names, the task's piece), the judge run on it, and
 <folder>/<id>/findings.json saved. WATCH_RUNS (default 1) runs all the tasks that many times,
 into <folder>/run-<n>/, since one run says little about a judge that varies. MAX_MODEL_CALLS
 is the limit for each task, as for one run of the judge. It needs WATCH_MODEL and its maker's
-key: OPENAI_API_KEY, or ANTHROPIC_API_KEY for a `claude-` model. With the Langfuse keys set,
-each run is also an experiment on the Langfuse dataset `watch-eval`, with the scores of each
-task.
+key: OPENAI_API_KEY, or ANTHROPIC_API_KEY for a `claude-` model. The task files hold no text:
+--texts reads it from the Langfuse dataset `watch-eval` or a folder (watch_texts.py), and a
+text missing or changed stops the run before any model call. With the Langfuse keys set, each
+run is also an experiment on that dataset, with the scores of each task.
 """
 
 import argparse
@@ -27,7 +29,7 @@ from watch_fetch import _git, build_input  # noqa: E402
 from watch_judge import MAX_MODEL_CALLS, chat_model, judge  # noqa: E402
 from watch_list import parse_list  # noqa: E402
 from watch_score import load_tasks, task_scores  # noqa: E402
-from watch_texts import DATASET, dataset_items  # noqa: E402
+from watch_texts import DATASET, TextsError, load, upload  # noqa: E402
 
 
 def _at(kitden, commit: str, name: str) -> str | None:
@@ -88,13 +90,8 @@ def experiment(tasks: list[dict], run_one, model_name: str, run: int = 0) -> Non
     watch_trace.setup()
     from langfuse import Evaluation, get_client
 
+    upload(tasks)
     lf = get_client()
-    try:
-        lf.api.datasets.get(dataset_name=DATASET)
-    except Exception:  # noqa: BLE001 - not there yet; a real failure fails the create too
-        lf.create_dataset(name=DATASET, description="The tasks of evals/watch/tasks.")
-    for item in dataset_items(tasks):
-        lf.create_dataset_item(dataset_name=DATASET, **item)
     by_id = {t["id"]: t for t in tasks}
     items = [i for i in lf.get_dataset(DATASET).items if i.id in by_id]
 
@@ -112,8 +109,11 @@ def experiment(tasks: list[dict], run_one, model_name: str, run: int = 0) -> Non
 
 
 def run_tasks(tasks_dir, kitden, out, model, max_calls: int, model_name: str = "",
-              runs: int = 1) -> None:
+              runs: int = 1, texts: str | None = None) -> None:
+    """`texts` (langfuse or a folder) gives the tasks their text; None: the files hold it."""
     tasks = load_tasks(tasks_dir)
+    if texts is not None:
+        tasks = load(texts, tasks)
     for k in range(1, runs + 1):
         where, run = (Path(out) / f"run-{k}", k) if runs > 1 else (Path(out), 0)
         _one_run(tasks, kitden, where, model, max_calls, model_name, run)
@@ -129,6 +129,8 @@ def _one_run(tasks, kitden, out, model, max_calls: int, model_name: str, run: in
     if watch_trace.enabled():
         try:
             experiment(tasks, one, model_name, run)
+        except TextsError as e:  # its message names the error's type, never a key
+            print(e, file=sys.stderr)
         except Exception as e:  # noqa: BLE001 - Langfuse must never stop the eval
             watch_trace.warn(e)
     # Without Langfuse, or for what its experiment did not finish.
@@ -139,7 +141,7 @@ def _one_run(tasks, kitden, out, model, max_calls: int, model_name: str, run: in
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    for name in ("kitden", "tasks", "out"):
+    for name in ("kitden", "tasks", "out", "texts"):
         ap.add_argument(f"--{name}", required=True)
     a = ap.parse_args()
     name = os.environ.get("WATCH_MODEL")
@@ -150,9 +152,12 @@ def main() -> None:
     runs = int(os.environ.get("WATCH_RUNS") or 1)
     try:
         model = chat_model(name)
-        run_tasks(a.tasks, a.kitden, a.out, model, max_calls, model.name, runs)
+        run_tasks(a.tasks, a.kitden, a.out, model, max_calls, model.name, runs, a.texts)
         if hasattr(model, "summary"):  # Claude counts its tokens and their cost
             print(model.summary(), flush=True)
+    except TextsError as e:
+        print(e, file=sys.stderr)
+        raise SystemExit(1) from None
     finally:
         watch_trace.flush()
 

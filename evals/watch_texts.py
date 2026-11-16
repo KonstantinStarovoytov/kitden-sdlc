@@ -111,7 +111,7 @@ def upload(tasks_with_text: list[dict]) -> None:
 
 
 def dataset_items(tasks: list[dict]) -> list[dict]:
-    """The Langfuse dataset items, made from the task files: the repo is the source."""
+    """The Langfuse dataset items: the answers from the task files, the text from its source."""
     return [{"id": t["id"], "input": t["piece"], "expected_output": t["expect"],
              "metadata": {"id": t["id"], "kind": t["kind"], "source": t["source"]}}
             for t in tasks]
