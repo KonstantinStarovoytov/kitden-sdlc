@@ -94,8 +94,14 @@ def list_facts(text: str) -> tuple[list[Fact], int]:
     an install or in a client's own code, so it does not count: a row with only such dates
     is counted with the rows with no date.
     """
+    facts, undated = scan_list(text)
+    return facts, len(undated)
+
+
+def scan_list(text: str) -> tuple[list[Fact], list[str]]:
+    """list_facts, with the ids of the rows with an address and no date, in list order."""
     facts: list[Fact] = []
-    undated = 0
+    undated: list[str] = []
     for row_id, (_, client, cells) in row_places(text).items():
         what, seen_in, source = cells[0], cells[3], cells[5]
         address = page_address(source)
@@ -106,7 +112,7 @@ def list_facts(text: str) -> tuple[list[Fact], int]:
         if days:
             facts.append(Fact(address, max(days), row_id, client))
         else:
-            undated += 1
+            undated.append(row_id)
     return facts, undated
 
 
@@ -135,9 +141,16 @@ def rule_facts(text: str) -> tuple[list[Fact], int]:
     Each address in a block with a date is a fact, once a block. Its label is the "## "
     heading above, through clean_heading, and the mark's line number, from 1 as git counts.
     """
+    facts, skipped = scan_rules(text)
+    return facts, len(skipped)
+
+
+def scan_rules(text: str) -> tuple[list[Fact], list[int]]:
+    """rule_facts, with the line number of each thing skipped (a mark that gives no fact, a
+    date inside a sentence), in order; a line can come twice."""
     lines = text.split("\n")
     facts: list[Fact] = []
-    skipped = 0
+    skipped: list[int] = []
     heading = ""
     for number, line in enumerate(lines, start=1):
         if line.startswith("## "):
@@ -149,11 +162,13 @@ def rule_facts(text: str) -> tuple[list[Fact], int]:
         addresses = [a for one in block for found in ADDRESS.findall(one)
                      if (a := _address(found))]
         if not day or not addresses:
-            skipped += 1
+            skipped.append(number)
             continue
         label = f"{heading}, line {number}" if heading else f"line {number}"
         facts.extend(Fact(a, day, label, RULES_CLIENT) for a in dict.fromkeys(addresses))
-    return facts, skipped + len(IN_SENTENCE.findall(text))
+    # A date in a sentence may run over a line break: its line is where it starts.
+    skipped += [text.count("\n", 0, found.start()) + 1 for found in IN_SENTENCE.finditer(text)]
+    return facts, sorted(skipped)
 
 
 def page_hash(sections: list[Section]) -> str:
@@ -163,40 +178,53 @@ def page_hash(sections: list[Section]) -> str:
     return hashlib.sha256(json.dumps(pairs).encode()).hexdigest()
 
 
-def _title(address: str, end: str = TITLE_END) -> str:
-    """"<address><end>", under 80 characters: by default "<address> changed after its facts
-    were checked".
+def _title(address: str, end: str = TITLE_END, start: str = "") -> str:
+    """"<start><address><end>", under 80 characters: by default "<address> changed after its
+    facts were checked".
 
     When the whole address does not fit, or may not be shown, the longest tail of its path
     parts that fits stands for it ("plugins/install"), each part through clean_heading; when
     not even the last part fits, the last part is cut. An address with no path uses its host.
     """
     if SHOWABLE.fullmatch(address):
-        title = _quiet(address + end, TITLE_MAX)
+        title = _quiet(start + address + end, TITLE_MAX)
         if len(title) <= TITLE_LONGEST:
             return title
-    room = TITLE_LONGEST - len(end)
+    room = TITLE_LONGEST - len(start) - len(end)
     host, _, path = address.removeprefix("https://").partition("/")
     parts = ([c for p in path.split("/") if (c := clean_heading(p))]
              or [c for c in (clean_heading(host),) if c] or ["A page"])
-    for start in range(len(parts)):
-        tail = _quiet("/".join(parts[start:]), TITLE_MAX)
+    for first in range(len(parts)):
+        tail = _quiet("/".join(parts[first:]), TITLE_MAX)
         if len(tail) <= room:
-            return tail + end
-    return _quiet(parts[-1], room) + end
+            return start + tail + end
+    return start + _quiet(parts[-1], room) + end
+
+
+def _changed(day: str, labels: list[str]) -> str:
+    """"The page changed on <day>, after these n facts were checked: <labels>." in at most
+    TEXT_MAX characters, as _quiet writes them: whole labels only, at most LABELS_SHOWN, then
+    "and n more". When not even one label fits, it says so."""
+    which = ("after this fact was checked" if len(labels) == 1
+             else f"after these {len(labels)} facts were checked")
+    head = f"The page changed on {day}, {which}: "
+    for shown in range(min(len(labels), LABELS_SHOWN), 0, -1):
+        rest = len(labels) - shown
+        named = "; ".join(labels[:shown]) + (f" and {rest} more" if rest else "")
+        raw = f"{head}{named}."
+        # No cut here: _quiet makes a text at most twice as long (one character an "@").
+        text = _quiet(raw, 2 * len(raw))
+        if len(text) <= TEXT_MAX:
+            return text
+    return _quiet(f"{head}their labels are too long to name here.", TEXT_MAX)
 
 
 def _item(address: str, day: str, old: list[Fact]) -> dict:
     labels = list(dict.fromkeys(f.label for f in old))
-    named = "; ".join(labels[:LABELS_SHOWN])
-    if len(labels) > LABELS_SHOWN:
-        named += f" and {len(labels) - LABELS_SHOWN} more"
-    which = ("after this fact was checked" if len(labels) == 1
-             else f"after these {len(labels)} facts were checked")
     return {
         "effect": "outdated", "severity": "minor", "sure": True,
         "title": _title(address), "client": old[0].client,
-        "changed": _quiet(f"The page changed on {day}, {which}: {named}.", TEXT_MAX),
+        "changed": _changed(day, labels),
         "fix": _quiet(FIX, TEXT_MAX), "why": _quiet(WHY, TEXT_MAX),
         "user_gets": "not checked", "systems": "", "row": "", "files": [],
         "version": "", "url": address if SHOWABLE.fullmatch(address) else "",

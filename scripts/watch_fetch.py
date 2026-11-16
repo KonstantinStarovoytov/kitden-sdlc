@@ -19,6 +19,7 @@ import doc_address
 from doc_address import (
     NO_TEXT_CLIENTS,
     SHOWABLE,
+    Page,
     allowed,
     client_of,
     load_hosts,
@@ -44,10 +45,10 @@ from watch_stale import (
     RULES_CLIENT,
     Fact,
     _title,
-    list_facts,
     page_address,
     page_hash,
-    rule_facts,
+    scan_list,
+    scan_rules,
     stale,
 )
 
@@ -57,6 +58,9 @@ MANIFEST_MAX = 5 * 1024 * 1024  # bytes; a larger manifest is a failed read
 FAIL_DAYS = 3
 # 2: doc pages are read as markdown. A memory with a lower number holds hashes of HTML
 # sections, so its doc pages are filled again, quietly, as if new.
+# A bump also changes the whole-page hash of every list page in `fact_pages` (plan_stale),
+# so each would look changed that day and come back in the weekly summary as stale. In the
+# same change, empty `fact_pages` when `doc_format` is lower, so its pages start again as new.
 DOC_FORMAT = 2
 # Seconds for every doc page read of a run. The job has 15 minutes, and the releases and the
 # list's files come before the pages. A page not started in time waits for tomorrow: it is
@@ -126,17 +130,28 @@ def _unreadable(meta: dict, source: str) -> dict:
     }
 
 
-def _out_of_time(addresses: list[str], pages: dict[str, str]) -> dict:
-    """One item for the doc pages that reached FAIL_DAYS skipped runs in one run. The title
-    stays short (the summary's table cuts at 80 characters); the text lists the pages."""
+def _out_of_time(addresses: list[str], pages: dict[str, str], noun: str = "doc page") -> dict:
+    """One item for the pages (doc pages, or rule pages with `noun`) that reached FAIL_DAYS
+    skipped runs in one run. The title stays short (the summary's table cuts at 80
+    characters); the text lists the pages."""
     count = len(addresses)
-    pages_were = "1 doc page was" if count == 1 else f"{count} doc pages were"
+    pages_were = f"1 {noun} was" if count == 1 else f"{count} {noun}s were"
     clients = {pages[a] for a in addresses}
     listed = ", ".join(f"`{a}`" for a in addresses)
     return {**_unreadable({"client": clients.pop() if len(clients) == 1 else "", "url": ""},
-                          "doc pages"),
+                          f"{noun}s"),
             "title": f"{pages_were} not read for {FAIL_DAYS} runs: out of time",
             "changed": f"Each of the last {FAIL_DAYS} runs ran out of time before {listed}."}
+
+
+def _rule_unreadable(meta: dict, source: str) -> dict:
+    """The "Cannot read" item of a rule page: its title is built as watch_stale builds titles
+    (under 80 characters, the tail of the path when the address is long), and the address is
+    only in `url`, when SHOWABLE matches it."""
+    return {**_unreadable(meta, source),
+            "title": _title(source, f" for {FAIL_DAYS} days", "Cannot read "),
+            "changed": "This page of the store rules could not be read.",
+            "url": source if SHOWABLE.fullmatch(source) else ""}
 
 
 def _start(state, count: int, key: str = "page_start") -> int:
@@ -156,27 +171,35 @@ def page_order(state, pages, key: str = "page_start") -> list[str]:
     return order[start:] + order[:start]
 
 
-def plan_skips(state, pages: dict[str, str], read: int) -> dict:
+# The memory's keys for each kind of page read in turns: where the next run starts, the runs
+# in a row each page was left unread, and the word for the page in the summary's item.
+DOC_TURNS = ("page_start", "skips", "doc page")
+RULE_TURNS = ("rule_start", "rule_skips", "rule page")
+
+
+def plan_skips(state, pages: dict[str, str], read: int, turns=DOC_TURNS) -> dict:
     """The memory after a run that started `read` pages of page_order(state, pages).
 
-    `page_start` moves to the first page left unread, or stays when every page was read.
-    `skips` counts, for each page left unread, the runs in a row that left it unread; a page
-    whose read was started is dropped from it, and so is a page that left the list. The
-    pages that reach their third run in a row today go to `kept` as one item, so a slow site
-    makes one line of the summary, not one for each page.
+    The start (`page_start`, or `rule_start` with RULE_TURNS) moves to the first page left
+    unread, or stays when every page was read. The skips (`skips`, or `rule_skips`) count,
+    for each page left unread, the runs in a row that left it unread; a page whose read was
+    started is dropped from it, and so is a page that left the list. The pages that reach
+    their third run in a row today go to `kept` as one item, so a slow site makes one line of
+    the summary, not one for each page.
     """
+    start_key, skips_key, noun = turns
     new = copy.deepcopy(state)
-    order = page_order(state, pages)
-    new["page_start"] = (_start(state, len(order)) + read) % len(order) if order else 0
-    old = state.get("skips") if isinstance(state.get("skips"), dict) else {}
-    new["skips"] = {}
+    order = page_order(state, pages, key=start_key)
+    new[start_key] = (_start(state, len(order), start_key) + read) % len(order) if order else 0
+    old = state.get(skips_key) if isinstance(state.get(skips_key), dict) else {}
+    new[skips_key] = {}
     for address in order[read:]:
         count = old.get(address, 0)
-        new["skips"][address] = (count if type(count) is int else 0) + 1
+        new[skips_key][address] = (count if type(count) is int else 0) + 1
     # == and not >=: a page is in the item of the run it reaches its third skip, not again.
-    third = [address for address, count in new["skips"].items() if count == FAIL_DAYS]
+    third = [address for address, count in new[skips_key].items() if count == FAIL_DAYS]
     if third:
-        new["kept"].append(_out_of_time(third, pages))
+        new["kept"].append(_out_of_time(third, pages, noun))
     return new
 
 
@@ -201,7 +224,8 @@ def plan_run(state, fetched, meta):
         found = fetched.get(sid)
         if found is None:
             new["fails"][sid] = new["fails"].get(sid, 0) + 1
-            item = _unreadable(meta[sid], sid)
+            unreadable = _rule_unreadable if meta[sid]["kind"] == "rule-page" else _unreadable
+            item = unreadable(meta[sid], sid)
             if new["fails"][sid] == FAIL_DAYS and all(
                 k["title"] != item["title"] for k in new["kept"]
             ):
@@ -696,10 +720,12 @@ def read_rule_page(address: str, hosts, handlers=()) -> list[Section]:
 
     An address the config's `hosts` allow is read as any doc page (get_doc). Any other is read
     at rule_read_address(address) only, with that address's host and path as the one allowed
-    pair: a redirect to another host, or out from under that path, raises ValueError before it
-    is followed, and so does an address with a user, a port or a query. The pair is used for
-    this read only; `hosts` is not changed. `handlers` go into the opener: tests use them to
-    answer without the network. Raises like doc_address.read.
+    pair, a doc_address.Page: a redirect is followed only to the same path, or below it by
+    whole path parts ("/submit/", never "/submitx"), and only to the root for a page at the
+    root. Any other redirect raises ValueError before it is followed, and so does an address
+    with a user, a port or a query. The pair is used for this read only; `hosts` is not
+    changed. `handlers` go into the opener: tests use them to answer without the network.
+    Raises like doc_address.read.
     """
     if allowed(address, hosts):
         body, ctype, _ = get_doc(address, hosts, make_opener(hosts, True, *handlers))
@@ -708,20 +734,22 @@ def read_rule_page(address: str, hosts, handlers=()) -> list[Section]:
     parts = urllib.parse.urlsplit(source)
     if not parts.hostname:
         raise ValueError("a rule page's address has no host")
-    pair = [(parts.hostname, parts.path)]
+    pair = [Page(parts.hostname, parts.path)]
     body, ctype, _ = doc_address.read(source, pair, make_opener(pair, True, *handlers))
     return sections(body, ctype)
 
 
 class RuleReads(NamedTuple):
     """What read_rules read: each page read and its sections (None for a failed read), the
-    hash of each page whose hash is sure today, the pages whose two reads differed, and how
-    many pages of the order were done."""
+    hash of each page whose hash is sure today, the pages whose two reads differed, how many
+    pages of the order were done, and why the reads stopped: "cap" (RULE_PAGES_MAX), "time",
+    or "" when every page was done."""
 
     fetched: dict[str, list[Section] | None]
     hashes: dict[str, str]
     unstable: set[str]
     done: int
+    stopped: str
 
 
 def read_rules(order: list[str], known: dict[str, str], reader, in_time) -> RuleReads:
@@ -737,12 +765,17 @@ def read_rules(order: list[str], known: dict[str, str], reader, in_time) -> Rule
     hashes: dict[str, str] = {}
     unstable: set[str] = set()
     reads = done = 0
+    stopped = ""
 
-    def room():
-        return reads < RULE_PAGES_MAX and in_time()
+    def stop() -> str:
+        """Why no more read may start now, or "" when one may. Asked when the reads would
+        stop, so the reason is the one at that moment."""
+        if reads >= RULE_PAGES_MAX:
+            return "cap"
+        return "" if in_time() else "time"
 
     for address in order:
-        if not room():
+        if stopped := stop():
             break
         found = reader(address)
         reads += 1
@@ -750,7 +783,7 @@ def read_rules(order: list[str], known: dict[str, str], reader, in_time) -> Rule
         if found is not None:
             first = page_hash(found)
             if known.get(address) != first:
-                if not room():
+                if stopped := stop():
                     break
                 again = reader(address)
                 reads += 1
@@ -764,7 +797,7 @@ def read_rules(order: list[str], known: dict[str, str], reader, in_time) -> Rule
                     continue
             hashes[address] = first
         done += 1
-    return RuleReads(fetched, hashes, unstable, done)
+    return RuleReads(fetched, hashes, unstable, done, stopped)
 
 
 def _read_feed_page(address, hosts, opener=None):
@@ -772,6 +805,32 @@ def _read_feed_page(address, hosts, opener=None):
     checks that address's client."""
     body, ctype, read_from = get_doc(address, hosts, opener)
     return sections(body, ctype), read_from
+
+
+# The skipped rows and rules the log line names, each kind; the rest are counted.
+SKIPPED_SHOWN = 20
+
+
+def _some(things: list, word: str) -> str:
+    """ "(<word> a, b and n more)": at most SKIPPED_SHOWN, or "" when there are none."""
+    if not things:
+        return ""
+    shown = ", ".join(str(t) for t in things[:SKIPPED_SHOWN])
+    more = f" and {len(things) - SKIPPED_SHOWN} more" if len(things) > SKIPPED_SHOWN else ""
+    return f" ({word}{shown}{more})"
+
+
+def facts_line(list_found: list[Fact], undated: list[str], rule_found: list[Fact],
+               skipped: list[int]) -> str:
+    """The log line of the facts: how many, and which were skipped for want of a date: the
+    list's row ids (watch_list's own ids, never the list's text) and the rules file's line
+    numbers, at most SKIPPED_SHOWN of each."""
+    rows = f"{len(undated)} row{'' if len(undated) == 1 else 's'} of the list"
+    lines = "line " if len(skipped) == 1 else "lines "
+    return (f"Facts with a page and a date: {len(list_found) + len(rule_found)} "
+            f"({len(list_found)} in the list, {len(rule_found)} in the rules); skipped for want "
+            f"of a date: {rows}{_some(undated, '')}, {len(skipped)} in the rules"
+            f"{_some(skipped, lines)}.")
 
 
 def read_or_none(sid, reader, address):
@@ -791,13 +850,10 @@ def main(argv=None, clock=time.monotonic):
     state = json.loads(Path(a.state).read_text()) if Path(a.state).is_file() else None
     list_text = (Path(a.kitden) / "docs/clients.md").read_text(encoding="utf-8")
     rows = parse_list(list_text)
-    list_found, undated = list_facts(list_text)
-    rule_found, skipped = rule_facts(RULES_FILE.read_text(encoding="utf-8"))
+    list_found, undated = scan_list(list_text)
+    rule_found, skipped = scan_rules(RULES_FILE.read_text(encoding="utf-8"))
     facts = list_found + rule_found
-    print(f"Facts with a page and a date: {len(facts)} ({len(list_found)} in the list, "
-          f"{len(rule_found)} in the rules); skipped for want of a date: {undated} "
-          f"row{'' if undated == 1 else 's'} of the list, {skipped} in the rules.",
-          file=sys.stderr)
+    print(facts_line(list_found, undated, rule_found, skipped), file=sys.stderr)
     fetched, meta = {}, {}
     hosts = load_hosts()
     today = date.today()
@@ -849,16 +905,17 @@ def main(argv=None, clock=time.monotonic):
     for address, found in got.fetched.items():
         meta[address] = {"client": RULES_CLIENT, "kind": "rule-page", "url": address}
         fetched[address] = found
-    if got.done < len(rule_order):
+    if got.stopped:
         # Left out of meta: plan_run counts no fail, and plan_stale keeps their entries.
-        why = (f"Out of time for rule pages after {PAGES_SECONDS} seconds" if not budget.left()
+        why = (f"Out of time for rule pages after {PAGES_SECONDS} seconds"
+               if got.stopped == "time"
                else f"{RULE_PAGES_MAX} reads of rule pages, the most a run, are used")
         print(f"{why}; left for tomorrow: {len(rule_order) - got.done}.", file=sys.stderr)
     pieces, new_state = plan_run(state, fetched, meta)
-    # plan_run keeps the memory's page_start, so plan_skips sees today's order.
+    # plan_run keeps the memory's page_start and rule_start, so plan_skips sees today's order.
     new_state = plan_skips(new_state, pages, done)
-    new_state["rule_start"] = ((_start(state, len(rule_order), "rule_start") + got.done)
-                               % len(rule_order) if rule_order else 0)
+    new_state = plan_skips(new_state, dict.fromkeys(rule_pages, RULES_CLIENT), got.done,
+                           RULE_TURNS)
     week = week_of(today)
     # A list page's hash is made from the sections read above: it is not read again.
     hashes: dict[str, str | None] = dict(got.hashes)

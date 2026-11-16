@@ -17,6 +17,8 @@ from watch_stale import (
     page_address,
     page_hash,
     rule_facts,
+    scan_list,
+    scan_rules,
     stale,
 )
 
@@ -423,15 +425,37 @@ def test_at_most_ten_labels_and_how_many_more():
                                f"checked: {shown} and 4 more.")
 
 
-def test_text_is_cut_by_quiet():
+def test_text_is_cut_by_quiet_at_whole_labels():
     long = "Shelf " + "x" * 74 + ", line 100"
     facts = [fact("https://docs.example.com/@team", label=f"{long}{n}", checked="2026-11-01")
              for n in range(12)]
     (item,) = stale(facts, {"https://docs.example.com/@team": "2026-11-02"})
-    assert len(item["changed"]) == TEXT_MAX
-    assert item["changed"].startswith("The page changed on 2026-11-02, after these 12 facts")
+    changed = item["changed"]
+    assert len(changed) <= TEXT_MAX
+    assert changed.startswith("The page changed on 2026-11-02, after these 12 facts were "
+                              "checked: ")
+    named = changed.removeprefix("The page changed on 2026-11-02, after these 12 facts were "
+                                 "checked: ")
+    shown, more = re.fullmatch(r"(.*) and (\d+) more\.", named).groups()
+    labels = shown.split("; ")
+    assert labels == [f"{long}{n}" for n in range(len(labels))]
+    assert len(labels) + int(more) == 12 and len(labels) < LABELS_SHOWN
     assert item["title"].startswith(f"https://docs.example.com/@{WORD_JOINER}team changed")
     assert item["url"] == "https://docs.example.com/@team"
+
+
+def test_a_label_with_a_mention_is_counted_at_its_quiet_length():
+    facts = [fact(label="@" * 70 + f" line {n}", checked="2026-11-01") for n in range(8)]
+    (item,) = stale(facts, {"https://docs.example.com/a": "2026-11-02"})
+    assert len(item["changed"]) <= TEXT_MAX and item["changed"].endswith(" more.")
+
+
+def test_when_no_label_fits_the_text_says_how_many_facts():
+    facts = [fact(label="y" * 700, checked="2026-11-01"), fact(label="z" * 700,
+                                                                checked="2026-11-01")]
+    (item,) = stale(facts, {"https://docs.example.com/a": "2026-11-02"})
+    assert item["changed"] == ("The page changed on 2026-11-02, after these 2 facts were "
+                               "checked: their labels are too long to name here.")
 
 
 @pytest.mark.parametrize(("length", "name"), [
@@ -548,3 +572,39 @@ def test_a_title_can_end_another_way_and_still_stays_under_80():
     long = "https://docs.example.com/" + "a" * 40 + "/plugins/install"
     assert _title(long, end) == "plugins/install" + end
     assert len(_title("https://docs.example.com/" + "b" * 400, end)) <= 79
+
+
+
+def test_scan_list_names_the_rows_with_an_address_and_no_date():
+    facts, undated = scan_list(LIST)
+    assert (facts, len(undated)) == list_facts(LIST)
+    # The three rows of test_list_facts_reads_rows_with_an_address_and_a_date, in list order.
+    assert undated == ["CC-02", "CC-05", "CC-06"]
+
+
+def test_scan_rules_gives_the_line_of_each_skipped_mark_and_sentence_date():
+    text = ("## A store\n\n- A rule.\n  Source: <https://e.example/a>.\n\n"
+            "Policy (checked 2026-11-12):\n\n"
+            "- A rule with no date.\n  Source: <https://e.example/b>.\n\n"
+            "- A rule with words only.\n  Source: the store's help. Checked: 2026-11-12.\n")
+    facts, lines = scan_rules(text)
+    # Line 4: a mark with no date (its block ends at the empty line). Line 6: a date inside a
+    # sentence. Line 9: no date again. Line 12: a date and no address.
+    assert facts == [] and lines == [4, 6, 9, 12]
+    assert (facts, len(lines)) == rule_facts(text)
+
+
+def test_scan_rules_agrees_with_rule_facts_on_the_fixture_and_the_real_file():
+    for path in (FIXTURE, REAL_RULES):
+        text = path.read_text(encoding="utf-8")
+        facts, lines = scan_rules(text)
+        assert (facts, len(lines)) == rule_facts(text) and lines == sorted(lines)
+
+
+def test_a_title_can_start_with_words_and_still_stays_under_80():
+    address = "https://docs.example.com/a"
+    assert _title(address, " for 3 days", "Cannot read ") == f"Cannot read {address} for 3 days"
+    long = "https://docs.example.com/" + "a" * 60 + "/plugins/install"
+    assert _title(long, " for 3 days", "Cannot read ") == "Cannot read plugins/install for 3 days"
+    assert len(_title("https://docs.example.com/" + "b" * 400, " for 3 days",
+                      "Cannot read ")) <= 79

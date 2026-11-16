@@ -11,6 +11,7 @@ import pytest
 from doc_address import (
     CONFIG,
     NO_TEXT_CLIENTS,
+    Page,
     allowed,
     clean_heading,
     client_of,
@@ -352,3 +353,54 @@ def test_cursor_is_the_one_client_whose_doc_text_is_kept_out():
 
     assert NO_TEXT_CLIENTS == ("cursor",)
     assert set(NO_TEXT_CLIENTS) <= set(CLIENTS.values())
+
+
+# A Page pair: one page, for a rule page outside the config (watch_fetch.read_rule_page)
+
+SUBMIT = Page("stores.example.org", "/rules/submit")
+
+
+@pytest.mark.parametrize("address, ok", [
+    ("https://stores.example.org/rules/submit", True),
+    ("https://stores.example.org/rules/submit/", True),
+    ("https://stores.example.org/rules/submit/part", True),
+    ("https://stores.example.org/rules/submitx", False),
+    ("https://stores.example.org/rules/submit-other", False),
+    ("https://stores.example.org/rules/", False),
+    ("https://stores.example.org/", False),
+    ("https://other.example.org/rules/submit", False),
+    ("https://stores.example.org/rules/submit?x=1", False),
+    ("https://stores.example.org/rules/submit/../other", False),
+])
+def test_a_page_pair_allows_its_path_and_whole_parts_under_it_only(address, ok):
+    assert allowed(address, [SUBMIT]) is ok
+
+
+@pytest.mark.parametrize("address, ok", [
+    ("https://stores.example.org/help/", True), ("https://stores.example.org/help/a", True),
+    ("https://stores.example.org/help", False), ("https://stores.example.org/helpx/", False),
+])
+def test_a_page_pair_ending_in_a_slash_allows_what_is_under_it(address, ok):
+    assert allowed(address, [Page("stores.example.org", "/help/")]) is ok
+
+
+@pytest.mark.parametrize("start", ["", "/"])
+@pytest.mark.parametrize("address, ok", [
+    ("https://stores.example.org", True), ("https://stores.example.org/", True),
+    ("https://stores.example.org/en/", False), ("https://stores.example.org/a", False),
+])
+def test_a_page_at_the_root_of_its_host_allows_the_root_only(start, address, ok):
+    assert allowed(address, [Page("stores.example.org", start)]) is ok
+
+
+def test_a_page_pair_compares_and_unpacks_as_the_plain_pair():
+    assert SUBMIT == ("stores.example.org", "/rules/submit")
+    host, start = SUBMIT
+    assert (host, start) == ("stores.example.org", "/rules/submit")
+    assert copy.deepcopy(SUBMIT) == SUBMIT and isinstance(copy.deepcopy(SUBMIT), Page)
+
+
+def test_a_config_pair_still_allows_any_path_that_starts_with_its_path():
+    assert allowed("https://code.claude.com/docs/en/mcpx", HOSTS)
+    assert allowed("https://stores.example.org/rules/submitx",
+                   [("stores.example.org", "/rules/submit")])

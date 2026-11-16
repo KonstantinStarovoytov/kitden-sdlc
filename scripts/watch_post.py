@@ -20,6 +20,7 @@ from watch_route import (
     route,
     word_hits,
 )
+from watch_stale import RULES_CLIENT
 
 SUMMARY_MAX = 60000
 ROOM = 3000  # kept for what follows the items: the mentions, the checklist, the box
@@ -53,6 +54,8 @@ CHECKS = {
              "verify → Undo.",
     "privacy": "Update `PRIVACY.md` if Kitden now reads a new file or folder.",
     "row": "Update the row in `docs/clients.md` and its checked date.",
+    "rules": "For a store rule, update the rule in `docs/platform-rules.md` in kitden-sdlc and "
+             "its `Checked:` date.",
     "roadmap": 'Add a line to `ROADMAP.md` under "Not yet released".',
     "guide": "Update `docs/guide.md` if what the user sees changes.",
 }
@@ -62,6 +65,8 @@ TODO = {
     "gap": ("new-row", "test", "privacy", "roadmap", "guide"),
     "unknown": ("docs", "row"),
     "outdated": ("row",),
+    # Not a type: what the summary adds when it holds an item of the store rules.
+    "store-rules": ("rules",),
 }
 
 
@@ -213,7 +218,9 @@ def render_summary(items: list[dict], today: date,
     body = "\n\n".join(parts)
     if hints:
         body += "\n\n" + _hints(hints)
-    todo = dont_forget([_kind(i)[0] for i in real if i not in rest], boxes=False)
+    shown = [i for i in real if i not in rest]
+    rules = ["store-rules"] if any(i.get("client") == RULES_CLIENT for i in shown) else []
+    todo = dont_forget([_kind(i)[0] for i in shown] + rules, boxes=False)
     if todo:
         body += f"\n\n**When you fix one:**\n{todo}"
     body += f"\n\n{style.box('NOTE', NEXT_SUMMARY)}\n\n{style.small(HOW)}"

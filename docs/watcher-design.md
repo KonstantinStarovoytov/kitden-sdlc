@@ -119,7 +119,12 @@ themselves: they are other companies' text, and the memory is public (call).
 
 **Facts checked before the page changed** (`scripts/watch_stale.py`). A row of the list with
 an address as `Source` and a date in brackets, and a rule of `docs/platform-rules.md` with its
-`Source:` address and `Checked:` date, are facts with a page and a day. For each such page
+`Source:` address and `Checked:` date, are facts with a page and a day. In the list, only a
+bracket that holds the date alone, `(2026-11-12)`, or starts with "checked",
+`(checked 2026-11-12 ...)`, counts as a check against the page. A date followed by other words,
+`(2026-11-15, version 2.1.311, macOS)`, is something seen on an install or in a client's own
+code: it says nothing about the page and is not a check. A row whose dates are all of that kind
+counts as one with no date. For each such page
 the watcher keeps a hash of the whole page and the last day that hash changed. A page the list
 names is hashed from the sections already read for it, so it is read once. A rule page is read
 by fetch itself, after the list's pages and in the same seven minutes, at most 40 reads a run:
@@ -127,7 +132,8 @@ by fetch itself, after the list's pages and in the same seven minutes, at most 4
 - only at the address written in the rules file on `main`. A GitHub blob address
   (`github.com/OWNER/REPO/blob/REF/PATH`) is read from its raw file on
   `raw.githubusercontent.com`; the memory and the summary keep the blob address. A redirect is
-  followed only on the same host and under the same address. This host and path hold for that
+  followed only on the same host, to the same path or below it by whole path parts
+  (`/submit/`, never `/submitx`); a page at the root of its host follows one to the root only. This host and path hold for that
   one read: they join no list another script uses. A page on a host of `config/doc-hosts.yml`
   is read as any doc page.
 - A page that is new, or whose hash changed, is read once more in the same run. When the two
@@ -136,12 +142,14 @@ by fetch itself, after the list's pages and in the same seven minutes, at most 4
   40.
 - A page that cannot be read is a failed read like any source: "Cannot read" on the third day.
   A page not reached in time waits for the next run, which starts at it, and is not a failed
-  read.
+  read. Pages left unread three runs in a row are named in the next summary, in one item, as
+  the list's pages are.
 
 Once a week, as the moved check, the summary gets one item for each page that changed after
 one of its facts was checked, naming those facts. It comes again each week until the dates in
 the file are later than the change. Fetch writes one line to its log: how many facts, and how
-many rows and rules were skipped for want of a date.
+many rows and rules were skipped for want of a date, naming the list's row ids and the rules
+file's line numbers (at most 20 of each).
 
 ### 4. One run
 
@@ -244,7 +252,8 @@ where it may be (`moved`), the place in the sorted doc pages where the next run 
 (`page_start`), how many runs in a row each page was left unread for lack of time (`skips`),
 the feed's place and queue (`feed`, below), the pages that facts name (`fact_pages`, below),
 the week of the last check for stale facts (`stale_week`), the place in the sorted rule pages
-where the next run starts reading them (`rule_start`), and one log line per run. It also
+where the next run starts reading them (`rule_start`), how many runs in a row each rule page
+was left unread (`rule_skips`), and one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.
