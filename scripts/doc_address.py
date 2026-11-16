@@ -150,7 +150,9 @@ def location(address: str, hosts, opener=None) -> str | None:
 
 def clean_heading(text: str) -> str:
     """Letters, digits, spaces and -_.,:()/ only, at most 80 characters. Which characters
-    stay is decided by secret_filter.kept_marks, the same one its `clean` checks."""
+    stay is decided by secret_filter.kept_marks. secret_filter.clean checks a field the way
+    this function shows it only when that field is in its `kept` (by default, `heading`):
+    pass any other field that is shown through here in `kept` too."""
     return " ".join(kept_marks(text).split())[:HEADING_MAX].strip()
 
 

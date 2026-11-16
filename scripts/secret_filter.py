@@ -17,6 +17,7 @@ from pathlib import Path
 
 RUN_MIN = 32
 HEADING_MARKS = " -_.,:()/"
+HEADING = "heading"  # the field `clean` checks as clean_heading shows it, unless told otherwise
 RUN = re.compile(rf"[A-Za-z0-9_-]{{{RUN_MIN},}}")
 
 
@@ -46,7 +47,7 @@ def unknown_runs(texts: Iterable[str], known: Callable[[str], bool]) -> list[str
 
 def clean(
     items: list[dict], fields: tuple[str, ...], secret_like: re.Pattern[str],
-    kept: tuple[str, ...] = (),
+    kept: tuple[str, ...] | None = None,
 ) -> tuple[list[dict], int]:
     """The items of outside text (a doc passage, a section) that are safe to pass on, and
     how many were left out.
@@ -59,9 +60,11 @@ def clean(
 
     Each field is checked as written and without its format characters (Unicode category
     Cf, such as zero-width spaces and joiners and the BOM). The fields also named in `kept`,
-    those the caller will show through doc_address.clean_heading (such as "heading"), are
-    checked a third time as `kept_marks` leaves them: cleaning drops marks, and that could
-    join a split token again. Other fields are not checked that way: in a doc line such as
+    those the caller will show through doc_address.clean_heading, are checked a third time
+    as `kept_marks` leaves them: cleaning drops marks, and that could join a split token
+    again. `kept` None, the default, means the field named "heading" when it is in
+    `fields`, so a caller cannot forget it; `kept=()` turns the check off, and a tuple is
+    used as given. Other fields are not checked that way: in a doc line such as
     `export NAME=claude-x-1`, dropping the `=` makes a long run that is no secret.
 
     Raises ValueError when `fields` is empty, which would let every item through unchecked,
@@ -69,6 +72,8 @@ def clean(
     """
     if not fields:
         raise ValueError("clean needs at least one field to check")
+    if kept is None:
+        kept = tuple(name for name in fields if name == HEADING)
     if not set(kept) <= set(fields):
         raise ValueError("every field in `kept` must also be in `fields`")
     passed = []

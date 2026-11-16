@@ -171,18 +171,34 @@ def test_a_token_split_by_any_mark_that_cleaning_drops_is_left_out(mark):
     assert kept == [passage()] and left_out == 1
 
 
-def test_a_field_not_in_kept_is_not_checked_as_cleaning_keeps_it():
-    heading = "ghp_" + "aB3" * 5 + "*" + "cD4" * 6
-    item = passage(heading=heading)
-    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)
-    assert clean([item], FIELDS, SECRET_LIKE, kept=("heading",)) == ([], 1)
+def test_by_default_the_heading_is_checked_as_cleaning_keeps_it():
+    item = passage(heading="ghp_" + "aB3" * 5 + "*" + "cD4" * 6)
+    assert clean([item], FIELDS, SECRET_LIKE) == ([], 1)
+    assert clean([item], FIELDS, SECRET_LIKE, kept=None) == ([], 1)
 
 
-@pytest.mark.parametrize("kept", [(), ("heading",)])
+def test_an_empty_kept_turns_that_check_off():
+    item = passage(heading="ghp_" + "aB3" * 5 + "*" + "cD4" * 6)
+    assert clean([item], FIELDS, SECRET_LIKE, kept=()) == ([item], 0)
+
+
+def test_a_kept_tuple_is_used_as_given():
+    item = passage("ghp_" + "aB3" * 5 + "*" + "cD4" * 6)
+    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)  # text: not by default
+    assert clean([item], FIELDS, SECRET_LIKE, kept=("text",)) == ([], 1)
+
+
+def test_by_default_no_field_but_heading_is_checked_that_way():
+    item = {"title": "ghp_" + "aB3" * 5 + "*" + "cD4" * 6}
+    assert clean([item], ("title",), SECRET_LIKE) == ([item], 0)
+
+
+@pytest.mark.parametrize("kept", [None, (), ("heading",)])
 def test_a_doc_line_that_sets_a_model_stays(kept):
     item = passage("export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-5\n"
                    "Set `ANTHROPIC_MODEL` to pick the model.")
     assert clean([item], FIELDS, SECRET_LIKE, kept=kept) == ([item], 0)
+    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)
 
 
 @pytest.mark.parametrize("mark", ["\u200b", "\u200d", "\ufeff"])
