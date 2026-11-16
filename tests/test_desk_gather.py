@@ -927,3 +927,186 @@ def test_a_list_that_fails_stops_the_map_read_before_the_next_list():
     facts, api = read_map(answers=failing(contents(REPO)))
     assert facts.map_stale is None
     assert contents(TAP) not in api.asked
+
+
+# --- The bench: the history of the runs, main's checks, the stores ---
+
+
+from tests.test_desk_bench import LOG  # noqa: E402
+
+STEP = desk_gather.desk_bench.STARTUP_STEP
+HISTORY = {
+    "nightly.yml": f"repos/{REPO}/actions/workflows/nightly.yml/runs?branch=main&event=schedule"
+                   "&status=completed&per_page=30",
+    "latest-deps.yml": f"repos/{REPO}/actions/workflows/latest-deps.yml/runs?branch=main"
+                       "&event=schedule&status=completed&per_page=30",
+    "release.yml": f"repos/{REPO}/actions/workflows/release.yml/runs?event=push"
+                   "&status=completed&per_page=100",
+}
+SHA_A = "a" * 40
+
+
+def history_run(run_id, created, head_branch="main"):
+    return {"id": run_id, "created_at": created, "head_sha": SHA_A, "head_branch": head_branch,
+            "html_url": f"https://github.com/{REPO}/actions/runs/{run_id}"}
+
+
+def measuring_job(name, job_id):
+    return {"id": job_id, "name": name, "conclusion": "success",
+            "html_url": f"https://github.com/{REPO}/actions/runs/1/job/{job_id}",
+            "steps": [{"name": STEP, "conclusion": "success"}]}
+
+
+BENCH = {
+    HISTORY["nightly.yml"]: {"workflow_runs": [history_run(70, "2026-11-16T02:37:00Z")]},
+    HISTORY["latest-deps.yml"]: {"workflow_runs": []},
+    HISTORY["release.yml"]: {"workflow_runs": [
+        history_run(80, "2026-11-14T17:00:00Z", "v0.9.2"),
+        history_run(81, "2026-11-15T09:00:00Z")]},  # a push to main: no release
+    night_jobs(70): {"jobs": [measuring_job("systems (macos-latest, 3.14)", 701),
+                              {"id": 702, "name": "browser", "conclusion": "success",
+                               "steps": []}]},
+    night_jobs(80): {"jobs": [measuring_job("build (macos-latest)", 801)]},
+}
+LOGS = {f"repos/{REPO}/actions/jobs/701/logs": LOG, f"repos/{REPO}/actions/jobs/801/logs": LOG}
+
+
+class LogApi(FakeApi):
+    """FakeApi with the jobs' logs."""
+
+    def __init__(self, answers, logs=LOGS):
+        super().__init__(answers)
+        self.logs = logs
+
+    def log(self, address):
+        self.asked.append(address)
+        answer = self.logs.get(address, CalledProcessError(1, "gh"))
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+def pyproject(url):
+    assert url == f"https://raw.githubusercontent.com/{REPO}/{SHA_A}/pyproject.toml"
+    return '[project]\nname = "kitden"\nversion = "0.9.2"\n'
+
+
+def test_the_history_gets_each_new_nightly_run_and_each_release_with_its_times():
+    api = LogApi(BENCH)
+    history = desk_gather.update_history(api, pyproject, REPO, [])
+    assert [(line["id"], line["workflow"], line["version"]) for line in history] == [
+        (80, "release.yml", "0.9.2"), (70, "nightly.yml", "0.9.2")]
+    nightly = history[1]["jobs"]
+    assert nightly[0]["times"] == {"first": 0.8, "complete": 0.9, "demo": 0.2}
+    assert "times" not in nightly[1]  # the browser job measures nothing: its log is not read
+    assert f"repos/{REPO}/actions/jobs/702/logs" not in api.asked
+    assert night_jobs(81) not in api.asked  # a push to main is no release
+
+
+def test_a_run_already_in_the_history_is_not_read_again():
+    api = LogApi(BENCH)
+    known = [{"id": 70, "workflow": "nightly.yml", "night": "2026-11-16", "jobs": []},
+             {"id": 80, "workflow": "release.yml", "night": "2026-11-14", "jobs": []}]
+    assert [line["id"] for line in desk_gather.update_history(api, pyproject, REPO, known)] == [
+        80, 70]  # oldest night first
+    assert night_jobs(70) not in api.asked and night_jobs(80) not in api.asked
+
+
+def test_a_log_that_cannot_be_read_is_tried_again_then_left(capsys):
+    history = desk_gather.update_history(LogApi(BENCH, logs={}), pyproject, REPO, [])
+    assert all("times" not in job for line in history for job in line["jobs"])
+    assert [(line["unread_logs"], line["tries"]) for line in history] == [(1, 1), (1, 1)]
+    assert "::warning::desk: could not read log of" in capsys.readouterr().out
+    again = desk_gather.update_history(LogApi(BENCH), pyproject, REPO, history)
+    assert all(line["unread_logs"] == 0 for line in again)
+    assert again[1]["jobs"][0]["times"]["first"] == 0.8
+    for _ in range(4):  # a log refused for good is tried LOG_TRIES days, then left
+        history = desk_gather.update_history(LogApi(BENCH, logs={}), pyproject, REPO, history)
+    assert {line["tries"] for line in history} == {desk_gather.desk_bench.LOG_TRIES}
+    api = LogApi(BENCH, logs={})
+    desk_gather.update_history(api, pyproject, REPO, history)
+    assert night_jobs(70) not in api.asked
+
+
+def test_a_log_without_times_is_read_not_unread():
+    logs = {address: "no times here" for address in LOGS}
+    history = desk_gather.update_history(LogApi(BENCH, logs=logs), pyproject, REPO, [])
+    assert [line["unread_logs"] for line in history] == [0, 0]
+
+
+def test_a_run_that_was_run_again_is_read_again():
+    first = desk_gather.update_history(LogApi(BENCH), pyproject, REPO, [])
+    rerun = {**BENCH, HISTORY["nightly.yml"]: {"workflow_runs": [
+        {**history_run(70, "2026-11-16T02:37:00Z"), "run_attempt": 2}]}}
+    api = LogApi(rerun)
+    again = desk_gather.update_history(api, pyproject, REPO, first)
+    assert night_jobs(70) in api.asked and night_jobs(80) not in api.asked
+    assert next(line for line in again if line["id"] == 70)["attempt"] == 2
+
+
+def test_a_first_day_reads_the_oldest_runs_first_and_no_more_than_its_share(monkeypatch):
+    monkeypatch.setattr(desk_gather, "NEW_RUNS", 1)
+    history = desk_gather.update_history(LogApi(BENCH), pyproject, REPO, [])
+    assert [line["id"] for line in history] == [80]  # the next day reads 70
+
+
+def test_main_s_checks_come_from_the_run_of_its_push():
+    checks = [{"name": "build (macos-latest)", "event": "push",
+               "details_url": f"https://github.com/{REPO}/actions/runs/90/job/1"},
+              {"name": "prepare / agent", "event": "workflow_dispatch",
+               "details_url": f"https://github.com/{REPO}/actions/runs/91/job/1"}]
+    answers = {f"repos/{REPO}/actions/runs/90": {"head_sha": SHA_A, "html_url": "u",
+                                                 "updated_at": "2026-11-16T18:29:27Z"},
+               night_jobs(90): {"jobs": [{"name": "build (macos-latest)", "html_url": "j",
+                                          "steps": [{"name": "Run uv run pyright",
+                                                     "conclusion": "success"}]}]}}
+    found = desk_gather._gate(FakeApi(answers), REPO, checks)
+    assert found["steps"] == [{"name": "Types", "state": "green", "url": "j"}]
+    assert desk_gather._gate(FakeApi({}), REPO, checks[1:]) is None
+
+
+FORMULA = ('class Kitden < Formula\n  desc "x"\n  url "https://files.pythonhosted.org/packages/'
+           'a6/a2/ead9/kitden-0.9.2.tar.gz"\n')
+REGISTRY = {"servers": [{"server": {"name": "io.github.KonstantinStarovoytov/kitden",
+                                   "version": "0.9.1"},
+                         "_meta": {"io.modelcontextprotocol.registry/official": {
+                             "isLatest": False, "updatedAt": "2026-11-13T00:00:00Z"}}},
+                        {"server": {"name": "io.github.KonstantinStarovoytov/kitden",
+                                    "version": "0.9.2"},
+                         "_meta": {"io.modelcontextprotocol.registry/official": {
+                             "isLatest": True, "updatedAt": "2026-11-14T17:21:14Z"}}}]}
+PYPI = {"info": {"version": "0.9.2"},
+        "releases": {"0.9.2": [{"upload_time_iso_8601": "2026-11-14T17:20:42Z"}]}}
+
+
+def store_fetch(url):
+    if url == desk_gather.release_stores.FORMULA:
+        return FORMULA
+    if url == desk_gather.REGISTRY_LATEST:
+        return json.dumps(REGISTRY)
+    if url == desk_gather.release_stores.PYPI:
+        return json.dumps(PYPI)
+    if url == desk_gather.GLAMA:
+        return "<html>Kitden</html>"
+    raise OSError("not listed")
+
+
+def test_each_store_gives_the_version_it_serves():
+    assert desk_gather._pypi(store_fetch) == {
+        "version": "0.9.2", "at": "2026-11-14T17:20:42Z",
+        "url": "https://pypi.org/project/kitden/0.9.2/"}
+    assert desk_gather._homebrew(store_fetch)["version"] == "0.9.2"
+    assert desk_gather._registry(store_fetch)["version"] == "0.9.2"  # the latest, not the first
+    assert desk_gather.REGISTRY_LATEST.endswith("&version=latest")
+    assert desk_gather._glama(store_fetch)["listed"] is True
+
+
+def test_main_writes_the_history_and_the_bench(tmp_path):
+    argv = ["--roster", str(ROOT / "config/agents.json"), "--out", str(tmp_path)]
+    assert main(argv, api=LogApi({**ANSWERS, **BENCH}), now=NOW) == 0
+    history = json.loads((tmp_path / "history.json").read_text())
+    assert [line["id"] for line in history] == [80, 70]
+    bench = json.loads((tmp_path / "desk.json").read_text())["bench"]
+    assert bench["startup"]["versions"] == ["0.9.2"] and bench["rows"][0]["name"] == "macOS · arm64"
+    # Offline and with no release faked: no store is read, nor the newest release, so grey.
+    assert bench["stores"]["stores"][0]["state"] == "grey"

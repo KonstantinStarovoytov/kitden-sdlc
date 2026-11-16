@@ -1,8 +1,7 @@
 <!doctype html>
-<!-- The desk: Kitden's five lights, what waits for the owner and the nightly tests, read from
-     desk.json on the `numbers` branch each time the page opens. desk.yml writes that file every
-     day; no model writes it or this page. The words are in view.js; this file only puts them on
-     the page, as text. -->
+<!-- The desk: Kitden's state, read from desk.json on the `numbers` branch each time the page
+     opens. desk.yml writes that file every day; no model writes it or this page. The words
+     and numbers are in view.js; this file only puts them on the page, as text. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -16,40 +15,43 @@
 /* Kitden's look (Kitden's docs/design.md): one framed window on the out colour, a rail on the
    left, neutral panels with fine solid lines, and Kitden's sockets for state. */
 :root{
-  --brand:#c85835; --out:#e4e7ec; --canvas:#f5f6f8; --panel:#ffffff; --raised:#ffffff; --inset:#f0f2f5;
+  --brand:#c85835; --out:#e4e7ec; --canvas:#f5f6f8; --panel:#ffffff; --inset:#f0f2f5;
   --ink:#161a21; --ink-2:#464d5b; --ink-3:#626977; --wire:#e1e4e9;
   --route:#a44226; --route-soft:#f6e8e2;
   --lamp-on:#1c8a4c; --lamp-warn:#97590a; --lamp-warn-soft:rgba(151,89,10,.10); --lamp-bad:#c23b3b; --lamp-off:#80868f;
+  --c1:#a44226; --c2:#2f5fb3; --c3:#6b4bb8; --c4:#1f7a70;
   --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  --calm:cubic-bezier(.2,.8,.2,1); --ease-in-out:cubic-bezier(.77,0,.175,1);
+  --ease-in-out:cubic-bezier(.77,0,.175,1);
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
+  --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --inset:#12151a;
   --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
   --route:#f09a7c; --route-soft:#382a27;
   --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-warn-soft:rgba(234,194,124,.12); --lamp-bad:#f07070; --lamp-off:#707886;
-  color-scheme:dark } }
+  --c1:#f09a7c; --c2:#8fb3ff; --c3:#c3a6ff; --c4:#6fd0c5; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
+  --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --inset:#12151a;
   --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
   --route:#f09a7c; --route-soft:#382a27;
   --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-warn-soft:rgba(234,194,124,.12); --lamp-bad:#f07070; --lamp-off:#707886;
-  color-scheme:dark }
+  --c1:#f09a7c; --c2:#8fb3ff; --c3:#c3a6ff; --c4:#6fd0c5; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--out);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 [hidden]{display:none!important}
-h1,h2{margin:0;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+h1,h2,h3{margin:0;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
 p{margin:0}
 a{color:var(--route);text-underline-offset:3px;text-decoration-thickness:1px}
-a:focus-visible{outline:2px solid var(--route);outline-offset:2px;border-radius:5px}
-code{font-family:var(--mono);font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+a:focus-visible,button:focus-visible{outline:2px solid var(--route);outline-offset:2px;border-radius:6px}
+code,.mono{font-family:var(--mono)}
+code{font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+.quiet{font-size:12px;color:var(--ink-3)}
 
 /* --- the window --- */
 .shell{padding:16px}
-.app{max-width:1180px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden;min-height:calc(100vh - 32px)}
+.app{max-width:1200px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden;min-height:calc(100vh - 32px)}
 .rail{border-right:1px solid var(--wire);padding:16px 10px;display:flex;flex-direction:column;gap:18px}
 .wordmark{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
 .rail nav{display:flex;flex-direction:column;gap:2px}
@@ -61,94 +63,129 @@ code{font-family:var(--mono);font-size:.88em;background:var(--inset);padding:1px
 .rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
 .main{padding:34px 36px 40px;display:flex;flex-direction:column;gap:22px;min-width:0}
 
-/* --- a lamp: Kitden's socket. Shape, colour and a word carry the state: green is a full green
-   dot, amber ("needs a look") an amber ring with a half dot, red a full red dot, grey (not read)
-   an empty dashed ring. When the page opens each fills from its middle, 45 ms after the one
-   before, as Kitden's sockets do; nothing glows and nothing loops. --- */
-.lamp{--c:var(--lamp-off);position:relative;flex:none;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--c);overflow:hidden}
-.lamp::after{content:"";position:absolute;inset:0;background:var(--c);border-radius:50%;transform:scale(1)}
-.lamp.green{--c:var(--lamp-on)} .lamp.amber{--c:var(--lamp-warn)} .lamp.red{--c:var(--lamp-bad)}
-.lamp.amber::after{transform:scale(.5)}
-.lamp.grey{border-style:dashed} .lamp.grey::after{transform:scale(0)}
-.lamp.big{width:14px;height:14px;border-width:2px}
-.lit .lamp:not(.grey)::after{animation:fill .38s var(--ease-in-out) var(--d,0ms) backwards}
+/* --- a socket: shape, colour and a word carry the state, as in Kitden --- */
+.s{--c:var(--lamp-off);position:relative;display:inline-block;flex:none;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--c);overflow:hidden}
+.s::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--c);transform:scale(1)}
+.s.green{--c:var(--lamp-on)} .s.amber{--c:var(--lamp-warn)} .s.red{--c:var(--lamp-bad)}
+.s.amber::after{transform:scale(.5)}
+.s.grey,.s.planned,.s.none{border-style:dashed} .s.grey::after,.s.planned::after,.s.none::after{transform:scale(0)}
+.s.big{width:14px;height:14px;border-width:2px}
+.lit .s:not(.grey):not(.planned):not(.none)::after{animation:fill .38s var(--ease-in-out) var(--d,0ms) backwards}
 @keyframes fill{from{transform:scale(0)}}
-.calm-line .lamp{width:6px;height:6px;border:0}
 
 /* --- the head --- */
-.head{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
-.head .eyebrow{font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:.02em}
+.head{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
+.head .eyebrow{font-size:12px;font-weight:600;color:var(--ink-3)}
 .head h1{display:flex;align-items:center;gap:16px;font-size:32px;font-weight:700}
-.head .updated{font-size:13px;color:var(--ink-3);padding-left:32px}
+.head .sub{padding-left:30px;color:var(--ink-2)}
+.head .updated{padding-left:30px;font-size:13px;color:var(--ink-3)}
 .note{border:1px solid var(--wire);border-radius:8px;padding:10px 14px;font-size:13px;background:var(--panel)}
-.note.amber{border-color:color-mix(in srgb,var(--lamp-warn) 40%,var(--wire));background:color-mix(in srgb,var(--lamp-warn) 8%,var(--panel))}
-.calm-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);padding-left:3px;margin-top:6px}
-.calm-line .lamp{margin:0 2px}
+.note.amber{border-color:color-mix(in srgb,var(--lamp-warn) 40%,var(--wire));background:var(--lamp-warn-soft)}
 
 /* --- panels --- */
 section{min-width:0}
 .panel{background:var(--panel);border:1px solid var(--wire);border-radius:12px;min-width:0;overflow:hidden}
-.panel .bar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid var(--wire);font-size:12px;color:var(--ink-3)}
-.panel .bar h2{margin:0;font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.bar{display:flex;align-items:baseline;justify-content:space-between;gap:8px 14px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--wire)}
+.bar .t{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar h2{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.tag{display:inline-flex;align-items:center;font-size:11px;font-weight:500;line-height:1;padding:4px 7px;border-radius:6px;border:1px solid var(--wire);color:var(--ink-2);background:var(--canvas);white-space:nowrap}
+.tag.block{color:var(--route);border-color:color-mix(in srgb,var(--route) 40%,var(--wire));background:var(--route-soft)}
+.calm{display:flex;align-items:center;gap:10px;padding:16px 18px;color:var(--ink-2);font-size:13px}
+.calm-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);padding-left:3px}
 
-/* --- the five lights --- */
-.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0 -1px -1px 0}
-.light{--c:var(--lamp-off);position:relative;isolation:isolate;padding:18px 18px 20px;display:flex;flex-direction:column;gap:10px;min-height:160px;
-  box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
-.light.green{--c:var(--lamp-on)} .light.amber{--c:var(--lamp-warn)} .light.red{--c:var(--lamp-bad)}
-/* A card that needs you takes its colour's soft fill, as Kitden's callouts do. */
-.light.amber{background:var(--lamp-warn-soft)}
-.light.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
-.light .top{display:flex;align-items:center;gap:10px}
-.light .name{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
-.light .word{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3);white-space:nowrap}
-.light.amber .word,.light.red .word{color:color-mix(in srgb,var(--c) 85%,var(--ink))}
-.light .checks{font-size:12.5px;color:var(--ink-3);line-height:1.45}
-.light .why{font-size:13px;color:var(--ink);line-height:1.45;margin-top:auto;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--c) 22%,var(--wire))}
-.light .why a{font-size:12px;white-space:nowrap}
-
-/* --- waiting --- */
+/* --- what waits --- */
 ul.rows{list-style:none;margin:0;padding:0}
 ul.rows > li{padding:12px 18px;border-top:1px solid var(--wire);display:flex;flex-direction:column;gap:4px;font-size:13px}
 ul.rows > li:first-child{border-top:0}
-.row{display:flex;align-items:center;gap:10px;min-width:0}
-.wait .row{flex-wrap:wrap;align-items:flex-start;row-gap:4px}
-.kind{display:inline-flex;font-size:11px;line-height:1;padding:4px 7px;border-radius:6px;border:1px solid var(--wire);color:var(--ink-2);background:var(--canvas);white-space:nowrap}
-.sub{font-size:12px;color:var(--ink-3)}
+.wrap{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 10px}
 
-/* --- nightly --- */
-.row .part{font-family:var(--mono);font-size:12.5px;font-weight:500}
-.row .run{margin-left:auto;font-size:12px;white-space:nowrap}
-.row .state{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap}
-.row .state + .run{margin-left:14px}
-ul.parts{list-style:none;margin:0 -1px -1px 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
-ul.parts .tile{--c:var(--lamp-off);padding:14px 18px;display:flex;flex-direction:column;gap:3px;min-width:0;box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
-ul.parts .tile.green{--c:var(--lamp-on)} ul.parts .tile.red{--c:var(--lamp-bad)}
-ul.parts.loud{grid-template-columns:1fr;margin-bottom:0}
-ul.parts .tile.wide.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
-ul.parts .of,ul.parts .note-line,ul.parts .means{padding-left:20px;font-size:12px;color:var(--ink-3)}
-ul.parts .of{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-ul.parts .means{font-size:12.5px;color:var(--ink)}
-ul.parts .red .note-line{color:color-mix(in srgb,var(--c) 80%,var(--ink));font-weight:500}
-ul.failed{margin:2px 0 0;padding-left:38px;font-size:12px;color:var(--ink-2)}
-.calm{display:flex;align-items:center;gap:12px;padding:18px;color:var(--ink-2);font-size:13px;margin:0}
+/* --- stores --- */
+.stores{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:0 -1px -1px 0}
+.store{display:flex;flex-direction:column;gap:5px;padding:14px 18px;min-width:0;box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire);color:inherit;text-decoration:none}
+a.store:hover{background:var(--inset)}
+.store .n{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.store .v{font-family:var(--mono);font-size:18px;font-weight:500;letter-spacing:-.01em}
+.store.planned .v,.store.listed .v{font-family:var(--sans);font-size:14px;color:var(--ink-2)}
 
-.foot-links{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;border-top:1px solid var(--wire);padding-top:18px;margin-top:6px}
+/* --- main's checks --- */
+.steps{display:flex;flex-wrap:wrap;gap:10px 24px;padding:14px 18px;font-size:13px}
+.steps a,.steps span.step{display:inline-flex;align-items:center;gap:8px;color:var(--ink);text-decoration:none}
+.steps a:hover{color:var(--route)}
+
+/* --- the nightly bench --- */
+.grp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px 8px;font-size:12px;font-weight:600;color:var(--ink-3)}
+.grp + .grp,.row + .grp{border-top:1px solid var(--wire);margin-top:4px}
+.grp .about{font-weight:400}
+.row{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(170px,1.3fr) auto 54px;align-items:center;gap:8px 16px;padding:11px 18px;border-top:1px solid var(--wire)}
+.row.red{background:color-mix(in srgb,var(--lamp-bad) 8%,transparent)}
+.row .name{font-weight:500}
+.cells{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12.5px;color:var(--ink-2)}
+.cells span,.cells a{display:inline-flex;align-items:center;gap:6px;color:inherit;text-decoration:none}
+.cells a.more{color:var(--route);text-decoration:underline}
+.strip{display:flex;gap:3px}
+.strip a,.strip span{display:block;width:6px;height:16px;border-radius:2px;background:var(--wire)}
+.strip .green{background:var(--lamp-on);opacity:.85} .strip .red{background:var(--lamp-bad)}
+.strip .grey,.strip .none{background:transparent;box-shadow:inset 0 0 0 1px var(--lamp-off)}
+.strip .empty{background:transparent}
+.row .run{font-size:12px;text-align:right}
+.detail{grid-column:1/-1;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--ink-2)}
+.detail .since{color:var(--lamp-bad);font-weight:500}
+.detail ul{margin:0;padding-left:18px}
+
+/* --- start-up by release --- */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;padding:14px 18px 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--wire);background:var(--panel);font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;transition:opacity .18s,border-color .18s}
+.chip:hover{border-color:var(--ink-3)}
+.chip[aria-pressed="false"]{opacity:.45}
+.chip .sw{display:inline-block;width:18px;height:0;border-top:2px solid var(--sw,currentColor)}
+.chip .sw.dash{border-top-style:dashed}
+.chip .info{width:14px;height:14px;fill:none;stroke:var(--ink-3);stroke-width:1.4;stroke-linecap:round}
+.chip .tip{display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:10;width:300px;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--wire);box-shadow:0 18px 44px -18px rgb(0 0 0 / .45);color:var(--ink-2);font-size:12px;font-weight:400;line-height:1.5;text-align:left;white-space:normal}
+.chip .tip b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.chip:hover .tip,.chip:focus-visible .tip{display:block}
+.chart{position:relative;padding:4px 12px 0 4px}
+.chart svg{display:block;width:100%;height:auto;font-family:var(--sans);overflow:visible}
+.chart .hit{cursor:pointer}
+.hover{position:absolute;z-index:5;pointer-events:none;min-width:190px;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--wire);box-shadow:0 18px 44px -18px rgb(0 0 0 / .45);font-size:12px;color:var(--ink-2);line-height:1.45}
+.hover b{display:block;font-size:13px;color:var(--ink)}
+.hover .val{font-weight:600}
+.tscroll{overflow-x:auto;padding:4px 18px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--wire);text-align:right;white-space:nowrap}
+th{font-size:11px;font-weight:600;color:var(--ink-3)}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+tr.slower{background:var(--lamp-warn-soft)}
+td .key{display:inline-flex;align-items:center;gap:8px}
+td .key i{display:inline-block;width:16px;border-top:2px solid var(--k)}
+
+/* --- cards --- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--wire);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0;color:inherit;text-decoration:none}
+a.card:hover{border-color:var(--ink-3)}
+.card h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px}
+.card h3 .w{margin-left:auto;font-size:12px;font-weight:500;color:var(--ink-3)}
+.card .big{font-size:26px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .line{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+.card .line .r{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.card .go{font-size:12.5px;color:var(--route);text-decoration:underline;text-underline-offset:3px}
+
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;padding-top:18px;border-top:1px solid var(--wire);font-size:13px;color:var(--ink-2)}
 .loading{color:var(--ink-3)}
 
-/* Five lights in a row; on narrower windows, rows with no hole: 3 + 2, then 2 + 2 + 1. */
-@media (max-width:1060px){ .board{grid-template-columns:repeat(6,minmax(0,1fr))} .light{grid-column:span 2} .light:nth-child(n+4):nth-last-child(-n+2){grid-column:span 3} }
 @media (max-width:860px){
   .shell{padding:0}
   .app{grid-template-columns:1fr;border-radius:0;border:0;min-height:100vh}
   .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px 16px}
   .rail nav{flex-direction:row} .rail nav a[aria-current="page"]::before{display:none}
   .rail .foot{display:none} .main{padding:24px 16px 32px;gap:18px}
-  .board{grid-template-columns:repeat(2,minmax(0,1fr))} .light,.light:nth-child(n+4):nth-last-child(-n+2){grid-column:auto;min-height:0}
-  .light:last-child:nth-child(odd){grid-column:1/-1}
-  .head h1{font-size:26px;gap:14px} .head .updated{padding-left:30px}
+  .head h1{font-size:26px;gap:14px} .head .sub,.head .updated{padding-left:30px}
+  .row{grid-template-columns:1fr auto}
+  .row .name,.row .cells{grid-column:1/-1}
+  .row .strip{grid-column:1} .row .run{grid-column:2}
 }
-@media (max-width:520px){ .board{grid-template-columns:1fr} .rail .back{display:none} }
+@media (max-width:520px){ .rail .back{display:none} }
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 </style>
 </head>
@@ -166,7 +203,8 @@ ul.failed{margin:2px 0 0;padding-left:38px;font-size:12px;color:var(--ink-2)}
   <main class="main" id="main">
     <div class="head">
       <span class="eyebrow">Kitden desk</span>
-      <h1 id="lead"><span class="lamp big grey"></span><span>Reading the desk…</span></h1>
+      <h1 id="lead"><span class="s big grey" aria-hidden="true"></span><span>Reading the desk…</span></h1>
+      <p class="sub" id="says" hidden></p>
       <p class="updated loading" id="updated"></p>
       <p class="calm-line" id="calm" hidden></p>
     </div>
@@ -174,9 +212,10 @@ ul.failed{margin:2px 0 0;padding-left:38px;font-size:12px;color:var(--ink-2)}
 </div></div>
 
 <script type="module">
-import { view, ticks, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js';
+import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js';
 
 const main = document.getElementById('main');
+const SVG = 'http://www.w3.org/2000/svg';
 
 // Every piece goes in as text. A piece: a node, a string, {code}, {text, href}, or a list.
 function put(el, piece) {
@@ -195,103 +234,267 @@ function make(tag, attrs = {}, ...pieces) {
   pieces.forEach(p => put(el, p));
   return el;
 }
+function svg(tag, attrs = {}, text) {
+  const el = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) el.setAttribute(k, v);
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
 const link = (text, href, label) => make('a', { href, rel: 'noopener noreferrer', 'aria-label': label }, text);
-let lampNo = 0; // each lamp lights a little after the one before it
-const lamp = (s, big) => {
-  const el = make('span', { class: `lamp ${s}${big ? ' big' : ''}`, 'aria-hidden': 'true' });
-  el.style.setProperty('--d', `${lampNo++ * 45}ms`);
+let sockNo = 0; // each socket fills a little after the one before it
+const sock = (state, big) => {
+  const el = make('span', { class: `s ${state}${big ? ' big' : ''}`, 'aria-hidden': 'true' });
+  el.style.setProperty('--d', `${Math.min(sockNo++, 30) * 30}ms`);
   return el;
 };
 const panel = (title, aside, ...body) => make('div', { class: 'panel' },
-  make('div', { class: 'bar' }, make('h2', {}, title), aside || ''), ...body);
+  make('div', { class: 'bar' }, make('div', { class: 't' }, title), aside || ''), ...body);
+const WORD = { green: 'passed', red: 'failed', grey: 'no finished run', none: 'did not run', empty: '' };
+
+// --- The start-up chart ---
+
+const COLORS = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)'];
+const chartState = { sys: null, measures: { first: true, complete: true } };
+
+function drawChart(box, table, s) {
+  if (!chartState.sys) chartState.sys = Object.fromEntries(s.systems.map(x => [x.id, true]));
+  const W = 1000, H = 330, X0 = 90, X1 = 940, Y0 = 16, Y1 = 262;
+  const n = s.versions.length;
+  const x = i => (n === 1 ? (X0 + X1) / 2 : X0 + (i * (X1 - X0)) / (n - 1));
+  const on = [];
+  s.systems.forEach((sys, si) => MEASURES.forEach(m => {
+    if (chartState.sys[sys.id] && chartState.measures[m.id]) on.push({ sys, si, m, vals: sys[m.id] });
+  }));
+  const all = on.flatMap(o => o.vals.filter(v => v !== null));
+  const top = all.length ? Math.max(0.5, Math.ceil(Math.max(...all) * 1.25 * 2) / 2) : 1;
+  const y = v => Y1 - (v / top) * (Y1 - Y0);
+  const step = top > 4 ? 1 : top > 2 ? 0.5 : top > 1 ? 0.25 : 0.2;
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': `Start-up time in seconds by Kitden release, ${s.versions[0]} to ${s.newest}, for the systems and measures turned on.` });
+  root.append(svg('text', { x: 16, y: 140, transform: 'rotate(-90 16 140)', 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600, fill: 'var(--ink-2)' }, 'Start-up time, seconds'));
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    const yy = y(v);
+    root.append(svg('line', { x1: 70, x2: 960, y1: yy, y2: yy, stroke: 'var(--wire)', 'stroke-width': 1 }));
+    root.append(svg('text', { x: 60, y: yy + 4, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--ink-3)' }, `${Math.round(v * 100) / 100} s`));
+  }
+  for (const m of MEASURES) {
+    const b = s.budgets[m.id];
+    if (chartState.measures[m.id] && b !== null && b !== undefined && b <= top) {
+      root.append(svg('line', { x1: 70, x2: 960, y1: y(b), y2: y(b), stroke: 'var(--ink-3)', 'stroke-width': 1, 'stroke-dasharray': '2 5', 'stroke-linecap': 'round' }));
+      root.append(svg('text', { x: 96, y: y(b) - 6, 'font-size': 11.5, fill: 'var(--ink-3)' }, `${m.label} budget, ${b} s`));
+    }
+  }
+  s.versions.forEach((v, i) => root.append(svg('text', { x: x(i), y: 290, 'text-anchor': 'middle', 'font-size': 12,
+    fill: i === n - 1 ? 'var(--ink)' : 'var(--ink-3)', 'font-weight': i === n - 1 ? 600 : 400 }, v)));
+  root.append(svg('text', { x: (X0 + X1) / 2, y: 320, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600, fill: 'var(--ink-2)' }, 'Kitden release (each dot is one release; main is the newest night)'));
+
+  const hover = make('div', { class: 'hover', hidden: '' });
+  const show = (o, i, px, py) => {
+    const v = o.vals[i];
+    const before = o.vals.slice(0, i).map((w, k) => [w, k]).filter(([w]) => w !== null).pop();
+    const change = before ? Math.round(((v - before[0]) / before[0]) * 100) : null;
+    hover.replaceChildren(make('b', {}, s.versions[i] === 'main' ? 'main, after the newest release' : `Kitden ${s.versions[i]}`), make('div', {}, o.sys.label),
+      make('div', { class: 'val', style: `color:${COLORS[o.si]}` }, `${o.m.label}: ${v < 1 ? Math.round(v * 1000) + ' ms' : Math.round(v * 100) / 100 + ' s'}`),
+      change === null ? '' : make('div', {}, `${change > 0 ? '+' : ''}${change}% vs ${s.versions[before[1]]}`),
+      make('div', { class: 'quiet' }, s.versions[i] === 'main' ? `main on the night of ${s.mainNight}` : o.sys.measured[i] > 1 ? `Median of ${o.sys.measured[i]} measurements` : 'One measurement'));
+    hover.hidden = false;
+    const r = root.getBoundingClientRect(), k = r.width / W;
+    const left = px * k + 16 + 210 > r.width ? px * k - 216 : px * k + 16;
+    hover.style.left = `${left + 4}px`;
+    hover.style.top = `${Math.max(0, py * k - 40)}px`;
+  };
+  const hide = () => { hover.hidden = true; };
+  for (const o of on) {
+    let seg = [];
+    const flush = () => { if (seg.length > 1) root.append(svg('polyline', { points: seg.join(' '), fill: 'none', stroke: COLORS[o.si], 'stroke-width': 1.4, 'stroke-dasharray': o.m.dash || null, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' })); seg = []; };
+    o.vals.forEach((v, i) => { if (v === null) flush(); else seg.push(`${x(i)},${y(v)}`); });
+    flush();
+  }
+  for (const o of on) o.vals.forEach((v, i) => {
+    if (v === null) return;
+    root.append(svg('circle', { cx: x(i), cy: y(v), r: i === n - 1 ? 3.6 : 2.4, fill: i === n - 1 ? COLORS[o.si] : 'var(--panel)', stroke: COLORS[o.si], 'stroke-width': 1.4, 'pointer-events': 'none' }));
+    const hit = svg('circle', { cx: x(i), cy: y(v), r: 10, fill: 'transparent', class: 'hit', tabindex: 0,
+      'aria-label': `Kitden ${s.versions[i]}, ${o.sys.label}, ${o.m.label}: ${v} s` });
+    hit.addEventListener('mouseenter', () => show(o, i, x(i), y(v)));
+    hit.addEventListener('focus', () => show(o, i, x(i), y(v)));
+    hit.addEventListener('mouseleave', hide);
+    hit.addEventListener('blur', hide);
+    root.append(hit);
+  });
+  if (!on.length) root.append(svg('text', { x: (X0 + X1) / 2, y: 150, 'text-anchor': 'middle', 'font-size': 14, fill: 'var(--ink-3)' }, 'Turn on a system and a measure to see a line.'));
+  box.replaceChildren(root, hover);
+
+  const body = make('tbody');
+  s.rows.forEach((r, si) => {
+    if (!chartState.sys[r.id]) return;
+    const key = make('span', { class: 'key' }, make('i', { style: `--k:${COLORS[si]}` }), r.label);
+    body.append(make('tr', { class: r.slower ? 'slower' : undefined },
+      make('td', {}, key), make('td', {}, r.first), make('td', {}, r.complete), make('td', {}, r.fastest), make('td', {}, r.change)));
+  });
+  table.replaceChildren(make('thead', {}, make('tr', {},
+    make('th', { scope: 'col' }, `In ${s.newest}`), make('th', { scope: 'col' }, 'First usable'),
+    make('th', { scope: 'col' }, 'Complete'), make('th', { scope: 'col' }, 'vs the fastest'),
+    make('th', { scope: 'col' }, 'vs the release before'))), body);
+}
+
+function startupPanel(s) {
+  const box = make('div', { class: 'chart' });
+  const table = make('table');
+  const redraw = () => { drawChart(box, table, s); sysChips.forEach(c => c.sync()); measureChips.forEach(c => c.sync()); };
+  chartState.sys = chartState.sys || Object.fromEntries(s.systems.map(x => [x.id, true]));
+  const chip = (label, pressed, toggle, extra = []) => {
+    const b = make('button', { type: 'button', class: 'chip' }, ...extra);
+    b.sync = () => b.setAttribute('aria-pressed', pressed() ? 'true' : 'false');
+    b.addEventListener('click', () => { toggle(); redraw(); });
+    return b;
+  };
+  const sysChips = s.systems.map((x, si) => {
+    const sw = make('span', { class: 'sw', 'aria-hidden': 'true', style: `--sw:${COLORS[si]}` });
+    return chip(x.label, () => chartState.sys[x.id], () => { chartState.sys[x.id] = !chartState.sys[x.id]; }, [sw, x.label]);
+  });
+  const measureChips = MEASURES.map(m => {
+    const id = `tip-${m.id}`;
+    const info = svg('svg', { class: 'info', viewBox: '0 0 16 16', 'aria-hidden': 'true' });
+    info.append(svg('circle', { cx: 8, cy: 8, r: 6.3 }), svg('path', { d: 'M8 7.2v3.6M8 5.2v.1' }));
+    const b = chip(m.label, () => chartState.measures[m.id], () => { chartState.measures[m.id] = !chartState.measures[m.id]; },
+      [make('span', { class: `sw${m.dash ? ' dash' : ''}`, 'aria-hidden': 'true', style: '--sw:var(--ink-2)' }), m.label, info,
+        make('span', { class: 'tip', role: 'tooltip', id }, make('b', {}, m.label), m.tip)]);
+    b.setAttribute('aria-describedby', id);
+    return b;
+  });
+  const p = panel([make('h2', {}, 'Start-up time by release'), make('span', { class: 'tag' }, 'Lower is better')],
+    make('span', { class: 'quiet' }, `${s.versions[0]} to ${s.newest}`),
+    make('div', { class: 'controls' },
+      make('div', { class: 'chips', role: 'group', 'aria-label': 'Systems' }, ...sysChips),
+      make('div', { class: 'chips', role: 'group', 'aria-label': 'Measures' }, ...measureChips)),
+    box, make('div', { class: 'tscroll' }, table),
+    make('p', { class: 'quiet', style: 'padding:10px 18px 16px' },
+      'A release\'s dot is its build on its tag (macOS arm64 and Linux x86_64) and the nights main was at that release (all four systems, both Pythons): the median of those measurements. The last dot, main, is the newest night on a later commit, so a slowdown shows before the next release. The dotted lines are Kitden\'s budgets; the Intel Mac\'s own check allows twice as long. The times are printed to a tenth of a second, so a small step can be noise: a row is marked when it is at least 0.2 s and 20% slower than the point before.'));
+  p.id = 'startup';
+  redraw();
+  return p;
+}
+
+// --- The page ---
 
 function render(v) {
-  lampNo = 0;
+  sockNo = 0;
   main.classList.remove('lit');
-  document.getElementById('lead').replaceChildren(lamp(v.overall, true), make('span', {}, v.lead));
+  document.getElementById('lead').replaceChildren(sock(v.head.state, true), make('span', {}, v.head.text));
+  const says = document.getElementById('says');
+  says.hidden = !v.says; says.textContent = v.says;
   const updated = document.getElementById('updated');
   updated.className = 'updated';
   updated.replaceChildren(make('time', { title: v.updatedAt || undefined }, v.updated));
-  main.querySelectorAll('section, .note, .foot-links').forEach(e => e.remove());
+  main.querySelectorAll('section, .note, footer').forEach(e => e.remove());
 
-  const notes = [];
-  if (v.old) notes.push(make('p', { class: 'note amber', role: 'status' }, 'The desk has not run for more than a day. ',
-    link('Look at its runs', RUNS), '.'));
-  if (v.map) notes.push(make('p', { class: 'note' }, ticks(v.map)));
+  const parts = [];
+  if (v.old) parts.push(make('p', { class: 'note amber', role: 'status' }, 'The desk has not run for more than a day. ', link('Look at its runs', RUNS), '.'));
+  if (v.map) parts.push(make('p', { class: 'note' }, ticks(v.map)));
 
-  // What waits for the owner: a panel above the lights when something does, else one quiet line.
-  let wait = null;
+  // What waits for the owner: a panel when something does, else one quiet line.
   const calm = document.getElementById('calm');
   calm.hidden = false;
-  if (v.waiting === null) calm.replaceChildren(lamp('grey'), 'What waits for you was not measured.');
-  else if (!v.waiting.length) calm.replaceChildren(lamp('green'), 'Nothing waits for you.');
+  if (v.waiting === null) calm.replaceChildren(sock('grey'), 'What waits for you was not read.');
+  else if (!v.waiting.length) calm.replaceChildren(sock('green'), 'Nothing waits for you.');
   else {
     calm.hidden = true;
-    const ul = make('ul', { class: 'rows wait' });
+    const ul = make('ul', { class: 'rows' });
     v.waiting.forEach(i => ul.append(make('li', {},
-      make('div', { class: 'row' }, make('span', { class: 'kind' }, i.kind), make('span', {}, i.title)),
-      i.do.length || i.days ? make('p', { class: 'sub' }, i.do, i.do.length && i.days ? ' ' : '', i.days) : '')));
-    wait = panel('Waiting for you', v.waiting.length === 1 ? '1 thing' : `${v.waiting.length} things`, ul);
+      make('div', { class: 'wrap' }, make('span', { class: 'tag' }, i.kind), make('span', {}, i.title)),
+      i.do.length || i.days ? make('p', { class: 'quiet' }, i.do, i.do.length && i.days ? ' ' : '', i.days) : '')));
+    parts.push(make('section', { 'aria-label': 'Waiting for you' },
+      panel(make('h2', {}, 'Waiting for you'), make('span', { class: 'quiet' }, v.waiting.length === 1 ? '1 thing' : `${v.waiting.length} things`), ul)));
   }
 
-  // The five lights.
-  const board = make('div', { class: 'board' });
-  v.lights.forEach(l => {
-    const card = make('article', { class: `light ${l.state}`, 'aria-label': `${l.name}: ${l.word}` },
-      make('div', { class: 'top' }, lamp(l.state), make('h3', { class: 'name' }, l.name), make('span', { class: 'word' }, l.word)),
-      l.checks.length ? make('p', { class: 'checks' }, l.checks) : '',
-      l.why ? make('p', { class: 'why' }, l.why, l.open ? [' ', link('Open', l.open, `Open what ${l.name} names`)] : '') : '');
-    card.style.setProperty('--d', card.querySelector('.lamp').style.getPropertyValue('--d'));
-    board.append(card);
-  });
-  const green = v.lights.filter(l => l.state === 'green').length;
-  const lights = panel('Lights', v.lights.length ? `${green} of ${v.lights.length} green` : '',
-    v.lights.length ? board : make('p', { class: 'calm' }, lamp('grey'), 'No light was read.'));
-
-  // The nightly tests: a tile per part; a part with something to say takes the whole row.
-  const n = v.nightly;
-  let nightBody;
-  if (n === null) nightBody = make('p', { class: 'calm' }, lamp('grey'), 'Not measured yet.');
-  else if (!n.parts.length) nightBody = make('p', { class: 'calm' }, lamp('grey'), 'No nightly job is expected.');
-  else {
-    // A part with something to say gets a whole row, above the others; the rest share a grid.
-    const loud = make('ul', { class: 'parts loud' });
-    const quiet = make('ul', { class: 'parts' });
-    nightBody = [loud, quiet];
-    n.parts.forEach(p => {
-      const wide = p.means || p.failed.length || p.note;
-      const li = make('li', { class: `tile ${p.state}${wide ? ' wide' : ''}` },
-        make('div', { class: 'row' }, lamp(p.state), make('span', { class: 'part' }, p.part),
-          p.state === 'green' ? '' : make('span', { class: 'state' }, p.word),
-          p.run ? link(n.mixed && p.night ? `Run of ${p.night}` : 'Run', p.run, `Run of ${p.part}, ${p.word}`) : ''),
-        p.of ? make('p', { class: 'of' }, p.of) : '');
-      if (p.run) li.querySelector('.row a').classList.add('run');
-      if (p.note) li.append(make('p', { class: 'note-line' }, p.note));
-      if (p.means) li.append(make('p', { class: 'means' }, p.means));
-      if (p.failed.length) {
-        const f = make('ul', { class: 'failed' });
-        p.failed.forEach(j => f.append(make('li', {}, j.job, `: ${j.step}`)));
-        li.append(f);
-      }
-      (wide ? loud : quiet).append(li);
+  // Where Kitden is published.
+  if (v.stores) {
+    const grid = make('div', { class: 'stores' });
+    v.stores.tiles.forEach(t => {
+      const kind = t.state === 'planned' ? ' planned' : t.version === 'Listed' ? ' listed' : '';
+      grid.append(make(t.url ? 'a' : 'div', { class: `store${kind}`, href: t.url || undefined, rel: t.url ? 'noopener noreferrer' : undefined },
+        make('span', { class: 'n' }, sock(t.state), t.name), make('span', { class: 'v' }, t.version), make('span', { class: 'quiet' }, t.note)));
     });
-    nightBody = nightBody.filter(ul => ul.children.length);
+    parts.push(make('section', { 'aria-label': 'Where Kitden is published' },
+      panel(make('h2', {}, 'Where Kitden is published'),
+        make('span', { class: 'quiet' }, v.stores.newest ? `Newest release: ${v.stores.newest}${v.stores.newestAt ? `, ${v.stores.newestAt}` : ''} · read from each store` : 'The newest release was not read'), grid)));
   }
-  const aside = n && n.night ? `Night of ${n.night}` : '';
-  const night = panel('Nightly tests', aside, nightBody);
 
-  main.append(...notes,
-    ...(wait ? [make('section', { 'aria-label': 'Waiting for you' }, wait)] : []),
-    make('section', { 'aria-label': 'Lights' }, lights),
-    make('section', { 'aria-label': 'Nightly tests' }, night),
-    make('nav', { class: 'foot-links', 'aria-label': 'More' },
-      v.summaries, { text: 'What each light means', href: HOW_TO }));
-  // A hidden tab shows the end at once, as in Kitden: no fill waits for the tab to be seen.
+  // The checks of main's newest push.
+  if (v.gate) {
+    const steps = make('div', { class: 'steps' });
+    v.gate.steps.forEach(s => steps.append(s.url
+      ? make('a', { href: s.url, rel: 'noopener noreferrer', 'aria-label': `${s.name}: ${WORD[s.state] || s.state}` }, sock(s.state), s.name)
+      : make('span', { class: 'step' }, sock(s.state), s.name)));
+    const where = [`main · `, v.gate.url ? link(v.gate.sha, v.gate.url) : v.gate.sha, v.gate.at ? ` · ${v.gate.at}` : ''];
+    parts.push(make('section', { 'aria-label': 'Checks on every pull request' },
+      panel([make('h2', {}, 'Checks on every pull request'), make('span', { class: 'tag block' }, 'Blocks merge')],
+        make('span', { class: 'quiet' }, ...where), steps)));
+  }
+
+  // The nightly bench.
+  if (v.bench) {
+    const body = [];
+    const row = r => {
+      const cells = make('span', { class: 'cells' }, ...r.cells.map(c => c.url
+        ? make('a', { href: c.url, rel: 'noopener noreferrer', 'aria-label': `${r.name}, ${c.label}: ${WORD[c.state] || c.state}` }, sock(c.state), c.label)
+        : make('span', {}, sock(c.state), c.label)));
+      if (r.startup) cells.append(make('a', { class: 'more', href: '#startup' }, 'Trend by release'));
+      const strip = make('span', { class: 'strip', role: 'img', 'aria-label': `The last ${r.nights.filter(n => n.state !== 'empty').length} nights` },
+        ...r.nights.map(n => (n.url ? make('a', { class: n.state, href: n.url, rel: 'noopener noreferrer', title: `${n.night}: ${WORD[n.state]}`, 'aria-hidden': 'true', tabindex: '-1' })
+          : make('span', { class: n.state, title: n.night ? `${n.night}: ${WORD[n.state]}` : undefined }))));
+      const el = make('div', { class: `row${r.state === 'red' ? ' red' : ''}` },
+        make('span', { class: 'name' }, r.name), cells, strip,
+        r.run ? make('a', { class: 'run', href: r.run, rel: 'noopener noreferrer', 'aria-label': `The newest run of ${r.name}` }, 'Run') : make('span'));
+      if (r.state === 'red') {
+        const d = make('div', { class: 'detail' });
+        if (r.since) d.append(make('span', { class: 'since' }, r.since));
+        if (r.means) d.append(make('span', {}, r.means));
+        if (r.failed.length) d.append(make('ul', {}, ...r.failed.map(f => make('li', {}, f.job, `: ${f.step}`))));
+        el.append(d);
+      }
+      return el;
+    };
+    body.push(make('div', { class: 'grp' }, make('span', {}, 'Supported platforms'), make('span', { class: 'tag block' }, 'Blocks a release')));
+    v.bench.platforms.forEach(r => body.push(row(r)));
+    body.push(make('div', { class: 'grp' }, make('span', {}, 'Compatibility'), make('span', { class: 'tag' }, 'Informational'),
+      make('span', { class: 'about' }, 'The newest versions from outside; a red here is often theirs, and never blocks a release.')));
+    v.bench.compatibility.forEach(r => body.push(row(r)));
+    parts.push(make('section', { 'aria-label': 'Nightly' },
+      panel(make('h2', {}, `Nightly${v.bench.night ? ` · ${v.bench.night}` : ''}`), make('span', { class: 'quiet' }, 'Strips: the last 14 nights, oldest on the left'), ...body)));
+  }
+
+  if (v.startup) parts.push(make('section', { 'aria-label': 'Start-up time by release' }, startupPanel(v.startup)));
+
+  // Bugs, upstream changes, the AI agents.
+  const c = v.cards;
+  const bugsCard = make(c.bugs.url ? 'a' : 'div', { class: 'card', href: c.bugs.url || undefined, rel: c.bugs.url ? 'noopener noreferrer' : undefined },
+    make('h3', {}, sock(c.bugs.light ? c.bugs.light.state : 'grey'), 'Bugs', make('span', { class: 'w' }, c.bugs.light ? c.bugs.light.word : '')),
+    make('span', { class: 'big' }, c.bugs.open === null ? 'Not read' : `${c.bugs.open} open`),
+    c.bugs.light && c.bugs.light.why ? make('span', { class: 'quiet' }, c.bugs.light.why) : '',
+    c.bugs.url ? make('span', { class: 'go' }, 'See the open bugs') : '');
+  const up = c.upstream;
+  const upCard = make('div', { class: 'card' },
+    make('h3', {}, sock(up.light ? up.light.state : 'grey'), 'Upstream changes', make('span', { class: 'w' }, up.light ? up.light.word : '')),
+    make('span', { class: 'big' }, up.confirmed === null ? 'Not read' : `${up.confirmed} open`),
+    make('span', { class: 'quiet' }, up.confirmed === null ? '' : `Confirmed changes in Claude Code, Codex or Cursor that Kitden has not met yet${up.unconfirmed ? `; ${up.unconfirmed} more wait for your verdict` : ''}.`, up.watched ? ` ${up.watched}` : ''),
+    up.light && up.light.state !== 'green' && up.light.why ? make('span', { class: 'quiet' }, up.light.why) : '',
+    make('span', {}, link(up.summaries.text, up.summaries.href)));
+  const ag = c.agents;
+  const agCard = make('div', { class: 'card' },
+    make('h3', {}, sock(ag.light ? ag.light.state : 'grey'), 'AI agents', make('span', { class: 'w' }, 'this week')),
+    ...ag.list.map(a => make('span', { class: 'line' }, a.name, make('span', { class: 'r' }, [a.runs, a.failed].filter(Boolean).join(' · ')))),
+    ag.light && ag.light.why ? make('span', { class: 'quiet' }, ag.light.why) : '');
+  parts.push(make('section', { 'aria-label': 'Bugs, upstream changes and agents', class: 'cards' }, bugsCard, upCard, agCard));
+
+  parts.push(make('footer', {}, make('span', {}, v.supported, ' ', make('span', { class: 'quiet', style: 'font-size:13px' }, v.notSupported)),
+    link('What each line means', HOW_TO)));
+  main.append(...parts);
   if (!document.hidden) requestAnimationFrame(() => main.classList.add('lit'));
 }
 
 function fail(why) {
-  document.getElementById('lead').replaceChildren(lamp('grey', true), make('span', {}, 'The desk could not be read.'));
+  document.getElementById('lead').replaceChildren(sock('grey', true), make('span', {}, 'The desk could not be read.'));
   const updated = document.getElementById('updated');
   updated.className = 'updated';
   updated.replaceChildren(document.createTextNode(`${why}. `), link('Open its data on GitHub', DATA_PAGE));
@@ -300,7 +503,7 @@ function fail(why) {
 const theme = new URLSearchParams(location.search).get('theme');
 if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
 // For a look at other data in the browser's console: renderDesk(desk).
-window.renderDesk = (desk, now = new Date()) => render(view(desk, now));
+window.renderDesk = (desk, now = new Date()) => { chartState.sys = null; render(view(desk, now)); };
 
 fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' })
   .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })

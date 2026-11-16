@@ -87,7 +87,7 @@ Kitden-specific skills and prompts, then do the one-time setup:
 
 - [docs/agents.md](docs/agents.md): every agent and workflow, the watcher's labels, the release flow
 - [docs/owner.md](docs/owner.md): everything you do, one table; the switches
-- [The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): the five lights, what waits for you and the nightly tests
+- [The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): where each release is published, main's checks, the nightly tests by system, the start-up time by release, bugs, upstream changes and the agents
 - [desk.json](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json) on the `numbers` branch: the desk's data
 - [docs/setup.md](docs/setup.md) and [docs/release-setup.md](docs/release-setup.md): the one-time setup
 - [docs/decisions.md](docs/decisions.md): every standing choice, why, and when to look again

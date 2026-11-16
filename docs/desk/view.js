@@ -1,11 +1,13 @@
 // The desk page's words: desk.json turned into what docs/desk/index.html shows. No DOM here,
 // so tests/test_desk_page.py runs it in Node. No model wrote any of it.
 //
-// The page shows less than the "Kitden desk" issue (scripts/desk_post.py): the five lights,
-// what waits for the owner, the nightly tests and one link. The texts both say (CHECKS,
-// OVERALL, KINDS, MEANS, the watcher's search) are the same; the test checks it. Text is never
-// HTML: a piece is a string, {code} or {text, href}, and the page puts each in with textContent.
-// A link is made only to github.com: every title and `why` was written by a person or a model.
+// The page reads desk.json's `bench` (scripts/desk_bench.py): main's checks, the nightly rows,
+// the start-up times by release, the stores, the bugs and the upstream changes; and of the
+// "Kitden desk" issue's facts (scripts/desk_post.py) the lights, what waits and the agents'
+// week. The texts both say (CHECKS, OVERALL, KINDS, MEANS, the watcher's search) are the same;
+// the test checks it. Text is never HTML: a piece is a string, {code} or {text, href}, and the
+// page puts each in with textContent. A link goes only to the hosts in LINKS: every title and
+// `why` was written by a person or a model.
 
 export const DATA = 'https://raw.githubusercontent.com/KonstantinStarovoytov/kitden-sdlc/numbers/desk.json';
 export const DATA_PAGE = 'https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json';
@@ -13,8 +15,12 @@ export const HOW_TO = 'https://github.com/KonstantinStarovoytov/kitden-sdlc/blob
 export const RUNS = 'https://github.com/KonstantinStarovoytov/kitden-sdlc/actions/workflows/desk.yml';
 export const REPO = 'KonstantinStarovoytov/kitden';
 export const OLD_HOURS = 30; // the desk runs every day at 06:41 UTC; later than this, a run was missed
-export const GREY_SHOWN = 2;
+export const NIGHTS = 14; // desk_bench.NIGHTS
 export const NOT_MEASURED_YET = 'not measured yet';
+// A release is slower on a system than the one before it when both of these hold: the times
+// are printed to a tenth of a second and one run differs from the next by about that much.
+export const SLOWER_SECONDS = 0.2;
+export const SLOWER_SHARE = 0.2;
 
 export const STATES = ['green', 'amber', 'red', 'grey'];
 export const WORDS = { green: 'OK', amber: 'Needs a look', red: 'Wrong', grey: 'No data' };
@@ -23,6 +29,12 @@ export const OVERALL = {
   amber: 'Something needs a look.',
   red: 'Something is wrong.',
   grey: 'Some lights are not measured yet; none is amber or red.',
+};
+export const HEAD = {
+  green: 'All good.',
+  amber: 'Something needs a look.',
+  red: 'Something is wrong.',
+  grey: 'Some parts were not read.',
 };
 export const CHECKS = {
   works: 'the checks on `main` pass',
@@ -41,34 +53,49 @@ export const MEANS = {
   browser: 'A main flow of the page is broken in a real browser.',
 };
 export const MEANS_ELSE = 'A scheduled test run failed.';
-// The one link the page keeps of the issue's searches (desk_post.SEARCHES).
 export const SUMMARIES = ["The watcher's weekly summaries", 'issues', 'is:issue label:client-change label:summary'];
+export const MEASURES = [
+  { id: 'first', label: 'First usable', dash: '',
+    tip: 'How long until you can use the page after it starts. Measured with one client slow on purpose (Codex takes 10 s to list its plugins), so the page has to show what it has without waiting for it.' },
+  { id: 'complete', label: 'Complete', dash: '6 4',
+    tip: 'How long until the first scan has read everything: every client, project, plugin and server, with every client answering at once.' },
+];
+export const SUPPORTED = 'Supported: macOS and Linux, Python 3.13 and 3.14.';
+export const NOT_SUPPORTED = 'Not supported: Windows.';
 
-const GITHUB = /^https:\/\/github\.com\/[\w.~/#?=&%+-]*$/;
+// The hosts a link may go to: GitHub, and the stores Kitden is published in.
+const LINKS = [
+  /^https:\/\/github\.com\/[\w.~/#?=&%+-]*$/,
+  /^https:\/\/pypi\.org\/project\/kitden\/[\w.]*\/?$/,
+  /^https:\/\/registry\.modelcontextprotocol\.io\/v0\/servers\?search=[\w./-]+$/,
+  /^https:\/\/glama\.ai\/mcp\/servers\/[\w./-]+$/,
+];
 const SLUG = /^[\w-]+\/[\w.-]+$/;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const PLATFORM_PARTS = { 'End-to-end in Chromium': 'browser' };
 
 // --- Small pieces ---
 
 export const isNumber = v => typeof v === 'number' && Number.isFinite(v);
 const isText = v => typeof v === 'string';
-const rows = (desk, key) => (Array.isArray(desk[key]) ? desk[key].filter(r => r && typeof r === 'object' && !Array.isArray(r)) : []);
+const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const list = v => (Array.isArray(v) ? v.filter(isObject) : []);
+const own = (table, key) => (typeof key === 'string' && Object.hasOwn(table, key) ? table[key] : undefined);
+const capital = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /** Text on one line: runs of white space become one space. */
 export const line = v => (isText(v) ? v.split(/\s+/).filter(Boolean).join(' ') : '');
 
-/** The address when it may be a link: github.com only. */
-export const href = url => (isText(url) && GITHUB.test(url) ? url : null);
+/** The address when it may be a link (LINKS); null otherwise. */
+export const href = url => (isText(url) && LINKS.some(re => re.test(url)) ? url : null);
 
 export const figure = v => (Number.isInteger(v) ? v.toLocaleString('en-US') : String(Math.round(v * 10) / 10));
 export const count = (v, one, many) => `${figure(v)} ${v === 1 ? one : many}`;
 export function days(v) {
-  if (v >= 1) return count(v, 'day', 'days');
+  if (v >= 1) return count(Math.round(v * 10) / 10, 'day', 'days');
   const hours = Math.round(v * 24);
   return hours < 1 ? 'under an hour' : count(hours, 'hour', 'hours');
 }
-const own = (table, key) => (typeof key === 'string' && Object.hasOwn(table, key) ? table[key] : undefined);
-const capital = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /** "`a` b" as pieces: the backticked parts become {code}. */
 export function ticks(text) {
@@ -78,17 +105,16 @@ export function ticks(text) {
 /** A piece that is a link when the address may be one, else the text alone. */
 export const linked = (text, url) => (href(url) ? { text, href: href(url) } : text);
 
-/** "16 Nov" for "2026-11-16"; the text as it is when it is no such date. */
+/** "16 Nov" for "2026-11-16" or a full time; the text as it is when it is no date. */
 export function day(text) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(line(text));
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(line(text));
   return m && MONTHS[+m[2] - 1] ? `${+m[3]} ${MONTHS[+m[2] - 1]}` : line(text);
 }
 
 /** "16 Nov 2026, 16:26 UTC". */
 export function when(ms) {
   const d = new Date(ms);
-  const hm = d.toISOString().slice(11, 16);
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${hm} UTC`;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${d.toISOString().slice(11, 16)} UTC`;
 }
 
 /** "just now", "12 minutes ago", "3 hours ago", "2 days ago". */
@@ -103,30 +129,17 @@ export function ago(ms, now) {
 
 export const state = v => (STATES.includes(v) ? v : 'grey');
 export const repoOf = desk => (isText(desk.repo) && SLUG.test(desk.repo) ? desk.repo : REPO);
+const known = ['green', 'amber', 'red', 'grey', 'none', 'planned'];
+const cellState = v => (known.includes(v) ? v : 'grey');
+/** Seconds as the page shows them: "450 ms", "1.8 s". */
+export const seconds = v => (v < 1 ? `${Math.round(v * 1000)} ms` : `${Math.round(v * 100) / 100} s`);
 
 // --- The parts ---
-
-/** A light: its name, state and word; when green, what it checks (the issue's words, as a
- * sentence); when not, why, and a link to what it names. */
-function lights(desk) {
-  return rows(desk, 'lights').map(l => {
-    const s = state(l.state);
-    let why = line(l.why);
-    if (s === 'green') why = '';
-    else if (s === 'grey') why = why.replace(new RegExp(`^${NOT_MEASURED_YET}:?\\s*`, 'i'), '');
-    const checks = own(CHECKS, l.id);
-    return {
-      id: line(l.id), name: line(l.name) || line(l.id) || '?', state: s, word: WORDS[s],
-      checks: checks ? ticks(capital(checks)) : [],
-      why: capital(why), open: s === 'grey' ? null : href(l.url),
-    };
-  });
-}
 
 function waiting(desk) {
   const items = desk.waiting;
   if (items === null || items === undefined) return null;
-  return (Array.isArray(items) ? items : []).filter(i => i && typeof i === 'object').map(i => ({
+  return list(items).map(i => ({
     kind: own(KINDS, i.kind) || line(i.kind) || 'Item',
     title: [linked(line(i.title) || '(no title)', i.url)],
     do: i.do ? ticks(line(i.do)) : [],
@@ -134,61 +147,225 @@ function waiting(desk) {
   }));
 }
 
-/** Since when a nightly part is red, or has had no finished run (desk_post._part_mark). */
-function partNote(r, s) {
-  const since = isText(r.since) ? day(r.since) : null;
-  const greySince = isText(r.grey_since) ? day(r.grey_since) : null;
-  if (s === 'red') return since ? `Red since ${since}` : '';
-  if (s !== 'grey') return '';
-  if (since) return `Red since ${since}` + (greySince ? `; no finished run since ${greySince}` : '');
-  if (greySince && Number.isInteger(r.grey_nights) && r.grey_nights >= GREY_SHOWN) return `No finished run since ${greySince}`;
-  return line(r.why);
+function lightOf(desk, id) {
+  const l = list(desk.lights).find(x => x.id === id);
+  if (!l) return null;
+  const s = state(l.state);
+  let why = line(l.why);
+  if (s === 'green') why = '';
+  else if (s === 'grey') why = why.replace(new RegExp(`^${NOT_MEASURED_YET}:?\\s*`, 'i'), '');
+  return { state: s, word: WORDS[s], why: capital(why), open: s === 'grey' ? null : href(l.url) };
 }
 
-function nightly(desk) {
-  if (!Array.isArray(desk.nightly)) return null;
-  const parts = rows(desk, 'nightly').map(r => {
-    const s = r.state === 'green' || r.state === 'red' ? r.state : 'grey';
-    const failed = Array.isArray(r.failed) ? r.failed.filter(f => f && typeof f === 'object') : [];
+function gate(bench, now) {
+  const g = bench.gate;
+  if (!isObject(g)) return null;
+  const at = isText(g.at) ? Date.parse(g.at) : NaN;
+  return {
+    state: cellState(g.state),
+    sha: isText(g.sha) ? g.sha.slice(0, 7) : '',
+    url: href(g.url),
+    at: Number.isNaN(at) ? '' : ago(at, now),
+    steps: list(g.steps).map(s => ({ name: line(s.name) || '?', state: cellState(s.state), url: href(s.url) })),
+  };
+}
+
+function nightOf(n) {
+  return {
+    night: isText(n.night) ? day(n.night) : '',
+    state: cellState(n.state),
+    url: href(n.url),
+  };
+}
+
+/** A row's strip: its nights, padded at the start to NIGHTS so every strip lines up. */
+function strip(nights) {
+  const shown = list(nights).slice(-NIGHTS).map(nightOf);
+  return [...Array.from({ length: NIGHTS - shown.length }, () => ({ night: '', state: 'empty', url: null })), ...shown];
+}
+
+function bench(benchData) {
+  if (!Array.isArray(benchData.rows)) return null;
+  const rows = list(benchData.rows).map(r => {
+    const s = cellState(r.state);
+    const part = own(PLATFORM_PARTS, r.name) || (r.group === 'compatibility' ? 'clients' : 'systems');
     return {
-      part: line(r.part) || '?', state: s, word: WORDS[s],
-      workflow: line(r.name) || line(r.workflow) || 'Nightly run',
-      night: isText(r.night) ? day(r.night) : null,
-      run: href(r.run), note: partNote(r, s),
-      means: s === 'red' ? (own(MEANS, r.part) || MEANS_ELSE) : '',
-      failed: failed.map(f => ({
+      group: r.group === 'compatibility' ? 'compatibility' : 'platforms',
+      name: line(r.name) || '?',
+      state: s,
+      word: own(WORDS, s) || WORDS.grey,
+      startup: r.name === 'Start-up time',
+      cells: list(r.cells).map(c => ({ label: line(c.label) || '?', state: cellState(c.state), url: href(c.url) })),
+      since: isText(r.since) ? `Red since ${day(r.since)}` : '',
+      means: s === 'red' ? (r.name === 'Start-up time' ? 'A start-up budget is missed on that system.'
+        : r.name === 'Newest dependencies' ? MEANS_ELSE : own(MEANS, part) || MEANS_ELSE) : '',
+      failed: list(r.failed).map(f => ({
         job: [linked(line(f.job) || '?', f.url)],
         step: isText(f.step) ? `the step "${line(f.step)}" failed` : 'no failed step is named',
       })),
+      run: href(r.url),
+      nights: strip(r.nights),
     };
   });
-  // The night, and the workflow most parts come from, are said once, on top; a part says its
-  // own only when it differs.
-  const nights = [...new Set(parts.map(p => p.night))];
-  const tally = parts.reduce((m, p) => m.set(p.workflow, (m.get(p.workflow) || 0) + 1), new Map());
-  const common = [...tally].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  parts.forEach(p => { p.of = p.workflow === common ? '' : p.workflow; });
-  return { night: nights.length === 1 ? nights[0] : null, mixed: nights.length > 1, common, parts };
+  const nights = rows.map(r => r.nights.at(-1)?.night).filter(Boolean);
+  return {
+    night: nights.length ? nights[0] : '',
+    platforms: rows.filter(r => r.group === 'platforms'),
+    compatibility: rows.filter(r => r.group === 'compatibility'),
+  };
+}
+
+function stores(benchData) {
+  const s = benchData.stores;
+  if (!isObject(s)) return null;
+  const newest = isObject(s.newest) && isText(s.newest.version) ? s.newest.version : null;
+  const tiles = list(s.stores).map(t => {
+    const st = cellState(t.state);
+    let note = line(t.note);
+    if (!note && isText(t.at)) note = `Since ${day(t.at)}, ${line(t.at).slice(11, 16)} UTC`;
+    if (!note && st === 'amber' && newest) note = `Behind: the newest is ${newest}`;
+    return {
+      name: line(t.name) || '?',
+      state: st,
+      version: isText(t.version) ? t.version : (st === 'planned' ? 'Planned' : t.id === 'glama' && st === 'green' ? 'Listed' : '—'),
+      note,
+      url: href(t.url),
+    };
+  });
+  const behind = tiles.filter(t => t.state === 'amber');
+  const unread = tiles.filter(t => t.state === 'grey');
+  let says = '';
+  if (newest) {
+    if (behind.length) says = `Kitden ${newest} is the newest release; ${behind.map(t => `${t.name} is on ${t.version}`).join(', ')}.`;
+    else if (unread.length) says = `Kitden ${newest} is the newest release; ${unread.map(t => t.name).join(' and ')} could not be read.`;
+    else says = `Kitden ${newest} is the newest release, and every store has it.`;
+  }
+  return { newest, tiles, says, behind: behind.length > 0, newestAt: isObject(s.newest) && isText(s.newest.at) ? day(s.newest.at) : '' };
+}
+
+/** The start-up chart's data: one line per system and measure, by version. */
+function startup(benchData) {
+  const s = benchData.startup;
+  if (!isObject(s) || !Array.isArray(s.versions) || !s.versions.length) return null;
+  const versions = s.versions.filter(isText);
+  const n = versions.length;
+  const num = v => (isNumber(v) ? v : null);
+  const systems = list(s.systems).map(x => ({
+    id: line(x.id), label: `${line(x.os)} · ${line(x.arch)}`,
+    first: (Array.isArray(x.first) ? x.first : []).slice(0, n).map(num),
+    complete: (Array.isArray(x.complete) ? x.complete : []).slice(0, n).map(num),
+    measured: (Array.isArray(x.runs) ? x.runs : []).slice(0, n).map(v => (Number.isInteger(v) ? v : 0)),
+  }));
+  const budgets = isObject(s.budgets) ? { first: num(s.budgets.first), complete: num(s.budgets.complete) } : {};
+  // The newest version each system was measured on, and the one before it there.
+  const lastTwo = vals => {
+    const idx = vals.map((v, i) => (v === null ? -1 : i)).filter(i => i >= 0);
+    return idx.slice(-2);
+  };
+  const newest = versions[n - 1];
+  const fastest = Math.min(...systems.map(x => x.first[n - 1]).filter(v => v !== null));
+  const rows = systems.map(x => {
+    const [a, b] = lastTwo(x.first);
+    const firstNow = x.first[n - 1];
+    let change = '';
+    let slower = false;
+    for (const key of ['first', 'complete']) {
+      const [i, j] = lastTwo(x[key]);
+      if (j === n - 1 && i !== undefined) {
+        const was = x[key][i], now = x[key][j];
+        const grew = now - was;
+        if (grew >= SLOWER_SECONDS - 1e-9 && grew / was >= SLOWER_SHARE - 1e-9) slower = true; // tenths: 0.7 - 0.5 is 0.19999…
+      }
+    }
+    if (b === n - 1 && a !== undefined) {
+      const pct = Math.round(((x.first[b] - x.first[a]) / x.first[a]) * 100);
+      change = `${pct > 0 ? '+' : ''}${pct}% vs ${versions[a]}`;
+    }
+    return {
+      label: x.label, id: x.id,
+      first: firstNow === null ? '—' : seconds(firstNow),
+      complete: x.complete[n - 1] === null ? '—' : seconds(x.complete[n - 1]),
+      fastest: firstNow === null || !isFinite(fastest) ? '—'
+        : firstNow / fastest < 1.05 ? 'fastest' : `${(firstNow / fastest).toFixed(1)}× slower`,
+      change: change || '—',
+      slower,
+    };
+  });
+  const mainNight = isText(s.main_night) ? day(s.main_night) : '';
+  return { versions, newest, systems, budgets, rows, mainNight };
+}
+
+function cards(desk, benchData) {
+  const bugs = isObject(benchData.bugs) ? benchData.bugs : null;
+  const up = isObject(benchData.upstream) ? benchData.upstream : null;
+  const repo = repoOf(desk);
+  const [what, page, query] = SUMMARIES;
+  const agents = list(desk.week).map(w => ({
+    name: line(w.name) || line(w.agent) || '?',
+    runs: isNumber(w.runs) ? count(w.runs, 'run', 'runs') : 'runs not read',
+    failed: isNumber(w.failed) ? `${figure(w.failed)} failed` : '',
+  }));
+  const watched = up && isNumber(up.watcher_days)
+    ? (up.watcher_days < 1 ? 'The watcher read the release notes today.'
+      : `The watcher read the release notes ${days(up.watcher_days)} ago.`) : '';
+  return {
+    bugs: { light: lightOf(desk, 'bugs'), open: bugs && isNumber(bugs.open) ? bugs.open : null, url: bugs ? href(bugs.url) : null },
+    upstream: {
+      light: lightOf(desk, 'clients'),
+      confirmed: up && isNumber(up.confirmed) ? up.confirmed : null,
+      unconfirmed: up && isNumber(up.unconfirmed) ? up.unconfirmed : null,
+      watched,
+      url: up ? href(up.url) : null,
+      summaries: { text: what, href: `https://github.com/${repo}/${page}?q=${encodeURIComponent(query).replace(/%20/g, '+')}` },
+    },
+    agents: { light: lightOf(desk, 'agents'), list: agents },
+  };
+}
+
+/** The headline. Red only for what blocks: a supported platform, or a check on main (the gate,
+ * or the Works light, which also reads the checks main requires). Amber for anything else that
+ * needs a look: a light that is amber or red (a red Clients, Bugs, Agents or Queue light needs a
+ * look, it does not block), compatibility, a store behind. Grey when a part that blocks was not
+ * read; green otherwise. */
+function headline(g, b, st, desk) {
+  const red = b ? b.platforms.find(r => r.state === 'red') : null;
+  if (red) return { state: 'red', text: `Blocked: ${red.name} is red.` };
+  const works = lightOf(desk, 'works');
+  if ((g && g.state === 'red') || (works && works.state === 'red')) return { state: 'red', text: 'A check on main failed.' };
+  const lights = ['works', 'bugs', 'clients', 'agents', 'queue'].map(id => lightOf(desk, id)).filter(Boolean);
+  const amber = lights.some(l => l.state === 'amber' || l.state === 'red')
+    || (b && b.compatibility.some(r => r.state === 'red'))
+    || (st && st.behind);
+  if (amber) return { state: 'amber', text: HEAD.amber };
+  // Only what blocks a release can make the page grey; compatibility only informs.
+  const unread = !g || g.state !== 'green' || !b || b.platforms.some(r => r.state !== 'green');
+  return unread ? { state: 'grey', text: HEAD.grey } : { state: 'green', text: HEAD.green };
 }
 
 /** Everything the page shows. `now` is a Date. */
 export function view(desk, now = new Date()) {
-  if (!desk || typeof desk !== 'object' || Array.isArray(desk)) throw new Error('desk.json is not an object');
-  // No light read: the headline cannot say they are green.
-  const overall = rows(desk, 'lights').length ? state(desk.overall) : 'grey';
+  if (!isObject(desk)) throw new Error('desk.json is not an object');
+  const benchData = isObject(desk.bench) ? desk.bench : {};
   const updated = isText(desk.updated) ? Date.parse(desk.updated) : NaN;
-  const known = !Number.isNaN(updated);
-  const map = desk.map && typeof desk.map === 'object' && Array.isArray(desk.map.stale) ? desk.map.stale.length : 0;
-  const [what, page, query] = SUMMARIES;
+  const known_ = !Number.isNaN(updated);
+  const map = isObject(desk.map) && Array.isArray(desk.map.stale) ? desk.map.stale.length : 0;
+  const g = gate(benchData, now);
+  const b = bench(benchData);
+  const st = stores(benchData);
   return {
-    overall, lead: OVERALL[overall],
-    updated: known ? `Updated ${ago(updated, now)}` : 'Updated at an unknown time',
-    updatedAt: known ? when(updated) : '',
-    old: !known || now - updated > OLD_HOURS * 3600e3,
-    lights: lights(desk),
-    waiting: waiting(desk),
-    nightly: nightly(desk),
+    head: headline(g, b, st, desk),
+    says: st ? st.says : '',
+    updated: known_ ? `Updated ${ago(updated, now)}` : 'Updated at an unknown time',
+    updatedAt: known_ ? when(updated) : '',
+    old: !known_ || now - updated > OLD_HOURS * 3600e3,
     map: map ? `The workflow map is out of date in ${count(map, 'place', 'places')}. Run \`scripts/map_text.py --write\`.` : '',
-    summaries: { text: what, href: `https://github.com/${repoOf(desk)}/${page}?q=${encodeURIComponent(query).replace(/%20/g, '+')}` },
+    waiting: waiting(desk),
+    stores: st,
+    gate: g,
+    bench: b,
+    startup: startup(benchData),
+    cards: cards(desk, benchData),
+    supported: SUPPORTED,
+    notSupported: NOT_SUPPORTED,
   };
 }

@@ -18,9 +18,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import desk_bench
 import map_text
+import release_stores
 from count_reviews import REPO, SINCE_DAYS, GhNumbersApi, collect, write_numbers
-from desk import NIGHTLY, Facts, build
+from desk import NIGHTLY, Facts, _log_day, _measured, build
 
 Fetch = Callable[[str], str]
 
@@ -51,6 +53,11 @@ class GhDeskApi(GhNumbersApi):
     def text(self, address: str) -> str:
         """The answer at `address` as gh prints it."""
         return self._run(address)
+
+    def log(self, address: str) -> str:
+        """A job's log: plain text with the colours its tools printed, which gh refuses to print
+        unless asked. Only numbers are read from it (desk_bench.startup_times)."""
+        return self._run(address, "--allow-escape-sequences")
 
     def pages(self, address: str, key: str | None = None) -> list:
         """Every page of `address`: the items of each list, or of each object's `key`."""
@@ -357,6 +364,193 @@ def _map_stale(api, fetch: Fetch, root: Path) -> list[str]:
     return lines
 
 
+# --- The bench: history of the nightly runs, main's checks, the stores ---
+
+
+HISTORY_RUNS = 30  # the newest scheduled runs of each nightly workflow looked at each day
+RELEASE_RUNS = 100  # the newest push runs of release.yml looked at, for its release tags
+NEW_RUNS = 20  # at most this many runs read in full each day: a first day fills the rest later
+RELEASE = "release.yml"  # its build job measures the start-up on every release tag
+PYPROJECT = "https://raw.githubusercontent.com/{repo}/{sha}/pyproject.toml"
+GLAMA = "https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden"
+# Only the latest version: the search lists every version, oldest first, 30 to a page.
+REGISTRY_LATEST = release_stores.REGISTRY + "&version=latest"
+
+
+def _version(fetch: Fetch, repo: str, workflow: str, run: dict) -> str | None:
+    """The version the run measured: its tag's on a release, main's pyproject at its commit on a
+    nightly."""
+    if workflow == RELEASE:
+        found = release_stores.TAG.match(run.get("head_branch") or "")
+        return found.group(1) if found else None
+    sha = run.get("head_sha")
+    if not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}", sha)):
+        return None
+    return _read(f"version at {sha[:7]}", lambda: desk_bench.version_of(
+        fetch(PYPROJECT.format(repo=repo, sha=sha))))
+
+
+def _read_run(api, fetch: Fetch, repo: str, workflow: str, run: dict, tries: int = 0) -> dict:
+    """One run in full: its jobs, the version it measured, and the start-up times the log of
+    each job that measures them printed. A log that cannot be read leaves that job without
+    times, and the line counts it, so a later day tries again."""
+    jobs = _dicts(api.pages(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest"
+                            "&per_page=100", "jobs"))
+    times, unread = {}, 0
+    for job in jobs:
+        part, _args = desk_bench.job_parts(job.get("name", ""))
+        if part not in desk_bench.MEASURING or not isinstance(job.get("id"), int):
+            continue
+        if desk_bench._step_state(job, desk_bench.STARTUP_STEP) not in ("green", "red"):
+            continue
+        log = _read(f"log of {job['name']}",
+                    lambda j=job: api.log(f"repos/{repo}/actions/jobs/{j['id']}/logs"))
+        if log is None:
+            unread += 1
+            continue
+        found = desk_bench.startup_times(log)
+        if found:
+            times[job["name"]] = found
+    return desk_bench.record(workflow, run, jobs, _version(fetch, repo, workflow, run), times,
+                             unread=unread, tries=tries + (1 if unread else 0))
+
+
+def _runs(api, address: str, field: str) -> list[dict]:
+    return _read(field, lambda: _dicts(page_items(api.get(address), "workflow_runs"))) or []
+
+
+def _again(line: dict | None, run: dict) -> bool:
+    """A run read before that is read again: re-run since (a newer attempt), or with a log that
+    could not be read, until LOG_TRIES days have tried."""
+    if line is None:
+        return True
+    attempt = run.get("run_attempt")
+    if isinstance(attempt, int) and attempt > (line.get("attempt") or 1):
+        return True
+    return bool(line.get("unread_logs")) and (line.get("tries") or 0) < desk_bench.LOG_TRIES
+
+
+def update_history(api, fetch: Fetch, repo: str, history: list[dict]) -> list[dict]:
+    """The history with the runs it does not hold yet, or must read again (_again): the nightly
+    workflows' scheduled runs on main, and release.yml's runs on a release tag. The oldest
+    first, at most NEW_RUNS of them; a run that cannot be read is left for the next day."""
+    known = {line.get("id"): line for line in history if isinstance(line, dict)}
+    waiting = []
+    for workflow, _parts in NIGHTLY:
+        address = (f"repos/{repo}/actions/workflows/{workflow}/runs?branch={BRANCH}"
+                   f"&event=schedule&status=completed&per_page={HISTORY_RUNS}")
+        waiting += [(workflow, run) for run in _runs(api, address, f"history ({workflow})")]
+    address = (f"repos/{repo}/actions/workflows/{RELEASE}/runs?event=push&status=completed"
+               f"&per_page={RELEASE_RUNS}")
+    waiting += [(RELEASE, run) for run in _runs(api, address, f"history ({RELEASE})")
+                if release_stores.TAG.match(run.get("head_branch") or "")]
+    waiting = [(workflow, run) for workflow, run in waiting
+               if isinstance(run.get("id"), int) and _again(known.get(run["id"]), run)]
+    new = []
+    for workflow, run in sorted(waiting, key=lambda item: item[1].get("created_at") or "")[
+            :NEW_RUNS]:
+        tries = (known.get(run["id"]) or {}).get("tries") or 0
+        line = _read(f"run {run['id']}",
+                     lambda w=workflow, r=run, n=tries: _read_run(api, fetch, repo, w, r, n))
+        if line is not None:
+            new.append(line)
+    return desk_bench.merge(history, new)
+
+
+def read_history(out: Path) -> list[dict]:
+    """history.json in `out`, or an empty history: a first day starts one."""
+    path = out / "history.json"
+    if not path.is_file():
+        return []
+    found = _read("history.json", lambda: _dicts(json.loads(path.read_text())))
+    return found or []
+
+
+def _gate(api, repo: str, checks: list[dict] | None) -> dict | None:
+    """The build jobs of the workflow run that checked main's newest commit on its push."""
+    build = next((c for c in checks or [] if isinstance(c, dict) and c.get("event") == "push"
+                  and desk_bench.job_parts(c.get("name", ""))[0] == "build"), None)
+    run_id = _run_id(build) if build else None
+    if run_id is None:
+        return None
+    run = api.get(f"repos/{repo}/actions/runs/{run_id}")
+    jobs = _dicts(api.pages(f"repos/{repo}/actions/runs/{run_id}/jobs?filter=latest"
+                            "&per_page=100", "jobs"))
+    return desk_bench.gate(jobs, run)
+
+
+def _newest(api, repo: str) -> dict:
+    release = api.get(f"repos/{repo}/releases/latest")
+    tag = release["tag_name"]
+    found = release_stores.TAG.match(tag)
+    if not found:
+        raise ValueError("a release tag of another shape")
+    return {"version": found.group(1), "at": release.get("published_at"),
+            "url": release.get("html_url")}
+
+
+def _pypi(fetch: Fetch) -> dict:
+    data = json.loads(fetch(release_stores.PYPI))
+    version = data["info"]["version"]
+    files = data.get("releases", {}).get(version) or [{}]
+    return {"version": version, "at": files[0].get("upload_time_iso_8601"),
+            "url": f"https://pypi.org/project/kitden/{version}/"}
+
+
+def _homebrew(fetch: Fetch) -> dict:
+    text = fetch(release_stores.FORMULA)
+    found = re.search(r'^  url "[^"]*/kitden-([^/"]+)\.tar\.gz"', text, re.M)
+    if not found:
+        raise ValueError("no url in the formula")
+    return {"version": found.group(1), "at": None,
+            "url": "https://github.com/konstantinstarovoytov/homebrew-tap"}
+
+
+def _registry(fetch: Fetch) -> dict:
+    entries = json.loads(fetch(REGISTRY_LATEST))["servers"]
+    latest = [e for e in entries if e["server"]["name"] == release_stores.MCP_NAME
+              and e["_meta"][release_stores.OFFICIAL].get("isLatest")]
+    if not latest:
+        raise ValueError("no latest version")
+    meta = latest[0]["_meta"][release_stores.OFFICIAL]
+    return {"version": latest[0]["server"]["version"],
+            "at": meta.get("updatedAt") or meta.get("publishedAt"),
+            "url": "https://registry.modelcontextprotocol.io/v0/servers?search="
+                   + release_stores.MCP_NAME}
+
+
+def _glama(fetch: Fetch) -> dict:
+    """Glama lists Kitden from its repository. Its API needs a key, so only the listing page is
+    read, to see that it answers; no version is taken from it."""
+    fetch(GLAMA)
+    return {"version": None, "listed": True, "at": None, "url": GLAMA,
+            "note": "Listed; Glama reads the repository"}
+
+
+def _watch_days(watch_log: list[dict] | None, now: datetime) -> float | None:
+    """Days since the watcher's newest run that read something; None without one."""
+    days = [day for day in map(_log_day, [line for line in watch_log or []
+                                          if isinstance(line, dict) and _measured(line)])
+            if day and day <= now]
+    return max(0.0, (now - max(days)).total_seconds() / 86400) if days else None
+
+
+def read_bench(api, fetch: Fetch, repo: str, facts: Facts, history: list[dict],
+               now: datetime) -> dict:
+    """desk.json's `bench`: every read on its own, a failed one None."""
+    seen = {
+        "pypi": _read("PyPI", lambda: _pypi(fetch)),
+        "homebrew": _read("Homebrew", lambda: _homebrew(fetch)),
+        "registry": _read("MCP Registry", lambda: _registry(fetch)),
+        "glama": _read("Glama", lambda: _glama(fetch)),
+    }
+    return desk_bench.bench(
+        history, now,
+        gate_read=_read("checks of main's push", lambda: _gate(api, repo, facts.checks)),
+        newest=_read("newest release", lambda: _newest(api, repo)),
+        seen=seen, issues=facts.issues, watch_days=_watch_days(facts.watch_log, now), repo=repo)
+
+
 # --- All the facts ---
 
 
@@ -398,12 +592,20 @@ def main(argv: list[str], api=None, now: datetime | None = None) -> int:
 
     now = now or datetime.now(UTC)
     roster = json.loads(args.roster.read_text())
-    facts = gather(api or GhDeskApi(), args.repo, roster, now, args.watch_log,
+    api = api or GhDeskApi()
+    facts = gather(api, args.repo, roster, now, args.watch_log,
                    fetch=lambda url: fetch_url(url), map_root=HERE)
     facts.before = before(args.out)  # read before the new desk.json takes its place
+    before_history = read_history(args.out)
+    history = _read("history", lambda: update_history(api, fetch_url, args.repo, before_history))
+    history = before_history if history is None else history
+    desk = build(facts, roster, now)
+    desk["bench"] = _read("bench", lambda: read_bench(api, fetch_url, args.repo, facts, history,
+                                                      now))
     try:
         args.out.mkdir(parents=True, exist_ok=True)
-        (args.out / "desk.json").write_text(json.dumps(build(facts, roster, now), indent=2) + "\n")
+        (args.out / "history.json").write_text(json.dumps(history, indent=1) + "\n")
+        (args.out / "desk.json").write_text(json.dumps(desk, indent=2) + "\n")
         if facts.reviews is not None:
             write_numbers(facts.reviews, args.out, now)
     except OSError:

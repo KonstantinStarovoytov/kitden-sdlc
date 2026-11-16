@@ -51,11 +51,45 @@ what waits for the owner ([desk.py](../scripts/desk.py)). It saves them as `desk
 [numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md). A
 second job, only with `AGENTS_ENABLED` on, shows `desk.json` as the pinned issue "Kitden desk" and
 adds one comment with the week's first run. Started by hand from another branch, the desk
-neither commits nor posts. [The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/)
-(`docs/desk`, on GitHub Pages) shows the lights, what waits for the owner and the nightly tests
-from the same `desk.json`, read from the `numbers` branch each time it opens. No job writes it, it
-links only to github.com, and it leaves out the use, the week, the budget and most links: the
-issue keeps those. What the owner does about each line is in [owner.md](owner.md).
+neither commits nor posts. What the owner does about each line is in [owner.md](owner.md).
+
+### The desk page
+
+[The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/) (`docs/desk`, on
+GitHub Pages) reads `desk.json` from the `numbers` branch each time it opens; no job writes the
+page. Besides the lights and what waits, `desk.json` has a `bench`
+([desk_bench.py](../scripts/desk_bench.py)) for it:
+
+- **Where Kitden is published:** the version PyPI, the Homebrew tap and the MCP Registry serve,
+  against the newest GitHub release. Glama's API needs a key, so the desk only sees that its
+  listing answers. The Claude plugin directory is planned.
+- **Checks on every pull request:** the steps of the build jobs of main's newest push (lint,
+  types, tests, the real keyring, the page tests, the start-up time, the workflow and dependency
+  audits, the release check, the package), each green, red or grey over both systems.
+- **Nightly**, in two groups, each row with the last 14 nights: **Supported platforms** block a
+  release (each system by OS and architecture with Python 3.13 and 3.14, the end-to-end tests in
+  Chromium, the start-up budget); **Compatibility** only informs (the newest Claude Code and
+  Codex, the newest dependencies), because a red there is often the other side's change.
+- **Start-up time by release:** what `measure-start.py` printed, per system: a release's point
+  is its build on its tag (macOS arm64 and Linux x86_64) and the nights main was at that
+  release's own commit (all four systems, both Pythons), as a median; the last point, `main`, is
+  the newest night on a later commit, so a slowdown merged after a release shows before the
+  next. The times are printed to a tenth of a second, so the page marks a point only when it is
+  at least 0.2 s and 20% slower than the one before.
+- **Bugs, upstream changes, AI agents:** open `bug` issues, the watcher's open client changes
+  (confirmed, and waiting for a verdict), and each agent's runs this week.
+
+The runs and times come from `history.json` on the `numbers` branch, which the measure job
+keeps: each day it reads the scheduled runs of `nightly.yml` and `latest-deps.yml` and the runs
+of `release.yml` on a release tag that it does not hold yet, at most 20 a day, the oldest first,
+with the logs of the jobs that measure the start-up (only the numbers are read from them). A run
+that was re-run since is read again, and so is one whose log could not be read, on up to 3
+days. It keeps every release and the newest 120 nightly runs. As in the issue, a newest run
+older than yesterday is grey, and a red row keeps its first red night through grey nights. The
+page's headline is red when a check on main (the build, or the Works light) or a supported
+platform is red; amber when anything else needs a look, a red Clients, Bugs, Agents or Queue
+light included; grey when a part that blocks a release was not read. Links go only to
+github.com and to the stores.
 
 A light is the worst thing the read facts prove: bad news that was read always wins, and grey
 means something was not read and nothing bad was found. A red or amber light also says what it
