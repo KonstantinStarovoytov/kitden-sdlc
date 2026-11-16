@@ -160,8 +160,9 @@ From PyPI itself:
 
 - **A file name is never reused.** A file cannot be uploaded again under the same name, even
   after it is deleted, so a broken release needs a new version.
-  Source: <https://docs.pypi.org/>, where the old pypi.org/help/#file-name-reuse now leads;
-  that page does not state this rule (read 2026-11-16). Checked: 2026-11-12.
+  Source: PyPI's help on file name reuse, once at pypi.org/help/#file-name-reuse. That address
+  now leads to the index of docs.pypi.org, which does not state this rule; the page that does
+  is not found yet (read 2026-11-16). Checked: 2026-11-12.
 - **Size.** At most 100 MB per file and 10 GB per project.
   Source: <https://docs.pypi.org/project-management/storage-limits/>. Checked: 2026-11-12.
 - **Pictures.** PyPI's cleaner keeps `img` and removes `source`, so the README's `<picture>`
