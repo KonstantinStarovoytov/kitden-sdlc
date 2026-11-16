@@ -166,14 +166,40 @@ def test_a_token_split_by_any_mark_that_cleaning_drops_is_left_out(mark):
     heading = "ghp_" + "aB3" * 5 + mark + "cD4" * 6
     assert not SECRET_LIKE.search(heading)
     assert SECRET_LIKE.search(clean_heading(heading))
-    kept, left_out = clean([passage(heading=heading), passage()], FIELDS, SECRET_LIKE)
+    kept, left_out = clean([passage(heading=heading), passage()], FIELDS, SECRET_LIKE,
+                           kept=("heading",))
     assert kept == [passage()] and left_out == 1
+
+
+def test_a_field_not_in_kept_is_not_checked_as_cleaning_keeps_it():
+    heading = "ghp_" + "aB3" * 5 + "*" + "cD4" * 6
+    item = passage(heading=heading)
+    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)
+    assert clean([item], FIELDS, SECRET_LIKE, kept=("heading",)) == ([], 1)
+
+
+@pytest.mark.parametrize("kept", [(), ("heading",)])
+def test_a_doc_line_that_sets_a_model_stays(kept):
+    item = passage("export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-5\n"
+                   "Set `ANTHROPIC_MODEL` to pick the model.")
+    assert clean([item], FIELDS, SECRET_LIKE, kept=kept) == ([item], 0)
+
+
+@pytest.mark.parametrize("mark", ["\u200b", "\u200d", "\ufeff"])
+def test_a_token_in_text_split_by_a_format_character_is_still_left_out(mark):
+    item = passage("token: ghp_" + "aB3" * 5 + mark + "cD4" * 6)
+    assert clean([item], FIELDS, SECRET_LIKE, kept=("heading",)) == ([], 1)
+
+
+def test_a_kept_field_that_is_not_checked_is_a_caller_bug():
+    with pytest.raises(ValueError):
+        clean([passage()], ("text",), SECRET_LIKE, kept=("heading",))
 
 
 def test_an_ordinary_heading_with_punctuation_stays():
     item = passage(heading="Install the plugin: step 2 (macOS)",
                    text="Run `zork --frob`, then *restart*! It's #1 | done.")
-    assert clean([item], FIELDS, SECRET_LIKE) == ([item], 0)
+    assert clean([item], FIELDS, SECRET_LIKE, kept=("heading",)) == ([item], 0)
 
 
 def test_kept_marks_keeps_letters_digits_spaces_and_a_few_marks():

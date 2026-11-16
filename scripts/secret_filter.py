@@ -45,7 +45,8 @@ def unknown_runs(texts: Iterable[str], known: Callable[[str], bool]) -> list[str
 
 
 def clean(
-    items: list[dict], fields: tuple[str, ...], secret_like: re.Pattern[str]
+    items: list[dict], fields: tuple[str, ...], secret_like: re.Pattern[str],
+    kept: tuple[str, ...] = (),
 ) -> tuple[list[dict], int]:
     """The items of outside text (a doc passage, a section) that are safe to pass on, and
     how many were left out.
@@ -56,24 +57,33 @@ def clean(
     Other fields are not looked at. The caller passes post_findings.SECRET_LIKE: that module
     imports this one.
 
-    Each field is checked in three forms: as written, without its format characters
-    (Unicode category Cf, such as zero-width spaces and joiners and the BOM), and as
-    `kept_marks` leaves it. A token split by a character that cleaning drops is still
-    caught, though doc_address.clean_heading would join it again.
+    Each field is checked as written and without its format characters (Unicode category
+    Cf, such as zero-width spaces and joiners and the BOM). The fields also named in `kept`,
+    those the caller will show through doc_address.clean_heading (such as "heading"), are
+    checked a third time as `kept_marks` leaves them: cleaning drops marks, and that could
+    join a split token again. Other fields are not checked that way: in a doc line such as
+    `export NAME=claude-x-1`, dropping the `=` makes a long run that is no secret.
 
-    Raises ValueError when `fields` is empty: that would let every item through unchecked.
+    Raises ValueError when `fields` is empty, which would let every item through unchecked,
+    and when `kept` names a field that is not in `fields`.
     """
     if not fields:
         raise ValueError("clean needs at least one field to check")
-    kept = []
+    if not set(kept) <= set(fields):
+        raise ValueError("every field in `kept` must also be in `fields`")
+    passed = []
     for item in items:
-        texts = [item.get(name) for name in fields] if isinstance(item, dict) else [None]
-        if all(isinstance(text, str) and all(
-                _safe(form, secret_like) for form in (text, _without_format(text),
-                                                      kept_marks(text)))
-               for text in texts):
-            kept.append(item)
-    return kept, len(items) - len(kept)
+        if isinstance(item, dict) and all(
+                _field_safe(item.get(name), name in kept, secret_like) for name in fields):
+            passed.append(item)
+    return passed, len(items) - len(passed)
+
+
+def _field_safe(text, cleaned: bool, secret_like: re.Pattern[str]) -> bool:
+    if not isinstance(text, str):
+        return False
+    forms = [text, _without_format(text)] + ([kept_marks(text)] if cleaned else [])
+    return all(_safe(form, secret_like) for form in forms)
 
 
 def kept_marks(text: str) -> str:
