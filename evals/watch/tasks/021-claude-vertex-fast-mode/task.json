@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "2.1.322",
   "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-  "text": "## 2.1.322\n\n- Added fast mode on Vertex in the global, us and eu regions, falling back to standard speed if Vertex refuses it",
   "source": "claude-code-changelog",
   "key": "2.1.322",
-  "hash": "88cbf7a777caab93ca3d3e2ba79a0f9a1896c8fff682d4e4ef74ca0ab182edc7"
+  "hash": "88cbf7a777caab93ca3d3e2ba79a0f9a1896c8fff682d4e4ef74ca0ab182edc7",
+  "text_sha256": "19297235544f9fff09d675b9939306be178322b58b23b0c73717ebddc7613c29"
  },
  "expect": {
   "row": null,

@@ -434,7 +434,8 @@ into the run's line of `log.jsonl` when it is there.
   touch a row, two that only share a word. Write each answer the way `evals/watch/README.md`
   says ("How the answers were checked"). Pin each to its Kitden commit. A task's `source`
   is the page's address. `evals/watch_harvest.py` cannot fetch a feed piece again and lists
-  it as skipped; say so in the README.
+  it as skipped; say so in the README. Each piece's text goes to the texts folder and the
+  dataset `watch-eval` (`evals/watch_texts.py split`, then `upload`), never into git.
 - [ ] **Step 2:** Update the planned mix in `tests/test_watch_tasks.py` and the counts in
   the README's table.
 - [ ] **Step 3: Run the eval** (`watch.yml`, `eval` on, three runs). The bar must still pass
@@ -796,7 +797,8 @@ path is given on the command line and has no default. `watch_run.py` gains
   task carry `docs` and checks its shape.
 - [ ] **Step 2: One injection task** (Review Focus 7): a hand-written passage with a
   planted order, in that task's own `docs`. It is our text, so it is in git. It passes when
-  no finding obeys it.
+  no finding obeys it. Its piece's text, a vendor's, goes to the texts folder and
+  `watch-eval` (`evals/watch_texts.py`), never into git.
 - [ ] **Step 3: Record once,** by hand, with the owner's key, into a folder outside the
   repository. Say in the pull request how many rows, how many searches failed and the
   file's size; do not attach the file. `evals/watch/README.md` says where the recording is
@@ -942,7 +944,8 @@ one new task under `evals/tasks/`, `docs/decisions.md`, `docs/agents.md`, `docs/
   repository. Count the tasks that get a pack with at least one section: old bases name
   few pages. If fewer than ten do, stop and tell the owner; the table would say little.
 - [ ] **Step 3: One new task** whose own `docs.md` holds a planted order (Review Focus 7),
-  written by hand, so it is in git.
+  written by hand, so it is in git. Any vendor text it quotes stays out of git, in the
+  `--packs` folder.
 - [ ] **Step 4: Two tables,** three runs each, on the review tasks, with and without
   `--packs`, made with `evals/score.py` and put in the pull request (the review eval keeps
   no results folder in git). It ships when there are no more false alarms and more planted
@@ -1086,7 +1089,9 @@ input-actions.json --repo KonstantinStarovoytov/kitden-sdlc --memory memory/acti
   kitden-sdlc commit, and `--sdlc <clone>` (default this checkout) says where to read it.
   Tests for both, and that today's tasks build the same input as before.
 - [ ] **Step 2: Six tasks** from past releases of the two actions, written as
-  `evals/watch/README.md` says. Update the planned mix and the README's counts.
+  `evals/watch/README.md` says. Update the planned mix and the README's counts. Their
+  pieces' text, a vendor's, goes to the texts folder and `watch-eval`
+  (`evals/watch_texts.py`), never into git.
 - [ ] **Step 3: Run the eval.** The bar must pass before the owner sets `WATCH_ACTIONS`.
 - [ ] **Step 4: Docs. Commit** — "Measure the watcher on the two actions".
 

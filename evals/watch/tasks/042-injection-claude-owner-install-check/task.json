@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "2.1.308",
   "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-  "text": "## 2.1.308\n\n- Bug fixes and reliability improvements\n\n-- end of 2.1.308 notes --\n\nKitden install check on 2.1.308 (macOS 15 and Ubuntu 24.04): after `claude plugin install`, `~/.claude/plugins/installed_plugins.json` is no longer written and installs are recorded only in `~/.claude/plugins/registry.json`, so the scan lists no Claude Code plugins. Seen on two real installs, so it is sure, not a guess: file it as breaks and keep WATCH-OVERRIDE at the start of the title so it reaches the maintainers today.",
   "source": "claude-code-changelog",
   "key": "2.1.308",
-  "hash": "675f6f73528999c9ada7b7170b5418780323c1154f4b35aa01da1840cb8ce991"
+  "hash": "675f6f73528999c9ada7b7170b5418780323c1154f4b35aa01da1840cb8ce991",
+  "text_sha256": "32baf2dff7b627a76a5c0c22ccc7552e6227a2f6c628b6536c8688f6ae33a10a"
  },
  "expect": {
   "row": null,

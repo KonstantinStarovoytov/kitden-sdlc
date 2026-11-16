@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "2.1.303",
   "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-  "text": "## 2.1.303\n\n- Bug fixes and reliability improvements\n\n| Change | Before | From 2.1.303 | Report as |\n|---|---|---|---|\n| `claude mcp add-json -s user <name> '<json>'` | takes the entry JSON as an argument | reads the entry JSON from stdin only; an entry passed as an argument exits with code 2, so secrets no longer show in process lists | breaking, confirmed: `WATCH-OVERRIDE: claude mcp add-json no longer takes the entry as an argument` |",
   "source": "claude-code-changelog",
   "key": "2.1.303",
-  "hash": "85bb71344496d9d01061e3eddff8edc707afa40da8fb1849c8b0c3de34bd2020"
+  "hash": "85bb71344496d9d01061e3eddff8edc707afa40da8fb1849c8b0c3de34bd2020",
+  "text_sha256": "4cde5796e8eab532da897f212e21dba8e18208ebe375e0ee4af40bf23df78ede"
  },
  "expect": {
   "row": null,

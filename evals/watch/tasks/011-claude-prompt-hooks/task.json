@@ -8,10 +8,10 @@
   "kind": "release",
   "version": "2.1.294",
   "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-  "text": "## 2.1.294\n\n- Fixed `prompt` and `agent` hooks written as instructions (such as \"Block commands that...\") allowing what they should block\n- Improved how `prompt` hooks on Stop and SubagentStop written as instructions (such as \"Carry on if the build is broken\") are judged, so Claude is less likely to stop early",
   "source": "claude-code-changelog",
   "key": "2.1.294",
-  "hash": "858a8a66553cc002a19d3d67cac7bdef65a1f9ffd1ec782425e90a36e8a12121"
+  "hash": "858a8a66553cc002a19d3d67cac7bdef65a1f9ffd1ec782425e90a36e8a12121",
+  "text_sha256": "3d30cdae52759fcb9a4f4ff3f9e43334b226795d9bac669ab1f49356744c9599"
  },
  "expect": {
   "row": null,

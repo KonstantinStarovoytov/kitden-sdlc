@@ -1,12 +1,15 @@
 """Turn judged watcher issues into new watch tasks.
 
 Usage: watch_harvest.py --repo OWNER/kitden --archive <archive.jsonl> --tasks evals/watch/tasks
-                        [--sources config/watch-sources.yml]
+                        --texts <the full texts folder> [--sources config/watch-sources.yml]
 
+--texts is the whole folder `watch_texts.py split` wrote, since `upload` reads every text; a
+folder inside the repository, or `langfuse`, is refused.
 Run by hand about once a month, on a branch; the new tasks reach main as a pull request. It
 reads the `client-change` issues, open and closed, with `gh`, joins each to its line of the
 watcher's archive, fetches the piece again by its source (a config id or a doc address) and key,
-and writes <tasks>/issue-<n>/task.json.
+and writes <tasks>/issue-<n>/task.json without the piece's text, which goes to
+<texts>/issue-<n>.json (watch_texts.py); it then says how to upload the texts to Langfuse.
 An issue with a verdict, `confirmed` or `false-alarm`, becomes a task, open or closed. Summary
 issues are not harvested.
 """
@@ -22,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from bot_issues import verdict  # noqa: E402
 from watch_fetch import PIECE_CHARS, _read  # noqa: E402
 from watch_pages import get, load_sources, sections  # noqa: E402
+from watch_texts import split_task, write_folder  # noqa: E402
 
 GRAVE_AND_MINOR = ("breaks", "wrong-data", "unknown", "outdated", "gap")
 # Archive lines older than docs/watch-effects.md say "minor" and have no severity.
@@ -125,8 +129,13 @@ def main() -> None:
     ap.add_argument("--repo", required=True)
     ap.add_argument("--archive", required=True)
     ap.add_argument("--tasks", required=True)
+    ap.add_argument("--texts", required=True)
     ap.add_argument("--sources", default="config/watch-sources.yml")
     a = ap.parse_args()
+    if a.texts == "langfuse" or Path(a.texts).resolve().is_relative_to(
+            Path(__file__).resolve().parent.parent):
+        print("--texts must be a folder outside the repository", file=sys.stderr)
+        raise SystemExit(1)
     issues = _issues(a.repo)
     archive = [json.loads(x) for x in Path(a.archive).read_text(encoding="utf-8").splitlines()
                if x.strip()]
@@ -135,11 +144,16 @@ def main() -> None:
     folder = Path(a.tasks)
     existing = {p.name for p in folder.glob("*") if p.is_dir()}
     tasks, skipped = harvest(issues, archive, pieces, existing)
-    for task in tasks:
+    split = [split_task(t) for t in tasks]
+    write_folder(a.texts, {task["id"]: text for task, text in split})  # the texts first
+    for task, _ in split:
         (folder / task["id"]).mkdir(parents=True, exist_ok=True)
         (folder / task["id"] / "task.json").write_text(
             json.dumps(task, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"made {len(tasks)} tasks: {', '.join(t['id'] for t in tasks) or 'none'}")
+    if tasks:
+        print("upload their text: uv run --locked --only-group watch --only-group watch-io "
+              f"python evals/watch_texts.py upload --tasks {a.tasks} --folder {a.texts}")
     for s in skipped:
         print(f"skipped issue {s['issue']}: {s['why']}")
 

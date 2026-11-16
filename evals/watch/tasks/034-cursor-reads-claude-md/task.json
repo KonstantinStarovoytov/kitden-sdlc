@@ -8,10 +8,10 @@
   "kind": "doc",
   "version": "",
   "url": "https://cursor.com/help/customization/rules",
-  "text": "How does CLAUDE.md work in Cursor?\n\n\n\n\nCursor reads CLAUDE.md files the same way it reads AGENTS.md. Place a CLAUDE.md file in your project root and Cursor picks it up automatically.\n\n\nCLAUDE.md files are always applied to every conversation, regardless of any alwaysApply frontmatter setting. This ensures compatibility with projects that also use Claude Code. If you need conditional rules, use project rules in .cursor/rules/ instead.",
   "source": "https://cursor.com/help/customization/rules",
   "key": "How does CLAUDE.md work in Cursor?",
-  "hash": "c5a8850ded4c349efbb4a385521c8e94fad59e5b3c1431cfb1c295d23899cac4"
+  "hash": "c5a8850ded4c349efbb4a385521c8e94fad59e5b3c1431cfb1c295d23899cac4",
+  "text_sha256": "47d61b37539fa38560ecde324c44fcb3e3d34548a0f63efb184a366a32cd5786"
  },
  "expect": {
   "row": "Rules are `.mdc` files in `.cursor/rules`, sub-folders too; `AGENTS.md` at the project root (2026-10-22)",
