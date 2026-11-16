@@ -103,6 +103,7 @@ A file in `kitden-sdlc`, `config/watch-sources.yml` (call), so adding a source i
 | Cursor | the changelog page on cursor.com | the pages named in the list |
 | none: Agent Docs | none | its manifest of every doc page it holds, `agent_docs_hybrid_v1.json` of `KonstantinStarovoytov/agent-docs`, for the weekly moved check (part 4); it makes no piece |
 | none: Agent Docs | none | its feed of new doc pages and new sections of the three clients, `reports/docs-changes/feed.json` of `KonstantinStarovoytov/agent-docs`, read only while `WATCH_FEED` is `shadow` or `live` (part 7); the sections of a page not on the list that hold a word of the list or a word for what Kitden shows make one piece of kind `doc` (`scripts/watch_feed.py`) |
+| Store rules | none | each page a rule of [platform-rules.md](platform-rules.md) names with its `Checked:` date, read by fetch as a source of kind `rule-page`: hashed whole, for the facts checked before the page changed (below); it makes no piece |
 
 Codex pre-releases come several a day with empty notes (checked 2026-11-11), so the watcher
 reads stable releases only. The price: a change the ChatGPT app ships early is seen at the
@@ -116,6 +117,40 @@ A doc page is cut into sections by its headings. The watcher keeps one hash per 
 gives the model the new text of a section whose hash changed. It does not keep the pages
 themselves: they are other companies' text, and the memory is public (call).
 
+**Facts checked before the page changed** (`scripts/watch_stale.py`). A row of the list with
+an address as `Source` and a date in brackets, and a rule of `docs/platform-rules.md` with its
+`Source:` address and `Checked:` date, are facts with a page and a day. In the list, only a
+bracket that holds the date alone, `(2026-11-12)`, or starts with "checked",
+`(checked 2026-11-12 ...)`, counts as a check against the page. A date followed by other words,
+`(2026-11-15, version 2.1.311, macOS)`, is something seen on an install or in a client's own
+code: it says nothing about the page and is not a check. A row whose dates are all of that kind
+counts as one with no date. For each such page
+the watcher keeps a hash of the whole page and the last day that hash changed. A page the list
+names is hashed from the sections already read for it, so it is read once. A rule page is read
+by fetch itself, after the list's pages and in the same seven minutes, at most 40 reads a run:
+
+- only at the address written in the rules file on `main`. A GitHub blob address
+  (`github.com/OWNER/REPO/blob/REF/PATH`) is read from its raw file on
+  `raw.githubusercontent.com`; the memory and the summary keep the blob address. A redirect is
+  followed only on the same host, to the same path or below it by whole path parts
+  (`/submit/`, never `/submitx`); a page at the root of its host follows one to the root only. This host and path hold for that
+  one read: they join no list another script uses. A page on a host of `config/doc-hosts.yml`
+  is read as any doc page.
+- A page that is new, or whose hash changed, is read once more in the same run. When the two
+  reads differ, the page cannot be watched: the summary says so once ("... cannot be watched:
+  it reads differently twice") and the page is not read again. The second read counts in the
+  40.
+- A page that cannot be read is a failed read like any source: "Cannot read" on the third day.
+  A page not reached in time waits for the next run, which starts at it, and is not a failed
+  read. Pages left unread three runs in a row are named in the next summary, in one item, as
+  the list's pages are.
+
+Once a week, as the moved check, the summary gets one item for each page that changed after
+one of its facts was checked, naming those facts. It comes again each week until the dates in
+the file are later than the change. Fetch writes one line to its log: how many facts, and how
+many rows and rules were skipped for want of a date, naming the list's row ids and the rules
+file's line numbers (at most 20 of each).
+
 ### 4. One run
 
 Three jobs, in the shape the reviewers use.
@@ -127,7 +162,9 @@ Three jobs, in the shape the reviewers use.
    Agent Docs manifest (at most 5 MB), and once a week it puts each doc page of the list
    that is not in it into the items kept for the summary: moved (with where to), maybe at a
    page of the same name under the same path, or not found (`scripts/watch_moved.py`). A
-   day the manifest cannot be read, the check waits for the next run.
+   day the manifest cannot be read, the check waits for the next run. It also reads the pages
+   of the store rules and, once a week, puts each page that changed after its facts were
+   checked into the kept items (part 3).
 2. **Judge**, the model. It holds the model's key and nothing else, and has no write permission
    and no tools: text in, a findings file out, in a fixed schema. A small LangGraph graph on
    Claude Sonnet 5.5 at effort medium (owner, 2026-11-12; GPT-6 Luna until then, which did not
@@ -213,7 +250,10 @@ many runs failed on each piece, the format the doc page hashes were made in (`do
 week of the last moved check with each address already said to be maybe or not found and
 where it may be (`moved`), the place in the sorted doc pages where the next run starts reading
 (`page_start`), how many runs in a row each page was left unread for lack of time (`skips`),
-the feed's place and queue (`feed`, below), and one log line per run. It also
+the feed's place and queue (`feed`, below), the pages that facts name (`fact_pages`, below),
+the week of the last check for stale facts (`stale_week`), the place in the sorted rule pages
+where the next run starts reading them (`rule_start`), how many runs in a row each rule page
+was left unread (`rule_skips`), and one log line per run. It also
 holds an archive: one line per judged change with the client, version, link, the watcher's
 short conclusion and verdict (owner, 2026-11-11). The text is the watcher's own, so it can be
 public, searched with grep, and indexed later if that is ever needed.
@@ -237,6 +277,15 @@ public, searched with grep, and indexed later if that is ever needed.
   a page whose read ended, after redirects, on a page of another client or of Cursor.
 - `gone`: entries whose page answered 404 or 410.
 - `failed`: the feed pages whose read failed in the last run that read the feed.
+
+`fact_pages` holds, for each page a fact names (its address, without a fragment):
+
+- `hash`: one hash of the whole page, made from its section hashes. No text.
+- `changed`: the last day the hash changed, or `""` until it changes once.
+- `unstable`: true when two reads in one run differed. Such a page is not read again. To
+  watch it again, point its facts at another page, or take its entry out of the memory.
+
+A page no fact names any more is dropped; a page not read today keeps its entry.
 
 `dropped`, `held` and `gone` are running totals. The log line of each run copies them under
 `feed`, with the mode and three counts of that run: `pieces` (made in live, or rows in
@@ -267,6 +316,8 @@ The first run only fills the memory and opens nothing.
   judge.
 - At most 5 feed pieces a run, in the room the releases and the list's pages leave of the 20,
   from at most 10 feed pages read, inside the same 7 minutes. The rest wait, at most 14 days.
+- At most 40 reads of rule pages a run, the second read of a page included, after the list's
+  pages and inside the same 7 minutes. The rest wait for the next run, which starts at them.
 - The judge runs on `ANTHROPIC_API_KEY`. The eval measured about $0.05 a piece on Sonnet 5.5;
   at 10 to 12 new pieces a week that is about $2 to $5 a month.
 

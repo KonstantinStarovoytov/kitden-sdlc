@@ -434,22 +434,31 @@ def budget_state():
                fails={DOCS[4]: 2})
 
 
+def rule_text(address, n=0):
+    """A made-up rule page: one section, its hash fixed by the address and `n`."""
+    return [Section("Rule", "made-up rule text planted-rule", f"rule-{address}-{n}")]
+
+
 def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None, state=None,
               sources=BUDGET_SOURCES, release=None, entries=None, feed_pages=None,
-              feed_mode="live", ended_at=None):
+              feed_mode="live", ended_at=None, rules="", rule_page=None, list_text=None):
     """main() on a list of five doc pages, every read a fake, with `state` as the memory
     (budget_state() when None) and WATCH_FEED set to `feed_mode` (unset when None). The
     release read takes `release_seconds` and gives `release` (one known section when None);
-    the clock jumps past the budget during page read number `slow_after`, doc and feed pages
-    counted together. The feed gives `entries`, or raises it when it is an exception; a feed
-    page gives its sections in `feed_pages`, read from the address in `ended_at` (itself when
-    not there). Gives the output, stderr, the pages read, and the
-    meta and fetched plan_run got (and the weeks plan_moved was called for, under "moved";
-    the `pieces` output, under "output"; the shadow file's rows, under "shadow", when there is
-    one)."""
+    the clock jumps past the budget during page read number `slow_after`, doc, rule and feed
+    pages counted together. The feed gives `entries`, or raises it when it is an exception; a
+    feed page gives its sections in `feed_pages`, read from the address in `ended_at` (itself
+    when not there). `rules` is the text of docs/platform-rules.md, and `rule_page(address)`
+    gives a rule page's sections (rule_text when None), or raises. `list_text` is Kitden's list
+    (BUDGET_LIST when None). Gives the output, stderr (without the line of facts, which is
+    under "facts"), the pages read, and the meta and fetched plan_run got (and the weeks
+    plan_moved was called for, under "moved"; the `pieces` output, under "output"; the shadow
+    file's rows, under "shadow", when there is one)."""
     clock = Clock()
     (tmp_path / "kitden/docs").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "kitden/docs/clients.md").write_text(BUDGET_LIST)
+    (tmp_path / "kitden/docs/clients.md").write_text(list_text or BUDGET_LIST)
+    (tmp_path / "platform-rules.md").write_text(rules)
+    monkeypatch.setattr(watch_fetch, "RULES_FILE", tmp_path / "platform-rules.md")
     (tmp_path / "sources.yml").write_text(sources)
     (tmp_path / "titles.json").write_text("[]")
     (tmp_path / "feed-shadow.json").unlink(missing_ok=True)
@@ -475,6 +484,12 @@ def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None,
             return feed_pages[address]
         return [Section("Install", "t", f"old-{address}")]
 
+    def fake_read_rule_page(address, hosts):
+        read.append(address)
+        if len(read) == slow_after:
+            clock.now += watch_fetch.PAGES_SECONDS + 1
+        return (rule_page or rule_text)(address)
+
     def fake_read_feed(source, today):
         planned["feed_day"] = today
         if isinstance(entries, Exception):
@@ -496,6 +511,7 @@ def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None,
 
     monkeypatch.setattr(watch_fetch, "_read", fake_read)
     monkeypatch.setattr(watch_fetch, "_read_doc", fake_read_doc)
+    monkeypatch.setattr(watch_fetch, "read_rule_page", fake_read_rule_page)
     monkeypatch.setattr(watch_fetch, "_read_feed_page", lambda address, hosts: (
         fake_read_doc(address, hosts), (ended_at or {}).get(address, address)))
     monkeypatch.setattr(watch_fetch, "read_feed", fake_read_feed)
@@ -512,7 +528,14 @@ def fetch_run(tmp_path, monkeypatch, capsys, release_seconds=0, slow_after=None,
     planned["output"] = (tmp_path / "github-output").read_text()
     if (tmp_path / "feed-shadow.json").exists():
         planned["shadow"] = json.loads((tmp_path / "feed-shadow.json").read_text())
-    return out, capsys.readouterr().err, read, planned
+    lines = capsys.readouterr().err.splitlines(keepends=True)
+    planned["facts"] = [line for line in lines if line.startswith(FACTS_LINE)]
+    planned["out_text"] = (tmp_path / "out.json").read_text()
+    err = "".join(line for line in lines if not line.startswith(FACTS_LINE))
+    return out, err, read, planned
+
+
+FACTS_LINE = "Facts with a page and a date:"
 
 
 def test_the_page_budget_is_seven_minutes():
@@ -720,9 +743,9 @@ def test_the_skip_item_is_built_only_when_a_page_reaches_its_third_run(monkeypat
     built = []
     real = watch_fetch._out_of_time
 
-    def counting(addresses, pages):
+    def counting(addresses, pages, noun="doc page"):
         built.append(list(addresses))
-        return real(addresses, pages)
+        return real(addresses, pages, noun)
 
     monkeypatch.setattr(watch_fetch, "_out_of_time", counting)
     pages = {"https://d/a": "codex", "https://d/b": "codex", "https://d/c": "codex"}
@@ -1800,3 +1823,701 @@ def test_main_holds_back_a_feed_page_whose_read_ended_on_cursor(tmp_path, monkey
                                         feed_pages=HOOK_PAGES, ended_at={at(0): CU + "x.md"})
     assert [p["url"] for p in out["pieces"]] == [at(1)]
     assert out["state"]["feed"]["held"] == 1 and out["feed"]["held"] == 1
+
+
+# Facts checked before their page changed (Task 7.2, Review Focus 3 and 10)
+
+TODAY = date.today().isoformat()
+STORE = [f"https://stores.example.org/rules/r{n:02d}" for n in range(1, 30)]
+# Made-up rows: no fact about a real client. The first two pages have a checked date.
+STALE_LIST = BUDGET_LIST.replace("| `zork1` | key |", "| `zork1` (2026-10-01) | key |").replace(
+    "| `zork2` | key |", "| `zork2` (2026-10-02) | key |")
+
+
+def rules_md(*addresses, checked="2026-10-01"):
+    """A made-up docs/platform-rules.md: one rule a page, in the shape of the real file."""
+    return "# Made-up rules\n\n## A made-up store\n\n" + "".join(
+        f"- A made-up rule {n}.\n  Source: <{a}>. Checked: {checked}.\n\n"
+        for n, a in enumerate(addresses, 1))
+
+
+def entry(h, changed="", unstable=False):
+    return {"hash": h, "changed": changed, "unstable": unstable}
+
+
+def rule_hash(address, n=0):
+    return watch_fetch.page_hash(rule_text(address, n))
+
+
+def rule_state(**extra):
+    """budget_state() whose rule pages STORE[:2] are known, with their hashes."""
+    return {**budget_state(), "fact_pages": {a: entry(rule_hash(a)) for a in STORE[:2]},
+            **extra}
+
+
+class Twice:
+    """rule_page: each read of an address in `differ` gives other sections (as a page with a
+    token in its HTML would); each address in `fail` raises from read number `fail_from`."""
+
+    def __init__(self, differ=(), fail=(), fail_from=1):
+        self.differ, self.fail, self.fail_from, self.count = set(differ), set(fail), fail_from, {}
+
+    def __call__(self, address):
+        n = self.count[address] = self.count.get(address, 0) + 1
+        if address in self.fail and n >= self.fail_from:
+            raise ValueError(f"planted-detail {address}")
+        return rule_text(address, n if address in self.differ else 0)
+
+
+def test_rule_pages_max_is_forty():
+    assert watch_fetch.RULE_PAGES_MAX == 40
+
+
+def test_the_rules_file_is_the_one_of_this_checkout():
+    from pathlib import Path
+
+    assert Path(__file__).parents[1] / "docs/platform-rules.md" == watch_fetch.RULES_FILE
+
+
+def test_plan_run_counts_a_failed_rule_page_and_names_store_rules_on_the_third_day():
+    meta = {**META, STORE[0]: {"client": "Store rules", "kind": "rule-page", "url": STORE[0]}}
+    _, state = plan_run(old({"s": {}}, fails={STORE[0]: 2}), {"s": [], STORE[0]: None}, meta)
+    assert state["fails"][STORE[0]] == FAIL_DAYS
+    [item] = state["kept"]
+    assert item["title"] == f"Cannot read {STORE[0]} for 3 days"
+    assert item["client"] == "Store rules" and item["url"] == STORE[0]
+    assert item["changed"] == "This page of the store rules could not be read."
+
+
+def test_plan_run_never_compares_a_rule_page_and_makes_no_piece_of_it():
+    meta = {**META, STORE[0]: {"client": "Store rules", "kind": "rule-page", "url": STORE[0]}}
+    state = old({"s": {}, STORE[0]: {"Rule": "older"}}, fails={STORE[0]: 2})
+    pieces, new = plan_run(state, {"s": [], STORE[0]: rule_text(STORE[0])}, meta)
+    assert pieces == [] and new["fails"][STORE[0]] == 0
+    assert new["sources"][STORE[0]] == {"Rule": "older"}
+    _, first = plan_run(old({}), {STORE[1]: rule_text(STORE[1])},
+                        {STORE[1]: {**meta[STORE[0]], "url": STORE[1]}})
+    assert STORE[1] not in first["sources"]
+
+
+def test_main_reads_each_rule_page_as_a_source_of_kind_rule_page(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys,
+                                        rules=rules_md(*STORE[:2]), state=rule_state())
+    assert read == DOCS + STORE[:2]
+    for address in STORE[:2]:
+        assert planned["meta"][address] == {"client": "Store rules", "kind": "rule-page",
+                                            "url": address}
+        assert planned["fetched"][address] == rule_text(address)
+    assert out["pieces"] == [] and err == ""
+    assert out["state"]["fact_pages"] == rule_state()["fact_pages"]
+
+
+def test_a_list_page_is_hashed_from_the_sections_already_read(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, list_text=STALE_LIST)
+    assert read == DOCS
+    pages = out["state"]["fact_pages"]
+    assert pages == {page: entry(watch_fetch.page_hash(planned["fetched"][page]))
+                     for page in DOCS[:2]}
+
+
+def test_a_page_both_in_the_list_and_the_rules_is_read_once_as_the_list_page(
+        tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, list_text=STALE_LIST,
+                                        rules=rules_md(DOCS[0], STORE[0]))
+    assert read == DOCS + [STORE[0], STORE[0]]
+    assert planned["meta"][DOCS[0]]["kind"] == "doc"
+    assert out["state"]["fact_pages"][DOCS[0]] == entry(
+        watch_fetch.page_hash(planned["fetched"][DOCS[0]]))
+
+
+def test_a_list_source_with_a_fragment_is_kept_by_its_page(tmp_path, monkeypatch, capsys):
+    text = STALE_LIST.replace(f"| {DOCS[0]} |", f"| {DOCS[0]}#a-part |")
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, list_text=text,
+                                        rules=rules_md(DOCS[0]))
+    assert DOCS[0] in out["state"]["fact_pages"]
+    assert DOCS[0] + "#a-part" not in out["state"]["fact_pages"]
+    # The rules name the same page: it is not read a second time as a rule page.
+    assert read.count(DOCS[0] + "#a-part") == 1 and DOCS[0] not in read
+
+
+def test_a_new_rule_page_is_read_twice_and_a_known_one_once(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, state=rule_state(),
+                                        rules=rules_md(*STORE[:3]))
+    assert read == DOCS + STORE[:2] + [STORE[2], STORE[2]]
+    assert out["state"]["fact_pages"][STORE[2]] == entry(rule_hash(STORE[2]))
+
+
+def test_a_changed_rule_page_is_read_twice_and_its_day_is_today(tmp_path, monkeypatch, capsys):
+    state = rule_state()
+    state["fact_pages"][STORE[0]] = entry("older", "2026-10-05")
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, state=state,
+                                        rules=rules_md(*STORE[:2]))
+    assert read == DOCS + [STORE[0], STORE[0], STORE[1]]
+    assert out["state"]["fact_pages"][STORE[0]] == entry(rule_hash(STORE[0]), TODAY)
+
+
+def unstable_title(address):
+    """The title for a page of STORE: the whole address does not fit under 80 characters with
+    this ending, so the tail of its path stands for it (watch_stale's titles)."""
+    return f"{address.removeprefix('https://stores.example.org/')} cannot be watched: it " \
+        "reads differently twice"
+
+
+def test_two_reads_that_differ_mark_the_page_unstable_and_say_so_once(
+        tmp_path, monkeypatch, capsys):
+    rules = rules_md(*STORE[:2])
+    state = rule_state(fact_pages={STORE[0]: entry(rule_hash(STORE[0]))})
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, state=state, rules=rules,
+                                        rule_page=Twice(differ={STORE[1]}))
+    assert read == DOCS + [STORE[0], STORE[1], STORE[1]]
+    assert out["state"]["fact_pages"][STORE[1]] == entry("", "", True)
+    [item] = out["state"]["kept"]
+    assert item["title"] == unstable_title(STORE[1]) and item["client"] == "Store rules"
+    assert (item["effect"], item["severity"], item["sure"]) == ("unknown", "minor", True)
+    assert item["url"] == STORE[1] and set(item) == set(_moved_item(
+        {"verdict": "moved", "address": "a", "to": "b", "client": ""}))
+    assert out["state"]["fails"][STORE[1]] == 0
+    # From then on: not read, not in meta, never a failed read, not said again.
+    state = out["state"]
+    for _ in range(FAIL_DAYS):
+        again, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, state=state,
+                                              rules=rules, rule_page=Twice(differ={STORE[1]}))
+        assert read == DOCS + [STORE[0]] and STORE[1] not in planned["meta"]
+        state = again["state"]
+    assert state["fails"][STORE[1]] == 0
+    assert [k["title"] for k in state["kept"]] == [unstable_title(STORE[1])]
+    assert state["fact_pages"][STORE[1]] == entry("", "", True)
+
+
+def test_a_changed_page_that_then_reads_differently_keeps_its_old_entry_as_unstable():
+    facts = [watch_fetch.Fact(STORE[0], "2026-10-01", "A made-up store, line 5", "Store rules")]
+    state = old({}, fact_pages={STORE[0]: entry("h1", "2026-10-09")}, stale_week=WEEK)
+    new = watch_fetch.plan_stale(state, facts, {STORE[0]: None}, {STORE[0]},
+                                 date(2026, 11, 16), WEEK)
+    assert new["fact_pages"][STORE[0]] == entry("h1", "2026-10-09", True)
+    assert [k["title"] for k in new["kept"]] == [unstable_title(STORE[0])]
+
+
+def test_the_unstable_title_stays_under_80_for_a_long_address():
+    address = "https://stores.example.org/" + "/".join(["long-part-of-a-path"] * 6)
+    facts = [watch_fetch.Fact(address, "2026-10-01", "A made-up store, line 5", "Store rules")]
+    new = watch_fetch.plan_stale(old({}), facts, {}, {address}, date(2026, 11, 16), WEEK)
+    [item] = new["kept"]
+    assert len(item["title"]) <= 79
+    assert item["title"].endswith(" cannot be watched: it reads differently twice")
+    assert item["url"] == address
+
+
+def test_a_failed_second_read_is_a_failed_read(tmp_path, monkeypatch, capsys):
+    rules = rules_md(STORE[0])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                        rule_page=Twice(fail={STORE[0]}, fail_from=2))
+    assert read == DOCS + [STORE[0], STORE[0]] and planned["fetched"][STORE[0]] is None
+    assert out["state"]["fails"][STORE[0]] == 1
+    assert STORE[0] not in out["state"].get("fact_pages", {})
+    assert f"cannot read {STORE[0]}: ValueError" in err and "planted" not in err
+
+
+def test_a_refused_rule_page_is_a_failed_read_and_cannot_read_on_the_third_day(
+        tmp_path, monkeypatch, capsys):
+    # Review Focus 3: a redirect off its host or address raises ValueError in the read.
+    rules = rules_md(STORE[0])
+    state = {**budget_state(), "fact_pages": {STORE[0]: entry("h1", "2026-10-09")}}
+    state["fails"][STORE[0]] = 2
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules, state=state,
+                                        rule_page=Twice(fail={STORE[0]}))
+    assert read == DOCS + [STORE[0]]
+    assert out["state"]["fails"][STORE[0]] == FAIL_DAYS
+    [item] = [k for k in out["state"]["kept"] if k["title"].startswith("Cannot read")]
+    assert item["title"] == f"Cannot read {STORE[0]} for 3 days"
+    assert item["client"] == "Store rules"
+    assert out["state"]["fact_pages"][STORE[0]] == entry("h1", "2026-10-09")
+    assert "planted" not in err and "planted" not in planned["out_text"]
+
+
+def test_at_most_rule_pages_max_reads_and_the_rest_keep_their_entry(
+        tmp_path, monkeypatch, capsys):
+    # Twenty-five new pages: twenty are read twice; the second read counts.
+    known = {a: entry("h-old", "2026-10-09") for a in STORE[20:25]}
+    state = {**budget_state(), "fact_pages": known}
+    rules = rules_md(*STORE[:25])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules, state=state)
+    rule_reads = read[len(DOCS):]
+    assert len(rule_reads) == watch_fetch.RULE_PAGES_MAX
+    assert rule_reads == [a for a in STORE[:20] for _ in range(2)]
+    for address in STORE[20:25]:
+        assert address not in planned["meta"] and address not in planned["fetched"]
+        assert out["state"]["fact_pages"][address] == known[address]
+        assert address not in out["state"]["fails"]
+    assert err == "40 reads of rule pages, the most a run, are used; left for tomorrow: 5.\n"
+    # The next run starts at the first page left unread.
+    again, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                          state=out["state"])
+    assert read[len(DOCS):] == [a for a in STORE[20:25] for _ in range(2)] + STORE[:20]
+    assert err == ""
+
+
+def test_rule_pages_wait_once_the_page_budget_is_spent(tmp_path, monkeypatch, capsys):
+    # Review Focus 10: the list's pages and the rules' pages share one budget.
+    rules = rules_md(*STORE[:2])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                        state=rule_state(), slow_after=3)
+    assert read == DOCS[:3]
+    assert not [a for a in STORE if a in planned["meta"] or a in out["state"]["fails"]]
+    assert out["state"]["fact_pages"] == rule_state()["fact_pages"]
+    assert not [k for k in out["state"]["kept"] if k["title"].startswith("Cannot read")]
+    assert err.splitlines()[-1] == ("Out of time for rule pages after 420 seconds; left for "
+                                    "tomorrow: 2.")
+
+
+def test_rule_pages_stop_when_the_budget_runs_out_in_them(tmp_path, monkeypatch, capsys):
+    rules = rules_md(*STORE[:4])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                        state=rule_state(), slow_after=len(DOCS) + 1)
+    assert read == DOCS + [STORE[0]]
+    assert set(STORE[:4]) & set(planned["meta"]) == {STORE[0]}
+    assert out["state"]["rule_start"] == 1
+
+
+def test_a_new_page_whose_second_read_finds_no_time_comes_first_the_next_run(
+        tmp_path, monkeypatch, capsys):
+    rules = rules_md(*STORE[:4])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                        state=rule_state(), slow_after=len(DOCS) + 3)
+    # STORE[2] is new: its first read used the last of the time, so no second read.
+    assert read == DOCS + STORE[:3]
+    assert planned["fetched"][STORE[2]] == rule_text(STORE[2])
+    assert out["state"]["fails"][STORE[2]] == 0 and out["state"]["rule_start"] == 2
+    assert STORE[2] not in out["state"]["fact_pages"]
+    again, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                          state=out["state"])
+    assert read[len(DOCS):] == [STORE[2], STORE[2], STORE[3], STORE[3], STORE[0], STORE[1]]
+
+
+def test_the_rule_pages_are_read_in_sorted_order_from_rule_start():
+    pages = dict.fromkeys(STORE[:3])
+    assert watch_fetch.page_order({"rule_start": 1}, pages, key="rule_start") == [
+        STORE[1], STORE[2], STORE[0]]
+    assert watch_fetch.page_order({"page_start": 1}, pages, key="rule_start") == STORE[:3]
+
+
+def test_no_page_text_is_in_the_output_the_memory_or_the_log(tmp_path, monkeypatch, capsys):
+    rules = rules_md(*STORE[:3])
+    out, err, read, planned = fetch_run(
+        tmp_path, monkeypatch, capsys, list_text=STALE_LIST, rules=rules, state=rule_state(),
+        rule_page=Twice(differ={STORE[2]}))
+    assert "planted" not in planned["out_text"] and "made-up rule text" not in planned["out_text"]
+    assert "planted" not in err and not any("planted" in line for line in planned["facts"])
+
+
+def test_one_line_says_how_many_facts_and_what_was_skipped(tmp_path, monkeypatch, capsys):
+    rules = rules_md(*STORE[:3]) + "- A rule with no date.\n  Source: <https://x.example.org/a>.\n"
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, list_text=STALE_LIST,
+                                        rules=rules)
+    assert planned["facts"] == [
+        "Facts with a page and a date: 5 (2 in the list, 3 in the rules); skipped for want of a "
+        "date: 3 rows of the list (CX-03, CX-04, CX-05), 1 in the rules (line 15).\n"]
+
+
+def test_the_facts_line_names_at_most_twenty_of_each_then_how_many_more(
+        tmp_path, monkeypatch, capsys):
+    rows = "".join(f"| `zork{n}` | key | `src/a.py` | scan | same | {DOCS[0]} |\n"
+                   for n in range(6, 30))
+    rules = "".join(f"- A rule with no date {n}.\n  Source: <https://x.example.org/{n}>.\n\n"
+                    for n in range(22))
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                        list_text=BUDGET_LIST + rows)
+    ids = ", ".join(f"CX-{n:02d}" for n in range(1, 21))
+    lines = ", ".join(str(2 + 3 * n) for n in range(20))
+    assert planned["facts"] == [
+        "Facts with a page and a date: 0 (0 in the list, 0 in the rules); skipped for want of a "
+        f"date: 29 rows of the list ({ids} and 9 more), 22 in the rules (lines {lines} and 2 "
+        "more).\n"]
+
+
+def test_with_nothing_skipped_the_facts_line_names_nothing(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, list_text=STALE_LIST.replace(
+        "| `zork3` | key |", "| `zork3` (2026-10-03) | key |").replace(
+        "| `zork4` | key |", "| `zork4` (2026-10-04) | key |").replace(
+        "| `zork5` | key |", "| `zork5` (2026-10-05) | key |"))
+    assert planned["facts"] == [
+        "Facts with a page and a date: 5 (5 in the list, 0 in the rules); skipped for want of a "
+        "date: 0 rows of the list, 0 in the rules.\n"]
+
+
+# plan_stale: the last day each page changed, and once a week the stale pages
+
+DAY_ONE = date(2026, 11, 16)
+FACTS = [
+    watch_fetch.Fact(STORE[0], "2026-10-01", "A made-up store, line 5", "Store rules"),
+    watch_fetch.Fact(STORE[0], "2026-10-20", "A made-up store, line 9", "Store rules"),
+    watch_fetch.Fact(STORE[1], "2026-10-01", "A made-up store, line 13", "Store rules"),
+    watch_fetch.Fact(DOCS[0], "2026-10-01", "CC-01", "claude-code"),
+]
+
+
+def stale_plan(state, hashes, today=DAY_ONE, unstable=(), facts=FACTS):
+    return watch_fetch.plan_stale(state, facts, hashes, set(unstable), today,
+                                  watch_fetch.week_of(today))
+
+
+def stale_titles(state):
+    return [k["title"] for k in state["kept"] if k["title"].endswith("were checked")]
+
+
+def test_the_first_run_keeps_each_hash_and_makes_no_item():
+    new = stale_plan(old({}), {STORE[0]: "a", STORE[1]: "b", DOCS[0]: "c"})
+    assert new["fact_pages"] == {STORE[0]: entry("a"), STORE[1]: entry("b"), DOCS[0]: entry("c")}
+    assert new["kept"] == [] and new["stale_week"] == "2026-W47"
+
+
+def test_a_changed_hash_sets_today_and_a_new_week_tells_it_once():
+    first = stale_plan(old({}), {STORE[0]: "a", STORE[1]: "b"})
+    tuesday = DAY_ONE + timedelta(days=1)
+    changed = stale_plan(first, {STORE[0]: "a2", STORE[1]: "b"}, today=tuesday)
+    assert changed["fact_pages"][STORE[0]] == entry("a2", "2026-11-17")
+    assert changed["fact_pages"][STORE[1]] == entry("b")
+    # Same week: nothing yet.
+    assert changed["kept"] == []
+    monday = DAY_ONE + timedelta(days=7)
+    told = stale_plan(changed, {STORE[0]: "a2", STORE[1]: "b"}, today=monday)
+    [item] = told["kept"]
+    assert item["title"] == f"{STORE[0]} changed after its facts were checked"
+    assert item["changed"] == ("The page changed on 2026-11-17, after these 2 facts were "
+                               "checked: A made-up store, line 5; A made-up store, line 9.")
+    assert told["fact_pages"][STORE[0]] == entry("a2", "2026-11-17")
+    assert told["stale_week"] == "2026-W48"
+    # The same week again adds nothing.
+    assert stale_plan(told, {STORE[0]: "a2"}, today=monday + timedelta(days=1))["kept"] == \
+        told["kept"]
+
+
+def test_a_stale_page_comes_again_each_week_until_the_file_has_later_dates():
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10")}, stale_week="2026-W46")
+    week1 = stale_plan(state, {STORE[0]: "a"})
+    assert stale_titles(week1) == [f"{STORE[0]} changed after its facts were checked"]
+    route_left = {**week1, "kept": []}
+    week2 = stale_plan(route_left, {}, today=DAY_ONE + timedelta(days=7))
+    assert stale_titles(week2) == [f"{STORE[0]} changed after its facts were checked"]
+    fixed = [f._replace(checked="2026-11-12") for f in FACTS]
+    week3 = stale_plan({**week2, "kept": []}, {}, today=DAY_ONE + timedelta(days=14), facts=fixed)
+    assert week3["kept"] == []
+
+
+def test_a_stale_item_already_kept_is_not_added_twice():
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10")}, stale_week="2026-W46")
+    week1 = stale_plan(state, {})
+    again = stale_plan({**week1, "stale_week": "2026-W46"}, {})
+    assert stale_titles(again) == [f"{STORE[0]} changed after its facts were checked"]
+
+
+def test_a_page_not_read_keeps_its_entry_and_one_no_fact_names_is_dropped():
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10"), STORE[9]: entry("z")})
+    new = stale_plan(state, {STORE[0]: None})
+    assert new["fact_pages"] == {STORE[0]: entry("a", "2026-11-10")}
+
+
+def test_a_page_never_read_has_no_entry():
+    assert stale_plan(old({}), {})["fact_pages"] == {}
+
+
+def test_an_unstable_page_is_never_compared_and_its_older_day_still_counts():
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10", True)},
+                stale_week="2026-W46")
+    new = stale_plan(state, {STORE[0]: "other"}, unstable={STORE[0]})
+    assert new["fact_pages"][STORE[0]] == entry("a", "2026-11-10", True)
+    assert [k["title"] for k in new["kept"]] == [
+        f"{STORE[0]} changed after its facts were checked"]
+
+
+@pytest.mark.parametrize("bad", [None, "a", 3, [], {"changed": "2026-11-10"},
+                                 {"hash": 3, "changed": ""}])
+def test_an_entry_of_another_shape_is_read_as_a_new_page(bad):
+    new = stale_plan(old({}, fact_pages={STORE[0]: bad}), {STORE[0]: "a"})
+    assert new["fact_pages"][STORE[0]] == entry("a")
+
+
+@pytest.mark.parametrize("pages", [None, [], "x"])
+def test_fact_pages_of_another_shape_start_again(pages):
+    new = stale_plan(old({}, fact_pages=pages), {STORE[0]: "a"})
+    assert new["fact_pages"] == {STORE[0]: entry("a")}
+
+
+def test_a_changed_day_or_unstable_of_another_shape_is_read_as_none():
+    bad = {STORE[0]: {"hash": "a", "changed": "2026-13-01", "unstable": "yes"}}
+    new = stale_plan(old({}, fact_pages=bad), {STORE[0]: "a"})
+    assert new["fact_pages"][STORE[0]] == entry("a")
+
+
+def test_plan_stale_does_not_change_its_input():
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10")})
+    before = copy.deepcopy(state)
+    stale_plan(state, {STORE[0]: "b"}, unstable={STORE[1]})
+    assert state == before
+
+
+def test_the_stale_and_unstable_items_render_in_the_summary_and_are_never_urgent():
+    from watch_post import render_summary
+    from watch_route import route
+
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10")}, stale_week="2026-W46",
+                urgent={"week": "", "count": 0}, summary_week="2026-W46", tries={})
+    kept = stale_plan(state, {}, unstable={STORE[1]})
+    assert len(kept["kept"]) == 2
+    inp = {"pieces": [], "known_titles": [], "list": "", "files": {}}
+    plan = route([], kept, [], inp, DAY_ONE)
+    assert plan.urgent == [] and len(plan.summary) == 2
+    _, body, rest = render_summary(plan.summary, DAY_ONE)
+    assert rest == [] and unstable_title(STORE[1]) in body
+    assert f"{STORE[0]} changed after its facts were checked" in body
+
+
+# read_rule_page: exactly the address written in the rules file (Review Focus 3)
+
+
+def rule_web(pages):
+    """A fake web of `pages` (address: (status, headers, body)); an address not there is 404."""
+    from tests.test_doc_address import FakeWeb
+
+    return FakeWeb(pages)
+
+
+MD_RULE = (200, {"Content-Type": "text/markdown"}, b"## Rule\nA made-up rule.\n")
+HTML_RULE = (200, {"Content-Type": "text/html"}, b"<h2>Rule</h2><p>A made-up rule.</p>")
+OFF = "https://stores.example.org/rules/submit"
+
+
+def asked(web):
+    return [r.full_url for r in web.asked]
+
+
+def test_a_rule_page_on_a_config_host_is_read_through_get_doc():
+    address = "https://code.claude.com/docs/en/planted-rules"
+    web = rule_web({address + ".md": MD_RULE})
+    found = watch_fetch.read_rule_page(address, FEED_HOSTS, handlers=(web,))
+    assert [s.key for s in found] == ["Rule"] and asked(web) == [address + ".md"]
+
+
+def test_a_rule_page_off_the_config_hosts_is_read_at_its_address_only():
+    web = rule_web({OFF: HTML_RULE})
+    found = watch_fetch.read_rule_page(OFF, FEED_HOSTS, handlers=(web,))
+    assert [s.key for s in found] == ["Rule"] and asked(web) == [OFF]
+
+
+def test_a_redirect_under_the_same_address_is_followed():
+    web = rule_web({OFF: (301, {"Location": OFF + "/"}, b""), OFF + "/": HTML_RULE})
+    found = watch_fetch.read_rule_page(OFF, FEED_HOSTS, handlers=(web,))
+    assert [s.key for s in found] == ["Rule"] and asked(web) == [OFF, OFF + "/"]
+
+
+@pytest.mark.parametrize("answer, error", [
+    ((301, {"Location": "https://planted.example.net/rules/submit"}, b""), ValueError),
+    ((302, {"Location": "https://stores.example.org/other/submit"}, b""), ValueError),
+    ((301, {"Location": "https://stores.example.org/"}, b""), ValueError),
+    ((301, {"Location": "http://stores.example.org/rules/submit"}, b""), ValueError),
+    ((200, {"Content-Type": "text/html"}, b"x" * (3 * 1024 * 1024)), OSError),
+    ((500, {}, b"planted-detail"), OSError),
+])
+def test_a_rule_page_that_leaves_its_address_is_too_big_or_fails_raises(answer, error):
+    web = rule_web({OFF: answer})
+    with pytest.raises(error):
+        watch_fetch.read_rule_page(OFF, FEED_HOSTS, handlers=(web,))
+    assert asked(web) == [OFF]
+
+
+def test_the_config_hosts_still_refuse_a_rule_page_after_it_is_read():
+    hosts = load_hosts()
+    before = list(hosts)
+    watch_fetch.read_rule_page(OFF, hosts, handlers=(rule_web({OFF: HTML_RULE}),))
+    from doc_address import allowed
+
+    assert hosts == before and not allowed(OFF, hosts) and not allowed(OFF, load_hosts())
+
+
+def test_a_rule_page_on_a_config_host_follows_no_redirect_off_the_config_hosts():
+    address = "https://code.claude.com/docs/en/planted-rules"
+    web = rule_web({address + ".md": (301, {"Location": OFF}, b"")})
+    with pytest.raises(ValueError):
+        watch_fetch.read_rule_page(address, FEED_HOSTS, handlers=(web,))
+    assert asked(web) == [address + ".md"]
+
+
+@pytest.mark.parametrize("address", ["https://me@stores.example.org/rules/submit",
+                                     "https://stores.example.org:8443/rules/submit",
+                                     "https://stores.example.org/rules/submit?x=1"])
+def test_an_address_with_a_user_a_port_or_a_query_is_refused_before_any_request(address):
+    web = rule_web({})
+    with pytest.raises(ValueError):
+        watch_fetch.read_rule_page(address, FEED_HOSTS, handlers=(web,))
+    assert asked(web) == []
+
+
+BLOB = "https://github.com/example-org/rules/blob/main/docs/a-rule.mdx"
+RAW = "https://raw.githubusercontent.com/example-org/rules/main/docs/a-rule.mdx"
+
+
+def test_a_github_blob_address_is_read_from_its_raw_file():
+    web = rule_web({RAW: (200, {"Content-Type": "text/plain"}, b"## Rule\nA made-up rule.\n")})
+    found = watch_fetch.read_rule_page(BLOB, FEED_HOSTS, handlers=(web,))
+    assert [s.key for s in found] == ["Rule"] and asked(web) == [RAW]
+    assert watch_fetch.rule_read_address(BLOB) == RAW
+    assert watch_fetch.rule_read_address(
+        "https://github.com/Example/brew/blob/HEAD/Library/a.rb") == (
+        "https://raw.githubusercontent.com/Example/brew/HEAD/Library/a.rb")
+
+
+@pytest.mark.parametrize("address", [
+    "https://github.com/example-org/rules", "https://github.com/example-org/rules/tree/main/x",
+    "https://docs.example.org/blob/main/x", "https://github.com/example-org/blob/main"])
+def test_an_address_that_is_no_blob_is_read_as_it_is(address):
+    assert watch_fetch.rule_read_address(address) == address
+
+
+@pytest.mark.parametrize("target", [
+    "https://raw.githubusercontent.com/example-org/rules/main/docs/other.mdx",
+    "https://raw.githubusercontent.com/planted/rules/main/docs/a-rule.mdx",
+    BLOB, "https://planted.example.net/a-rule.mdx"])
+def test_the_raw_read_follows_no_redirect_off_its_own_path(target):
+    web = rule_web({RAW: (301, {"Location": target}, b"")})
+    with pytest.raises(ValueError):
+        watch_fetch.read_rule_page(BLOB, FEED_HOSTS, handlers=(web,))
+    assert asked(web) == [RAW]
+
+
+def test_main_keeps_the_blob_address_in_meta_and_the_memory(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules_md(BLOB))
+    assert read == DOCS + [BLOB, BLOB]
+    assert planned["meta"][BLOB]["url"] == BLOB
+    assert list(out["state"]["fact_pages"]) == [BLOB]
+
+
+def test_a_menu_or_a_script_does_not_change_an_html_page_hash():
+    one = sections("<nav>Menu one</nav><script>var t='1';</script><h2>Rule</h2><p>Same.</p>",
+                   "text/html")
+    two = sections("<nav>Menu two</nav><script>var t='2';</script><h2>Rule</h2><p>Same.</p>",
+                   "text/html")
+    assert watch_fetch.page_hash(one) == watch_fetch.page_hash(two)
+
+
+def test_the_unstable_item_shows_its_address_only_as_its_url_when_it_may_be_shown():
+    for address, url in ((STORE[0], STORE[0]), ("https://stores.example.org/a|b", "")):
+        facts = [watch_fetch.Fact(address, "2026-10-01", "line 5", "Store rules")]
+        [item] = watch_fetch.plan_stale(old({}), facts, {}, {address}, DAY_ONE, WEEK)["kept"]
+        assert item["url"] == url
+        assert all(address not in item[k] for k in ("changed", "fix", "why"))
+
+
+
+# The final review's fixes (Task 7.2)
+
+
+def test_a_rule_page_follows_no_redirect_to_a_longer_name_or_out_of_the_root():
+    for answer in ((301, {"Location": OFF + "x"}, b""), (301, {"Location": OFF + "-other"}, b"")):
+        web = rule_web({OFF: answer})
+        with pytest.raises(ValueError):
+            watch_fetch.read_rule_page(OFF, FEED_HOSTS, handlers=(web,))
+        assert asked(web) == [OFF]
+    deeper = OFF + "/part"
+    web = rule_web({OFF: (301, {"Location": deeper}, b""), deeper: HTML_RULE})
+    assert [s.key for s in watch_fetch.read_rule_page(OFF, FEED_HOSTS, handlers=(web,))] == [
+        "Rule"]
+
+
+@pytest.mark.parametrize("address", ["https://stores.example.org", "https://stores.example.org/"])
+def test_a_rule_page_at_the_root_of_its_host_follows_no_redirect_off_the_root(address):
+    web = rule_web({address: (301, {"Location": "https://stores.example.org/en/"}, b"")})
+    with pytest.raises(ValueError):
+        watch_fetch.read_rule_page(address, FEED_HOSTS, handlers=(web,))
+    assert asked(web) == [address]
+
+
+def test_a_raw_read_follows_no_redirect_to_a_longer_name():
+    web = rule_web({RAW: (301, {"Location": RAW + "x"}, b"")})
+    with pytest.raises(ValueError):
+        watch_fetch.read_rule_page(BLOB, FEED_HOSTS, handlers=(web,))
+    assert asked(web) == [RAW]
+
+
+def rule_meta(address):
+    return {address: {"client": "Store rules", "kind": "rule-page", "url": address}}
+
+
+@pytest.mark.parametrize("address, url", [
+    ("https://stores.example.org/" + "/".join(["long-part-of-a-path"] * 4) + "/the-rules", True),
+    ("https://stores.example.org/a|b", False),
+])
+def test_a_rule_pages_cannot_read_item_stays_under_80_and_shows_only_a_showable_url(address, url):
+    _, state = plan_run(old({}, fails={address: 2}), {address: None}, rule_meta(address))
+    [item] = state["kept"]
+    assert len(item["title"]) <= 79
+    assert item["title"].startswith("Cannot read ") and item["title"].endswith(" for 3 days")
+    assert item["url"] == (address if url else "")
+    assert address not in item["changed"] and item["client"] == "Store rules"
+
+
+def test_a_rule_pages_long_cannot_read_title_uses_the_tail_of_its_path():
+    address = "https://stores.example.org/" + "x" * 60 + "/the-rules"
+    _, state = plan_run(old({}, fails={address: 2}), {address: None}, rule_meta(address))
+    assert state["kept"][0]["title"] == "Cannot read the-rules for 3 days"
+
+
+def test_the_cannot_read_items_of_doc_pages_and_sources_keep_their_titles():
+    long = "https://docs.example.com/a/" + "x" * 90
+    meta = {**META, long: {"client": "codex", "kind": "doc", "url": long}}
+    _, state = plan_run(old({}, fails={"s": 2, long: 2}), {"s": None, long: None}, meta)
+    assert [k["title"] for k in state["kept"]] == [
+        "Cannot read s for 3 days", f"Cannot read {long} for 3 days"]
+    assert state["kept"][1]["changed"] == f"{long} could not be read"
+
+
+def rule_out_of_time(count):
+    pages = "1 rule page was" if count == 1 else f"{count} rule pages were"
+    return f"{pages} not read for {FAIL_DAYS} runs: out of time"
+
+
+def test_rule_pages_left_unread_three_runs_in_a_row_make_one_item(tmp_path, monkeypatch, capsys):
+    rules = rules_md(*STORE[:2])
+    state = rule_state()
+    for run in range(1, 5):
+        out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                            state=state, slow_after=3)
+        state = out["state"]
+        assert state["rule_skips"] == {STORE[0]: run, STORE[1]: run}
+        titles = [k["title"] for k in state["kept"] if "not read for" in k["title"]]
+        # Said on the third run, once; the doc pages' item is its own.
+        assert titles.count(rule_out_of_time(2)) == (0 if run < 3 else 1)
+    [item] = [k for k in state["kept"] if k["title"] == rule_out_of_time(2)]
+    assert item["client"] == "Store rules" and item["url"] == ""
+    assert f"`{STORE[0]}`, `{STORE[1]}`" in item["changed"]
+    again, *_ = fetch_run(tmp_path, monkeypatch, capsys, rules=rules, state=state)
+    assert again["state"]["rule_skips"] == {}
+
+
+def test_a_rule_page_whose_read_was_started_is_not_skipped(tmp_path, monkeypatch, capsys):
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules_md(*STORE[:4]),
+                                        state=rule_state(), slow_after=len(DOCS) + 1)
+    assert out["state"]["rule_skips"] == {STORE[1]: 1, STORE[2]: 1, STORE[3]: 1}
+
+
+def test_the_log_says_why_the_rule_reads_stopped_when_they_stopped(tmp_path, monkeypatch, capsys):
+    # The 40th read hits the cap and also uses the last of the time: the cap stopped them.
+    rules = rules_md(*STORE[:25])
+    out, err, read, planned = fetch_run(tmp_path, monkeypatch, capsys, rules=rules,
+                                        slow_after=len(DOCS) + watch_fetch.RULE_PAGES_MAX)
+    assert err == "40 reads of rule pages, the most a run, are used; left for tomorrow: 5.\n"
+    assert watch_fetch.read_rules(STORE[:2], {}, rule_text, lambda: False).stopped == "time"
+    assert watch_fetch.read_rules(STORE[:2], {}, rule_text, lambda: True).stopped == ""
+
+
+def test_the_summary_names_the_rules_file_when_it_holds_a_store_rule_item():
+    from watch_post import render_summary
+
+    state = old({}, fact_pages={STORE[0]: entry("a", "2026-11-10")}, stale_week="2026-W46")
+    kept = stale_plan(state, {})["kept"]
+    _, body, _ = render_summary(kept, DAY_ONE)
+    footer = body.split("**When you fix one:**")[1]
+    assert "`docs/clients.md`" in footer and "`docs/platform-rules.md` in kitden-sdlc" in footer
+    list_item = {**kept[0], "client": "codex"}
+    _, body, _ = render_summary([list_item], DAY_ONE)
+    footer = body.split("**When you fix one:**")[1]
+    assert "`docs/clients.md`" in footer and "platform-rules.md" not in footer

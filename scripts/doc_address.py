@@ -50,6 +50,33 @@ class Host(tuple):
         return (*self, self.client)
 
 
+class Page(tuple):
+    """A (host, path) pair that allows one page, for a page outside the config
+    (watch_fetch.read_rule_page). It compares and unpacks as the plain pair.
+
+    An address is under it when its path is the page's path, or goes on below it by whole
+    path parts: "/rules/submit" allows "/rules/submit/" and "/rules/submit/part", never
+    "/rules/submitx". A page at the root of its host ("" or "/") allows the root only.
+    """
+
+    def __new__(cls, host: str, start: str):
+        return super().__new__(cls, (host, start))
+
+    def __getnewargs__(self):
+        return tuple(self)
+
+
+def _under(path: str, pair) -> bool:
+    """Whether `path` is under the path of `pair`: a config pair allows any path that starts
+    with its path (which ends with "/"); a Page, its own page only."""
+    start = pair[1]
+    if not isinstance(pair, Page):
+        return path.startswith(start)
+    if start in ("", "/"):
+        return path in ("", "/")
+    return path == start or path.startswith(start if start.endswith("/") else start + "/")
+
+
 def load_hosts(path=CONFIG) -> list[tuple[str, str]]:
     """The (host, path_start) pairs in the config, with the host in lower case. Each is a
     Host, so it also carries its `client`.
@@ -98,8 +125,7 @@ def allowed(address: str, hosts) -> bool:
     steps = urllib.parse.unquote(parts.path).split("/")
     if "." in steps or ".." in steps:
         return False
-    return any(netloc == host.lower() and parts.path.startswith(start)
-               for host, start in hosts)
+    return any(netloc == pair[0].lower() and _under(parts.path, pair) for pair in hosts)
 
 
 class _Follow(urllib.request.HTTPRedirectHandler):

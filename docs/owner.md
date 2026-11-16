@@ -25,6 +25,9 @@ daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for y
 | Stop one agent | set its switch variable to `false` |
 | Stop everything | set `AGENTS_ENABLED` to `false` in both repositories: every agent stops; the desk's count still runs |
 | Answer a person | write yourself; no bot answers people |
+| Act on "… changed after its facts were checked" in the summary | read the page; change each fact it names if it no longer holds, and its date in either case: a row of `docs/clients.md` in Kitden, or a rule of `docs/platform-rules.md` here. The item comes each week until the dates are later than the change |
+| Find a page that looks changed every week | two weeks after the stale facts start, read `fact_pages` in `state.json` on the `watch` branch: a page whose `changed` moves each week while its text did not really change (a date or a counter on it) gives a stale item each week. Point the fact at a steadier page, such as the raw file or a page without the moving part |
+| Act on "… cannot be watched" in the summary | the page reads differently each time, so the watcher stopped reading it: check its facts by hand, or point them at a page that reads the same each time |
 | Find doc pages for the list | in kitden-sdlc, with `COHERE_API_KEY` set: `uv run --only-group watch-io python scripts/watch_sources.py --kitden <Kitden checkout> > table.md`; see [below](#find-doc-pages-for-the-list) |
 
 ## The five lights
