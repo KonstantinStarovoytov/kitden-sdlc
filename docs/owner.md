@@ -14,7 +14,7 @@ daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for y
 | Say a bot issue is real | put `confirmed` on it; it stays open until fixed |
 | Say a bot issue is wrong | close it with `false-alarm` |
 | A nightly test job is red | open its `ci-failure` issue; re-run the job if it failed by chance, or fix it; the issue closes itself. Do not close it by hand: while the part is red, the next day opens a new one |
-| The desk says the workflow map is out of date | in kitden-sdlc: run `uv run python scripts/map_text.py --write` and open a pull request with the change |
+| The desk says the workflow map is out of date | in kitden-sdlc: run `uv run python scripts/map_text.py --write`; what `uv run python scripts/map_text.py --check` still prints after that is a workflow file the map lacks or one it has that is gone: add it to `WF` in `docs/map/index.html`, or take it off, by hand; then open a pull request with the change |
 | Say a review was useful or wrong | 👍 or 👎 on the "Agent review" comment |
 | A reviewer gave no answer (the review comment says so) | push again, or re-run the "Agent review" run |
 | Record a miss | in the bug form, write `#N` of the pull request that caused the bug under "Caused by" |

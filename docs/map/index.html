@@ -733,20 +733,27 @@ function draw(){
   svg.innerHTML = out;
   if (hot) focus(hot);
 }
+/* An edge whose why is READS does not start what it points at: it is listed as Reads and Read by. */
+const READS = 'the desk reads it';
 function focus(id){
   hot = id;
-  const E = STORIES[cur].edges, on = new Set(id ? [id] : []), from = [], to = [];
+  const E = STORIES[cur].edges, on = new Set(id ? [id] : []), from = [], to = [], reads = [], readBy = [];
   E.forEach(([a, b, why], i) => {
     const hit = id && (a === id || b === id), g = flow.querySelector('.fe[data-e="' + i + '"]');
     if (g) g.classList.toggle('on', !!hit);
-    if (hit){ on.add(a); on.add(b); (b === id ? from : to).push((a === id ? nodes[b] : nodes[a]).name + (why ? ' (' + why + ')' : '')); }
+    if (!hit) return;
+    on.add(a); on.add(b);
+    if (why === READS) (b === id ? reads : readBy).push((a === id ? nodes[b] : nodes[a]).name);
+    else (b === id ? from : to).push((a === id ? nodes[b] : nodes[a]).name + (why ? ' (' + why + ')' : ''));
   });
   flow.classList.toggle('focus', !!id);
   flow.querySelectorAll('.fc').forEach(c => c.classList.toggle('on', on.has(c.dataset.n)));
   $('note').innerHTML = !id ? '<div class="ink2">' + esc(STORIES[cur].note) + '</div>'
     : '<div class="t">' + esc(nodes[id].name) + '</div><div class="ink2">' +
       (from.length ? 'Started by: ' + esc(from.join(', ')) + '. ' : 'Nothing starts it: this is where it begins. ') +
-      (to.length ? 'Then: ' + esc(to.join(', ')) + '.' : 'Nothing follows: this is the end.') + '</div>';
+      (reads.length ? 'Reads: ' + esc(reads.join(', ')) + '. ' : '') +
+      (to.length ? 'Then: ' + esc(to.join(', ')) + '.' : 'Nothing follows: this is the end.') +
+      (readBy.length ? ' Read by: ' + esc(readBy.join(', ')) + '.' : '') + '</div>';
 }
 flow.addEventListener('mouseover', ev => { const c = ev.target.closest('.fc'); if (c && c.dataset.n !== hot) focus(c.dataset.n); });
 flow.addEventListener('mouseleave', () => focus(null));

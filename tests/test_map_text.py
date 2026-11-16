@@ -221,7 +221,21 @@ def test_the_every_day_clock_runs_in_time_order():
     rows = HTML.split("day:{")[1].split("rows:[")[1].split("\n    ],")[0]
     times = re.findall(r"kind:'clock', t:'(\d\d:\d\d)'", rows)
     assert times == sorted(times) and times[0] == "02:37" and len(times) == 6
+
+
+def test_both_wires_the_desk_reads_run_from_a_result_card_into_the_desk():
+    day = HTML.split("day:{")[1].split("\n};")[0]
+    things = set(re.findall(r"\{id:'(\w+)', kind:'thing'", day))
+    edges = re.findall(r"\['(\w+)','([\w-]+)','the desk reads it','(\w)'\]", day)
+    assert sorted(edges) == [("d0", "s-desk", "t"), ("d2", "s-desk", "r")]
+    assert {"d0", "d2"} <= things
     assert "if (shape === 'r')" in HTML and "if (shape === 't')" in HTML
+
+
+def test_pointing_at_the_desk_lists_what_it_reads_not_what_starts_it():
+    assert "const READS = 'the desk reads it';" in HTML
+    assert "if (why === READS) (b === id ? reads : readBy)" in HTML
+    assert "'Reads: ' + esc(reads.join(', '))" in HTML and "' Read by: '" in HTML
 
 
 def test_every_step_in_the_workflows_view_shows_its_number_never_an_icon():

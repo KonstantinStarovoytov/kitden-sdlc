@@ -794,6 +794,7 @@ def test_silent_and_failed_are_none_when_not_read():
 # Task 17: the desk reads the workflow map against the workflow files.
 
 TAP = "konstantinstarovoytov/homebrew-tap"
+JOBS = "jobs:\n  a:\n    runs-on: ubuntu-latest\n"  # what makes a raw text a workflow file
 
 
 def contents(slug):
@@ -818,7 +819,7 @@ def map_fetch(changed=None):
         if url.startswith("https://raw.githubusercontent.com/") and "/.github/workflows/" in url:
             repo = "k" if f"/{REPO}/" in url else "t"
             file = url.rsplit("/", 1)[1]
-            return (changed or {}).get(file) or _good(repo, file)
+            return (changed or {}).get(file) or _good(repo, file) + JOBS
         return fetched(url)
 
     return fetch
@@ -839,7 +840,7 @@ def test_the_map_that_says_what_the_files_say_is_up_to_date(capsys):
 def test_each_place_the_map_differs_from_a_file_is_one_line():
     from map_text import read_block
     shown = read_block((ROOT / "docs/map/index.html").read_text())["k-release"]
-    renamed = f"# What: {shown['what']}\n# Why: {shown['why']}\nname: Another name\n"
+    renamed = f"# What: {shown['what']}\n# Why: {shown['why']}\nname: Another name\n{JOBS}"
     facts, _ = read_map(map_fetch({"release.yml": renamed}))
     assert facts.map_stale == [
         f'k-release: name is "{shown["name"]}", the file says "Another name"']
@@ -901,3 +902,28 @@ def test_the_desks_api_reads_a_text_through_gh(monkeypatch):
                         lambda self, *args: seen.append(args) or "[]")
     assert desk_gather.GhDeskApi().text(contents(REPO)) == "[]"
     assert seen == [(contents(REPO),)]
+
+
+def test_a_raw_answer_that_is_not_a_workflow_is_null_not_three_places(capsys):
+    facts, _ = read_map(map_fetch({"release.yml": "<html>Something went wrong</html>"}))
+    assert facts.map_stale is None
+    assert "::warning::desk: could not read map" in capsys.readouterr().out
+
+
+def test_the_map_read_stops_at_its_first_failure():
+    asked = []
+
+    def offline(url):
+        if "/.github/workflows/" in url:
+            asked.append(url)
+            raise OSError("offline")
+        return fetched(url)
+
+    facts, _ = read_map(offline)
+    assert facts.map_stale is None and len(asked) == 1
+
+
+def test_a_list_that_fails_stops_the_map_read_before_the_next_list():
+    facts, api = read_map(answers=failing(contents(REPO)))
+    assert facts.map_stale is None
+    assert contents(TAP) not in api.asked

@@ -35,6 +35,7 @@ HERE = Path(__file__).resolve().parent.parent  # this repository's checkout
 ROSTER = HERE / "config" / "agents.json"
 MAP = Path("docs/map/index.html")
 API = "https://api.github.com/"
+WORKFLOW = re.compile(r"^jobs:", re.M)  # every workflow file has it; an error page has not
 RUN_ID = re.compile(r"/actions/runs/(\d+)/")  # in a check run's details_url
 
 
@@ -327,25 +328,32 @@ def _watch_log(path: Path | None) -> list[dict] | None:
     return lines
 
 
+class _Unread(Exception):
+    """A file the map is checked against could not be read. It is no OSError or ValueError,
+    which map_text turns into a line and reads on: this one ends the check at once."""
+
+
 def _map_stale(api, fetch: Fetch, root: Path) -> list[str]:
     """Each place the workflow map in `root` differs from the workflow files: this checkout's,
     and Kitden's and the tap's on `main`. Their raw files come through `fetch`; their lists of
     files come from the contents API through gh, so with the job's token and not from the
     60 calls an hour GitHub allows without one. A file or a list that was not read is a failed
     read, never a place: a map that could not be checked is not shown as out of date, nor as
-    up to date."""
-    failed: list[str] = []
+    up to date. So is a raw file that is not a workflow, such as an error page. The first
+    failed read ends the check, so an offline night does not wait out every timeout."""
 
     def read(url: str) -> str:
         try:
-            return api.text(url[len(API):]) if url.startswith(API) else fetch(url)
-        except Exception:
-            failed.append(url)
-            raise
+            text = api.text(url[len(API):]) if url.startswith(API) else fetch(url)
+        except Exception as error:
+            raise _Unread(url) from error
+        if not url.startswith(API) and not WORKFLOW.search(text):
+            raise _Unread(url)
+        return text
 
     lines = map_text.differences((root / MAP).read_text(), root, read)
-    if failed or any(line.endswith(map_text.NOT_READ) for line in lines):
-        raise OSError("a file the map is checked against could not be read")
+    if any(line.endswith(map_text.NOT_READ) for line in lines):
+        raise _Unread("a list of another shape, or a file of this checkout")
     return lines
 
 
