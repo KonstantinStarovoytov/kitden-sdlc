@@ -1,7 +1,8 @@
 <!doctype html>
-<!-- The desk: Kitden's health and what waits for the owner, read from desk.json on the `numbers`
-     branch each time the page opens. desk.yml writes that file every day; no model writes it or
-     this page. The words are in view.js; this file only puts them on the page, as text. -->
+<!-- The desk: Kitden's five lights, what waits for the owner and the nightly tests, read from
+     desk.json on the `numbers` branch each time the page opens. desk.yml writes that file every
+     day; no model writes it or this page. The words are in view.js; this file only puts them on
+     the page, as text. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -12,126 +13,168 @@
 <title>Kitden desk</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* The map's look (docs/map/index.html): one framed window on the out colour, a rail on the
-   left, neutral panels with fine solid lines, 6px lamps for state. Light and dark. */
+/* Kitden's look (Kitden's docs/design.md): one framed window on the out colour, a rail on the
+   left, neutral panels with fine solid lines. A lamp is a small light: it glows in its colour
+   and lights its own card a little. Motion: the lamps light once when the page opens; an amber
+   or red lamp keeps a slow ring, because it needs you; nothing else moves on its own. */
 :root{
   --brand:#c85835; --out:#e4e7ec; --canvas:#f5f6f8; --panel:#ffffff; --raised:#ffffff; --inset:#f0f2f5;
-  --ink:#161a21; --ink-2:#464d5b; --ink-3:#626977; --wire:#e1e4e9; --link:#c3c8d0;
+  --ink:#161a21; --ink-2:#464d5b; --ink-3:#626977; --wire:#e1e4e9;
   --route:#a44226; --route-soft:#f6e8e2;
-  --lamp-on:#1c8a4c; --lamp-warn:#97590a; --lamp-bad:#c23a2b; --lamp-off:#80868f;
-  --warn-soft:#fbf1e2; --bad-soft:#fbe7e4;
+  --lamp-on:#1c8a4c; --lamp-warn:#97590a; --lamp-bad:#b23434; --lamp-off:#80868f;
+  --spill:10%; --halo:42%;
   --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --calm:cubic-bezier(.2,.8,.2,1);
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
-  --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d; --link:#59616f;
+  --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
   --route:#f09a7c; --route-soft:#382a27;
-  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-bad:#f07a6a; --lamp-off:#707886;
-  --warn-soft:#352c1d; --bad-soft:#3a2321; color-scheme:dark } }
+  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-bad:#f07070; --lamp-off:#707886;
+  --spill:13%; --halo:60%; color-scheme:dark } }
 :root[data-theme="dark"]{
   --out:#0d0f13; --canvas:#171a20; --panel:#20242c; --raised:#282d36; --inset:#12151a;
-  --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d; --link:#59616f;
+  --ink:#f2f3f5; --ink-2:#c1c6cf; --ink-3:#a5adba; --wire:#3b424d;
   --route:#f09a7c; --route-soft:#382a27;
-  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-bad:#f07a6a; --lamp-off:#707886;
-  --warn-soft:#352c1d; --bad-soft:#3a2321; color-scheme:dark }
+  --lamp-on:#47c27a; --lamp-warn:#eac27c; --lamp-bad:#f07070; --lamp-off:#707886;
+  --spill:13%; --halo:60%; color-scheme:dark }
 
 *{box-sizing:border-box}
-body{margin:0;background:var(--out);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+body{margin:0;background:var(--out);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 [hidden]{display:none!important}
-h1,h2,h3{margin:0;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
-h1{font-size:28px;font-weight:700} h2{font-size:17px;font-weight:600} h3{font-size:13px;font-weight:600}
-p{margin:0;max-width:76ch}
-a{color:var(--route);text-underline-offset:3px}
+h1,h2{margin:0;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+p{margin:0}
+a{color:var(--route);text-underline-offset:3px;text-decoration-thickness:1px}
 a:focus-visible{outline:2px solid var(--route);outline-offset:2px;border-radius:5px}
-code{font-family:var(--mono);font-size:.9em;background:var(--inset);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
-.ink2{color:var(--ink-2)} .ink3{color:var(--ink-3)} .cap{font-size:11px;font-weight:600;color:var(--ink-3)}
-.num{font-variant-numeric:tabular-nums}
+code{font-family:var(--mono);font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
 
+/* --- the window --- */
 .shell{padding:16px}
-.app{max-width:1240px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden;min-height:calc(100vh - 32px)}
+.app{max-width:1180px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden;min-height:calc(100vh - 32px)}
 .rail{border-right:1px solid var(--wire);padding:16px 10px;display:flex;flex-direction:column;gap:18px}
-.word{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em}
+.wordmark{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
 .rail nav{display:flex;flex-direction:column;gap:2px}
-.rail nav a{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;position:relative}
-.rail nav a svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.rail nav a:hover{background:var(--inset)}
+.rail nav a,.rail .back{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;position:relative;white-space:nowrap;transition:background .18s,color .18s}
+.rail svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.rail nav a:hover,.rail .back:hover{background:var(--inset);color:var(--ink)}
 .rail nav a[aria-current="page"]{background:var(--route-soft);color:var(--route);font-weight:500}
 .rail nav a[aria-current="page"]::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--brand)}
-.rail .back{display:flex;white-space:nowrap;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none}
-.rail .back:hover{background:var(--inset);color:var(--ink)}
-.rail .back svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
-.main{padding:26px 28px 32px;display:flex;flex-direction:column;gap:22px;min-width:0}
+.main{padding:34px 36px 40px;display:flex;flex-direction:column;gap:22px;min-width:0}
 
-.lamp{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block;background:var(--lamp-off)}
-.lamp.green{background:var(--lamp-on)} .lamp.amber{background:var(--lamp-warn)} .lamp.red{background:var(--lamp-bad)}
+/* --- a lamp: a small glass light in its colour --- */
+.lamp{--c:var(--lamp-off);position:relative;flex:none;width:10px;height:10px;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%,color-mix(in srgb,#fff 38%,var(--c)) 0 14%,var(--c) 52%,color-mix(in srgb,#000 14%,var(--c)) 100%);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 16%,transparent),0 0 12px 1px color-mix(in srgb,var(--c) var(--halo),transparent)}
+.lamp.green{--c:var(--lamp-on)} .lamp.amber{--c:var(--lamp-warn)} .lamp.red{--c:var(--lamp-bad)}
 .lamp.grey{background:transparent;box-shadow:inset 0 0 0 1.5px var(--lamp-off)}
-.lamp.big{width:12px;height:12px}
-.lamp.amber.big,.lamp.red.big{box-shadow:0 0 0 4px color-mix(in srgb,currentColor 0%,transparent)}
+.lamp.big{width:16px;height:16px;box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 16%,transparent),0 0 22px 3px color-mix(in srgb,var(--c) var(--halo),transparent)}
+.lamp.grey.big{box-shadow:inset 0 0 0 2px var(--lamp-off)}
+/* The ring. A lamp that lights shows it once. An amber or red lamp shows it three times more,
+   then keeps it still; only the headline's lamp keeps it going, slowly, while something waits
+   for you. Nothing else loops. */
+.lamp::after{content:"";position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--c);opacity:0;pointer-events:none}
+.lamp.grey::after{display:none}
+.lamp.amber::after,.lamp.red::after{opacity:.35;transform:scale(1.7)}
+.lit .lamp.green::after{animation:ring .9s var(--calm) calc(var(--d,0ms) + 700ms) 1}
+.lit .lamp.amber::after{animation:ring 3.6s cubic-bezier(.2,.6,.3,1) calc(var(--d,0ms) + 700ms) 3 backwards}
+.lit .lamp.red::after{animation:ring 2.6s cubic-bezier(.2,.6,.3,1) calc(var(--d,0ms) + 700ms) 3 backwards}
+.lit .lamp.big.amber::after,.lit .lamp.big.red::after{animation-iteration-count:infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
+/* Lighting up, once, when the page opens: dark, a short over-bright flash, then its colour. */
+.lit .lamp:not(.grey){animation:ignite .7s var(--calm) both;animation-delay:var(--d,0ms)}
+@keyframes ignite{
+  0%{opacity:0;transform:scale(.6);filter:brightness(.4)}
+  60%{opacity:1;filter:brightness(1.35)}
+  100%{opacity:1;transform:none;filter:none}}
 
-.head{display:flex;flex-direction:column;gap:8px}
-.head h1{display:flex;align-items:center;gap:12px}
-.lede{color:var(--ink-2)}
-.note{border:1px solid var(--wire);border-radius:8px;padding:10px 12px;font-size:13px;background:var(--panel)}
-.note.amber{background:var(--warn-soft);border-color:color-mix(in srgb,var(--lamp-warn) 45%,var(--wire))}
-.note.red{background:var(--bad-soft);border-color:color-mix(in srgb,var(--lamp-bad) 45%,var(--wire))}
+/* --- the head --- */
+.head{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.head .eyebrow{font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:.02em}
+.head h1{display:flex;align-items:center;gap:16px;font-size:32px;font-weight:700}
+.head .updated{font-size:13px;color:var(--ink-3);padding-left:32px}
+.note{border:1px solid var(--wire);border-radius:8px;padding:10px 14px;font-size:13px;background:var(--panel)}
+.note.amber{border-color:color-mix(in srgb,var(--lamp-warn) 40%,var(--wire));background:color-mix(in srgb,var(--lamp-warn) 8%,var(--panel))}
+.calm-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);padding-left:3px;margin-top:6px}
+.calm-line .lamp{width:8px;height:8px;margin:0 7px 0 4px}
 
-section{display:flex;flex-direction:column;gap:10px;min-width:0}
-.panel{background:var(--panel);border:1px solid var(--wire);border-radius:10px;min-width:0}
-.pad{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+/* --- panels --- */
+section{min-width:0}
+.panel{background:var(--panel);border:1px solid var(--wire);border-radius:12px;min-width:0;overflow:hidden}
+.panel .bar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid var(--wire);font-size:12px;color:var(--ink-3)}
+.panel .bar h2{margin:0;font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
 
-.lights{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
-.light{border:1px solid var(--wire);border-radius:8px;padding:12px 14px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
-.light .t{display:flex;align-items:center;gap:8px;font-weight:600}
-.light .t .w{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3)}
-.light.amber{background:var(--warn-soft)} .light.red{background:var(--bad-soft)}
-.light .c{font-size:12px;color:var(--ink-3)}
-.light .y{font-size:12.5px;color:var(--ink)}
+/* --- the five lights --- */
+.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0 -1px -1px 0}
+.light{--c:var(--lamp-off);position:relative;isolation:isolate;padding:18px 18px 20px;display:flex;flex-direction:column;gap:10px;min-height:160px;
+  box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
+.light.green{--c:var(--lamp-on)} .light.amber{--c:var(--lamp-warn)} .light.red{--c:var(--lamp-bad)}
+/* The lamp's light on its card: faint when green, stronger when it needs you. */
+.light::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(140% 90% at 26px 26px,color-mix(in srgb,var(--c) var(--spill),transparent),transparent 62%);opacity:.45}
+.light.amber::before,.light.red::before{opacity:1}
+.light.grey::before{opacity:0}
+.lit .light::before{animation:spill .9s var(--calm) backwards;animation-delay:calc(var(--d,0ms) + 120ms)}
+@keyframes spill{from{opacity:0}}
+.light .top{display:flex;align-items:center;gap:10px}
+.light .name{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.light .word{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3);white-space:nowrap}
+.light.amber .word,.light.red .word{color:color-mix(in srgb,var(--c) 85%,var(--ink))}
+.light .checks{font-size:12.5px;color:var(--ink-3);line-height:1.45}
+.light .why{font-size:13px;color:var(--ink);line-height:1.45;margin-top:auto;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--c) 22%,var(--wire))}
+.light .why a{font-size:12px;white-space:nowrap}
 
-.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
-ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-ul.items li{padding:10px 16px;border-top:1px solid var(--wire);display:flex;flex-direction:column;gap:3px;font-size:13px}
-ul.items li:first-child{border-top:0}
-ul.items .k{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;line-height:1;padding:4px 7px;border-radius:6px;border:1px solid var(--wire);color:var(--ink-2);background:var(--canvas);white-space:nowrap}
-.empty{padding:14px 16px;color:var(--ink-3);font-size:13px}
+/* --- waiting --- */
+ul.rows{list-style:none;margin:0;padding:0}
+ul.rows > li{padding:12px 18px;border-top:1px solid var(--wire);display:flex;flex-direction:column;gap:4px;font-size:13px}
+ul.rows > li:first-child{border-top:0}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.wait .row{flex-wrap:wrap;align-items:flex-start;row-gap:4px}
+.kind{display:inline-flex;font-size:11px;line-height:1;padding:4px 7px;border-radius:6px;border:1px solid var(--wire);color:var(--ink-2);background:var(--canvas);white-space:nowrap}
 .sub{font-size:12px;color:var(--ink-3)}
-ul.failed{margin:2px 0 0;padding-left:18px;font-size:12px;color:var(--ink-2)}
-ul.items ul.failed li{display:list-item;padding:0;border:0}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
-.stat{border:1px solid var(--wire);border-radius:8px;padding:12px 14px;background:var(--panel);display:flex;flex-direction:column;gap:2px}
-.stat b{font-size:22px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.stat b.none{font-size:13px;font-weight:500;color:var(--ink-3);padding:6px 0}
+/* --- nightly --- */
+.row .part{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.row .run{margin-left:auto;font-size:12px;white-space:nowrap}
+.row .state{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.row .state + .run{margin-left:14px}
+ul.parts{list-style:none;margin:0 -1px -1px 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+ul.parts .tile{--c:var(--lamp-off);padding:14px 18px;display:flex;flex-direction:column;gap:3px;min-width:0;box-shadow:inset -1px 0 0 var(--wire),inset 0 -1px 0 var(--wire)}
+ul.parts .tile.green{--c:var(--lamp-on)} ul.parts .tile.red{--c:var(--lamp-bad)}
+ul.parts.loud{grid-template-columns:1fr;margin-bottom:0}
+ul.parts .tile.wide.red{background:radial-gradient(120% 140% at 22px 22px,color-mix(in srgb,var(--c) var(--spill),transparent),transparent 60%)}
+ul.parts .of,ul.parts .note-line,ul.parts .means{padding-left:20px;font-size:12px;color:var(--ink-3)}
+ul.parts .of{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ul.parts .means{font-size:12.5px;color:var(--ink)}
+ul.parts .red .note-line{color:color-mix(in srgb,var(--c) 80%,var(--ink));font-weight:500}
+ul.failed{margin:2px 0 0;padding-left:38px;font-size:12px;color:var(--ink-2)}
+.calm{display:flex;align-items:center;gap:12px;padding:18px;color:var(--ink-2);font-size:13px;margin:0}
 
-.tscroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:12.5px}
-th,td{padding:8px 12px;border-bottom:1px solid var(--wire);text-align:right;vertical-align:top}
-th{font-size:11px;font-weight:600;color:var(--ink-3)}
-th:first-child,td:first-child{text-align:left}
-td.text,th.text{text-align:left}
-tr:last-child td{border-bottom:0}
-td{font-variant-numeric:tabular-nums}
-ul.links{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px}
-.small{font-size:11.5px;color:var(--ink-3)}
+.foot-links{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;border-top:1px solid var(--wire);padding-top:18px;margin-top:6px}
 .loading{color:var(--ink-3)}
 
+/* Five lights in a row; on narrower windows, rows with no hole: 3 + 2, then 2 + 2 + 1. */
+@media (max-width:1060px){ .board{grid-template-columns:repeat(6,minmax(0,1fr))} .light{grid-column:span 2} .light:nth-child(n+4):nth-last-child(-n+2){grid-column:span 3} }
 @media (max-width:860px){
   .shell{padding:0}
   .app{grid-template-columns:1fr;border-radius:0;border:0;min-height:100vh}
-  .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px 16px;overflow-x:auto}
-  .rail nav{flex-direction:row} .rail nav a{white-space:nowrap} .rail nav a[aria-current="page"]::before{display:none}
-  .rail .foot{display:none} .main{padding:18px 16px 24px}
-  .two{grid-template-columns:1fr}
+  .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px 16px}
+  .rail nav{flex-direction:row} .rail nav a[aria-current="page"]::before{display:none}
+  .rail .foot{display:none} .main{padding:24px 16px 32px;gap:18px}
+  .board{grid-template-columns:repeat(2,minmax(0,1fr))} .light,.light:nth-child(n+4):nth-last-child(-n+2){grid-column:auto;min-height:0}
+  .light:last-child:nth-child(odd){grid-column:1/-1}
+  .head h1{font-size:26px;gap:14px} .head .updated{padding-left:30px}
 }
+@media (max-width:520px){ .board{grid-template-columns:1fr} .rail .back{display:none} }
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
 <div class="shell"><div class="app">
   <aside class="rail">
-    <div class="word"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIHdpdGggdGhlIGxpbmUgaW4gc2xvdyBtb3Rpb246IHRoZSBkYXNoZXMgZHJpZnQgZG93biwgb25lIHN0ZXAgZXZlcnkgMi40IHMuIC0tPgogIDxzdHlsZT4KLmxpbmUgeyBhbmltYXRpb246IGRyaWZ0IDIuNHMgbGluZWFyIGluZmluaXRlOyB9CkBrZXlmcmFtZXMgZHJpZnQgeyB0byB7IHN0cm9rZS1kYXNob2Zmc2V0OiAtNjsgfSB9CkBtZWRpYSAocHJlZmVycy1yZWR1Y2VkLW1vdGlvbjogcmVkdWNlKSB7IC5saW5lIHsgYW5pbWF0aW9uOiBub25lOyB9IH0KICA8L3N0eWxlPgogIDxkZWZzPgogICAgPGNsaXBQYXRoIGlkPSJob3VzZSI+PHBhdGggZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJyZWFkcyI+PHJlY3Qgd2lkdGg9IjM2LjUiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjM5LjUiIHdpZHRoPSIyNC41IiBoZWlnaHQ9IjY0Ii8+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGcgY2xpcC1wYXRoPSJ1cmwoI3JlYWRzKSI+CiAgICA8cGF0aCBjbGlwLXBhdGg9InVybCgjaG91c2UpIiBmaWxsPSJub25lIiBzdHJva2U9IiNDODU4MzUiIHN0cm9rZS13aWR0aD0iNCIgZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz4KICA8L2c+CiAgPHBhdGggY2xpcC1wYXRoPSJ1cmwoI3dyaXRlcykiIGZpbGw9IiNDODU4MzUiIGQ9Ik02IDU4QzMuOCA1OCAyIDU2LjIgMiA1NFYzMi41QzIgMzAuNSAyLjkgMjguOCA0LjUgMjcuNkwxNS41IDE5LjZDMTYuNiAxOC44IDE3LjMgMTcuNyAxNy42IDE2LjRMMTkuMyA5LjJDMjAuMSA1LjggMjMuNiA0LjUgMjYuNiA2LjJMNTkgMjUuNEM2MSAyNi42IDYyIDI4LjUgNjIgMzAuOFY1NEM2MiA1Ni4yIDYwLjIgNTggNTggNThIMjhWNDRDMjggMzkuNiAyNC40IDM2IDIwIDM2UzEyIDM5LjYgMTIgNDRWNThaIi8+CiAgPHBhdGggY2xhc3M9ImxpbmUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M4NTgzNSIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjIuNiAzLjQiIGQ9Ik0zOCA2LjZWNjEuNCIvPgo8L3N2Zz4K" width="30" height="30" alt="">kitden-sdlc</div>
+    <div class="wordmark"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIHdpdGggdGhlIGxpbmUgaW4gc2xvdyBtb3Rpb246IHRoZSBkYXNoZXMgZHJpZnQgZG93biwgb25lIHN0ZXAgZXZlcnkgMi40IHMuIC0tPgogIDxzdHlsZT4KLmxpbmUgeyBhbmltYXRpb246IGRyaWZ0IDIuNHMgbGluZWFyIGluZmluaXRlOyB9CkBrZXlmcmFtZXMgZHJpZnQgeyB0byB7IHN0cm9rZS1kYXNob2Zmc2V0OiAtNjsgfSB9CkBtZWRpYSAocHJlZmVycy1yZWR1Y2VkLW1vdGlvbjogcmVkdWNlKSB7IC5saW5lIHsgYW5pbWF0aW9uOiBub25lOyB9IH0KICA8L3N0eWxlPgogIDxkZWZzPgogICAgPGNsaXBQYXRoIGlkPSJob3VzZSI+PHBhdGggZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJyZWFkcyI+PHJlY3Qgd2lkdGg9IjM2LjUiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjM5LjUiIHdpZHRoPSIyNC41IiBoZWlnaHQ9IjY0Ii8+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGcgY2xpcC1wYXRoPSJ1cmwoI3JlYWRzKSI+CiAgICA8cGF0aCBjbGlwLXBhdGg9InVybCgjaG91c2UpIiBmaWxsPSJub25lIiBzdHJva2U9IiNDODU4MzUiIHN0cm9rZS13aWR0aD0iNCIgZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz4KICA8L2c+CiAgPHBhdGggY2xpcC1wYXRoPSJ1cmwoI3dyaXRlcykiIGZpbGw9IiNDODU4MzUiIGQ9Ik02IDU4QzMuOCA1OCAyIDU2LjIgMiA1NFYzMi41QzIgMzAuNSAyLjkgMjguOCA0LjUgMjcuNkwxNS41IDE5LjZDMTYuNiAxOC44IDE3LjMgMTcuNyAxNy42IDE2LjRMMTkuMyA5LjJDMjAuMSA1LjggMjMuNiA0LjUgMjYuNiA2LjJMNTkgMjUuNEM2MSAyNi42IDYyIDI4LjUgNjIgMzAuOFY1NEM2MiA1Ni4yIDYwLjIgNTggNTggNThIMjhWNDRDMjggMzkuNiAyNC40IDM2IDIwIDM2UzEyIDM5LjYgMTIgNDRWNThaIi8+CiAgPHBhdGggY2xhc3M9ImxpbmUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M4NTgzNSIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjIuNiAzLjQiIGQ9Ik0zOCA2LjZWNjEuNCIvPgo8L3N2Zz4K" width="30" height="30" alt="">kitden-sdlc</div>
     <nav aria-label="Pages">
       <a href="./" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg>Desk</a>
       <a href="../map/"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7l4 9M17 7l-4 9M7.2 6h9.6"/></svg>Map</a>
@@ -141,18 +184,20 @@ ul.links{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;f
   </aside>
   <main class="main" id="main">
     <div class="head">
-      <h1 id="lead"><span class="lamp big grey"></span><span>Kitden desk</span></h1>
-      <p class="lede loading" id="read">Reading desk.json…</p>
+      <span class="eyebrow">Kitden desk</span>
+      <h1 id="lead"><span class="lamp big grey"></span><span>Reading the desk…</span></h1>
+      <p class="updated loading" id="updated"></p>
+      <p class="calm-line" id="calm" hidden></p>
     </div>
   </main>
 </div></div>
 
 <script type="module">
-import { view, usagePages, ticks, DATA, ROSTER, DATA_PAGE, HOW_TO, RUNS } from './view.js';
+import { view, ticks, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js';
 
 const main = document.getElementById('main');
 
-// Every piece goes in as text. A piece: a string, {code}, {text, href}, or a list of them.
+// Every piece goes in as text. A piece: a node, a string, {code}, {text, href}, or a list.
 function put(el, piece) {
   if (piece === null || piece === undefined || piece === '') return el;
   if (Array.isArray(piece)) { piece.forEach(p => put(el, p)); return el; }
@@ -165,158 +210,120 @@ function put(el, piece) {
 }
 function make(tag, attrs = {}, ...pieces) {
   const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) el.setAttribute(k, v);
+  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null && v !== false) el.setAttribute(k, v);
   pieces.forEach(p => put(el, p));
   return el;
 }
-const lamp = (s, big) => make('span', { class: `lamp ${s}${big ? ' big' : ''}`, 'aria-hidden': 'true' });
-function section(title, ...children) {
-  const s = make('section', {}, make('h2', {}, title));
-  children.flat().filter(Boolean).forEach(c => s.append(c));
-  return s;
-}
-function grid(t) {
-  if (!t) return null;
-  const wrap = make('div', { class: 'tscroll' });
-  const table = make('table');
-  // A column of numbers (or "—") lines up on the right; any other on the left.
-  const numeric = t.head.map((_, i) => i > 0 && t.rows.every(r => /^[\d,.]+$|^—$/.test(r[i])));
-  const tr = make('tr'); t.head.forEach((h, i) => tr.append(make('th', { scope: 'col', class: numeric[i] ? undefined : 'text' }, h)));
-  table.append(make('thead'), make('tbody'));
-  table.tHead.append(tr);
-  t.rows.forEach(r => {
-    const row = make('tr');
-    r.forEach((c, i) => row.append(make('td', { class: numeric[i] ? undefined : 'text' }, c)));
-    table.tBodies[0].append(row);
-  });
-  wrap.append(table);
-  return wrap;
-}
-const missing = t => (t && t.missing.length ? make('p', { class: 'sub' }, `Not measured yet: ${t.missing.join(', ')}.`) : null);
+const link = (text, href, label) => make('a', { href, rel: 'noopener noreferrer', 'aria-label': label }, text);
+let lampNo = 0; // each lamp lights a little after the one before it
+const lamp = (s, big) => {
+  const el = make('span', { class: `lamp ${s}${big ? ' big' : ''}`, 'aria-hidden': 'true' });
+  el.style.setProperty('--d', `${lampNo++ * 90}ms`);
+  return el;
+};
+const panel = (title, aside, ...body) => make('div', { class: 'panel' },
+  make('div', { class: 'bar' }, make('h2', {}, title), aside || ''), ...body);
 
 function render(v) {
-  const lead = document.getElementById('lead');
-  lead.replaceChildren(lamp(v.overall, true), make('span', {}, v.lead));
-  const read = document.getElementById('read');
-  read.className = 'lede';
-  read.replaceChildren(...[`Numbers read at ${v.updated}, from `, make('a', { href: DATA_PAGE }, 'desk.json'),
-    '. The desk counts them every day at 06:41 UTC.'].map(p => (typeof p === 'string' ? document.createTextNode(p) : p)));
-  main.querySelectorAll('section, .note').forEach(e => e.remove());
+  lampNo = 0;
+  main.classList.remove('lit');
+  document.getElementById('lead').replaceChildren(lamp(v.overall, true), make('span', {}, v.lead));
+  const updated = document.getElementById('updated');
+  updated.className = 'updated';
+  updated.replaceChildren(make('time', { title: v.updatedAt || undefined }, v.updated));
+  main.querySelectorAll('section, .note, .foot-links').forEach(e => e.remove());
 
   const notes = [];
-  if (v.old) notes.push(make('p', { class: 'note amber' }, 'These numbers are more than a day old: the desk\'s last run may have failed. ',
-    { text: 'Look at its runs', href: RUNS }, '.'));
+  if (v.old) notes.push(make('p', { class: 'note amber', role: 'status' }, 'The desk has not run for more than a day. ',
+    link('Look at its runs', RUNS), '.'));
   if (v.map) notes.push(make('p', { class: 'note' }, ticks(v.map)));
 
-  const lights = make('div', { class: 'lights' });
-  v.lights.forEach(l => lights.append(make('div', { class: `light ${l.state}` },
-    make('div', { class: 't' }, lamp(l.state), l.name, make('span', { class: 'w' }, l.word)),
-    l.checks.length ? make('div', { class: 'c' }, 'Checks that ', l.checks) : '',
-    l.why.length ? make('div', { class: 'y' }, l.why) : '')));
-  if (!v.lights.length) lights.append(make('p', { class: 'empty' }, 'No lights in desk.json.'));
-
-  const wait = make('div', { class: 'panel' });
-  if (v.waiting === null) wait.append(make('p', { class: 'empty' }, 'Not measured.'));
-  else if (!v.waiting.length) wait.append(make('p', { class: 'empty' }, 'Nothing waits for you.'));
+  // What waits for the owner: a panel above the lights when something does, else one quiet line.
+  let wait = null;
+  const calm = document.getElementById('calm');
+  calm.hidden = false;
+  if (v.waiting === null) calm.replaceChildren(lamp('grey'), 'What waits for you was not measured.');
+  else if (!v.waiting.length) calm.replaceChildren(lamp('green'), 'Nothing waits for you.');
   else {
-    const ul = make('ul', { class: 'items' });
+    calm.hidden = true;
+    const ul = make('ul', { class: 'rows wait' });
     v.waiting.forEach(i => ul.append(make('li', {},
-      make('div', { class: 'k' }, make('span', { class: 'chip' }, i.kind), make('span', {}, i.title)),
-      i.do.length || i.days ? make('div', { class: 'sub' }, i.do, i.do.length && i.days ? ' ' : '', i.days) : '')));
-    wait.append(ul);
+      make('div', { class: 'row' }, make('span', { class: 'kind' }, i.kind), make('span', {}, i.title)),
+      i.do.length || i.days ? make('p', { class: 'sub' }, i.do, i.do.length && i.days ? ' ' : '', i.days) : '')));
+    wait = panel('Waiting for you', v.waiting.length === 1 ? '1 thing' : `${v.waiting.length} things`, ul);
   }
 
-  const night = make('div', { class: 'panel' });
-  if (v.nightly === null) night.append(make('p', { class: 'empty' }, `Nightly runs: not measured yet.`));
-  else if (!v.nightly.length) night.append(make('p', { class: 'empty' }, 'No nightly job is expected.'));
+  // The five lights.
+  const board = make('div', { class: 'board' });
+  v.lights.forEach(l => {
+    const card = make('article', { class: `light ${l.state}`, 'aria-label': `${l.name}: ${l.word}` },
+      make('div', { class: 'top' }, lamp(l.state), make('h3', { class: 'name' }, l.name), make('span', { class: 'word' }, l.word)),
+      l.checks.length ? make('p', { class: 'checks' }, l.checks) : '',
+      l.why ? make('p', { class: 'why' }, l.why, l.open ? [' ', link('Open', l.open, `Open what ${l.name} names`)] : '') : '');
+    card.style.setProperty('--d', card.querySelector('.lamp').style.getPropertyValue('--d'));
+    board.append(card);
+  });
+  const green = v.lights.filter(l => l.state === 'green').length;
+  const lights = panel('Lights', v.lights.length ? `${green} of ${v.lights.length} green` : '',
+    v.lights.length ? board : make('p', { class: 'calm' }, lamp('grey'), 'No light was read.'));
+
+  // The nightly tests: a tile per part; a part with something to say takes the whole row.
+  const n = v.nightly;
+  let nightBody;
+  if (n === null) nightBody = make('p', { class: 'calm' }, lamp('grey'), 'Not measured yet.');
+  else if (!n.parts.length) nightBody = make('p', { class: 'calm' }, lamp('grey'), 'No nightly job is expected.');
   else {
-    const ul = make('ul', { class: 'items' });
-    v.nightly.forEach(p => {
-      const li = make('li', {},
-        make('div', { class: 'k' }, lamp(p.state), make('b', {}, p.part),
-          make('span', { class: 'ink3' }, p.workflow), make('span', { class: 'chip' }, p.word)),
-        make('div', { class: 'sub' }, p.run ? { text: p.night, href: p.run } : p.night, p.note ? ` · ${p.note}` : ''));
-      if (p.means) li.append(make('div', {}, p.means));
+    // A part with something to say gets a whole row, above the others; the rest share a grid.
+    const loud = make('ul', { class: 'parts loud' });
+    const quiet = make('ul', { class: 'parts' });
+    nightBody = [loud, quiet];
+    n.parts.forEach(p => {
+      const wide = p.means || p.failed.length || p.note;
+      const li = make('li', { class: `tile ${p.state}${wide ? ' wide' : ''}` },
+        make('div', { class: 'row' }, lamp(p.state), make('span', { class: 'part' }, p.part),
+          p.state === 'green' ? '' : make('span', { class: 'state' }, p.word),
+          p.run ? link(n.mixed && p.night ? `Run of ${p.night}` : 'Run', p.run, `Run of ${p.part}, ${p.word}`) : ''),
+        p.of ? make('p', { class: 'of' }, p.of) : '');
+      if (p.run) li.querySelector('.row a').classList.add('run');
+      if (p.note) li.append(make('p', { class: 'note-line' }, p.note));
+      if (p.means) li.append(make('p', { class: 'means' }, p.means));
       if (p.failed.length) {
         const f = make('ul', { class: 'failed' });
         p.failed.forEach(j => f.append(make('li', {}, j.job, `: ${j.step}`)));
         li.append(f);
       }
-      ul.append(li);
+      (wide ? loud : quiet).append(li);
     });
-    night.append(ul);
+    nightBody = nightBody.filter(ul => ul.children.length);
   }
-  night.append(make('p', { class: 'empty' }, v.setAside === null ? 'Tests set aside: not measured yet.'
-    : ['Tests set aside: ', `${v.setAside} `, '(', { text: 'tests/set-aside.txt', href: v.setAsideUrl }, ').']));
-
-  const stats = make('div', { class: 'stats' });
-  v.use.forEach(u => stats.append(make('div', { class: 'stat' }, make('span', { class: 'cap' }, u.label),
-    u.value === null ? make('b', { class: 'none' }, 'not measured yet') : make('b', {}, u.value),
-    make('span', { class: 'sub' }, u.note))));
-
-  const weekPad = make('div', { class: 'panel pad' }, make('p', { class: 'sub' }, v.weekNote));
-  if (v.week) weekPad.append(grid(v.week), ...[missing(v.week)].filter(Boolean),
-    make('p', { class: 'sub' }, 'Runs: runs that ended, well or badly; the two reviewers share one per push. Failed: those that failed. Did: pull requests reviewed, issues opened or release pull requests opened. No answer: review comments in which that reviewer gave none. Agreed and disagreed: your 👍 and 👎 on a review, or ',
-      { code: 'confirmed' }, ' and ', { code: 'false-alarm' }, ' on the watcher\'s issues.'));
-  else weekPad.append(make('p', {}, 'The agents\' week: not measured yet.'));
-  weekPad.append(make('p', {}, v.review));
-
-  const found = make('div', { class: 'panel pad' }, make('p', { class: 'sub' },
-    'By month. Review: findings fixed before the merge. Nightly: ', { code: 'ci-failure' },
-    ' issues the desk opened for a red nightly test job. Watcher: confirmed client changes. You and Others: bugs opened.'));
-  if (v.foundBy) found.append(grid(v.foundBy), ...[missing(v.foundBy)].filter(Boolean));
-  else found.append(make('p', {}, 'Who found problems: not measured yet.'));
-  if (v.misses === null) found.append(make('p', {}, 'Misses: not measured yet.'));
-  else if (!v.misses.length) found.append(make('p', {}, 'No misses in the last 30 days.'));
-  else {
-    const ul = make('ul', { class: 'links' });
-    v.misses.forEach(m => ul.append(make('li', {}, m)));
-    found.append(make('p', {}, 'Misses: bugs opened in the last 30 days that a reviewed pull request caused.'), ul);
-  }
-
-  const money = make('div', { class: 'panel pad' });
-  money.append(v.budget.caps ? make('h3', {}, 'Each agent\'s runs in the last 7 days, and its cap') : make('p', {}, 'No agent is listed.'));
-  if (v.budget.caps) money.append(grid(v.budget.caps));
-  money.append(v.budget.keys ? make('h3', {}, 'The keys the agents use') : make('p', {}, 'No key is listed.'));
-  if (v.budget.keys) money.append(grid(v.budget.keys), ...[missing(v.budget.keys)].filter(Boolean));
-  money.append(make('p', { class: 'sub' }, 'The providers enforce the money caps; no billing key is stored.'));
-
-  const links = make('ul', { class: 'links' });
-  v.links.forEach(l => links.append(make('li', {}, l)));
+  const aside = n && n.night ? `Night of ${n.night}` : '';
+  const night = panel('Nightly tests', aside, nightBody);
 
   main.append(...notes,
-    section('Lights', lights),
-    make('div', { class: 'two' }, section('Waiting for you', wait), section('Nightly tests', night)),
-    section('Use', stats),
-    section('This week', weekPad),
-    section('Who found problems', found),
-    section('Budget', money),
-    section('Links', make('div', { class: 'panel pad' }, links)),
-    make('section', {}, make('p', { class: 'small' }, 'What each light means and what to do: ',
-      { text: 'docs/owner.md', href: HOW_TO }, '. Made from desk.json by this page; no model wrote it.')));
+    ...(wait ? [make('section', { 'aria-label': 'Waiting for you' }, wait)] : []),
+    make('section', { 'aria-label': 'Lights' }, lights),
+    make('section', { 'aria-label': 'Nightly tests' }, night),
+    make('nav', { class: 'foot-links', 'aria-label': 'More' },
+      v.summaries, { text: 'What each light means', href: HOW_TO }));
+  requestAnimationFrame(() => main.classList.add('lit'));
 }
 
 function fail(why) {
-  const read = document.getElementById('read');
-  read.className = 'lede';
-  read.replaceChildren(document.createTextNode(`Could not read desk.json (${why}). `),
-    make('a', { href: DATA_PAGE }, 'Open it on GitHub'), document.createTextNode('.'));
-}
-
-async function json(url) {
-  const r = await fetch(url, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  document.getElementById('lead').replaceChildren(lamp('grey', true), make('span', {}, 'The desk could not be read.'));
+  const updated = document.getElementById('updated');
+  updated.className = 'updated';
+  updated.replaceChildren(document.createTextNode(`${why}. `), link('Open its data on GitHub', DATA_PAGE));
 }
 
 const theme = new URLSearchParams(location.search).get('theme');
 if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
 // For a look at other data in the browser's console: renderDesk(desk).
-window.renderDesk = (desk, now = new Date(), usage = new Set()) => render(view(desk, now, usage));
+window.renderDesk = (desk, now = new Date()) => render(view(desk, now));
 
-const roster = json(ROSTER).then(usagePages, () => new Set());
-json(DATA).then(async desk => render(view(desk, new Date(), await roster)))
-  .catch(e => fail(e instanceof SyntaxError ? 'not JSON' : e.message || 'no answer'));
+fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .then(desk => render(view(desk, new Date())))
+  .catch(e => fail(e instanceof SyntaxError ? 'Its data is not JSON' : e.message || 'No answer'));
 </script>
 </body>
 </html>
