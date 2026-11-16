@@ -177,7 +177,7 @@ check, and the checks on the text. `watch_run.py` joins the texts before any mod
   then `check --tasks evals/watch/tasks --texts ~/Documents/work/kitden-private/watch-texts`.
   Expected: 40 files in the folder, `check` exits 0.
 - [ ] **Step 4: Docs.** README: where the text is (the dataset, and the owner's folder as the
-  backup), the `--texts` flag in both commands, the four `watch_texts.py` commands, that the
+  backup), the `--texts` flag in both commands, the three `watch_texts.py` commands, that the
   harvest's new tasks are read in the folder before the merge, and that old commits still hold
   the text. Keep it short: a few lines, not a section per command. watcher-design.md: the dataset is now the source of the texts and is not deleted by
   the plan's data window. The Agent Docs plan: one sentence in each of the places named above.
