@@ -400,6 +400,8 @@ const REPO = {
   t:{name:'homebrew-tap', url:'https://github.com/konstantinstarovoytov/homebrew-tap'}
 };
 const SONNET = 'Claude Sonnet 5.5';
+/* Links between workflows, each with its other end: calls and calledBy when one uses the other,
+   reads and readBy when one reads the other's runs without calling it. */
 const WF = [
  {id:'k-release', r:'k', file:'release.yml', kind:'own + call',
   trigger:'Push to `main`, a `v*` tag, any pull request',
@@ -444,11 +446,12 @@ const WF = [
   trigger:'Every night, 02:37 UTC',
   stages:[['systems','clients','browser']],
   jobs:[
-   {n:'systems', tags:['4 systems','Python 3.13 + 3.14'], when:'always',
-    steps:['Install','Tests: `pytest`','Real keyring (Ubuntu), real Keychain (macOS)','Page tests in Node','Start-up speed','Tests set aside']},
-   {n:'clients', tags:['macOS + Ubuntu','no account'], when:'always',
-    steps:['Install the newest Claude Code and Codex','Contract tests','On a red night: keep the files they wrote']},
-   {n:'browser', tags:['Ubuntu'], when:'always', steps:['Install Chromium','Browser tests in Playwright']}
+   {n:'systems', tags:['macOS ARM + Intel','Ubuntu x64 + ARM','Python 3.13 + 3.14','no secret'], when:'always: 8 runs, one per system and Python',
+    steps:['Install, on the Python of this run','Tests: `pytest`','The real keyring (Ubuntu)','The real Keychain (macOS)','Page tests in Node','Start-up within its time budgets: twice the budgets on the Intel Mac','Tests set aside: never red']},
+   {n:'clients', tags:['macOS + Ubuntu','no account','no secret'], when:'always',
+    steps:['Install','No account on the runner','Install the newest Claude Code and Codex','Which versions','Contract tests against them','On a red night: keep the files the clients wrote']},
+   {n:'browser', tags:['Ubuntu','Playwright','no secret'], when:'always',
+    steps:['Install','Install Chromium with Playwright','Browser tests: the page on the demo sample, in Chromium']}
   ]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
   trigger:'A pull request that changes `src/kitden`',
@@ -641,15 +644,16 @@ const STORIES = {
       ['pr','merge','waits for you','z'],['merge','rel1','push','h'],['rel1','tag','Beacon tags','h'],
       ['tag','rel2','the tag starts it again','z'],['rel2','s-publish','uses','h'],['s-publish','bump','opens','h'],
       ['bump','t-tests','starts','z'],['t-tests','t-auto-pull','tests pass','z'],['t-auto-pull','t-publish','starts','z'],['t-publish','brew','','h']]},
-  day:{note:'Times are UTC. Nothing here needs you until an issue or a PR shows up.',
+  day:{note:'Times are UTC. Nothing here needs you until an issue, a pull request or a red run shows up.',
     rows:[
+      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Green or red jobs', sub:'on a red night GitHub emails you'}],
       [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Issue in kitden', sub:'you confirm or close'}],
       [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A red run', sub:'if a new version breaks'}],
       [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'“Time for a release?”', go:'rel'}],
       [{id:'c4', kind:'clock', t:'06:41'}, {wf:'s-desk'}, {id:'d4', kind:'thing', ic:'lantern', t:'“Kitden desk” issue', sub:'what waits for you'}],
       [{id:'c5', kind:'clock', t:'13:10'}, {wf:'t-autobump'}, {id:'d5', kind:'thing', ic:'kettle', t:'PR bump-kitden', sub:'then bottles', go:'rel'}]
     ],
-    edges:[['c1','s-watch','','h'],['s-watch','d1','Lantern opens','h'],['c2','k-latest-deps','','h'],['k-latest-deps','d2','','h'],
+    edges:[['c0','k-nightly','','h'],['k-nightly','d0','','h'],['c1','s-watch','','h'],['s-watch','d1','Lantern opens','h'],['c2','k-latest-deps','','h'],['k-latest-deps','d2','','h'],
       ['c3','k-release-watch','','h'],['k-release-watch','s-release-watch','uses','h'],['s-release-watch','d3','Lantern opens','h'],
       ['c4','s-desk','','h'],['s-desk','d4','Lantern updates','h'],['c5','t-autobump','','h'],['t-autobump','d5','opens','h']]}
 };
@@ -761,14 +765,14 @@ if (window.ResizeObserver) new ResizeObserver(() => draw()).observe(flow);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());
 
 /* ================= workflows ================= */
-const TAGIC = {Lantern:'lantern', Beacon:'beacon', Kettle:'kettle', 'calls kitden-sdlc':'githubactions', 'env: pypi':'pypi'};
+const TAGIC = {Lantern:'lantern', Beacon:'beacon', Kettle:'kettle', 'calls kitden-sdlc':'githubactions', 'env: pypi':'pypi', Playwright:'playwright'};
 function tag(t){
   if (t.startsWith('model:')) { const n = t.slice(6); return '<span class="chip">' + ico(n.startsWith('Claude') ? 'claude' : n.startsWith('GPT') ? 'openai' : 'you', 12) + esc(n) + '<i class="lamp model"></i></span>'; }
   if (t === 'harden') return '<span class="chip">' + ico('stepsecurity', 12) + 'Harden-Runner</span>';
   if (t === 'langfuse') return '<span class="chip">' + ico('langfuse', 12) + 'Langfuse</span>';
   return '<span class="chip">' + (TAGIC[t] ? ico(TAGIC[t], 12) : '') + esc(t) + '</span>';
 }
-const STEPIC = [[/Record hosts/,'stepsecurity'],[/Lantern/,'lantern'],[/Beacon/,'beacon'],[/Kettle/,'kettle'],[/Luna|no network/,'openai'],[/Claude|Model judges|no shell/,'claude'],
+const STEPIC = [[/Record hosts/,'stepsecurity'],[/Lantern/,'lantern'],[/Beacon/,'beacon'],[/Kettle/,'kettle'],[/Luna|no network/,'openai'],[/Claude|Model judges|no shell/,'claude'],[/Playwright|Chromium|Browser tests/,'playwright'],
   [/ruff/,'ruff'],[/zizmor/,'zizmor'],[/actionlint/,'lint'],[/pytest|[Tt]ests/,'pytest'],[/pyright/,'python'],[/PyPI|pip-audit/,'pypi'],[/MCP|server\.json/,'modelcontextprotocol'],
   [/brew|formula|bottle|the tap/,'homebrew'],[/Node/,'nodedotjs'],[/scene|picture/,'playwright'],[/uv sync|Install|package/,'uv'],[/Call /,'githubactions'],
   [/GitHub|pull request|PR|issue|comment|tag|branch|Commit|Push|`main`|diff/,'github'],[/Rule checker|secret/,'shield']];
@@ -790,7 +794,9 @@ function select(id){
   const jobBy = Object.fromEntries(w.jobs.map(j => [j.n, j]));
   const facts = '<div class="fact"><span class="cap">Starts when</span><span>' + fmt(w.trigger) + '</span></div>' +
     (w.calls ? '<div class="fact"><span class="cap">Calls</span><span>' + w.calls.map(ref).join(', ') + '</span></div>' : '') +
-    (w.calledBy ? '<div class="fact"><span class="cap">Called by</span><span>' + w.calledBy.map(ref).join(', ') + '</span></div>' : '');
+    (w.calledBy ? '<div class="fact"><span class="cap">Called by</span><span>' + w.calledBy.map(ref).join(', ') + '</span></div>' : '') +
+    (w.reads ? '<div class="fact"><span class="cap">Reads</span><span>' + w.reads.map(ref).join(', ') + '</span></div>' : '') +
+    (w.readBy ? '<div class="fact"><span class="cap">Read by</span><span>' + w.readBy.map(ref).join(', ') + '</span></div>' : '');
   $('detail').innerHTML = '<div class="top">' + repoChip(w.r) + '<span class="chip">' + esc(w.kind) + '</span>' + (w.model ? '<span class="chip"><i class="lamp model"></i>model</span>' : '') +
     '<a href="' + fileUrl(w) + '" style="margin-left:auto;font-size:12px">File</a><a href="' + runsUrl(w) + '" style="font-size:12px">Runs</a></div>' +
     '<h2>' + esc(w.file) + ' <span>· ' + esc(w.name) + '</span></h2>' +
@@ -821,7 +827,7 @@ const TOOLS = [
   ['Yours', [['kitden','Kitden','the product'],['sdlc','kitden-sdlc','the automation'],['lantern','Lantern','comments and issues'],['beacon','Beacon','releases'],['kettle','Kettle','the Homebrew tap']]],
   ['Models', [['claude','Claude Sonnet 5.5','review, watcher, release'],['openai','GPT-6 Luna','second reviewer']]],
   ['Checks', [['ruff','ruff','lint'],['python','pyright','types'],['pytest','pytest','tests'],['nodedotjs','Node','page tests'],['zizmor','zizmor','workflow security'],['lint','actionlint','workflow mistakes'],['pypi','pip-audit','known vulnerabilities']]],
-  ['Build and ship', [['githubactions','GitHub Actions','runs it all'],['uv','uv','install and build'],['python','Python','the code'],['pypi','PyPI','the package'],['github','GitHub Releases','files and notes'],['modelcontextprotocol','MCP Registry','the server list'],['homebrew','Homebrew','brew install'],['playwright','Playwright','README pictures'],['ffmpeg','ffmpeg','README pictures']]],
+  ['Build and ship', [['githubactions','GitHub Actions','runs it all'],['uv','uv','install and build'],['python','Python','the code'],['pypi','PyPI','the package'],['github','GitHub Releases','files and notes'],['modelcontextprotocol','MCP Registry','the server list'],['homebrew','Homebrew','brew install'],['playwright','Playwright','README pictures, browser tests'],['ffmpeg','ffmpeg','README pictures']]],
   ['Guards', [['stepsecurity','Harden-Runner','records hosts'],['langfuse','Langfuse','model traces']]],
   ['Clients watched', [['claude','Claude Code','by Anthropic'],['openai','Codex','by OpenAI'],['cursor','Cursor','by Anysphere']]]
 ];
@@ -835,7 +841,7 @@ const USED = {
   'PyPI':['k-release','s-publish','t-autobump'], 'GitHub Releases':['k-release'], 'MCP Registry':['s-publish'],
   'Homebrew':['s-publish','t-autobump','t-tests','t-auto-pull','t-publish'], 'Playwright':['k-scenes','k-nightly','s-release-prep'], 'ffmpeg':['k-scenes','s-release-prep'],
   'Harden-Runner':['s-review','s-watch','s-release-prep','s-list-check'], 'Langfuse':['s-watch'],
-  'Claude Code':['s-watch'], 'Codex':['s-watch'], 'Cursor':['s-watch']
+  'Claude Code':['s-watch','k-nightly'], 'Codex':['s-watch','k-nightly'], 'Cursor':['s-watch']
 };
 const usedIn = n => { const u = USED[n]; return '<span class="tip" role="tooltip"><span class="cap">Used in</span>' + (typeof u === 'string' ? '<span class="tl1">' + esc(u) + '</span>'
   : u.map(id => '<button type="button" class="tl1" data-id="' + id + '">' + ico(RLOGO[byId[id].r], 13) + esc(byId[id].file) + '</button>').join('')) + '</span>'; };
@@ -852,7 +858,9 @@ window.addEventListener('hashchange', fromHash);
 /* ?shot=pr|rel|day&theme=light|dark shows one story alone, for the README pictures. */
 const ask = new URLSearchParams(location.search);
 if (ask.get('theme')) document.documentElement.dataset.theme = ask.get('theme');
-select('s-review'); setHash(''); story(STORIES[ask.get('shot')] ? ask.get('shot') : 'pr'); view('map'); fromHash();
+/* A link such as #k-nightly opens that workflow: keep the hash that select() overwrites. */
+const first = location.hash.slice(1);
+select('s-review'); setHash(first); story(STORIES[ask.get('shot')] ? ask.get('shot') : 'pr'); view('map'); fromHash();
 if (STORIES[ask.get('shot')]) document.body.classList.add('shot');
 </script>
 </body>

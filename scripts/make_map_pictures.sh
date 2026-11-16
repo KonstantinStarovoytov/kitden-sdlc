@@ -13,4 +13,4 @@ shot() { # story, file name, height
 }
 shot pr pull-request 845
 shot rel release 1195
-shot day every-day 770
+shot day every-day 935

@@ -36,6 +36,8 @@ BLOCK = re.compile(r'(<script type="application/json" id="wf-text">\n)(.*?)(\n</
 WF_LIST = re.compile(r"\nconst WF = \[\n(.*?)\n\];", re.S)
 ENTRY = re.compile(r"\{id:'([\w-]+)', r:'(\w)', file:'([\w.-]+)'")
 JOB = re.compile(r"\{n:'([\w-]+)'")
+LINK = re.compile(r"\b(calls|calledBy|reads|readBy):\[([^\]]*)\]")
+LINKED = re.compile(r"'([\w-]+)'")
 DIRECTIVE = re.compile(r"#\s*(?:(?:zizmor|actionlint)\s*:|(?:yamllint|shellcheck)\s+disable)")
 REPO = re.compile(r"(\w):\{name:'([\w.-]+)', url:'https://github\.com/([\w.-]+/[\w.-]+)'\}")
 
@@ -108,6 +110,15 @@ def map_ids(html: str) -> dict[str, tuple[str, str]]:
 def map_jobs(html: str) -> dict[str, list[str]]:
     """Each id of `WF`, with the names of the jobs the map lists for it."""
     return {wf_id: JOB.findall(source) for wf_id, _, _, source in _entries(html)}
+
+
+def map_links(html: str) -> dict[str, dict[str, list[str]]]:
+    """Each id of `WF`, with those of its links `calls`, `calledBy`, `reads` and `readBy` it has.
+
+    `calls` and `calledBy`: one workflow uses the other. `reads` and `readBy`: one reads the
+    other's runs without calling it."""
+    return {wf_id: {kind: LINKED.findall(others) for kind, others in LINK.findall(source)}
+            for wf_id, _, _, source in _entries(html)}
 
 
 def repos(html: str) -> dict[str, tuple[str, str]]:

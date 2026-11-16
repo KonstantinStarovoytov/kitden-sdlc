@@ -5,7 +5,15 @@ from pathlib import Path
 import yaml
 
 import map_text
-from map_text import differences, header, map_ids, map_jobs, read_block, write_block
+from map_text import (
+    differences,
+    header,
+    map_ids,
+    map_jobs,
+    map_links,
+    read_block,
+    write_block,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML = (ROOT / "docs/map/index.html").read_text()
@@ -158,3 +166,42 @@ def test_what_keeps_its_second_paragraph_and_why_stops_at_a_tool_directive():
     assert header(text) == {"name": "A b", "what": "one. Two.", "why": "because."}
     assert header("# What: a\n# zizmor, actionlint.\n# Why: b.\nname: A b\n")["what"] == (
         "a zizmor, actionlint.")
+
+
+# Task 16: the nightly run on the map. The desk does not read the nightly runs yet (S1 is not
+# built), so the map shows no `reads` link today; the tests below say so.
+
+def test_the_nightly_run_is_on_the_map_with_its_jobs_and_no_link_yet():
+    assert map_ids(HTML)["k-nightly"] == ("k", "nightly.yml")
+    assert map_jobs(HTML)["k-nightly"] == ["systems", "clients", "browser"]
+    links = map_links(HTML)
+    assert links["k-nightly"] == {} and "reads" not in links["s-desk"]
+    assert links["s-review"] == {"calledBy": ["k-agents-review"]}
+    assert "All 22 workflows" in HTML
+
+
+def test_every_link_names_a_workflow_on_the_map_and_has_its_other_end():
+    links, ids = map_links(HTML), map_ids(HTML)
+    back = {"calls": "calledBy", "calledBy": "calls", "reads": "readBy", "readBy": "reads"}
+    assert any(links.values())
+    for wf_id, kinds in links.items():
+        for kind, others in kinds.items():
+            for other in others:
+                assert other in ids, (wf_id, kind, other)
+                assert wf_id in links[other].get(back[kind], []), (wf_id, kind, other)
+
+
+def test_a_reads_link_is_read_and_the_page_shows_it():
+    page = HTML.replace("{id:'s-desk', r:'s', file:'desk.yml', kind:'own',",
+                        "{id:'s-desk', r:'s', file:'desk.yml', kind:'own', reads:['k-nightly'],")
+    assert map_links(page)["s-desk"] == {"reads": ["k-nightly"]}
+    assert "'<span class=\"cap\">Reads</span>" not in HTML  # built from w.reads, not written
+    assert "w.reads ?" in HTML and "w.readBy ?" in HTML
+
+
+def test_the_every_day_story_draws_the_nightly_run():
+    day = HTML.split("day:{")[1].split("\n};")[0]
+    assert "{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}" in day
+    assert "t:'Green or red jobs'" in day
+    assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
+    assert "the desk reads it" not in day
