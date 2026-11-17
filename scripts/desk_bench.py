@@ -63,7 +63,6 @@ GATE_STEPS = (
     ("Package", ("Run uv build", "The built files", "The wheel runs")),
 )
 WORST = ("red", "grey", "green")  # the first one any part has is the whole's state
-MCPRUSH = "https://mcprush.com/konstantinstarovoytov/kitden-mcp"
 
 
 # --- Small pieces ---
@@ -406,7 +405,7 @@ def stores(newest: dict | None, seen: dict[str, dict | None]) -> dict:
     there ({"version", "at", "url"}), or None when it could not be read."""
     version = newest.get("version") if newest else None
     names = (("pypi", "PyPI"), ("homebrew", "Homebrew"), ("registry", "MCP Registry"),
-             ("glama", "Glama"))
+             ("glama", "Glama"), ("mcprush", "MCP Rush"))
     out = []
     for store_id, name in names:
         got = seen.get(store_id)
@@ -424,10 +423,6 @@ def stores(newest: dict | None, seen: dict[str, dict | None]) -> dict:
         out.append({"id": store_id, "name": name, "state": store_state,
                     "listed": bool(got.get("listed")), "version": got.get("version"),
                     "at": got.get("at"), "url": got.get("url"), "note": got.get("note")})
-    # MCP Rush answers scripts with 403, so the desk cannot read it: the listing is shown as it
-    # was found by hand on 17 Nov 2026, not checked each day.
-    out.append({"id": "mcprush", "name": "MCP Rush", "state": "green", "version": None,
-                "listed": True, "at": None, "url": MCPRUSH, "note": None})
     out.append({"id": "claude-plugin", "name": "Claude plugin", "state": "planned",
                 "version": None, "at": None, "url": None, "note": "Not published yet"})
     return {"newest": newest, "stores": out}

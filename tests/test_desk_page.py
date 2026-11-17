@@ -89,7 +89,9 @@ SEEN = {"pypi": {"version": "0.9.2", "at": "2026-11-14T17:20:42Z",
                      "url": "https://registry.modelcontextprotocol.io/v0/servers?search="
                             "io.github.KonstantinStarovoytov/kitden"},
         "glama": {"version": None, "listed": True, "note": "Listed",
-                  "url": "https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden"}}
+                  "url": "https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden"},
+        "mcprush": {"version": "0.9.2", "at": None,
+                    "url": "https://mcprush.com/konstantinstarovoytov/kitden-mcp"}}
 GATE = {"sha": "f" * 40, "at": "2026-11-16T18:29:27Z", "state": "green",
         "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/5",
         "steps": [{"name": "Lint", "state": "green", "url": None}]}
@@ -120,8 +122,7 @@ def test_all_green_reads_all_good_and_every_store_has_the_release():
     assert view["says"] == "Kitden 0.9.2 is the newest release, and every store has it."
     assert [t["name"] for t in view["stores"]["tiles"]] == [
         "PyPI", "Homebrew", "MCP Registry", "Glama", "MCP Rush", "Claude plugin"]
-    assert [t["version"] for t in view["stores"]["tiles"][3:]] == ["Listed", "Listed", "Planned"]
-    assert view["stores"]["tiles"][4]["url"] == desk_bench.MCPRUSH
+    assert [t["version"] for t in view["stores"]["tiles"][3:]] == ["Listed", "0.9.2", "Planned"]
     assert view["updated"] == "Updated 19 minutes ago"
 
 
