@@ -54,9 +54,12 @@ code{font-family:var(--mono);font-size:.9em;background:var(--inset);padding:1px 
 
 /* rail */
 .rail{border-right:1px solid var(--wire);padding:16px 10px;display:flex;flex-direction:column;gap:18px;background:var(--canvas)}
-.word{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em}
+.word{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
 .word svg{width:28px;height:auto;flex:none}
 .rail nav{display:flex;flex-direction:column;gap:2px}
+.rail nav a{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;position:relative;transition:background .18s,color .18s}
+.rail nav a svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.rail nav a:hover{background:var(--inset)}
 .rail nav button{display:flex;align-items:center;gap:9px;border:0;background:transparent;text-align:left;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);cursor:pointer;position:relative;transition:background .18s,color .18s}
 .rail nav button svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .rail nav button:hover{background:var(--inset)}
@@ -65,6 +68,14 @@ code{font-family:var(--mono);font-size:.9em;background:var(--inset);padding:1px 
 .rail .back{display:flex;white-space:nowrap;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;transition:background .18s,color .18s}
 .rail .back:hover{background:var(--inset);color:var(--ink)}
 .rail .back svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* The desk page (../desk/) has this same rail. Going between the two, the browser keeps the
+   rail where it is and only the page beside it changes (a cross-document view transition,
+   where the browser has one). */
+@view-transition{navigation:auto}
+.rail{view-transition-name:rail}
+::view-transition-group(rail){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.16s}
+@media (prefers-reduced-motion: reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
 .rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
 .main{padding:26px 28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0}
 .view{display:flex;flex-direction:column;gap:18px;min-width:0}
@@ -72,7 +83,7 @@ code{font-family:var(--mono);font-size:.9em;background:var(--inset);padding:1px 
 @media (max-width:860px){
   .app{grid-template-columns:1fr}
   .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px;overflow-x:auto}
-  .rail nav{flex-direction:row} .rail nav button{white-space:nowrap} .rail nav button[aria-current="true"]::before{display:none}
+  .rail nav{flex-direction:row} .rail nav button,.rail nav a{white-space:nowrap} .rail nav button[aria-current="true"]::before{display:none}
   .rail .foot{display:none} .main{padding:18px 14px 24px}
 }
 
@@ -97,6 +108,8 @@ h3 .ic{margin-right:6px}
 .tip{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:20;min-width:100%;box-sizing:border-box;flex-direction:column;gap:2px;padding:10px;border-radius:8px;background:var(--raised);border:1px solid var(--wire);box-shadow:var(--shadow)}
 .tip::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px}
 .tool:hover .tip,.tool:focus-within .tip,.tool:focus .tip{display:flex}
+.tool.up .tip{top:auto;bottom:calc(100% + 6px)}
+.tool.up .tip::before{top:auto;bottom:-8px}
 .tool .tip .cap{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:3px}
 .tool .tip .tl1{display:flex;align-items:center;gap:7px;border:0;background:transparent;padding:3px 4px;border-radius:5px;font-family:var(--mono);font-size:11.5px;color:var(--ink);text-align:left;white-space:nowrap}
 .tool .tip button.tl1{cursor:pointer} .tool .tip button.tl1:hover{background:var(--route-soft);color:var(--route)}
@@ -305,12 +318,12 @@ table.hold tr:last-child td{border-bottom:0}
   <aside class="rail">
     <div class="word"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIHdpdGggdGhlIGxpbmUgaW4gc2xvdyBtb3Rpb246IHRoZSBkYXNoZXMgZHJpZnQgZG93biwgb25lIHN0ZXAgZXZlcnkgMi40IHMuIC0tPgogIDxzdHlsZT4KLmxpbmUgeyBhbmltYXRpb246IGRyaWZ0IDIuNHMgbGluZWFyIGluZmluaXRlOyB9CkBrZXlmcmFtZXMgZHJpZnQgeyB0byB7IHN0cm9rZS1kYXNob2Zmc2V0OiAtNjsgfSB9CkBtZWRpYSAocHJlZmVycy1yZWR1Y2VkLW1vdGlvbjogcmVkdWNlKSB7IC5saW5lIHsgYW5pbWF0aW9uOiBub25lOyB9IH0KICA8L3N0eWxlPgogIDxkZWZzPgogICAgPGNsaXBQYXRoIGlkPSJob3VzZSI+PHBhdGggZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJyZWFkcyI+PHJlY3Qgd2lkdGg9IjM2LjUiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjM5LjUiIHdpZHRoPSIyNC41IiBoZWlnaHQ9IjY0Ii8+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGcgY2xpcC1wYXRoPSJ1cmwoI3JlYWRzKSI+CiAgICA8cGF0aCBjbGlwLXBhdGg9InVybCgjaG91c2UpIiBmaWxsPSJub25lIiBzdHJva2U9IiNDODU4MzUiIHN0cm9rZS13aWR0aD0iNCIgZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz4KICA8L2c+CiAgPHBhdGggY2xpcC1wYXRoPSJ1cmwoI3dyaXRlcykiIGZpbGw9IiNDODU4MzUiIGQ9Ik02IDU4QzMuOCA1OCAyIDU2LjIgMiA1NFYzMi41QzIgMzAuNSAyLjkgMjguOCA0LjUgMjcuNkwxNS41IDE5LjZDMTYuNiAxOC44IDE3LjMgMTcuNyAxNy42IDE2LjRMMTkuMyA5LjJDMjAuMSA1LjggMjMuNiA0LjUgMjYuNiA2LjJMNTkgMjUuNEM2MSAyNi42IDYyIDI4LjUgNjIgMzAuOFY1NEM2MiA1Ni4yIDYwLjIgNTggNTggNThIMjhWNDRDMjggMzkuNiAyNC40IDM2IDIwIDM2UzEyIDM5LjYgMTIgNDRWNThaIi8+CiAgPHBhdGggY2xhc3M9ImxpbmUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M4NTgzNSIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjIuNiAzLjQiIGQ9Ik0zOCA2LjZWNjEuNCIvPgo8L3N2Zz4K" width="30" height="30" alt="">kitden-sdlc</div>
     <nav id="nav" aria-label="Sections">
+      <a href="../desk/" id="n-desk"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg>Desk</a>
       <button type="button" id="n-map" data-v="map" aria-current="true"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7l4 9M17 7l-4 9M7.2 6h9.6"/></svg>Map</button>
       <button type="button" id="n-flows" data-v="flows" aria-current="false"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4a3 3 0 0 1 3 3v4"/></svg>Workflows</button>
       <button type="button" id="n-rules" data-v="rules" aria-current="false"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Rules</button>
       <button type="button" id="n-tools" data-v="tools" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Tools</button>
     </nav>
-    <a class="back" href="../desk/"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg>Desk</a>
     <a class="back" href="https://github.com/KonstantinStarovoytov/kitden-sdlc"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to the repo</a>
     <div class="foot">From main<br>16 Nov 2026</div>
   </aside>
@@ -368,7 +381,7 @@ table.hold tr:last-child td{border-bottom:0}
     <!-- ============ TOOLS ============ -->
     <div class="view" id="v-tools" hidden>
       <div><h1>Everything in use</h1><p class="lede">Your apps, the models, the checks and the stores.</p></div>
-      <div class="tools" id="tools"></div>
+      <div class="tools" id="tool-list"></div>
     </div>
   </main>
 </div></div>
@@ -741,6 +754,9 @@ const VIEWS = ['map','flows','rules','tools'];
 function view(v){
   VIEWS.forEach(x => { $('v-' + x).hidden = x !== v; $('n-' + x).setAttribute('aria-current', String(x === v)); });
   if (v === 'map') requestAnimationFrame(draw);
+  /* On a phone the rail is a row that scrolls: keep the tab that is on in view. */
+  const on = $('n-' + v), rail = on.closest('.rail');
+  if (rail.scrollWidth > rail.clientWidth) rail.scrollLeft = Math.max(0, on.offsetLeft - 16);
 }
 document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => { view(b.dataset.v); setHash(b.dataset.v); }));
 function setHash(h){ try { history.replaceState(null, '', '#' + h); } catch (e) { /* the hash is a convenience */ } }
@@ -991,8 +1007,21 @@ const USED = {
 };
 const usedIn = n => { const u = USED[n]; return '<span class="tip" role="tooltip"><span class="cap">Used in</span>' + (typeof u === 'string' ? '<span class="tl1">' + esc(u) + '</span>'
   : u.map(id => '<button type="button" class="tl1" data-id="' + id + '">' + ico(RLOGO[byId[id].r], 13) + esc(byId[id].file) + '</button>').join('')) + '</span>'; };
-$('tools').addEventListener('click', ev => { const b = ev.target.closest('[data-id]'); if (b) { select(b.dataset.id); view('flows'); } });
-$('tools').innerHTML = TOOLS.map(([name, items]) => '<div><div class="cap" style="margin-bottom:8px">' + name + '</div><div class="tgrid">' +
+/* A tooltip that would run past the bottom of the window (it hides what overflows) opens above. */
+function placeTip(ev){
+  const tool = ev.target.closest('.tool');
+  if (!tool) return;
+  const tip = tool.querySelector('.tip'), frame = document.querySelector('.app');
+  tool.classList.remove('up');
+  tip.style.display = 'flex';
+  const below = tip.getBoundingClientRect().bottom > frame.getBoundingClientRect().bottom - 8;
+  tip.style.display = '';
+  tool.classList.toggle('up', below);
+}
+$('tool-list').addEventListener('mouseover', placeTip);
+$('tool-list').addEventListener('focusin', placeTip);
+$('tool-list').addEventListener('click', ev => { const b = ev.target.closest('[data-id]'); if (b) { select(b.dataset.id); view('flows'); } });
+$('tool-list').innerHTML = TOOLS.map(([name, items]) => '<div><div class="cap" style="margin-bottom:8px">' + name + '</div><div class="tgrid">' +
   items.map(([ic, n, d]) => '<div class="tool" tabindex="0">' + tile(ic, true) + '<div><b>' + esc(n) + '</b><span>' + esc(d) + '</span></div>' + usedIn(n) + '</div>').join('') + '</div></div>').join('');
 
 /* ================= start ================= */
@@ -1007,6 +1036,13 @@ if (ask.get('theme')) document.documentElement.dataset.theme = ask.get('theme');
 /* A link such as #k-nightly opens that workflow: keep the hash that select() overwrites. */
 const first = location.hash.slice(1);
 select('s-review'); setHash(first); story(STORIES[ask.get('shot')] ? ask.get('shot') : 'pr'); view('map'); fromHash();
+/* The desk's rail links here as ?v=flows and so on: a #flows would also scroll to an element of
+   that id. */
+if (VIEWS.includes(ask.get('v'))) {
+  view(ask.get('v'));
+  try { history.replaceState(null, '', location.pathname + '#' + ask.get('v')); } catch (e) { /* a convenience */ }
+  window.scrollTo(0, 0);
+}
 if (STORIES[ask.get('shot')]) document.body.classList.add('shot');
 </script>
 </body>

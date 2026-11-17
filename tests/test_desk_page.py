@@ -238,7 +238,7 @@ def test_a_key_from_the_data_never_reaches_an_objects_own_properties():
 
 
 def test_the_page_puts_no_text_in_as_html_and_reads_only_desk_json():
-    script = PAGE.split('<script type="module">', 1)[1]
+    script = PAGE.split('<script type="module" blocking="render">', 1)[1]
     assert not re.search(r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(", script)
     assert "connect-src https://raw.githubusercontent.com;" in PAGE
     view = VIEW.read_text()

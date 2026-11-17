@@ -50,9 +50,9 @@ code{font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;o
 .quiet{font-size:12px;color:var(--ink-3)}
 
 /* --- the window --- */
-.shell{padding:16px}
-.app{max-width:1200px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden;min-height:calc(100vh - 32px)}
-.rail{border-right:1px solid var(--wire);padding:16px 10px;display:flex;flex-direction:column;gap:18px}
+.shell{padding-block:16px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.app{max-width:1340px;margin:0 auto;background:var(--canvas);border:1px solid var(--wire);border-radius:12px;display:grid;grid-template-columns:164px minmax(0,1fr);overflow:hidden}
+.rail{border-right:1px solid var(--wire);padding:16px 10px;display:flex;flex-direction:column;gap:18px;background:var(--canvas)}
 .wordmark{display:flex;align-items:center;gap:8px;padding:0 6px;font-weight:650;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
 .rail nav{display:flex;flex-direction:column;gap:2px}
 .rail nav a,.rail .back{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;font-size:13px;color:var(--ink-2);text-decoration:none;position:relative;white-space:nowrap;transition:background .18s,color .18s}
@@ -60,8 +60,16 @@ code{font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;o
 .rail nav a:hover,.rail .back:hover{background:var(--inset);color:var(--ink)}
 .rail nav a[aria-current="page"]{background:var(--route-soft);color:var(--route);font-weight:500}
 .rail nav a[aria-current="page"]::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--brand)}
+/* The map (../map/) has this same rail. Going between the two, the browser keeps the rail
+   where it is and only the page beside it changes (a cross-document view transition, where
+   the browser has one). */
+@view-transition{navigation:auto}
+.rail{view-transition-name:rail}
+::view-transition-group(rail){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.16s}
+@media (prefers-reduced-motion: reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
 .rail .foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:0 6px;line-height:1.45}
-.main{padding:34px 36px 40px;display:flex;flex-direction:column;gap:22px;min-width:0}
+.main{padding:26px 28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0}
 
 /* --- a socket: shape, colour and a word carry the state, as in Kitden --- */
 .s{--c:var(--lamp-off);position:relative;display:inline-block;flex:none;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--c);overflow:hidden}
@@ -76,7 +84,7 @@ code{font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;o
 /* --- the head --- */
 .head{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
 .head .eyebrow{font-size:12px;font-weight:600;color:var(--ink-3)}
-.head h1{display:flex;align-items:center;gap:16px;font-size:32px;font-weight:700}
+.head h1{display:flex;align-items:center;gap:14px;font-size:28px;font-weight:700}
 .head .sub{padding-left:30px;color:var(--ink-2)}
 .head .updated{padding-left:30px;font-size:13px;color:var(--ink-3)}
 .note{border:1px solid var(--wire);border-radius:8px;padding:10px 14px;font-size:13px;background:var(--panel)}
@@ -175,17 +183,15 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
 .loading{color:var(--ink-3)}
 
 @media (max-width:860px){
-  .shell{padding:0}
-  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;border-radius:0;border:0;min-height:100vh}
-  .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px 16px}
-  .rail nav{flex-direction:row} .rail nav a[aria-current="page"]::before{display:none}
-  .rail .foot{display:none} .main{padding:24px 16px 32px;gap:18px}
-  .head h1{font-size:26px;gap:14px} .head .sub,.head .updated{padding-left:30px}
+  .app{grid-template-columns:1fr}
+  .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px;overflow-x:auto}
+  .rail nav{flex-direction:row} .rail nav a{white-space:nowrap} .rail nav a[aria-current="page"]::before{display:none}
+  .rail .foot{display:none} .main{padding:18px 14px 24px}
+  .head h1{font-size:24px;gap:12px} .head .sub,.head .updated{padding-left:26px}
   .row{grid-template-columns:1fr auto}
   .row .name,.row .cells{grid-column:1/-1}
   .row .strip{grid-column:1} .row .run{grid-column:2}
 }
-@media (max-width:520px){ .rail .back{display:none} }
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 </style>
 </head>
@@ -193,9 +199,12 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
 <div class="shell"><div class="app">
   <aside class="rail">
     <div class="wordmark"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIHdpdGggdGhlIGxpbmUgaW4gc2xvdyBtb3Rpb246IHRoZSBkYXNoZXMgZHJpZnQgZG93biwgb25lIHN0ZXAgZXZlcnkgMi40IHMuIC0tPgogIDxzdHlsZT4KLmxpbmUgeyBhbmltYXRpb246IGRyaWZ0IDIuNHMgbGluZWFyIGluZmluaXRlOyB9CkBrZXlmcmFtZXMgZHJpZnQgeyB0byB7IHN0cm9rZS1kYXNob2Zmc2V0OiAtNjsgfSB9CkBtZWRpYSAocHJlZmVycy1yZWR1Y2VkLW1vdGlvbjogcmVkdWNlKSB7IC5saW5lIHsgYW5pbWF0aW9uOiBub25lOyB9IH0KICA8L3N0eWxlPgogIDxkZWZzPgogICAgPGNsaXBQYXRoIGlkPSJob3VzZSI+PHBhdGggZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJyZWFkcyI+PHJlY3Qgd2lkdGg9IjM2LjUiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjM5LjUiIHdpZHRoPSIyNC41IiBoZWlnaHQ9IjY0Ii8+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGcgY2xpcC1wYXRoPSJ1cmwoI3JlYWRzKSI+CiAgICA8cGF0aCBjbGlwLXBhdGg9InVybCgjaG91c2UpIiBmaWxsPSJub25lIiBzdHJva2U9IiNDODU4MzUiIHN0cm9rZS13aWR0aD0iNCIgZD0iTTYgNThDMy44IDU4IDIgNTYuMiAyIDU0VjMyLjVDMiAzMC41IDIuOSAyOC44IDQuNSAyNy42TDE1LjUgMTkuNkMxNi42IDE4LjggMTcuMyAxNy43IDE3LjYgMTYuNEwxOS4zIDkuMkMyMC4xIDUuOCAyMy42IDQuNSAyNi42IDYuMkw1OSAyNS40QzYxIDI2LjYgNjIgMjguNSA2MiAzMC44VjU0QzYyIDU2LjIgNjAuMiA1OCA1OCA1OEgyOFY0NEMyOCAzOS42IDI0LjQgMzYgMjAgMzZTMTIgMzkuNiAxMiA0NFY1OFoiLz4KICA8L2c+CiAgPHBhdGggY2xpcC1wYXRoPSJ1cmwoI3dyaXRlcykiIGZpbGw9IiNDODU4MzUiIGQ9Ik02IDU4QzMuOCA1OCAyIDU2LjIgMiA1NFYzMi41QzIgMzAuNSAyLjkgMjguOCA0LjUgMjcuNkwxNS41IDE5LjZDMTYuNiAxOC44IDE3LjMgMTcuNyAxNy42IDE2LjRMMTkuMyA5LjJDMjAuMSA1LjggMjMuNiA0LjUgMjYuNiA2LjJMNTkgMjUuNEM2MSAyNi42IDYyIDI4LjUgNjIgMzAuOFY1NEM2MiA1Ni4yIDYwLjIgNTggNTggNThIMjhWNDRDMjggMzkuNiAyNC40IDM2IDIwIDM2UzEyIDM5LjYgMTIgNDRWNThaIi8+CiAgPHBhdGggY2xhc3M9ImxpbmUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0M4NTgzNSIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjIuNiAzLjQiIGQ9Ik0zOCA2LjZWNjEuNCIvPgo8L3N2Zz4K" width="30" height="30" alt="">kitden-sdlc</div>
-    <nav aria-label="Pages">
+    <nav aria-label="Sections">
       <a href="./" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg>Desk</a>
-      <a href="../map/"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7l4 9M17 7l-4 9M7.2 6h9.6"/></svg>Map</a>
+      <a href="../map/?v=map"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7l4 9M17 7l-4 9M7.2 6h9.6"/></svg>Map</a>
+      <a href="../map/?v=flows"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4a3 3 0 0 1 3 3v4"/></svg>Workflows</a>
+      <a href="../map/?v=rules"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Rules</a>
+      <a href="../map/?v=tools"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Tools</a>
     </nav>
     <a class="back" href="https://github.com/KonstantinStarovoytov/kitden-sdlc"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to the repo</a>
     <div class="foot">No model wrote this page.</div>
@@ -211,7 +220,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
   </main>
 </div></div>
 
-<script type="module">
+<script type="module" blocking="render">
 // view.js?v= is the start of view.js's SHA-256 (tests/test_desk_page.py checks it), so a
 // browser never runs this page with an older view.js from its cache.
 import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=d8ae193379ba';
@@ -508,10 +517,13 @@ if (theme === 'light' || theme === 'dark') document.documentElement.dataset.them
 // For a look at other data in the browser's console: renderDesk(desk).
 window.renderDesk = (desk, now = new Date()) => { chartState.sys = null; render(view(desk, now)); };
 
-fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' })
+const loaded = fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' })
   .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
   .then(desk => render(view(desk, new Date())))
   .catch(e => fail(e instanceof SyntaxError ? 'Its data is not JSON' : e.message || 'No answer'));
+// This module blocks the first paint (blocking="render") until the desk is drawn, at most 2.5 s,
+// so coming from the map the page arrives whole instead of growing under the rail.
+await Promise.race([loaded, new Promise(done => setTimeout(done, 2500))]);
 </script>
 <script>
 // If the module above never starts (a browser too old for it, or a file that failed to load),
