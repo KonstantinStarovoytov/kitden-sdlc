@@ -35,6 +35,8 @@ SYSTEMS = (
 )
 PYTHONS = ("3.13", "3.14")
 CLIENT_SYSTEMS = (("macos-latest", "macOS"), ("ubuntu-latest", "Linux"))
+# The legs of the nightly's `engines` job, and how the page names them.
+ENGINES = (("chrome", "Chrome"), ("firefox", "Firefox"), ("webkit", "WebKit"))
 STARTUP_STEP = "Run uv run python scripts/measure-start.py"
 # The jobs that run STARTUP_STEP: the nightly's systems jobs, and release.yml's build jobs,
 # whose run on a release tag measures that release.
@@ -260,6 +262,8 @@ def rows(history: list[dict], now: datetime) -> list[dict] | None:
                           nightly, today))
     found.append(_row("platforms", "End-to-end in Chromium",
                       [("Linux · x86_64", _is("browser"))], nightly, today))
+    found.append(_row("platforms", "End-to-end in three browsers",
+                      [(label, _is("engines", leg)) for leg, label in ENGINES], nightly, today))
     found.append(_row("platforms", "Start-up time",
                       [(f"{os_name} · {arch.split(' ')[0]}", _is("systems", runner))
                        for runner, os_name, arch in SYSTEMS], nightly, today, key="startup"))
