@@ -247,3 +247,33 @@ def test_cli_needs_tag(tmp_path, capsys):
     notes.write_text("## New\n")
     assert release_publish.main(args) == 0
     assert capsys.readouterr().out == "false\nfalse\ntrue\n"
+
+
+# On 14 Nov (0.9.2) and 17 Nov (0.10.1) the summary read PyPI a minute after the upload and
+# got the version before from PyPI's cache, though the registry job had already seen the new one.
+def rows_with_pypi(seen: str) -> list[Row]:
+    return [Row("PyPI", "0.10.1", seen, seen == "0.10.1"),
+            *(Row(place, "x", "x", True) for place in release_publish.MUST_PASS[1:])]
+
+
+def test_the_summary_reads_again_while_a_store_still_shows_the_version_before(monkeypatch):
+    answers = [rows_with_pypi("0.10.0"), rows_with_pypi("0.10.0"), rows_with_pypi("0.10.1")]
+    monkeypatch.setattr(release_publish, "read_all", lambda tag, fetch: answers.pop(0))
+    waited = []
+    rows = release_publish.settled_rows("v0.10.1", lambda url: "", waited.append)
+    assert must_pass(rows) == [] and waited == [30, 30] and not answers
+
+
+def test_the_summary_stops_reading_again_after_ten_minutes(monkeypatch):
+    monkeypatch.setattr(release_publish, "read_all", lambda tag, fetch: rows_with_pypi("0.10.0"))
+    waited = []
+    rows = release_publish.settled_rows("v0.10.1", lambda url: "", waited.append)
+    assert must_pass(rows) == ["PyPI: expected 0.10.1, seen 0.10.0"]
+    assert sum(waited) == 600
+
+
+def test_the_summary_reads_once_when_every_store_is_right(monkeypatch):
+    monkeypatch.setattr(release_publish, "read_all", lambda tag, fetch: rows_with_pypi("0.10.1"))
+    waited = []
+    assert must_pass(release_publish.settled_rows("v0.10.1", lambda url: "", waited.append)) == []
+    assert waited == []
