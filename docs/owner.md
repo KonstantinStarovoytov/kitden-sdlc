@@ -4,14 +4,16 @@ Everything the agents leave to you, one row each. Each is a click on GitHub or a
 daily page is [the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): what
 waits for you, where each release is published, main's checks, the nightly tests by system, the
 start-up time by release, bugs, upstream changes and the agents. It reads `desk.json` each time
-it opens, and keeps updating when `AGENTS_ENABLED` is off. A red nightly test part also opens a
-`ci-failure` issue in Kitden, which notifies you.
+it opens, and keeps updating when `AGENTS_ENABLED` is off. While a Kitden release runs, or when
+the last one failed, a strip at the top shows its steps, read from GitHub every minute. A red
+nightly test part also opens a `ci-failure` issue in Kitden, which notifies you.
 
 | You want to | You do |
 |---|---|
 | See the desk now | in kitden-sdlc: Actions → desk → Run workflow, on `main` |
 | The desk's date is old | the desk's job failed: look at the desk's runs in kitden-sdlc's Actions |
 | Release | in Kitden: Actions → Release prep → Run workflow; then accept "Kitden X.Y.Z" (next row) |
+| The desk's release strip shows ✕, or a step waits long for a machine | open the run from the strip; press Re-run failed jobs, or cancel and re-run when GitHub has no machine for it |
 | Accept an agent's pull request | review it; if it is a draft, fix what "Fix before merge" names in its body and press Ready for review; merge it with a merge commit |
 | Turn one down | close it |
 | Say a bot issue is real | put `confirmed` on it; it stays open until fixed |

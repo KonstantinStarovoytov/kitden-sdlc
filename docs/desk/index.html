@@ -1,13 +1,14 @@
 <!doctype html>
 <!-- The desk: Kitden's state, read from desk.json on the `numbers` branch each time the page
      opens. desk.yml writes that file every day; no model writes it or this page. The words
-     and numbers are in view.js; this file only puts them on the page, as text. -->
+     and numbers are in view.js; this file only puts them on the page, as text. The release
+     strip is read from GitHub's API instead, every minute while the page is open. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://raw.githubusercontent.com https://api.github.com; base-uri 'none'; form-action 'none'">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJraXRkZW4tc2RsYyI+CiAgPHRpdGxlPmtpdGRlbi1zZGxjPC90aXRsZT4KICA8IS0tIGxvZ28uc3ZnIGZvciAzMiBweCBhbmQgc21hbGxlcjogbm8gZGFzaGVzLCB0aGUgcmVhZGluZyBoYWxmIGlzIGEgdGludC4gLS0+CiAgPGRlZnM+CiAgICA8Y2xpcFBhdGggaWQ9InJlYWRzIj48cmVjdCB3aWR0aD0iMzYiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogICAgPGNsaXBQYXRoIGlkPSJ3cml0ZXMiPjxyZWN0IHg9IjQwIiB3aWR0aD0iMjQiIGhlaWdodD0iNjQiLz48L2NsaXBQYXRoPgogIDwvZGVmcz4KICA8cGF0aCBjbGlwLXBhdGg9InVybCgjcmVhZHMpIiBmaWxsPSIjQzg1ODM1IiBmaWxsLW9wYWNpdHk9Ii40IiBkPSJNNiA1OEMzLjggNTggMiA1Ni4yIDIgNTRWMzIuNUMyIDMwLjUgMi45IDI4LjggNC41IDI3LjZMMTUuNSAxOS42QzE2LjYgMTguOCAxNy4zIDE3LjcgMTcuNiAxNi40TDE5LjMgOS4yQzIwLjEgNS44IDIzLjYgNC41IDI2LjYgNi4yTDU5IDI1LjRDNjEgMjYuNiA2MiAyOC41IDYyIDMwLjhWNTRDNjIgNTYuMiA2MC4yIDU4IDU4IDU4SDI4VjQ0QzI4IDM5LjYgMjQuNCAzNiAyMCAzNlMxMiAzOS42IDEyIDQ0VjU4WiIvPgogIDxwYXRoIGNsaXAtcGF0aD0idXJsKCN3cml0ZXMpIiBmaWxsPSIjQzg1ODM1IiBkPSJNNiA1OEMzLjggNTggMiA1Ni4yIDIgNTRWMzIuNUMyIDMwLjUgMi45IDI4LjggNC41IDI3LjZMMTUuNSAxOS42QzE2LjYgMTguOCAxNy4zIDE3LjcgMTcuNiAxNi40TDE5LjMgOS4yQzIwLjEgNS44IDIzLjYgNC41IDI2LjYgNi4yTDU5IDI1LjRDNjEgMjYuNiA2MiAyOC41IDYyIDMwLjhWNTRDNjIgNTYuMiA2MC4yIDU4IDU4IDU4SDI4VjQ0QzI4IDM5LjYgMjQuNCAzNiAyMCAzNlMxMiAzOS42IDEyIDQ0VjU4WiIvPgo8L3N2Zz4K">
 <title>Kitden desk</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -88,6 +89,20 @@ code{font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;o
 .head .updated{padding-left:30px;font-size:13px;color:var(--ink-3)}
 .note{border:1px solid var(--wire);border-radius:8px;padding:10px 14px;font-size:13px;background:var(--panel)}
 .note.amber{border-color:color-mix(in srgb,var(--lamp-warn) 40%,var(--wire));background:var(--lamp-warn-soft)}
+
+/* --- the release in flight --- */
+.release.failed{border-color:color-mix(in srgb,var(--lamp-bad) 45%,var(--wire))}
+.rsteps{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:14px 18px 0;font-size:13px}
+.rstep{display:inline-flex;align-items:center;gap:7px;color:var(--ink-3);white-space:nowrap}
+.rstep .m{width:14px;text-align:center;font-weight:700;line-height:1}
+.rstep.done{color:var(--ink)} .rstep.done .m{color:var(--lamp-on)}
+.rstep.now{color:var(--ink);font-weight:600} .rstep.now .m{color:var(--lamp-warn)}
+.rstep.failed{color:var(--ink);font-weight:600} .rstep.failed .m{color:var(--lamp-bad)}
+.rstep.ahead .m{color:var(--lamp-off)}
+.rstep .to{margin-right:3px;color:var(--ink-3);font-size:12px;font-weight:400}
+.rnote{padding:6px 18px 14px 39px;font-size:13px;color:var(--ink-2)}
+.rnote.failed{color:var(--lamp-bad)} .rnote a{color:var(--route)}
+.rnote.stale{padding-top:0;font-size:12px;color:var(--ink-3)}
 
 /* --- panels --- */
 section{min-width:0}
@@ -214,13 +229,14 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
       <p class="updated loading" id="updated"></p>
       <p class="calm-line" id="calm" hidden></p>
     </div>
+    <div class="panel release" id="release" role="region" aria-label="The Kitden release in flight" hidden></div>
   </main>
 </div></div>
 
 <script type="module" blocking="render">
 // view.js?v= is the start of view.js's SHA-256 (tests/test_desk_page.py checks it), so a
 // browser never runs this page with an older view.js from its cache.
-import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=5ee3cab346e5';
+import { view, ticks, releaseNow, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=aa711469e80a';
 document.documentElement.dataset.started = 'yes';
 
 const main = document.getElementById('main');
@@ -507,6 +523,65 @@ function fail(why) {
   updated.replaceChildren(document.createTextNode(`${why}. `), link('Open its data on GitHub', DATA_PAGE));
 }
 
+// --- The release in flight: GitHub's API, now and every minute while the page is in view ---
+
+const MARK = { done: '✓', now: '●', ahead: '○', failed: '✕' };
+const SAYS = { done: 'done', now: 'running now', ahead: 'ahead', failed: 'failed' };
+const strip = document.getElementById('release');
+const hhmm = ms => `${new Date(ms).toISOString().slice(11, 16)} UTC`;
+let readAt = 0;
+
+/** The strip for `r`; null hides it. With `error`, a strip already shown stays, marked old. */
+function drawRelease(r, error) {
+  if (error) {
+    if (strip.hidden) return;
+    strip.querySelector('.stale')?.remove();
+    strip.append(make('p', { class: 'rnote stale' }, `From ${hhmm(readAt)}; GitHub did not answer`,
+      error.reset ? `: this browser used its hourly limit, which ends at ${hhmm(error.reset)}.` : '.'));
+    return;
+  }
+  strip.hidden = !r;
+  if (!r) return strip.replaceChildren();
+  readAt = Date.now();
+  const steps = make('div', { class: 'rsteps' });
+  // Each arrow stays on the line of the step it leads to.
+  r.steps.forEach((s, i) => steps.append(make('span', { class: `rstep ${s.state}`, 'aria-label': `${s.name}: ${SAYS[s.state]}` },
+    i ? make('span', { class: 'to', 'aria-hidden': 'true' }, '→') : '',
+    make('span', { class: 'm', 'aria-hidden': 'true' }, MARK[s.state]), s.name)));
+  const notes = r.steps.filter(s => s.note.length).map(s => make('p', { class: `rnote ${s.state}` }, s.note));
+  const failed = r.steps.some(s => s.state === 'failed');
+  strip.className = `panel release${failed ? ' failed' : ''}`;
+  strip.replaceChildren(make('div', { class: 'bar' }, make('div', { class: 't' }, make('h2', {}, `Release ${r.version}`))),
+    steps, ...(notes.length ? notes : [make('p', { class: 'rnote' })]));
+}
+
+async function getText(url) {
+  const res = await fetch(url, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`);
+    const reset = Number(res.headers.get('x-ratelimit-reset'));
+    if (res.headers.get('x-ratelimit-remaining') === '0' && reset) e.reset = reset * 1000;
+    throw e;
+  }
+  return res.text();
+}
+
+let polling = false, polled = 0;
+async function pollRelease() {
+  if (polling || document.hidden) return;
+  polling = true; polled = Date.now();
+  try { drawRelease(await releaseNow(getText, new Date())); } catch (e) { drawRelease(null, e); } finally { polling = false; }
+}
+setInterval(pollRelease, 60e3);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - polled > 55e3) pollRelease(); });
+// For a look at saved answers in the console: renderRelease({url: body or 404}, now).
+window.renderRelease = (answers, now = new Date()) => releaseNow(async url => {
+  if (!Object.hasOwn(answers, url)) throw new Error(`no answer for ${url}`);
+  const b = answers[url];
+  return b === 404 ? null : typeof b === 'string' ? b : JSON.stringify(b);
+}, now).then(r => drawRelease(r), e => drawRelease(null, e));
+
 const theme = new URLSearchParams(location.search).get('theme');
 if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
 // For a look at other data in the browser's console: renderDesk(desk).
@@ -518,6 +593,7 @@ const loaded = fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPol
   .catch(e => fail(e instanceof SyntaxError ? 'Its data is not JSON' : e.message || 'No answer'));
 // This module blocks the first paint (blocking="render") until the desk is drawn, at most 2.5 s,
 // so coming from the map the page arrives whole instead of growing under the rail.
+pollRelease(); // not waited for: the desk draws without it
 await Promise.race([loaded, new Promise(done => setTimeout(done, 2500))]);
 </script>
 <script>

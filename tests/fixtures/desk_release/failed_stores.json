@@ -1,0 +1,903 @@
+{
+ "now": "2026-11-14T17:30:00Z",
+ "answers": {
+  "https://api.github.com/repos/KonstantinStarovoytov/kitden/actions/workflows/release.yml/runs?event=push&per_page=20": {
+   "total_count": 20,
+   "workflow_runs": [
+    {
+     "id": 43619819668,
+     "event": "push",
+     "head_branch": "v0.9.2",
+     "head_sha": "69a92eaf830ea3c82cbe6869abdebad2fbda7966",
+     "status": "completed",
+     "conclusion": "failure",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T17:12:14Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668"
+    },
+    {
+     "id": 43619047780,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "69a92eaf830ea3c82cbe6869abdebad2fbda7966",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T17:04:06Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619047780"
+    },
+    {
+     "id": 43614664891,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "140cadd557e364a56f5f87348d86ab87df4c74a5",
+     "status": "completed",
+     "conclusion": "failure",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T16:16:04Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43614664891"
+    },
+    {
+     "id": 43612952284,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "69f6dccde8126fb99cc685b593958c259fa9695f",
+     "status": "completed",
+     "conclusion": "failure",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T15:57:35Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43612952284"
+    },
+    {
+     "id": 43609751746,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "4a8eef7414879b5cd22dc7f0ca6a5635a8cd2f89",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T15:21:32Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43609751746"
+    },
+    {
+     "id": 43609215979,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "fe3e1bfdda18e5d9e1dd508df353e77c1d916444",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T15:15:44Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43609215979"
+    },
+    {
+     "id": 43605563675,
+     "event": "push",
+     "head_branch": "v0.9.1",
+     "head_sha": "99d35b467825bd90734be0f852f9609819b31797",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T14:34:25Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43605563675"
+    },
+    {
+     "id": 43604849168,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "99d35b467825bd90734be0f852f9609819b31797",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T14:26:12Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43604849168"
+    },
+    {
+     "id": 43599210150,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "73fcd323eae0b78d27becffb37a50fbfda8aeb53",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T13:19:51Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43599210150"
+    },
+    {
+     "id": 43599026654,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "b88fb433f08f00139260fe5538e4b8f0ea8b05ad",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T13:17:39Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43599026654"
+    },
+    {
+     "id": 43586417340,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "ae36ca8e39f6d53fe35a5c8f45896045168d1e34",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T10:40:49Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43586417340"
+    },
+    {
+     "id": 43585297980,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "739214b51659b3a693d5573530502b230dbcafc3",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T10:26:36Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43585297980"
+    },
+    {
+     "id": 43519399609,
+     "event": "push",
+     "head_branch": "v0.9.0",
+     "head_sha": "39f8440a55cc7b243ee082f7edfe601c55c1e810",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T22:27:19Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43519399609"
+    },
+    {
+     "id": 43518158424,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "39f8440a55cc7b243ee082f7edfe601c55c1e810",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T22:18:14Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43518158424"
+    },
+    {
+     "id": 43513577178,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "12a94bced323dc0f70d6e4b39f7d46c04282deaa",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T21:45:57Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43513577178"
+    },
+    {
+     "id": 43512265196,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "4c73e5fbd37b64da4ed05555ec4a5198132b5d09",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T21:36:56Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43512265196"
+    },
+    {
+     "id": 43509686473,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "a2d11c05206903d2aa50082fb5a8675910509caf",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T21:19:41Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43509686473"
+    },
+    {
+     "id": 43459586225,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "b436827cd617eb2d391db19251d81d1f91f72623",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T16:07:57Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43459586225"
+    },
+    {
+     "id": 43459280203,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "b1e2dbbf124d95488a9714be3db183f01398e154",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T16:06:09Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43459280203"
+    },
+    {
+     "id": 43345010527,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "4a0840325647ba6f099969aebebc54ee9635f8aa",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T01:27:04Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43345010527"
+    }
+   ]
+  },
+  "https://api.github.com/repos/KonstantinStarovoytov/kitden/actions/runs/43619819668/jobs?per_page=30": {
+   "total_count": 11,
+   "jobs": [
+    {
+     "name": "build (macos-latest)",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:12:15Z",
+     "started_at": "2026-11-14T17:12:19Z",
+     "completed_at": "2026-11-14T17:20:31Z",
+     "labels": [
+      "macos-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001505",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132522728307",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv sync --locked",
+       "conclusion": "success"
+      },
+      {
+       "name": "A keyring on the session bus (Ubuntu)",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Run uv run ruff check .",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run ruff format --check .",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run pyright",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run pytest -q --cov=kitden --cov-fail-under=94 --cov-report=term:skip-covered",
+       "conclusion": "success"
+      },
+      {
+       "name": "The real keyring (Ubuntu)",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Run node --test tests/frontend/*.test.mjs",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run python scripts/measure-start.py",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uvx zizmor==1.32.0 .github",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run --with pip-audit==2.10.1 pip-audit --progress-spinner off --skip-editable",
+       "conclusion": "success"
+      },
+      {
+       "name": "The tag names the package version",
+       "conclusion": "success"
+      },
+      {
+       "name": "The tag has release notes",
+       "conclusion": "success"
+      },
+      {
+       "name": "Clear the kitden-sdlc folder (macOS)",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out kitden-sdlc (macOS)",
+       "conclusion": "success"
+      },
+      {
+       "name": "The release check (macOS)",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv build",
+       "conclusion": "success"
+      },
+      {
+       "name": "The built files hold the package and nothing else",
+       "conclusion": "success"
+      },
+      {
+       "name": "The wheel runs outside the checkout",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out kitden-sdlc (macOS)",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "build (ubuntu-latest)",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:12:15Z",
+     "started_at": "2026-11-14T17:12:17Z",
+     "completed_at": "2026-11-14T17:18:14Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001506",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132522728328",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv sync --locked",
+       "conclusion": "success"
+      },
+      {
+       "name": "A keyring on the session bus (Ubuntu)",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run ruff check .",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run ruff format --check .",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run pyright",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run pytest -q --cov=kitden --cov-fail-under=94 --cov-report=term:skip-covered",
+       "conclusion": "success"
+      },
+      {
+       "name": "The real keyring (Ubuntu)",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run node --test tests/frontend/*.test.mjs",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run python scripts/measure-start.py",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uvx zizmor==1.32.0 .github",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv run --with pip-audit==2.10.1 pip-audit --progress-spinner off --skip-editable",
+       "conclusion": "success"
+      },
+      {
+       "name": "The tag names the package version",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "The tag has release notes",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Clear the kitden-sdlc folder (macOS)",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Check out kitden-sdlc (macOS)",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "The release check (macOS)",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Run uv build",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "The built files hold the package and nothing else",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "The wheel runs outside the checkout",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "version",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:12:15Z",
+     "started_at": "2026-11-14T17:12:17Z",
+     "completed_at": "2026-11-14T17:12:20Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001507",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132522728856",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run echo \"version=${GITHUB_REF_NAME#v}\" >> \"$GITHUB_OUTPUT\"",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "publish",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:20:31Z",
+     "started_at": "2026-11-14T17:20:34Z",
+     "completed_at": "2026-11-14T17:20:45Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001511",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525111135",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run uv publish --trusted-publishing always dist/*",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "autotag",
+     "status": "completed",
+     "conclusion": "skipped",
+     "created_at": "2026-11-14T17:20:31Z",
+     "started_at": "2026-11-14T17:20:31Z",
+     "completed_at": "2026-11-14T17:20:31Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": null,
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525113162",
+     "steps": []
+    },
+    {
+     "name": "release",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:20:45Z",
+     "started_at": "2026-11-14T17:20:48Z",
+     "completed_at": "2026-11-14T17:20:56Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001512",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525182217",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+       "conclusion": "success"
+      },
+      {
+       "name": "Create the GitHub release with the built files and its notes",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "stores / check",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:20:57Z",
+     "started_at": "2026-11-14T17:20:59Z",
+     "completed_at": "2026-11-14T17:21:04Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001513",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525237179",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Make sure this workflow knows its own commit",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check the version and the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "stores / homebrew",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:21:05Z",
+     "started_at": "2026-11-14T17:21:10Z",
+     "completed_at": "2026-11-14T17:21:31Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001515",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525277073",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Make sure this workflow knows its own commit",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out Kitden at the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out the tap",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Did the dependencies change?",
+       "conclusion": "success"
+      },
+      {
+       "name": "Wait for PyPI",
+       "conclusion": "success"
+      },
+      {
+       "name": "Update the formula",
+       "conclusion": "success"
+      },
+      {
+       "name": "Sign in as the release app",
+       "conclusion": "success"
+      },
+      {
+       "name": "Open the formula PR",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Sign in as the release app",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out the tap",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out Kitden at the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "stores / registry",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:21:05Z",
+     "started_at": "2026-11-14T17:21:07Z",
+     "completed_at": "2026-11-14T17:21:18Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001514",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525277089",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Make sure this workflow knows its own commit",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out Kitden at the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Wait for PyPI",
+       "conclusion": "success"
+      },
+      {
+       "name": "Is it in the registry already?",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check server.json",
+       "conclusion": "success"
+      },
+      {
+       "name": "Get mcp-publisher",
+       "conclusion": "success"
+      },
+      {
+       "name": "Publish to the MCP Registry",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out Kitden at the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "stores / release-branch",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-14T17:21:05Z",
+     "started_at": "2026-11-14T17:21:10Z",
+     "completed_at": "2026-11-14T17:21:25Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001516",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525277209",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Sign in as the release app",
+       "conclusion": "success"
+      },
+      {
+       "name": "Move the release branch to the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Sign in as the release app",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    },
+    {
+     "name": "stores / summary",
+     "status": "completed",
+     "conclusion": "failure",
+     "created_at": "2026-11-14T17:21:31Z",
+     "started_at": "2026-11-14T17:21:33Z",
+     "completed_at": "2026-11-14T17:21:43Z",
+     "labels": [
+      "ubuntu-latest"
+     ],
+     "runner_name": "GitHub Actions 1000001519",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43619819668/job/132525403744",
+     "steps": [
+      {
+       "name": "Set up job",
+       "conclusion": "success"
+      },
+      {
+       "name": "Make sure this workflow knows its own commit",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out Kitden at the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "success"
+      },
+      {
+       "name": "Write the summary",
+       "conclusion": "failure"
+      },
+      {
+       "name": "Post Run astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2",
+       "conclusion": "skipped"
+      },
+      {
+       "name": "Post Check out kitden-sdlc",
+       "conclusion": "success"
+      },
+      {
+       "name": "Post Check out Kitden at the tag",
+       "conclusion": "success"
+      },
+      {
+       "name": "Complete job",
+       "conclusion": "success"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

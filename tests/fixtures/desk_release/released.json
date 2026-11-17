@@ -1,0 +1,230 @@
+{
+ "now": "2026-11-14T15:00:00Z",
+ "answers": {
+  "https://api.github.com/repos/KonstantinStarovoytov/kitden/actions/workflows/release.yml/runs?event=push&per_page=20": {
+   "total_count": 20,
+   "workflow_runs": [
+    {
+     "id": 43605563675,
+     "event": "push",
+     "head_branch": "v0.9.1",
+     "head_sha": "99d35b467825bd90734be0f852f9609819b31797",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T14:34:25Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43605563675"
+    },
+    {
+     "id": 43604849168,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "99d35b467825bd90734be0f852f9609819b31797",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T14:26:12Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43604849168"
+    },
+    {
+     "id": 43599210150,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "73fcd323eae0b78d27becffb37a50fbfda8aeb53",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T13:19:51Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43599210150"
+    },
+    {
+     "id": 43599026654,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "b88fb433f08f00139260fe5538e4b8f0ea8b05ad",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T13:17:39Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43599026654"
+    },
+    {
+     "id": 43586417340,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "ae36ca8e39f6d53fe35a5c8f45896045168d1e34",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T10:40:49Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43586417340"
+    },
+    {
+     "id": 43585297980,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "739214b51659b3a693d5573530502b230dbcafc3",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-14T10:26:36Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43585297980"
+    },
+    {
+     "id": 43519399609,
+     "event": "push",
+     "head_branch": "v0.9.0",
+     "head_sha": "39f8440a55cc7b243ee082f7edfe601c55c1e810",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T22:27:19Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43519399609"
+    },
+    {
+     "id": 43518158424,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "39f8440a55cc7b243ee082f7edfe601c55c1e810",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T22:18:14Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43518158424"
+    },
+    {
+     "id": 43513577178,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "12a94bced323dc0f70d6e4b39f7d46c04282deaa",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T21:45:57Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43513577178"
+    },
+    {
+     "id": 43512265196,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "4c73e5fbd37b64da4ed05555ec4a5198132b5d09",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T21:36:56Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43512265196"
+    },
+    {
+     "id": 43509686473,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "a2d11c05206903d2aa50082fb5a8675910509caf",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T21:19:41Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43509686473"
+    },
+    {
+     "id": 43459586225,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "b436827cd617eb2d391db19251d81d1f91f72623",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T16:07:57Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43459586225"
+    },
+    {
+     "id": 43459280203,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "b1e2dbbf124d95488a9714be3db183f01398e154",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T16:06:09Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43459280203"
+    },
+    {
+     "id": 43345010527,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "4a0840325647ba6f099969aebebc54ee9635f8aa",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-13T01:27:04Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43345010527"
+    },
+    {
+     "id": 43320341708,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "d9ccb6bfd57a0f0e35787d69721b2fd5a5c7daba",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-12T22:29:16Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43320341708"
+    },
+    {
+     "id": 43315668596,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "50b77d5e7026f2903be40bef8a27fe53191b91cb",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-12T21:59:51Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43315668596"
+    },
+    {
+     "id": 43315005026,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "829e3f13ea4684e81e943c55c1be1f5a769bdcc8",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-12T21:55:34Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43315005026"
+    },
+    {
+     "id": 43306527113,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "8a86a3568a620a43cfa4cee54ec848a8e2799abc",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-12T21:04:11Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43306527113"
+    },
+    {
+     "id": 43272335099,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "c090771139bef52a4d48ea70f72a1e28bf81a27a",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-12T17:42:54Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43272335099"
+    },
+    {
+     "id": 43248852576,
+     "event": "push",
+     "head_branch": "main",
+     "head_sha": "57e1037e4b74ecda975271359cab1f6be47bff15",
+     "status": "completed",
+     "conclusion": "success",
+     "run_attempt": 1,
+     "created_at": "2026-11-12T15:32:14Z",
+     "html_url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43248852576"
+    }
+   ]
+  }
+ }
+}
