@@ -442,7 +442,8 @@
       "0.2.30": "193d8f09ad794e324e030d9143f68528eaa9c5cce800d82439c56c5e83f8780a",
       "0.2.26": "d3fd57aedea3398b4981ec9649e784954dd17f04a192ec44c9fc761ac4262422",
       "0.2.21": "389fa5732f4e37228fe863cd515853de2e814dae0333054769b142f1e7c5c205",
-      "2.1.325": "057831d458d6c67665b85867bd2b17cef8f2bdcf7f6b95340ed70dd847760c10"
+      "2.1.325": "057831d458d6c67665b85867bd2b17cef8f2bdcf7f6b95340ed70dd847760c10",
+      "2.1.326": "814b58eab4b67d566e80961e13eaee4d725410262842411f5bd9f2839db3ba0e"
     },
     "cursor-changelog": {
       "": "01c91aaabc4986baa25082a6254a65d3e1bcd0c357644d489eb04d8faf923e5d",
@@ -510,7 +511,7 @@
       "MCP output limits and warnings": "340dcbd8fb75354d205c706fc0a2c592c0272e71d573c57c9c35d52df63ee108",
       "Raise the limit for a specific tool": "0551bba09771695db587d6742f03d0ad777a3d59b34446d949fb9dff4ec1ed17",
       "Images in tool results": "71a62fc77c3c2f4357cd2d168aa0b94f8388e69b43315e01a2c6a35b58f15d15",
-      "Tool input schemas with a root-level combinator": "efe7c66dcdba009f942b4cc421d93d74db9a446361aeff2a269354765753cd4e",
+      "Tool input schemas with a root-level combinator": "11dba9eee27242aec82329f4c97a00fbe300ca2a45eea62230cb8eddaaa21abe",
       "Tools with invalid input schemas": "86eb9104a93f5121c0914b2f6512c175f40de186a0e4629a4ed1fc63e37b99cf",
       "Tools whose input schema the API refuses": "62ef30e0d5f1d798b3e10f75a8e2e8e9192c756b582306975a5597cd9ac6ea75",
       "Tools with names longer than 128 characters": "1ae13cc01f7167cb986556a93da8ebc284e5585038f82b8ebc02a0065623eecb",
@@ -533,7 +534,7 @@
     "https://code.claude.com/docs/en/plugins/install": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Install and manage plugins": "72e26d790d9bdb04eacd6a348c29205b42a21d0247b7dbf2abe924db52b3ad5f",
-      "Install a plugin": "52ba4839cb68effc15863486efb8f4a1628aa769145f8c9b07e67573a1325311",
+      "Install a plugin": "3b2991b5e943ec8892d8f60968fb4996f031294b9d093de92514306e63b6b778",
       "Choose an install scope": "4eebaabf51f0b42c917ca3be7f6e0ef7e953dda53c25e52e787d55ed99b9e471",
       "JetBrains, non-interactive runs, and the Agent SDK": "e0de7b15581cd397389a8815b306a04aea0c0fb3f684f76eedb75b3735d56f9c",
       "Plugins from your claude.ai account": "326f43a110a782bc3749f1986a300de5bea3b08bc0fba277c2bedc55e6b159af",
@@ -561,11 +562,11 @@
       "Plugin commands reference": "6caeffbaf2e8b7c61140c8bd5635a1fea09c74fb9e019e1d52bb57e7027e6927",
       "claude plugin commands": "4771176b42dd5e0d8a8af831e5ea5501e733814f80f40d0c656e2008bc6717c1",
       "plugin init": "5e44c91a2fe9baa3d63c910dbdc592bb65adc25427fcef39073fbeac906c6d78",
-      "plugin install": "e88dee2e81ecf4bc4ba2f951e715a142de94a89fd78b26a5c5f0bf8aebe317d8",
-      "plugin uninstall": "5af085bc920626d31ec89153fead7a8755881156de2e24d6725d0e3e8b48b18f",
+      "plugin install": "7ba03c61610ef8cbd0ecd39de5633335d65cb78e48d9d65a371c11e01221e1be",
+      "plugin uninstall": "147cdb757952d05abe696e8859af6e92dc7c5f10ac2d17016c655d9af698f1e4",
       "plugin enable": "1442a69fd69168f241a81fe28c6686d6df24e80e3c61dc65cb1109ddd1d52183",
       "plugin disable": "b55dca8ccfa208d4b80bcfe287f39cfd9121f7b10a5f4be1993a30e7ca512608",
-      "plugin update": "db66611d6c1ba4fc53a94553d69d4f26572606567e83709ef99ad76aec36a64f",
+      "plugin update": "8d8cba963d24d7ddb5f641f2200f7820e2080ca7c15bba1f24c77e576e27b13c",
       "plugin list": "2f2efeee0b2d95724ac4f36d40cc6d807d82b7b68c38302fb456f86a74b3e3eb",
       "plugin details": "13c8dd92eab3e469379a2cbd31a232e2311fd9d0bcc53893500e5d40542ca785",
       "plugin configure": "c9b3c545e5ecf153d7800be80427891e8bcfaaddc964e5d50fbf5f2e54ee4bae",
@@ -574,7 +575,7 @@
       "plugin eval init": "26fc13cd04238deaab9bde98971d8d04accf9049f53afb54ba2dbd3d8c8a5372",
       "plugin tag": "e7033452d7a150a2eea484ddc7e338b689b16d5959a6b2be8b869099a73e1c64",
       "plugin test": "adbf1ee3ed38539acd146bf0a22d43bc6287fd30ac8f0508972a80974750df47",
-      "plugin validate": "5b73e4b29fd2375bea6add26db4ed7585e267460d29fced5b0b720b47e2f39f5",
+      "plugin validate": "fbff9d4bb9acd380274ebd10a18136ff8eef3a88baff596ea067c2298cc8bdf9",
       "claude plugin marketplace commands": "4ecccaaa478bd541c8075a32f5c5b85d1dedb1329cf8d0e73655e6694efb8c7c",
       "plugin marketplace add": "cf7eb5a7006a7ec128a7d3961151aa418d5dfc7ea780832b9e9eaf525e26870f",
       "plugin marketplace list": "aec80c36820ab0d86c875b4b5afa7042020c23c2a87b365edba823de5b8933df",
@@ -655,7 +656,7 @@
       "Load skills in monorepos and subdirectories": "2f031d22c02d7eb813b87f435bfa26e3247e0f91d67af8a0bd0e30cbb9174249",
       "Load skills from a directory outside the project": "02ed891d6f9f5b05cc956800ea5e9a11177aa7ea6d55344e4bd7546db464deaa",
       "Resolve skills that share a name": "d76f05cd2da505a5d560b7f0f9adc5e65fe99d90f8e36684c204f52c5031d336",
-      "Use skills in Cowork and cloud sessions": "f1bedd3d55e5cdcdf1645bba7ed32909fee716dc68907e3a9192bb72721a3ce8",
+      "Use skills in Cowork and cloud sessions": "fd3f68eb28a7ed150d64cb1b5ae25c429ab4af968f1be3be29f94420e7f20f23",
       "Skills synced from claude.ai": "2f50f90503edfe4a163baba694676a385a00f70222fa6e81d571a5a186fd23fc",
       "Edit a skill during a session": "6cb439c4831fb4a87f2fbd6401284bda9da68dea628f3d9412bb6b2b5345d531",
       "Remove a skill": "12e48976fbc094f0c932071b68634636f7c139a54f2e3d390754f3281076aae0",
@@ -908,7 +909,7 @@
       "How hooks work": "5165cbb40f38c82e198a5172a9335f8223b4a2b9d2ee2fe6de7e201454d6a0d7",
       "Combine results from multiple hooks": "b994a3ed61d9eab5e1462992144f3edb2ef074657aa938f75c4c8c1c61f0ecaf",
       "Read input and return output": "a21c60aa09a4c5f7be0c4835340d1898d8520ed3214e14ae11442ced2f61360e",
-      "Filter hooks with matchers": "9a5ae5f3c11b09f44d283dda604901d04c6bded19e951270a087477426a27174",
+      "Filter hooks with matchers": "bf4cc525e5a3fa7690c6d1e995cd26a35ea0ebc8b4e7e338f13032478fe414f2",
       "Configure hook location": "7d48d6833c894faf7b21e88c3df01e7b3610bdcb44168e24f666215b616ffe30",
       "Prompt-based hooks": "5acf87a23f072d54fa3263d424e7e5fbbe9a742adc36b98245109c8bb4280dca",
       "Agent-based hooks": "0e6c2b83d75071176c216aa6014a6bcc6d9120f7d48f1bc443b1706d198e6933",
@@ -927,7 +928,7 @@
     "https://cursor.com/docs/hooks": {
       "Hooks": "95df621c5af336c800649e87ab0730cd5180f275518c6a26cc32bc665357cd08",
       "Hook categories": "88c5c77f709399b6915c5389a8386c835095e7e7c57fd625e8628363c75095f3",
-      "Cloud agent support": "03a7590f7cb56e020d70362062a7c1469ac4e8793f267ebeb9ab5d6bd9a5f6dd",
+      "Cloud agent support": "295fe8e4f85faf65a945543b8301ea96ecc8af4edd5ae4f1b74c09188996d65c",
       "Supported hooks": "534f833afc69a64736a6dc3a5b0355508e17b17a08c0a337e771315a5d1eb750",
       "Hooks not available in cloud agents": "1d4bca497b00507d0343d32bc26cfc4a328a092b8a0acc5e8ea1101054155d72",
       "Configuration sources": "3fc963b17de90bb466c21e1572d6be8d2c62c077c0c40a86eaeef39d30818ebd",
@@ -1098,8 +1099,8 @@
       "Settings for Local computer access with Work Cloud": "bcd2160697717f8f62528036a7331bc3967cd1700f4d05da6a08e5cf4a96bd99",
       "Agent Security requirements for Local computer access with Work Cloud": "94c8b49b5b1a0241f8085e3cbde8ef6c32a7bcb227bd96c7553f583af4990063",
       "Local computer access with Work Cloud compatibility limits": "99a28e6d981c911713bfde70e3b401e64b381542b00562a8da4e085307cf52a1",
-      "`config.toml`": "52c59595165eb5062a50172acbd0c86b1da36f4032efe8b53cc2e6c219e33ace",
-      "`requirements.toml`": "6fe950ae27a46acc6ad4a5d21a72cc4a7f261ae05743e906e51724a7832bbbb9"
+      "`config.toml`": "f3f9ff5b001797d64aaf394fb617efc6a725e40c123ab971a816d222bd33a6aa",
+      "`requirements.toml`": "55550f2d73ce118941c01c0bd30f68839aa5703eb8cdc45d66b555be73788655"
     },
     "https://learn.chatgpt.com/docs/extend/mcp": {
       "Model Context Protocol": "360fa03d2a9235fa9dbc862905a947c98f39f668163d69c218c2a80c64112341",
@@ -1153,9 +1154,184 @@
     "https://cursor.com/docs/skills": 0,
     "https://developers.openai.com/plugins/build/plugins": 0,
     "https://learn.chatgpt.com/docs/config-file/config-reference": 0,
-    "https://learn.chatgpt.com/docs/extend/mcp": 0
+    "https://learn.chatgpt.com/docs/extend/mcp": 0,
+    "agent-docs-feed": 0,
+    "https://claude.com/docs/plugins/pre-submission-checklist": 0,
+    "https://claude.com/docs/plugins/submit": 0,
+    "https://code.claude.com/docs/en/plugins-reference": 0,
+    "https://docs.brew.sh/Description-Guidelines": 0,
+    "https://docs.brew.sh/Formula-Cookbook": 0,
+    "https://docs.brew.sh/Language-Specific-Formulae": 0,
+    "https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows": 0,
+    "https://docs.github.com/en/actions/reference/workflows-and-actions/variables": 0,
+    "https://docs.pypi.org/project-management/storage-limits/": 0,
+    "https://docs.pypi.org/publishing/troubleshooting/": 0,
+    "https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/rubocops/shared/desc_helper.rb": 0,
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/github-actions.mdx": 0,
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/moderation-policy.mdx": 0,
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx": 0,
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/versioning.mdx": 0,
+    "https://glama.ai/blog/2025-07-08-what-is-glamajson": 0,
+    "https://glama.ai/mcp/methodology": 0,
+    "https://glama.ai/mcp/schemas/server.json": 0,
+    "https://packaging.python.org/en/latest/specifications/core-metadata/": 0,
+    "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": 0
   },
-  "kept": [],
+  "kept": [
+    {
+      "piece": "claude-code-changelog#2.1.326",
+      "client": "claude-code",
+      "version": "2.1.326",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "",
+      "files": [],
+      "title": "Managed MCP config managed-mcp.json",
+      "changed": "The release names `managed-mcp.json`, an administrator-provided file that affects which MCP servers load.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Kitden does not show the servers from managed-mcp.json or that they stop other MCP servers from loading.",
+      "systems": "not checked",
+      "why": "No row names managed-mcp.json or covers administrator-managed MCP servers.",
+      "fix": "Read the managed-mcp.json file in the system managed settings location and show its servers and its effect on other servers.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/hooks-guide#Filter hooks with matchers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide",
+      "row": "Hooks in the `hooks` key of settings files (2026-11-15)",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/base.py"
+      ],
+      "title": "Hook `if` field stops hooks on non-tool events",
+      "changed": "Hook handlers in the `hooks` key of settings can carry an `if` field that only works on tool events; on other events the hook does not run.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees a hook listed for an event such as SessionStart or Stop and believes it runs, while the client skips it because of the `if` field.",
+      "systems": "not checked",
+      "why": "hook_items in base.py makes an item for every event group in settings['hooks'] and never inspects the handlers' `if` field or the event type. A hook the client now refuses to run is still shown as active.",
+      "fix": "In hook_items in src/kitden/clients/base.py, check each handler in the group; when it has `if` and the event is not one of the five tool events, mark the item as not running (off) or leave it out.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#plugin install",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "These commands work with no account: `claude --version`, `claude mcp add-json`, `get`, `list` and `remove`, `claude plugin validate --strict`, `marketplace add` and `remove`, `install`, `list --json`, `disable`, `enable` and `uninstall`; seen on Linux (2026-11-15, version 2.1.325). The nightly installs it with its own installer, `https://claude.ai/install.sh` run by `bash`, which puts `claude` in `~/.local/bin` and writes `~/.claude.json` with no account (2026-11-15, version 2.1.325, Linux)",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/versions.py"
+      ],
+      "title": "Claude Code plugin install refused without a TTY for command-source plugins",
+      "changed": "For plugins with command-source or headersHelper entries, install without a TTY is refused with exit 1 unless -y or --accept-command is given, so the no-account install command may behave differently.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden's install step for such a plugin may fail with an error in a non-TTY run, and the row's claim that install works with no account is no longer fully true; nothing wrong is shown.",
+      "systems": "not checked",
+      "why": "plugin_install_step deliberately omits -y so a plugin that installs by running a command stops; the new refusal matches that intent, so Kitden stays right, but the row's blanket claim and the code comment about how it stops are now less precise.",
+      "fix": "In the contract-test row, note that install of plugins with command-source or headersHelper entries is refused without a TTY unless -y or --accept-command is given; optionally update the comment in `plugin_install_step` in `src/kitden/clients/claude_code.py`.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#plugin uninstall",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "`claude plugin uninstall <id> -s <scope> --keep-data --json`; it fails while settings still switch the plugin on",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Plugin uninstall reports settings_still_on when settings still enable the plugin",
+      "changed": "The uninstall command has new flags (--prune, -y, aliases remove/rm) and reports a settings_still_on failure code with --json; the failure while settings still switch the plugin on is confirmed and detailed (v2.1.282+). --json can't be combined with --prune.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden's removal command still works as before, but the code comment that the command fails when settings still switch the plugin on no longer describes the failure code or the version (v2.1.282+).",
+      "systems": "not checked",
+      "why": "plugin_remove_step uses the same flags (-s, --keep-data, --json) and the same settings key as before, so the command still works. Only the comment about the failure behaviour is now less precise (it omits the failureCode settings_still_on and the v2.1.282 requirement).",
+      "fix": "Update the comment above plugin_remove_step in src/kitden/clients/claude_code.py to mention the settings_still_on failure code and that the settings check needs Claude Code v2.1.282 or later.",
+      "sure": true
+    },
+    {
+      "piece": "https://learn.chatgpt.com/docs/config-file/config-reference#`config.toml`",
+      "client": "codex",
+      "version": "",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "row": "Settings folder is `CODEX_HOME`, default `~/.codex`; settings in `config.toml`",
+      "files": [
+        "src/kitden/clients/codex.py"
+      ],
+      "title": "Codex profile config files next to config.toml",
+      "changed": "Settings can also live in `$CODEX_HOME/profile-name.config.toml` profile files selected with `--profile`, in addition to `config.toml` in the Codex home.",
+      "effect": "unknown",
+      "severity": "minor",
+      "user_gets": "Entries defined only in a profile file are not listed, but they apply only when the user launches Codex with --profile.",
+      "systems": "not checked",
+      "why": "scan() reads only config.toml under codex_home. The quote does not say what a profile file can contain or how it merges, so a concrete wrong value cannot be named. The default config.toml behavior is unchanged.",
+      "fix": "Check what keys a profile file can hold and how Codex merges them. If it can hold mcp_servers or plugins, decide whether to read profile files in src/kitden/clients/codex.py scan().",
+      "sure": false
+    },
+    {
+      "piece": "claude-code-changelog#2.1.326",
+      "client": "claude-code",
+      "title": "Mentions `add-json`",
+      "hint": true,
+      "changed": "The text of 2.1.326 has the word `add-json`.",
+      "version": "2.1.326",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "`claude mcp add-json -s user <name> '<json>'` takes the entry as an argument, no stdin or file",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "claude-code-changelog#2.1.326",
+      "client": "claude-code",
+      "title": "Mentions `headersHelper`",
+      "hint": true,
+      "changed": "The text of 2.1.326 has the word `headersHelper`.",
+      "version": "2.1.326",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "`headersHelper` makes a server read values from a helper command (2026-11-15)",
+      "files": [
+        "src/kitden/clients/entries.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "claude-code-changelog#2.1.326",
+      "client": "claude-code",
+      "title": "Mentions `claude-code`",
+      "hint": true,
+      "changed": "The text of 2.1.326 has the word `claude-code`.",
+      "version": "2.1.326",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "Claude Desktop Code tab: `claude_desktop_config.json` with `mcpServers`, and bundled versions in a `claude-code` folder",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/system.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    }
+  ],
   "urgent": {
     "week": "2026-W47",
     "count": 0
@@ -1171,5 +1347,213 @@
       "https://cursor.com/help/customization/rules": "",
       "https://developers.openai.com/plugins/build/plugins": ""
     }
+  },
+  "rule_start": 0,
+  "rule_skips": {},
+  "fact_pages": {
+    "https://code.claude.com/docs/en/mcp": {
+      "hash": "50f375a3bc0aa08a6def5b8f8fc2db27c4c3a9acc63c164c95393ba345cf8a50",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/plugins/install": {
+      "hash": "8140f52be5df3587cc0255a53cd124210f4de990bc244287aeb1dc19967a22b4",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/plugins/cli-reference": {
+      "hash": "afa5713a79eddb6a8857236b5855353288d620f113638d1bbf76f7224f11efff",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/plugins/loading": {
+      "hash": "74b0208c1ed7879f633237f5b8212675d63837b136ac976e0cc09b0e0ab926df",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/settings": {
+      "hash": "ef7dd3ed98241d973049b86bc3d59d13ddbd6a8a83bfdfebd957b21e2030ff92",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/skills": {
+      "hash": "6531cc50537e020cc6f3b65d2149dbe0c794591dcc159bf3b91811b390b0781e",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/memory": {
+      "hash": "8de0e82365c31b0f6a740fbe99a725807b11c833e7d7f8a1111054f64db18f8c",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/hooks-guide": {
+      "hash": "a6367d9150bcc8c393c1390b99e48fd159e7d4bb0be26b4e1c4025339c352419",
+      "changed": "",
+      "unstable": false
+    },
+    "https://learn.chatgpt.com/docs/extend/mcp": {
+      "hash": "cb11e7b7a0209fd9400bdd4dcee3a387ca68b01cae79c75e4a27bef1bd00c827",
+      "changed": "",
+      "unstable": false
+    },
+    "https://learn.chatgpt.com/docs/config-file/config-reference": {
+      "hash": "a22ab0113458ea6590e485e2bdc99e2119a47c55bafce0570dced2e052b83c7c",
+      "changed": "",
+      "unstable": false
+    },
+    "https://developers.openai.com/plugins/build/plugins": {
+      "hash": "16bd29eaa3cb39e2b1d31e2170f6ad5554fb09d1c3a2a1de823e4ae454e57015",
+      "changed": "",
+      "unstable": false
+    },
+    "https://learn.chatgpt.com/docs/build-skills": {
+      "hash": "60f306a3ef178315822f7b38f25da4e9929b53ea5e924491035ce615ce72aad4",
+      "changed": "",
+      "unstable": false
+    },
+    "https://learn.chatgpt.com/docs/agent-configuration/agents-md": {
+      "hash": "aa2e04313b7cc7d14e2b3e2c55ec532cfe690043a3a35fdb1418ec66610a3392",
+      "changed": "",
+      "unstable": false
+    },
+    "https://cursor.com/docs/mcp": {
+      "hash": "a14734698c159b2c19577f496fb8f778a7e2ef2faac7aaf610004a1b88c945ad",
+      "changed": "",
+      "unstable": false
+    },
+    "https://cursor.com/docs/plugins": {
+      "hash": "682bc47f30fe09dcdf5e59df33598a8eb72ce3bb0608f9480a06c52543e1129b",
+      "changed": "",
+      "unstable": false
+    },
+    "https://cursor.com/docs/skills": {
+      "hash": "00b30be3c37f2f512d4307873f0ea60da5fe3103c4b6e469ea62078f82924434",
+      "changed": "",
+      "unstable": false
+    },
+    "https://cursor.com/docs/rules": {
+      "hash": "b624461d749782c054da7670196b9c469a640d3c315ba2abcda193ebc7d98d3c",
+      "changed": "",
+      "unstable": false
+    },
+    "https://cursor.com/help/customization/rules": {
+      "hash": "9207d70148a982f7a6604b8fcae92d337d4f1b2beeb4ffb470dd6c038a46f7e6",
+      "changed": "",
+      "unstable": false
+    },
+    "https://cursor.com/docs/hooks": {
+      "hash": "223b5fe6f77fc583e567f9583e586d844692d73a11f4a86c14eaee6329b4a53d",
+      "changed": "",
+      "unstable": false
+    },
+    "https://claude.com/docs/plugins/submit": {
+      "hash": "e9b6e230ec87a74d490ca5017049fba7e350eee10771f5a5598907de68264e0d",
+      "changed": "",
+      "unstable": false
+    },
+    "https://claude.com/docs/plugins/pre-submission-checklist": {
+      "hash": "4e6050155fde557cccc6be26744806182975288158c3f26fe15e7b96f5fdced0",
+      "changed": "",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/plugins-reference": {
+      "hash": "0b20d10898eace364c6b48a0c10d48493d613744619ef35426cdac37a81bc8c2",
+      "changed": "",
+      "unstable": false
+    },
+    "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": {
+      "hash": "8a89051417f52ac0107e84ec90e7a98e8c876e8ea25d7a78815834fcf38d1035",
+      "changed": "",
+      "unstable": false
+    },
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/versioning.mdx": {
+      "hash": "e0b77a9943ea9cc6b32853d71d65eeb0e7ef53cce91de89936bba8c1daf497c1",
+      "changed": "",
+      "unstable": false
+    },
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx": {
+      "hash": "12d66559f451a2cf2b52ecd0174106a6f9dc3a2fb847db17be013534087d991a",
+      "changed": "",
+      "unstable": false
+    },
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/moderation-policy.mdx": {
+      "hash": "1d57dcc200c2029c2eeabfbe4db7cf1566577c06e9aacec1a71e48bbd883d51d",
+      "changed": "",
+      "unstable": false
+    },
+    "https://glama.ai/mcp/schemas/server.json": {
+      "hash": "15b070a572c4f1f9757d8ffa1686eef57cb07913f64ca9ab9182951c54c632ac",
+      "changed": "",
+      "unstable": false
+    },
+    "https://glama.ai/blog/2025-07-08-what-is-glamajson": {
+      "hash": "369fe4305978773525a0f789efa072191e176995a7cd4af702f34087cb917ada",
+      "changed": "",
+      "unstable": false
+    },
+    "https://glama.ai/mcp/methodology": {
+      "hash": "8eaa3e04dfcc29da34da5fd35e1ec8dd1b8d086ca715efbba56cdea4a1834c20",
+      "changed": "",
+      "unstable": false
+    },
+    "https://packaging.python.org/en/latest/specifications/core-metadata/": {
+      "hash": "cdacea8fe1952e7afeaac30de9184b1762f2f25771c7f799aefd4e81cab5012c",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.pypi.org/publishing/troubleshooting/": {
+      "hash": "8390bd3ea64c5e5b5414b89ba04ebf0111925ee39d01816600d9d18a4e963784",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.pypi.org/project-management/storage-limits/": {
+      "hash": "ab2ea593047a74fa41488c0963b7206f4e51e0091b66925b3f0ed584585ebe95",
+      "changed": "",
+      "unstable": false
+    },
+    "https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/rubocops/shared/desc_helper.rb": {
+      "hash": "17f21b554b047d8eff72020a662b0e838dee7887f759732b7286ef21ebfdce6d",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.brew.sh/Formula-Cookbook": {
+      "hash": "f49b01e4af5ed0b071073a0f1dafb59aa06ea9b27d48a29f13c464093817c701",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.brew.sh/Description-Guidelines": {
+      "hash": "cfe14bb064ee92fa49fb011c1e61f492758c55b7e31e26742558fd6efdcf3a2a",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.brew.sh/Language-Specific-Formulae": {
+      "hash": "ef86abdb7103f652353ee82421e90b04353f031399c5e958b66a7618383e3fea",
+      "changed": "",
+      "unstable": false
+    },
+    "https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/github-actions.mdx": {
+      "hash": "d4b48b322e12127aa226e06eebf64fa31fbde88ff0fd038e5d3e5aacf1cdc321",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows": {
+      "hash": "53aa2cb936fa9f1d9dc113495fae45b57e37723f5f11fcec098ff7a674442be8",
+      "changed": "",
+      "unstable": false
+    },
+    "https://docs.github.com/en/actions/reference/workflows-and-actions/variables": {
+      "hash": "89ce480c17ec4e31bf60d5f10724179196a6be052b01b77d25d9fc75930764d3",
+      "changed": "",
+      "unstable": false
+    }
+  },
+  "stale_week": "2026-W47",
+  "feed": {
+    "day": "2026-11-16",
+    "wait": [],
+    "dropped": 0,
+    "held": 0,
+    "gone": 0,
+    "taken": []
   }
 }
