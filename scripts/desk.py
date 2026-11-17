@@ -39,7 +39,7 @@ REFERENCE = re.compile(
     rf"(?:(?<![\w&])|(?<=\bPR))#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
 # The workflows in Kitden that test it every night, and the job ids of each.
 NIGHTLY = (
-    ("nightly.yml", ("systems", "clients", "browser")),
+    ("nightly.yml", ("systems", "clients", "browser", "engines")),
     ("latest-deps.yml", ("test",)),
 )
 # GitHub starts scheduled runs hours late, so the desk may see the night before; each reason
