@@ -1,17 +1,16 @@
 # What you do
 
 Everything the agents leave to you, one row each. Each is a click on GitHub or a label. The
-daily page is the pinned issue "Kitden desk" in Kitden; it says what waits for you.
-[The desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/) shows the rest: where
-each release is published, main's checks, the nightly tests by system, the start-up time by
-release, bugs, upstream changes and the agents. It reads `desk.json` each time it opens, and
-keeps updating when `AGENTS_ENABLED` is off.
+daily page is [the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): what
+waits for you, where each release is published, main's checks, the nightly tests by system, the
+start-up time by release, bugs, upstream changes and the agents. It reads `desk.json` each time
+it opens, and keeps updating when `AGENTS_ENABLED` is off. A red nightly test part also opens a
+`ci-failure` issue in Kitden, which notifies you.
 
 | You want to | You do |
 |---|---|
 | See the desk now | in kitden-sdlc: Actions → desk → Run workflow, on `main` |
-| The desk's date is old | the desk's job failed, or `AGENTS_ENABLED` is off in kitden-sdlc: look at the desk's runs in kitden-sdlc's Actions |
-| Do not close the desk issue | a closed one is opened anew the next day, unpinned; to stop it, set `AGENTS_ENABLED` to `false` in kitden-sdlc |
+| The desk's date is old | the desk's job failed: look at the desk's runs in kitden-sdlc's Actions |
 | Release | in Kitden: Actions → Release prep → Run workflow; then accept "Kitden X.Y.Z" (next row) |
 | Accept an agent's pull request | review it; if it is a draft, fix what "Fix before merge" names in its body and press Ready for review; merge it with a merge commit |
 | Turn one down | close it |
@@ -40,11 +39,10 @@ The desk shows Works, Clients, Bugs, Agents and Queue. Green is fine, amber is w
 this week, red is worth a look today, and grey means the desk could not read something and
 found nothing bad. The rules for each are in [agents.md](agents.md#the-desk).
 
-The desk opens with a small table, a row for each light: its name, its mark, what it checks
-and why it is not green. The
-mark is green with a check ("ok"), amber with a question mark ("look"), red with a cross
-("wrong") or grey ("not measured"); only a light that is not green has a reason. Under the
-table one line says how the five stand.
+The page shows no table of lights. They set its headline (a red Works light reads "A check on
+main failed."; an amber or red one of the others, "Something needs a look."), and the Bugs,
+Upstream changes and AI agents cards show their light's state and, when it is not green, its
+reason.
 
 - **Works:** on `main`'s newest commit, the checks its push started passed, and so did every
   check `main` requires; last night's tests other than the client tests passed.
@@ -64,7 +62,7 @@ A switch is a repository variable, set to `true` or `false` on the repository's 
 
 | Variable | Where | Stops |
 |---|---|---|
-| `AGENTS_ENABLED` | both repositories | every agent of that repository; in kitden-sdlc also the desk's posting of its issue in Kitden |
+| `AGENTS_ENABLED` | both repositories | every agent of that repository; in kitden-sdlc also the desk's `ci-failure` issues in Kitden |
 | `REVIEW_LIVE` | Kitden | the two reviewers |
 | `WATCH_LIVE` | kitden-sdlc | the client watcher's daily run |
 | `WATCH_FEED` | kitden-sdlc | the watcher's reading of Agent Docs' feed of new doc pages. `off` (or unset, or any other value): the feed is not read at all. `shadow`: the watcher reads the new pages and makes their pieces, but gives none to the model; it only counts them. `live`: the model judges them like any other piece. Set `shadow` only once `reports/docs-changes/feed.json` exists in agent-docs: before that the feed is a failed read each run, and on the third day the summary gets "Cannot read agent-docs-feed for 3 days" |

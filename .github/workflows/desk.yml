@@ -1,16 +1,17 @@
-# What: every day, with no model, counts the facts about Kitden and its agents and shows them
-# as one issue in Kitden, "Kitden desk", and opens an issue when a nightly test job is red.
+# What: every day, with no model, counts the facts about Kitden and its agents for the desk page,
+# and opens an issue when a nightly test job is red.
 # Why: the owner sees in one place whether everything is healthy and what waits for a decision,
 # without opening each workflow.
 #
 # Every day, no model: work out whether Kitden is healthy and what waits for the owner.
 # `measure` reads the facts, the reviews among them, and commits numbers.md, numbers.json,
 # desk.json and history.json (the nightly runs and the start-up times the desk page charts) to
-# the `numbers` branch, because `main` takes pull requests only. `post` shows
-# desk.json as the issue "Kitden desk". Two jobs, so that the job that writes to this
-# repository never holds the review app's key (RULES.md, rule 1). With AGENTS_ENABLED off
-# the numbers still update, and the issue stays as it was, with its date. This workflow
-# never runs a pull request's code.
+# the `numbers` branch, because `main` takes pull requests only; the desk page (docs/desk)
+# reads desk.json from there. `post` opens, rewrites or closes one `ci-failure` issue in
+# Kitden per red nightly test part. Two jobs, so that the job that writes to this repository
+# never holds the review app's key (RULES.md, rule 1). With AGENTS_ENABLED off the numbers and
+# the page still update, and no issue is posted. This workflow never runs a pull request's
+# code.
 name: Kitden desk
 
 on:
@@ -120,7 +121,7 @@ jobs:
           owner: KonstantinStarovoytov
           repositories: kitden
           permission-issues: write
-      # No model here: the script shows facts it wrote itself.
+      # No model here: the script writes issues from facts the desk read itself.
       - name: Post
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}

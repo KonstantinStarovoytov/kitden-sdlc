@@ -2,12 +2,11 @@
 // so tests/test_desk_page.py runs it in Node. No model wrote any of it.
 //
 // The page reads desk.json's `bench` (scripts/desk_bench.py): main's checks, the nightly rows,
-// the start-up times by release, the stores, the bugs and the upstream changes; and of the
-// "Kitden desk" issue's facts (scripts/desk_post.py) the lights, what waits and the agents'
-// week. The texts both say (CHECKS, OVERALL, KINDS, MEANS, the watcher's search) are the same;
-// the test checks it. Text is never HTML: a piece is a string, {code} or {text, href}, and the
-// page puts each in with textContent. A link goes only to the hosts in LINKS: every title and
-// `why` was written by a person or a model.
+// the start-up times by release, the stores, the bugs and the upstream changes; and of desk.py's
+// facts the lights, what waits and the agents' week. MEANS is what desk_post.py's ci-failure
+// issues say a red part means; the test checks they are the same. Text is never HTML: a piece is
+// a string, {code} or {text, href}, and the page puts each in with textContent. A link goes only
+// to the hosts in LINKS: every title and `why` was written by a person or a model.
 
 export const DATA = 'https://raw.githubusercontent.com/KonstantinStarovoytov/kitden-sdlc/numbers/desk.json';
 export const DATA_PAGE = 'https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/desk.json';
@@ -24,24 +23,11 @@ export const SLOWER_SHARE = 0.2;
 
 export const STATES = ['green', 'amber', 'red', 'grey'];
 export const WORDS = { green: 'OK', amber: 'Needs a look', red: 'Wrong', grey: 'No data' };
-export const OVERALL = {
-  green: 'All five lights are green.',
-  amber: 'Something needs a look.',
-  red: 'Something is wrong.',
-  grey: 'Some lights are not measured yet; none is amber or red.',
-};
 export const HEAD = {
   green: 'All good.',
   amber: 'Something needs a look.',
   red: 'Something is wrong.',
   grey: 'Some parts were not read.',
-};
-export const CHECKS = {
-  works: 'the checks on `main` pass',
-  clients: 'no confirmed client change waits long',
-  bugs: 'open bugs do not keep growing',
-  agents: 'the bots run and are not paused',
-  queue: 'nothing waits for you long',
 };
 export const KINDS = {
   pull: 'Pull request', verdict: 'Verdict', release: 'Release',
