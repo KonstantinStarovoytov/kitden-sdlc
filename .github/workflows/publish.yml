@@ -1,8 +1,8 @@
 # What: after a new Kitden version is on PyPI, moves the `release` branch, publishes to the MCP
 # Registry, opens the Homebrew pull request when Kitden's runtime dependencies did not change,
-# and writes a table of every store.
-# Why: one tag updates the stores a script can reach, and the table shows which are behind or
-# must be checked by hand.
+# writes a table of every store, and starts the desk again.
+# Why: one tag updates the stores a script can reach, the table shows which are behind or must
+# be checked by hand, and the desk page shows the new version the same hour.
 #
 # Reusable workflow: after PyPI has a new Kitden version, put it everywhere else. Kitden's
 # release.yml calls it on a tag, after its own PyPI and GitHub release jobs. No job here runs a
@@ -11,6 +11,7 @@
 #   registry:       publishes server.json to the MCP Registry (GitHub OIDC, no secret)
 #   homebrew:       opens the formula PR in the tap (release app, the tap only)
 #   summary:        writes every store's version to the job summary (read only)
+#   desk:           starts kitden-sdlc's desk workflow (release app, kitden-sdlc's Actions only)
 # The release app's key lives only in Kitden's `release` environment; the jobs that use it
 # name that environment. The design is docs/superpowers/specs/2026-11-12-release-flow-design.md.
 name: Publish
@@ -396,3 +397,34 @@ jobs:
           fi
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_publish.py \
             summary "v$VERSION" --changed "$RUNNER_TEMP/changed.txt" --out "$GITHUB_STEP_SUMMARY"
+
+  # The desk runs once a day, so after a release its page would name the old version until the
+  # next morning. Started now, it reads the stores as they are after this run. It runs when a
+  # job above failed too: the desk then shows which store is behind. If it cannot start the
+  # desk, the release is still out: the job's error shows, but the run does not fail for it.
+  desk:
+    needs: [check, summary]
+    continue-on-error: true
+    if: >-
+      !cancelled() && startsWith(github.ref, 'refs/tags/v')
+      && needs.check.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: release
+    permissions: {}
+    steps:
+      - name: Sign in as the release app
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.release_app_private_key }}
+          owner: KonstantinStarovoytov
+          repositories: kitden-sdlc
+          permission-actions: write
+      - name: Start the desk
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh workflow run desk.yml --repo KonstantinStarovoytov/kitden-sdlc --ref main
+          echo "Started the desk, so its page shows this release within minutes." >> "$GITHUB_STEP_SUMMARY"
