@@ -55,6 +55,7 @@ const LINKS = [
   /^https:\/\/pypi\.org\/project\/kitden\/[\w.]*\/?$/,
   /^https:\/\/registry\.modelcontextprotocol\.io\/v0\/servers\?search=[\w./-]+$/,
   /^https:\/\/glama\.ai\/mcp\/servers\/[\w./-]+$/,
+  /^https:\/\/mcprush\.com\/konstantinstarovoytov\/kitden-mcp$/,
 ];
 const SLUG = /^[\w-]+\/[\w.-]+$/;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -213,7 +214,7 @@ function stores(benchData) {
     return {
       name: line(t.name) || '?',
       state: st,
-      version: isText(t.version) ? t.version : (st === 'planned' ? 'Planned' : t.id === 'glama' && st === 'green' ? 'Listed' : '—'),
+      version: isText(t.version) ? t.version : (st === 'planned' ? 'Planned' : t.listed === true && st === 'green' ? 'Listed' : '—'),
       note,
       url: href(t.url),
     };

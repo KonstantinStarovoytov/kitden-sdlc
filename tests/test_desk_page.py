@@ -23,7 +23,7 @@ NODE = shutil.which("node")
 needs_node = pytest.mark.skipif(NODE is None, reason="Node is not installed")
 NOW = datetime(2026, 11, 17, 7, tzinfo=UTC)
 ALLOWED = re.compile(r"^https://(github\.com|pypi\.org|registry\.modelcontextprotocol\.io|"
-                     r"glama\.ai)/")
+                     r"glama\.ai|mcprush\.com)/")
 
 # Reads {call, desk, now} as JSON on stdin and prints what view.js gives back, as JSON.
 RUNNER = """
@@ -119,9 +119,9 @@ def test_all_green_reads_all_good_and_every_store_has_the_release():
     assert view["head"] == {"state": "green", "text": "All good."}
     assert view["says"] == "Kitden 0.9.2 is the newest release, and every store has it."
     assert [t["name"] for t in view["stores"]["tiles"]] == [
-        "PyPI", "Homebrew", "MCP Registry", "Glama", "Claude plugin"]
-    assert view["stores"]["tiles"][3]["version"] == "Listed"
-    assert view["stores"]["tiles"][4]["version"] == "Planned"
+        "PyPI", "Homebrew", "MCP Registry", "Glama", "MCP Rush", "Claude plugin"]
+    assert [t["version"] for t in view["stores"]["tiles"][3:]] == ["Listed", "Listed", "Planned"]
+    assert view["stores"]["tiles"][4]["url"] == desk_bench.MCPRUSH
     assert view["updated"] == "Updated 19 minutes ago"
 
 

@@ -83,7 +83,6 @@ code{font-size:.88em;background:var(--inset);padding:1px 5px;border-radius:5px;o
 
 /* --- the head --- */
 .head{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
-.head .eyebrow{font-size:12px;font-weight:600;color:var(--ink-3)}
 .head h1{display:flex;align-items:center;gap:14px;font-size:28px;font-weight:700}
 .head .sub{padding-left:30px;color:var(--ink-2)}
 .head .updated{padding-left:30px;font-size:13px;color:var(--ink-3)}
@@ -207,11 +206,9 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
       <a href="../map/?v=tools"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Tools</a>
     </nav>
     <a class="back" href="https://github.com/KonstantinStarovoytov/kitden-sdlc"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to the repo</a>
-    <div class="foot">No model wrote these pages.</div>
   </aside>
   <main class="main" id="main">
     <div class="head">
-      <span class="eyebrow">Kitden desk</span>
       <h1 id="lead"><span class="s big grey" aria-hidden="true"></span><span>Reading the desk…</span></h1>
       <p class="sub" id="says" hidden></p>
       <p class="updated loading" id="updated"></p>
@@ -223,7 +220,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
 <script type="module" blocking="render">
 // view.js?v= is the start of view.js's SHA-256 (tests/test_desk_page.py checks it), so a
 // browser never runs this page with an older view.js from its cache.
-import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=d8ae193379ba';
+import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=5ee3cab346e5';
 document.documentElement.dataset.started = 'yes';
 
 const main = document.getElementById('main');
@@ -381,7 +378,7 @@ function startupPanel(s) {
       make('div', { class: 'chips', role: 'group', 'aria-label': 'Measures' }, ...measureChips)),
     box, make('div', { class: 'tscroll' }, table),
     make('p', { class: 'quiet', style: 'padding:10px 18px 16px' },
-      'A release\'s dot is its build on its tag (macOS arm64 and Linux x86_64) and the nights main was at that release (all four systems, both Pythons): the median of those measurements. The last dot, main, is the newest night on a later commit, so a slowdown shows before the next release. The dotted lines are Kitden\'s budgets; the Intel Mac\'s own check allows twice as long. The times are printed to a tenth of a second, so a small step can be noise: a row is marked when it is at least 0.2 s and 20% slower than the point before.'));
+      'Each dot is a release; main is the newest night. A row is marked when it is at least 0.2 s and 20% slower than the point before.'));
   p.id = 'startup';
   redraw();
   return p;
@@ -428,8 +425,7 @@ function render(v) {
         make('span', { class: 'n' }, sock(t.state), t.name), make('span', { class: 'v' }, t.version), make('span', { class: 'quiet' }, t.note)));
     });
     parts.push(make('section', { 'aria-label': 'Where Kitden is published' },
-      panel(make('h2', {}, 'Where Kitden is published'),
-        make('span', { class: 'quiet' }, v.stores.newest ? `Newest release: ${v.stores.newest}${v.stores.newestAt ? `, ${v.stores.newestAt}` : ''} · read from each store` : 'The newest release was not read'), grid)));
+      panel(make('h2', {}, 'Where Kitden is published'), '', grid)));
   }
 
   // The checks of main's newest push.
@@ -469,11 +465,10 @@ function render(v) {
     };
     body.push(make('div', { class: 'grp' }, make('span', {}, 'Supported platforms'), make('span', { class: 'tag block' }, 'Blocks a release')));
     v.bench.platforms.forEach(r => body.push(row(r)));
-    body.push(make('div', { class: 'grp' }, make('span', {}, 'Compatibility'), make('span', { class: 'tag' }, 'Informational'),
-      make('span', { class: 'about' }, 'The newest versions from outside; a red here is often theirs, and never blocks a release.')));
+    body.push(make('div', { class: 'grp' }, make('span', {}, 'Compatibility'), make('span', { class: 'tag' }, 'Informational')));
     v.bench.compatibility.forEach(r => body.push(row(r)));
     parts.push(make('section', { 'aria-label': 'Nightly' },
-      panel(make('h2', {}, `Nightly${v.bench.night ? ` · ${v.bench.night}` : ''}`), make('span', { class: 'quiet' }, 'Strips: the last 14 nights, oldest on the left'), ...body)));
+      panel(make('h2', {}, `Nightly${v.bench.night ? ` · ${v.bench.night}` : ''}`), '', ...body)));
   }
 
   if (v.startup) parts.push(make('section', { 'aria-label': 'Start-up time by release' }, startupPanel(v.startup)));
@@ -489,7 +484,7 @@ function render(v) {
   const upCard = make('div', { class: 'card' },
     make('h3', {}, sock(up.light ? up.light.state : 'grey'), 'Upstream changes', make('span', { class: 'w' }, up.light ? up.light.word : '')),
     make('span', { class: 'big' }, up.confirmed === null ? 'Not read' : `${up.confirmed} open`),
-    make('span', { class: 'quiet' }, up.confirmed === null ? '' : `Confirmed changes in Claude Code, Codex or Cursor that Kitden has not met yet${up.unconfirmed ? `; ${up.unconfirmed} more wait for your verdict` : ''}.`, up.watched ? ` ${up.watched}` : ''),
+    make('span', { class: 'quiet' }, up.confirmed === null ? '' : `Confirmed client changes Kitden has not met yet${up.unconfirmed ? `; ${up.unconfirmed} more wait for your verdict` : ''}.`, up.watched ? ` ${up.watched}` : ''),
     up.light && up.light.state !== 'green' && up.light.why ? make('span', { class: 'quiet' }, up.light.why) : '',
     make('span', {}, link(up.summaries.text, up.summaries.href)));
   const ag = c.agents;

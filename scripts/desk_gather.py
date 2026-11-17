@@ -524,7 +524,7 @@ def _glama(fetch: Fetch) -> dict:
     read, to see that it answers; no version is taken from it."""
     fetch(GLAMA)
     return {"version": None, "listed": True, "at": None, "url": GLAMA,
-            "note": "Listed; Glama reads the repository"}
+            "note": None}
 
 
 def _watch_days(watch_log: list[dict] | None, now: datetime) -> float | None:

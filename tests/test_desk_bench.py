@@ -273,4 +273,5 @@ def test_stores_compare_with_the_newest_release():
     assert found["pypi"]["state"] == "green" and found["homebrew"]["state"] == "amber"
     assert found["registry"]["state"] == "grey" and found["glama"]["state"] == "green"
     assert found["claude-plugin"]["state"] == "planned"
+    assert found["mcprush"]["listed"] is True and found["mcprush"]["url"] == desk_bench.MCPRUSH
     assert stores(None, seen)["stores"][0]["state"] == "grey"  # nothing to match it against
