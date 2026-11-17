@@ -31,6 +31,9 @@ VERSION = re.compile(r"\d+\.\d+\.\d+\Z")
 PYPI_VERSION = "https://pypi.org/pypi/kitden/{version}/json"
 REGISTRY_VERSION = "https://registry.modelcontextprotocol.io/v0/servers/{name}/versions/{version}"
 POLL_S = 30
+# A store's cache can show the version before for a few minutes after an upload: PyPI's
+# /pypi/kitden/json did so on 14 and 17 Nov, a minute after the publish job.
+SETTLE_S = 600
 # Checked 2026-11-12 on claude.com/docs/plugins/submit: the developer portal, where the plugin's
 # page (from Submissions) holds its listing and its data handling answers.
 DIRECTORY = "https://claude.ai/directory/manage"
@@ -104,6 +107,20 @@ def must_pass(rows: list[Row]) -> list[str]:
     return problems
 
 
+def settled_rows(
+    tag: str, fetch: Fetch, sleep: Callable[[float], object], timeout_s: int = SETTLE_S
+) -> list[Row]:
+    """Every store's row, read again every POLL_S seconds while a place that must pass does not,
+    for at most `timeout_s` seconds. The last reading is returned either way."""
+    rows = read_all(tag, fetch)
+    waited = 0
+    while must_pass(rows) and waited + POLL_S <= timeout_s:
+        sleep(POLL_S)
+        waited += POLL_S
+        rows = read_all(tag, fetch)
+    return rows
+
+
 def hand_steps(changed_files: list[str]) -> list[str]:
     """What the owner does by hand, given the files changed since the last tag."""
     changed = [name for name in HAND_FILES if name in changed_files]
@@ -152,7 +169,7 @@ def _say(answer: bool) -> int:
 
 
 def _summary(tag: str, changed: Path, out: Path) -> int:
-    rows = read_all(tag, fetch_url)
+    rows = settled_rows(tag, fetch_url, time.sleep)
     problems = must_pass(rows)
     steps = hand_steps(changed.read_text().splitlines())
     parts = [f"## Kitden {tag} in every store", "", summary(rows)]

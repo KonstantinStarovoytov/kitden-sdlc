@@ -166,3 +166,9 @@ Problems found while building the reviewers, and what changed because of each.
   page reads the release in flight from GitHub's API every minute and shows its steps.
   Kept by: `tests/test_desk_page.py::test_a_job_without_a_machine_says_which_machine_it_waits_for_and_how_long`
   and `::test_a_failed_release_says_why_and_links_to_its_run`.
+- **The store summary failed two releases that were out.** For 0.9.2 and 0.10.1 it read PyPI
+  a minute after the upload and got the version before from PyPI's cache, so the run went red
+  though every store had the release. Now it reads the stores again every 30 s for up to ten
+  minutes before it calls one wrong; the job may take 15 minutes.
+  Kept by: `tests/test_release_publish.py::test_the_summary_reads_again_while_a_store_still_shows_the_version_before`
+  and `::test_the_summary_stops_reading_again_after_ten_minutes`.
