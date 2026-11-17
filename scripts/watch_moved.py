@@ -61,16 +61,22 @@ def _maybe(address: str, manifest: list[str], hosts) -> str:
 def moved(pages: dict[str, str], manifest: set[str], hosts, locate) -> list[dict]:
     """One record for each address in `pages` (address: client) that is not in `manifest`.
 
-    An address that `allowed` refuses is skipped: no record, and `locate` is not called.
+    An address that `allowed` refuses is skipped: no record, and `locate` is not called. So is
+    an address under a path start of config/doc-hosts.yml where the manifest has no page at
+    all: Agent Docs does not read that part of the site (cursor.com/help/, kitden#122), so its
+    absence says nothing.
 
     `locate(address)` gives the allowed address it redirects to, or None. If it raises, that
     counts as no redirect. The records are sorted by address.
     """
     known = sorted(key for key in manifest if allowed(key, hosts))
     found = set(known)
+    covered = set().union(*(_starts(key, hosts) for key in known))
     result = []
     for address in sorted(pages):
         if not allowed(address, hosts) or address + ".md" in found or address in found:
+            continue
+        if not _starts(address, hosts) & covered:
             continue
         try:
             target = locate(address)

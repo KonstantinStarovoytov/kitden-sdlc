@@ -6,6 +6,12 @@ from doc_address import load_hosts
 from watch_moved import manifest_addresses, moved
 
 HOSTS = load_hosts()
+# One page under each path start of config/doc-hosts.yml: the manifest covers every part of
+# every doc site, so an address it lacks is judged (a part it has no page in is not).
+COVER = {"https://code.claude.com/docs/en/cover.md", "https://cursor.com/docs/cover.md",
+         "https://cursor.com/help/cover.md", "https://learn.chatgpt.com/docs/cover.md",
+         "https://developers.openai.com/codex/cover.md",
+         "https://developers.openai.com/plugins/cover.md"}
 
 
 class Locate:
@@ -59,7 +65,7 @@ def test_address_in_the_manifest_gives_nothing_and_is_not_asked():
 def test_redirect_to_an_allowed_address_is_moved():
     locate = Locate({"https://cursor.com/docs/context/skills": "https://cursor.com/docs/skills"})
     pages = {"https://cursor.com/docs/context/skills": "cursor"}
-    assert moved(pages, set(), HOSTS, locate) == [
+    assert moved(pages, COVER, HOSTS, locate) == [
         {"address": "https://cursor.com/docs/context/skills", "client": "cursor",
          "verdict": "moved", "to": "https://cursor.com/docs/skills"},
     ]
@@ -67,14 +73,14 @@ def test_redirect_to_an_allowed_address_is_moved():
 
 def test_moved_to_drops_a_trailing_md():
     locate = Locate({"https://code.claude.com/docs/en/a": "https://code.claude.com/docs/en/b.md"})
-    result = moved({"https://code.claude.com/docs/en/a": "claude"}, set(), HOSTS, locate)
+    result = moved({"https://code.claude.com/docs/en/a": "claude"}, COVER, HOSTS, locate)
     assert result[0]["to"] == "https://code.claude.com/docs/en/b"
 
 
 def test_redirect_to_another_doc_host_is_moved():
     address = "https://developers.openai.com/codex/config-reference"
     locate = Locate({address: "https://learn.chatgpt.com/docs/config-reference"})
-    result = moved({address: "codex"}, set(), HOSTS, locate)
+    result = moved({address: "codex"}, COVER, HOSTS, locate)
     assert result[0]["verdict"] == "moved"
     assert result[0]["to"] == "https://learn.chatgpt.com/docs/config-reference"
 
@@ -82,7 +88,7 @@ def test_redirect_to_another_doc_host_is_moved():
 def test_redirect_to_an_address_that_is_not_allowed_is_not_moved():
     address = "https://cursor.com/docs/a"
     locate = Locate({address: "https://example.com/docs/a"})
-    result = moved({address: "cursor"}, set(), HOSTS, locate)
+    result = moved({address: "cursor"}, COVER, HOSTS, locate)
     assert result[0]["verdict"] == "absent"
 
 
@@ -106,7 +112,7 @@ def test_maybe_takes_the_first_match_in_sorted_order():
 
 def test_maybe_needs_the_same_path_start():
     pages = {"https://cursor.com/help/customization/rules": "cursor"}
-    manifest = {"https://cursor.com/docs/rules.md"}
+    manifest = COVER | {"https://cursor.com/docs/rules.md"}
     result = moved(pages, manifest, HOSTS, Locate())
     assert (result[0]["verdict"], result[0]["to"]) == ("absent", "")
 
@@ -121,7 +127,7 @@ def test_maybe_takes_the_shortest_path():
 
 def test_maybe_needs_the_same_host():
     pages = {"https://cursor.com/docs/old/skills": "cursor"}
-    manifest = {"https://code.claude.com/docs/en/skills.md"}
+    manifest = COVER | {"https://code.claude.com/docs/en/skills.md"}
     result = moved(pages, manifest, HOSTS, Locate())
     assert result[0]["verdict"] == "absent"
 
@@ -137,7 +143,7 @@ def test_no_redirect_and_no_match_is_absent():
 
 def test_manifest_address_with_a_query_is_ignored():
     pages = {"https://cursor.com/docs/a": "cursor", "https://cursor.com/docs/old/skills": "cursor"}
-    manifest = {"https://cursor.com/docs/a.md?x=1", "https://cursor.com/docs/skills.md?x=1",
+    manifest = COVER | {"https://cursor.com/docs/a.md?x=1", "https://cursor.com/docs/skills.md?x=1",
                 "https://example.com/docs/skills.md"}
     result = moved(pages, manifest, HOSTS, Locate())
     assert [(r["address"], r["verdict"]) for r in result] == [
@@ -149,7 +155,7 @@ def test_manifest_address_with_a_query_is_ignored():
 def test_locate_is_called_once_an_address():
     locate = Locate()
     pages = {"https://cursor.com/docs/a": "cursor", "https://cursor.com/docs/b": "cursor"}
-    moved(pages, set(), HOSTS, locate)
+    moved(pages, COVER, HOSTS, locate)
     assert sorted(locate.asked) == ["https://cursor.com/docs/a", "https://cursor.com/docs/b"]
 
 
@@ -176,7 +182,7 @@ def test_list_address_that_is_not_allowed_is_skipped(address):
 
 def test_list_address_that_is_not_allowed_does_not_stop_the_rest():
     pages = {"https://[bad/docs/x": "cursor", "https://cursor.com/docs/gone": "cursor"}
-    result = moved(pages, set(), HOSTS, Locate(fail=True))
+    result = moved(pages, COVER, HOSTS, Locate(fail=True))
     assert [r["address"] for r in result] == ["https://cursor.com/docs/gone"]
 
 
@@ -191,5 +197,18 @@ def test_list_address_with_an_empty_last_part_is_never_maybe():
 def test_result_is_sorted_by_address():
     pages = {"https://cursor.com/docs/c": "cursor", "https://code.claude.com/docs/en/a": "claude",
              "https://cursor.com/docs/b": "cursor"}
-    result = moved(pages, set(), HOSTS, Locate())
+    result = moved(pages, COVER, HOSTS, Locate())
     assert [r["address"] for r in result] == sorted(pages)
+
+
+def test_a_section_the_manifest_does_not_cover_is_not_judged():
+    # Agent Docs reads cursor.com/docs/ but not cursor.com/help/ or developers.openai.com/plugins/
+    # (kitden#122): a list page there is not missing, so it gives nothing and is not asked.
+    locate = Locate()
+    pages = {"https://cursor.com/help/customization/rules": "cursor",
+             "https://developers.openai.com/plugins/build/plugins": "codex",
+             "https://cursor.com/docs/gone": "cursor"}
+    manifest = {"https://cursor.com/docs/skills.md"}
+    result = moved(pages, manifest, HOSTS, locate)
+    assert [r["address"] for r in result] == ["https://cursor.com/docs/gone"]
+    assert locate.asked == ["https://cursor.com/docs/gone"]

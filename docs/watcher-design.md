@@ -160,8 +160,10 @@ Three jobs, in the shape the reviewers use.
    `kitden`'s main branch. For each of those files it notes whether it differs between main
    and the latest release tag; the model reads main only (call). Each run it also reads the
    Agent Docs manifest (at most 5 MB), and once a week it puts each doc page of the list
-   that is not in it into the items kept for the summary: moved (with where to), maybe at a
-   page of the same name under the same path, or not found (`scripts/watch_moved.py`). A
+   that is not in it, under a path start of `config/doc-hosts.yml` where the manifest has
+   pages (Agent Docs does not read every one), into the items kept for the summary: moved
+   (with where to), maybe at a page of the same name under the same path, or not found
+   (`scripts/watch_moved.py`). A
    day the manifest cannot be read, the check waits for the next run. It also reads the pages
    of the store rules and, once a week, puts each page that changed after its facts were
    checked into the kept items (part 3).
