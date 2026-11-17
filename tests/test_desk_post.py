@@ -149,7 +149,8 @@ def test_the_issue_lists_each_failed_job_linked_and_says_what_to_do():
 
 @pytest.mark.parametrize(("part", "means"), [
     ("clients", "newest Claude Code or Codex"), ("browser", "in a real browser"),
-    ("test", "scheduled test run failed")])
+    ("test", "scheduled test run failed"), ("engines", "in one browser engine"),
+    ("use", "uses clearly more CPU or memory")])
 def test_what_it_means_depends_on_the_part(part, means):
     assert means in ci_body(row(part, "red", since="2026-11-18"))
 

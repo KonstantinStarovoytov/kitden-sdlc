@@ -116,9 +116,15 @@ def test_rows_follow_the_page_and_show_the_last_nights():
     history = [night_line(i, f"2026-11-{i:02}") for i in range(1, 17)]
     found = rows(history, NOW)
     assert [r["name"] for r in found] == [
-        "macOS · arm64", "macOS · x86_64 (Intel)", "Linux · x86_64", "Linux · arm64",
-        "End-to-end in Chromium", "Start-up time", "Claude Code and Codex, newest",
-        "Newest dependencies"]
+        "macOS · arm64",
+        "macOS · x86_64 (Intel)",
+        "Linux · x86_64",
+        "Linux · arm64",
+        "End-to-end in Chromium",
+        "Start-up time",
+        "Claude Code and Codex, newest",
+        "Newest dependencies",
+    ]
     mac = found[0]
     assert mac["state"] == "green" and [c["label"] for c in mac["cells"]] == [
         "Python 3.13", "Python 3.14"]

@@ -1021,8 +1021,11 @@ def states(rows):
 def test_a_row_has_every_key_and_the_latest_deps_workflow_has_its_own():
     rows = nightly(GREEN_NIGHTS, None, NOW)
     assert states(rows) == [
-        ("nightly.yml", "systems", "green"), ("nightly.yml", "clients", "green"),
-        ("nightly.yml", "browser", "green"), ("latest-deps.yml", "test", "green")]
+        ("nightly.yml", "systems", "green"),
+        ("nightly.yml", "clients", "green"),
+        ("nightly.yml", "browser", "green"),
+        ("latest-deps.yml", "test", "green"),
+    ]
     assert rows[0] == {"workflow": "nightly.yml", "name": "Nightly tests", "part": "systems",
                        "state": "green", "failed": [], "run": RUN_URL, "night": NIGHT,
                        "since": None, "grey_since": None, "grey_nights": None, "why": ""}
