@@ -72,6 +72,18 @@ The agents are measured, and what they get wrong becomes the next test.
 
 The desk shows it all every day on [the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): [docs/agents.md](docs/agents.md#the-desk).
 
+## How the watcher reads the docs
+
+The watcher checks the clients' docs through [Agent Docs](https://github.com/KonstantinStarovoytov/agent-docs),
+an MCP server that keeps the official docs of Claude Code, Codex, Cursor
+and MCP searchable and refreshes them every day. It answers three questions here:
+
+- **Is the fact still on its page?** [scripts/watch_sources.py](scripts/watch_sources.py) searches it for each row of Kitden's list of client facts.
+- **Did a page move?** Once a week the watcher compares the list's doc pages with its manifest of every page it holds.
+- **What is new in the docs?** Its daily feed of new pages and sections, behind the `WATCH_FEED` switch.
+
+How: [docs/watcher-design.md](docs/watcher-design.md). In your own sessions: [docs/owner.md](docs/owner.md#agent-docs-in-a-session).
+
 ## What you do
 
 Read the comments, answer the issues, press **Run workflow** to release. Every action and
