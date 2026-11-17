@@ -236,7 +236,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
 <script type="module" blocking="render">
 // view.js?v= is the start of view.js's SHA-256 (tests/test_desk_page.py checks it), so a
 // browser never runs this page with an older view.js from its cache.
-import { view, ticks, releaseNow, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=d5d9ea2e62d1';
+import { view, ticks, releaseNow, RELEASE_POLL, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=0cd91242698f';
 document.documentElement.dataset.started = 'yes';
 
 const main = document.getElementById('main');
@@ -567,14 +567,21 @@ async function getText(url) {
   return res.text();
 }
 
-let polling = false, polled = 0;
+// Every minute while a step runs, else every five (RELEASE_POLL): GitHub allows 60 requests an
+// hour from one address without a token, and a poll takes one or two.
+let polling = false, polled = 0, wait = RELEASE_POLL.idle;
 async function pollRelease() {
   if (polling || document.hidden) return;
   polling = true; polled = Date.now();
-  try { drawRelease(await releaseNow(getText, new Date())); } catch (e) { drawRelease(null, e); } finally { polling = false; }
+  try {
+    const r = await releaseNow(getText, new Date());
+    wait = r && r.live ? RELEASE_POLL.live : RELEASE_POLL.idle;
+    drawRelease(r);
+  } catch (e) { wait = RELEASE_POLL.idle; drawRelease(null, e); } finally { polling = false; }
 }
-setInterval(pollRelease, 60e3);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - polled > 55e3) pollRelease(); });
+const due = () => Date.now() - polled > wait - 5e3;
+setInterval(() => { if (due()) pollRelease(); }, 60e3);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && due()) pollRelease(); });
 // For a look at saved answers in the console: renderRelease({url: body or 404}, now).
 window.renderRelease = (answers, now = new Date()) => releaseNow(async url => {
   if (!Object.hasOwn(answers, url)) throw new Error(`no answer for ${url}`);

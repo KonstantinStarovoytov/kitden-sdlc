@@ -386,6 +386,7 @@ const WAITS = ['queued', 'waiting', 'pending', 'requested'];
 const FAILS = ['failure', 'cancelled', 'timed_out', 'startup_failure', 'action_required'];
 const SHA = /^[0-9a-f]{40}$/;
 const VERSION = /^\d+\.\d+\.\d+[\w.+-]*$/;
+export const RELEASE_POLL = { live: 60e3, idle: 300e3 };
 const releaseOf = new Map(); // a main commit → whether it carries a new release; read once
 const closed = new Set(); // release pull requests found closed: not asked again
 
@@ -437,11 +438,11 @@ function stepOf(step, jobs, run, now) {
   const running = mine.find(j => j.status === 'in_progress');
   if (waiting) {
     const m = machine(waiting);
-    return { name: step.name, state: 'now', note: [`waiting for ${m ? an(`${m} machine`) : 'a machine'} · ${minutes(waiting.created_at, now)}`] };
+    return { name: step.name, state: 'now', running: true, note: [`waiting for ${m ? an(`${m} machine`) : 'a machine'} · ${minutes(waiting.created_at, now)}`] };
   }
   if (running) {
     const m = machine(running);
-    return { name: step.name, state: 'now', note: [`running${m ? ` on ${m}` : ''} · ${minutes(running.started_at, now)}`] };
+    return { name: step.name, state: 'now', running: true, note: [`running${m ? ` on ${m}` : ''} · ${minutes(running.started_at, now)}`] };
   }
   const done = mine.length && mine.every(j => j.status === 'completed' && j.conclusion === 'success');
   return { name: step.name, state: done ? 'done' : 'ahead', note: [] };
@@ -453,13 +454,15 @@ function prStep(run, pr, now) {
   if (pr.draft === true) return { name: 'Pull request', state: 'now', note: ['a draft: finish what its body lists · ', linked(...open)] };
   if (run.status !== 'completed') {
     const since = isText(run.run_started_at) ? run.run_started_at : run.created_at;
-    return { name: 'Pull request', state: 'now', note: [`checks running · ${minutes(since, now)}`] };
+    return { name: 'Pull request', state: 'now', running: true, note: [`checks running · ${minutes(since, now)}`] };
   }
   if (run.conclusion !== 'success') return { name: 'Pull request', state: 'failed', note: ['a check failed · ', linked('Open the run', run.html_url)] };
   return { name: 'Pull request', state: 'now', note: ['waiting for your merge · ', linked(...open)] };
 }
 
-/** The release in flight, or the last one when it failed; null when there is none to show. */
+/** The release in flight, or the last one when it failed; null when there is none to show.
+ * `live` is true while a step runs or waits for a machine: the page then asks every minute,
+ * else every five minutes (RELEASE_POLL), so an open page stays within GitHub's 60 an hour. */
 export async function releaseNow(get, now = new Date()) {
   const runs = list(JSON.parse(await get(RELEASE_RUNS))?.workflow_runs);
   const newest = test => runs.filter(r => isText(r.head_branch) && test(r.head_branch))
@@ -477,10 +480,12 @@ export async function releaseNow(get, now = new Date()) {
   if (Number.isInteger(number) && !closed.has(number) && newer(PREP.exec(prep.head_branch)[1], tag?.head_branch)) {
     const pr = JSON.parse(await get(`${API}/pulls/${number}`));
     if (isObject(pr) && pr.state === 'open') {
-      return {
+      const strip = {
         version: PREP.exec(prep.head_branch)[1], url: href(pr.html_url),
         steps: RELEASE_STEPS.map(s => (s.pr ? prStep(prep, pr, now) : { name: s.name, state: 'ahead', note: [] })),
       };
+      strip.live = strip.steps.some(s => s.running === true);
+      return strip;
     }
     closed.add(number);
   }
@@ -499,5 +504,5 @@ export async function releaseNow(get, now = new Date()) {
     const first = steps.find(s => s.state !== 'done');
     if (first) Object.assign(first, { state: 'failed', note: [`the run ${line(run.conclusion) || 'stopped'} · `, linked('Open the run', run.html_url)] });
   }
-  return { version: line(version), url: href(run.html_url), steps };
+  return { version: line(version), url: href(run.html_url), steps, live: steps.some(s => s.running === true) };
 }
