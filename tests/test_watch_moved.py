@@ -203,7 +203,7 @@ def test_result_is_sorted_by_address():
 
 def test_a_section_the_manifest_does_not_cover_is_not_judged():
     # Agent Docs reads cursor.com/docs/ but not cursor.com/help/ or developers.openai.com/plugins/
-    # (kitden#122): a list page there is not missing, so it gives nothing and is not asked.
+    # (kitden#122): a list page there that does not redirect is not missing, so it gives nothing.
     locate = Locate()
     pages = {"https://cursor.com/help/customization/rules": "cursor",
              "https://developers.openai.com/plugins/build/plugins": "codex",
@@ -211,4 +211,14 @@ def test_a_section_the_manifest_does_not_cover_is_not_judged():
     manifest = {"https://cursor.com/docs/skills.md"}
     result = moved(pages, manifest, HOSTS, locate)
     assert [r["address"] for r in result] == ["https://cursor.com/docs/gone"]
-    assert locate.asked == ["https://cursor.com/docs/gone"]
+    assert sorted(locate.asked) == sorted(pages)
+
+
+def test_a_section_the_manifest_does_not_cover_still_reports_a_redirect():
+    # Agent Docs has no page under developers.openai.com/codex/, but a list page there that
+    # redirects has moved, and the list should follow it.
+    address = "https://developers.openai.com/codex/config-reference"
+    locate = Locate({address: "https://learn.chatgpt.com/docs/config-file/config-reference"})
+    result = moved({address: "codex"}, {"https://cursor.com/docs/skills.md"}, HOSTS, locate)
+    assert result == [{"address": address, "client": "codex", "verdict": "moved",
+                       "to": "https://learn.chatgpt.com/docs/config-file/config-reference"}]

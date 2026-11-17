@@ -61,10 +61,10 @@ def _maybe(address: str, manifest: list[str], hosts) -> str:
 def moved(pages: dict[str, str], manifest: set[str], hosts, locate) -> list[dict]:
     """One record for each address in `pages` (address: client) that is not in `manifest`.
 
-    An address that `allowed` refuses is skipped: no record, and `locate` is not called. So is
-    an address under a path start of config/doc-hosts.yml where the manifest has no page at
-    all: Agent Docs does not read that part of the site (cursor.com/help/, kitden#122), so its
-    absence says nothing.
+    An address that `allowed` refuses is skipped: no record, and `locate` is not called. An
+    address under a path start of config/doc-hosts.yml where the manifest has no page at all
+    gets a record only when it redirects: Agent Docs does not read that part of the site
+    (cursor.com/help/, kitden#122), so its absence says nothing, but a redirect still does.
 
     `locate(address)` gives the allowed address it redirects to, or None. If it raises, that
     counts as no redirect. The records are sorted by address.
@@ -76,14 +76,14 @@ def moved(pages: dict[str, str], manifest: set[str], hosts, locate) -> list[dict
     for address in sorted(pages):
         if not allowed(address, hosts) or address + ".md" in found or address in found:
             continue
-        if not _starts(address, hosts) & covered:
-            continue
         try:
             target = locate(address)
         except Exception:  # noqa: BLE001 - any failure to ask counts as no redirect
             target = None
         if target and allowed(target, hosts):
             verdict, to = "moved", _bare(target)
+        elif not _starts(address, hosts) & covered:
+            continue
         else:
             to = _maybe(address, known, hosts)
             verdict = "maybe" if to else "absent"
