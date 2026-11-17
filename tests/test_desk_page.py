@@ -253,3 +253,12 @@ def test_the_page_puts_no_text_in_as_html_and_reads_only_desk_json():
 
 def test_the_issue_links_the_page():
     assert desk_post.PAGE in desk_post.render(DESK)
+
+
+def test_the_page_loads_this_view_js_and_says_so_when_it_cannot_start():
+    import hashlib
+
+    digest = hashlib.sha256(VIEW.read_bytes()).hexdigest()[:12]
+    assert f"from './view.js?v={digest}';" in PAGE, "after a change to view.js, set the new ?v="
+    assert "document.documentElement.dataset.started = 'yes';" in PAGE
+    assert "The page could not start. Reload it." in PAGE

@@ -176,7 +176,7 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
 
 @media (max-width:860px){
   .shell{padding:0}
-  .app{grid-template-columns:1fr;border-radius:0;border:0;min-height:100vh}
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;border-radius:0;border:0;min-height:100vh}
   .rail{border-right:0;border-bottom:1px solid var(--wire);flex-direction:row;align-items:center;gap:10px;padding:10px 16px}
   .rail nav{flex-direction:row} .rail nav a[aria-current="page"]::before{display:none}
   .rail .foot{display:none} .main{padding:24px 16px 32px;gap:18px}
@@ -212,7 +212,10 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;p
 </div></div>
 
 <script type="module">
-import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js';
+// view.js?v= is the start of view.js's SHA-256 (tests/test_desk_page.py checks it), so a
+// browser never runs this page with an older view.js from its cache.
+import { view, ticks, MEASURES, DATA, DATA_PAGE, HOW_TO, RUNS } from './view.js?v=3e50ce033c17';
+document.documentElement.dataset.started = 'yes';
 
 const main = document.getElementById('main');
 const SVG = 'http://www.w3.org/2000/svg';
@@ -509,6 +512,15 @@ fetch(DATA, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referr
   .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
   .then(desk => render(view(desk, new Date())))
   .catch(e => fail(e instanceof SyntaxError ? 'Its data is not JSON' : e.message || 'No answer'));
+</script>
+<script>
+// If the module above never starts (a browser too old for it, or a file that failed to load),
+// say so rather than read forever. Text only, as everywhere on this page.
+setTimeout(function () {
+  if (document.documentElement.dataset.started) return;
+  var lead = document.getElementById('lead');
+  if (lead && lead.lastChild) lead.lastChild.textContent = 'The page could not start. Reload it.';
+}, 8000);
 </script>
 </body>
 </html>
