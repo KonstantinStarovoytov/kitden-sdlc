@@ -708,3 +708,17 @@ def test_the_list_check_cannot_turn_red_for_a_page():
     run = " ".join(str(_step(doc, "check", LIST_STEP)["run"]).split())
     assert "||" not in run and "exit" not in run
     assert check_workflow(doc, "list-check.yml") == []
+
+
+def test_publish_starts_the_desk_on_main_as_the_release_app_with_actions_only():
+    doc = yaml.safe_load((ROOT / ".github/workflows/publish.yml").read_text())
+    desk = doc["jobs"]["desk"]
+    assert desk["needs"] == ["check", "summary"] and "!cancelled()" in desk["if"]
+    assert desk["environment"] == "release" and desk["permissions"] == {}
+    assert desk["continue-on-error"] is True  # a desk that did not start fails no release
+    sign_in = [s for s in desk["steps"] if "create-github-app-token" in str(s.get("uses"))]
+    assert len(sign_in) == 1 and sign_in[0]["with"]["repositories"] == "kitden-sdlc"
+    assert [k for k in sign_in[0]["with"] if k.startswith("permission-")] == ["permission-actions"]
+    start = desk["steps"][-1]["run"]
+    assert "gh workflow run desk.yml --repo KonstantinStarovoytov/kitden-sdlc --ref main" in start
+    assert not any("checkout" in str(s.get("uses")) for s in desk["steps"])

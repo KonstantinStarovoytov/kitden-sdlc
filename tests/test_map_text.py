@@ -252,7 +252,7 @@ def test_every_step_is_one_short_line_with_at_most_one_short_why():
     wf = HTML.split("\nconst WF = [\n")[1].split("\n];")[0]
     hosts = re.search(r"\nconst HOSTS = '([^'\\]*)';", HTML).group(1)
     lists = re.findall(r"steps:\[((?:HOSTS|'[^'\\]*'|\s|,)*)\]", wf)
-    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 48
+    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 49
     steps = [hosts if s == "HOSTS" else s[1:-1] for found in lists
              for s in re.findall(r"HOSTS|'[^']*'", found)]
     assert len(steps) > 100

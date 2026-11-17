@@ -400,7 +400,7 @@ table.hold tr:last-child td{border-bottom:0}
  "s-check": {"name": "Check the workflows", "what": "checks the calling repository's workflow files with zizmor, actionlint and the rule checker (7 of the 11 rules in RULES.md).", "why": "a workflow that runs an agent is where a mistake leaks a secret. This shows an unsafe change these tools can find as a red check before the merge."},
  "s-list-check": {"name": "Check the list against the docs", "what": "when a Kitden pull request changes docs/clients.md, Kitden's list of client facts, checks each row it adds or changes that names a doc page against that page (at most 20 pages), and warns when a word the row writes in backticks is not on it.", "why": "the list says what Kitden relies on in each client. A row that no page backs should be seen while the pull request is open, not after the release."},
  "s-release-prep": {"name": "Release prep", "what": "prepares a Kitden release: Claude drafts the notes, the README and the policy edits, scripts check them, and one pull request, `Kitden X.Y.Z`, is opened.", "why": "the owner starts it, reviews and merges. No step of a release is forgotten: the pull request lists the ones still done by hand."},
- "s-publish": {"name": "Publish", "what": "after a new Kitden version is on PyPI, moves the `release` branch, publishes to the MCP Registry, opens the Homebrew pull request when Kitden's runtime dependencies did not change, and writes a table of every store.", "why": "one tag updates the stores a script can reach, and the table shows which are behind or must be checked by hand."},
+ "s-publish": {"name": "Publish", "what": "after a new Kitden version is on PyPI, moves the `release` branch, publishes to the MCP Registry, opens the Homebrew pull request when Kitden's runtime dependencies did not change, writes a table of every store, and starts the desk again.", "why": "one tag updates the stores a script can reach, the table shows which are behind or must be checked by hand, and the desk page shows the new version the same hour."},
  "s-release-watch": {"name": "Release watch", "what": "with no model, opens or updates an issue in Kitden while a release is due or a store is behind, and closes it when that no longer holds. Kitden calls it once a day.", "why": "so that merged work does not sit unreleased, and a release that reached only some stores is noticed."},
  "s-watch": {"name": "Client watcher", "what": "once a day, reads what Claude Code, Codex and Cursor changed, and a model judges whether each change touches what Kitden reads or shows. A sure, major break or wrong data gets an issue in Kitden at once (two a week at most); the rest goes into a weekly summary issue.", "why": "Kitden depends on these clients' files and settings. A change there breaks Kitden quietly unless something watches for it."},
  "s-desk": {"name": "Kitden desk", "what": "every day, with no model, counts the facts about Kitden and its agents for the desk page, and opens an issue when a nightly test job is red.", "why": "the owner sees in one place whether everything is healthy and what waits for a decision, without opening each workflow."},
@@ -605,7 +605,7 @@ const WF = [
   ]},
  {id:'s-publish', r:'s', file:'publish.yml', kind:'reusable',
   trigger:'Called by Kitden’s `release.yml` on a version tag',
-  calledBy:['k-release'], stages:[['check'],['release-branch','registry','homebrew'],['summary']],
+  calledBy:['k-release'], stages:[['check'],['release-branch','registry','homebrew'],['summary'],['desk']],
   jobs:[
    {n:'check', tags:[], when:'a `v*` tag',
     steps:['Check the run is Kitden’s, for the tag of this version|anything else stops every store job']},
@@ -620,7 +620,9 @@ const WF = [
      'After PyPI has it: new address, checksum and description in the formula|`Formula/kitden.rb` in the tap: the recipe `brew` installs from',
      'Open the pull request `bump-kitden-X.Y.Z` in the tap, as Beacon|the tap’s tests then build bottles: ready-built packages for `brew`']},
    {n:'summary', tags:[], when:'after the others, even if one failed',
-    steps:['Write a table of Kitden’s version in every store|PyPI, GitHub, MCP Registry, Homebrew and more; it shows what failed']}
+    steps:['Write a table of Kitden’s version in every store|PyPI, GitHub, MCP Registry, Homebrew and more; it shows what failed']},
+   {n:'desk', tags:['as Beacon, the release app'], when:'after summary, even if a job failed',
+    steps:['Start the desk on main|the desk page shows the new version within minutes, not next morning']}
   ]},
  {id:'s-release-watch', r:'s', file:'release-watch.yml', kind:'reusable',
   trigger:'Called by Kitden’s `release-watch.yml`',
@@ -650,7 +652,7 @@ const WF = [
      'Score the answers against the known ones|the daily run uses the model and effort that passed it']}
   ]},
  {id:'s-desk', r:'s', file:'desk.yml', kind:'own',
-  trigger:'Every day at 06:41 UTC, or by hand',
+  trigger:'Every day at 06:41 UTC, after each release, or by hand',
   reads:['k-nightly','k-latest-deps'], stages:[['measure'],['post']],
   jobs:[
    {n:'measure', about:'Works out from facts, with no model, what is healthy and what waits', tags:['no model'], when:'always',
