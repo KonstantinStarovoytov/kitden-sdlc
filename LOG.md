@@ -151,3 +151,12 @@ Problems found while building the reviewers, and what changed because of each.
   (in every job with someone else's checkout on top, uv and python run from the temp folder)
   and `tests/test_workflows.py::test_a_planted_python_is_looked_for_in_every_job_that_could_hold_one`
   (the jobs let off still need it, and release prep's only because guard keeps it on Kitden's main).
+
+## 2026-11-17
+
+- **The moved-pages check called two live pages "not found".** It took any list address
+  missing from Agent Docs' manifest as gone, but Agent Docs does not index `cursor.com/help/`
+  or `developers.openai.com`, so Kitden issue 122 was a false alarm. Pages there are now
+  skipped, unless they redirect: a move is still told, since nothing else would see it.
+  Kept by: `tests/test_watch_moved.py::test_a_section_the_manifest_does_not_cover_is_not_judged`
+  and `::test_a_section_the_manifest_does_not_cover_still_reports_a_redirect`.
