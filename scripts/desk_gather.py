@@ -524,7 +524,20 @@ def _glama(fetch: Fetch) -> dict:
     read, to see that it answers; no version is taken from it."""
     fetch(GLAMA)
     return {"version": None, "listed": True, "at": None, "url": GLAMA,
-            "note": "Listed; Glama reads the repository"}
+            "note": None}
+
+
+MCPRUSH = "https://mcprush.com/konstantinstarovoytov/kitden-mcp"
+# MCP Rush's pages answer scripts with a challenge; its badge does not, and says the version.
+MCPRUSH_CARD = "https://mcprush.com/badge/kitden-mcp/card.svg"
+CARD_VERSION = re.compile(r"<desc>[^<]*· v(\d+\.\d+\.\d+) ·")
+
+
+def _mcprush(fetch: Fetch) -> dict:
+    found = CARD_VERSION.search(fetch(MCPRUSH_CARD))
+    if not found:
+        raise ValueError("no version on the badge")
+    return {"version": found.group(1), "at": None, "url": MCPRUSH}
 
 
 def _watch_days(watch_log: list[dict] | None, now: datetime) -> float | None:
@@ -543,6 +556,7 @@ def read_bench(api, fetch: Fetch, repo: str, facts: Facts, history: list[dict],
         "homebrew": _read("Homebrew", lambda: _homebrew(fetch)),
         "registry": _read("MCP Registry", lambda: _registry(fetch)),
         "glama": _read("Glama", lambda: _glama(fetch)),
+        "mcprush": _read("MCP Rush", lambda: _mcprush(fetch)),
     }
     return desk_bench.bench(
         history, now,

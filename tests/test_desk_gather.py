@@ -1079,6 +1079,13 @@ PYPI = {"info": {"version": "0.9.2"},
         "releases": {"0.9.2": [{"upload_time_iso_8601": "2026-11-14T17:20:42Z"}]}}
 
 
+# The start of MCP Rush's badge as it was on 17 Nov 2026.
+CARD = ('<svg xmlns="http://www.w3.org/2000/svg" width="380" height="200"><title>Kitden MCP on '
+        'mcprush</title><desc>Kitden MCP by KonstantinStarovoytov on mcprush · security A, high '
+        'access, no sign-in, 4 tools, works with 14 clients · 314/mo PyPI · Local · Free · '
+        'v0.9.2 · updated 3d ago</desc>')
+
+
 def store_fetch(url):
     if url == desk_gather.release_stores.FORMULA:
         return FORMULA
@@ -1086,6 +1093,8 @@ def store_fetch(url):
         return json.dumps(REGISTRY)
     if url == desk_gather.release_stores.PYPI:
         return json.dumps(PYPI)
+    if url == desk_gather.MCPRUSH_CARD:
+        return CARD
     if url == desk_gather.GLAMA:
         return "<html>Kitden</html>"
     raise OSError("not listed")
@@ -1099,6 +1108,8 @@ def test_each_store_gives_the_version_it_serves():
     assert desk_gather._registry(store_fetch)["version"] == "0.9.2"  # the latest, not the first
     assert desk_gather.REGISTRY_LATEST.endswith("&version=latest")
     assert desk_gather._glama(store_fetch)["listed"] is True
+    assert desk_gather._mcprush(store_fetch) == {"version": "0.9.2", "at": None,
+                                                 "url": desk_gather.MCPRUSH}
 
 
 def test_main_writes_the_history_and_the_bench(tmp_path):

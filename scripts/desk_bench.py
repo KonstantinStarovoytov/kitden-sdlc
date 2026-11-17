@@ -405,7 +405,7 @@ def stores(newest: dict | None, seen: dict[str, dict | None]) -> dict:
     there ({"version", "at", "url"}), or None when it could not be read."""
     version = newest.get("version") if newest else None
     names = (("pypi", "PyPI"), ("homebrew", "Homebrew"), ("registry", "MCP Registry"),
-             ("glama", "Glama"))
+             ("glama", "Glama"), ("mcprush", "MCP Rush"))
     out = []
     for store_id, name in names:
         got = seen.get(store_id)
@@ -421,8 +421,8 @@ def stores(newest: dict | None, seen: dict[str, dict | None]) -> dict:
             store_state = "grey" if not version else \
                 "green" if got["version"] == version else "amber"
         out.append({"id": store_id, "name": name, "state": store_state,
-                    "version": got.get("version"), "at": got.get("at"), "url": got.get("url"),
-                    "note": got.get("note")})
+                    "listed": bool(got.get("listed")), "version": got.get("version"),
+                    "at": got.get("at"), "url": got.get("url"), "note": got.get("note")})
     out.append({"id": "claude-plugin", "name": "Claude plugin", "state": "planned",
                 "version": None, "at": None, "url": None, "note": "Not published yet"})
     return {"newest": newest, "stores": out}
