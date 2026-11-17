@@ -13,7 +13,7 @@ Only while a Kitden release runs, or when the last one failed:
 
 ```
 Release 0.10.0
- ✓ Checks on main → ✓ Tag → ● Build → ○ PyPI → ○ GitHub release → ○ Stores
+ ✓ Pull request → ✓ Checks on main → ✓ Tag → ● Build → ○ PyPI → ○ GitHub release → ○ Stores
    waiting for a macOS machine · 12 min
 ```
 
@@ -35,6 +35,7 @@ Kitden's `.github/workflows/release.yml` ("Checks and release"):
 
 | Step | Run | Jobs |
 | --- | --- | --- |
+| Pull request | the release prep's pull request `prepare-v<version>` | the whole run |
 | Checks on main | the push to main | `build (macos-latest)`, `build (ubuntu-latest)` |
 | Tag | the same run | `autotag` |
 | Build | the push of tag `v<version>` | `build (macos-latest)`, `build (ubuntu-latest)` |
@@ -44,9 +45,10 @@ Kitden's `.github/workflows/release.yml` ("Checks and release"):
 
 Each poll:
 
-1. `GET /repos/KonstantinStarovoytov/kitden/actions/workflows/release.yml/runs?event=push&per_page=20`.
+1. `GET /repos/KonstantinStarovoytov/kitden/actions/workflows/release.yml/runs?per_page=30`.
    The newest run on a `v*` tag is the release; the newest run on `main` counts only when
-   it is newer than that and carries a new release (below).
+   it is newer than that and carries a new release (below); the newest run of a pull request
+   from `prepare-v<version>` counts when that version is newer than the newest tag's.
 2. A main run carries a release when its `pyproject.toml` version has
    `docs/releases/v<version>.md` and no tag `v<version>` yet: two files from
    raw.githubusercontent.com at the run's commit and one `git/matching-refs/tags/v<version>`.
@@ -59,12 +61,20 @@ counted from when the job was made; `in_progress` is "running", counted from its
 `success` is done; `failure`, `cancelled` or `timed_out` is failed. A job skipped or not made
 yet is ahead. A cancelled job that never got a machine says so.
 
+The pull request (added 17 Nov, after the owner looked for 0.10.1 while its pull request was
+open): its run of the checks says how far it is; one more `GET …/pulls/<number>` says whether
+it is still open and a draft. A pull request found closed is not asked again. Its one line:
+"checks running · 4 min", "a check failed" with a link to the run, "a draft: finish what its
+body lists", or "waiting for your merge", each with a link to the pull request.
+
 Which strip:
 
 - the newest main run carries a new release → the strip of that run: Checks on main and Tag
-  from its jobs, the rest ahead;
-- else the newest tag run, unless it finished with success → Checks on main and Tag done,
-  the rest from its jobs;
+  from its jobs, Pull request done, the rest ahead;
+- else an open release pull request with a newer version than the newest tag → its step,
+  the rest ahead;
+- else the newest tag run, unless it finished with success → Pull request, Checks on main
+  and Tag done, the rest from its jobs;
 - else no strip.
 
 ## Limits
@@ -73,7 +83,8 @@ Which strip:
   with nothing to show and two while a strip is shown, so a page left open through an hour of
   release uses that up. The page does not poll while it is hidden. When GitHub refuses after
   a strip was shown, the strip stays with the time it is from, and says when the limit ends.
-- A tag run that is not in the newest 20 pushes is not found; a release is always newer.
+- A tag run that is not among the newest 30 runs of the workflow (pull requests count too,
+  so about a day) is not found: a release that failed longer ago leaves the strip.
 
 ## Safety
 

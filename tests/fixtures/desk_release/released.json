@@ -1,7 +1,7 @@
 {
  "now": "2026-11-14T15:00:00Z",
  "answers": {
-  "https://api.github.com/repos/KonstantinStarovoytov/kitden/actions/workflows/release.yml/runs?event=push&per_page=20": {
+  "https://api.github.com/repos/KonstantinStarovoytov/kitden/actions/workflows/release.yml/runs?per_page=30": {
    "total_count": 20,
    "workflow_runs": [
     {

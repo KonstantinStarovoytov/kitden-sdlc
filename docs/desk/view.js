@@ -363,14 +363,16 @@ export function view(desk, now = new Date()) {
 //
 // docs/superpowers/specs/2026-11-17-desk-release-strip-design.md. `get(url)` gives a body as
 // text, null for a missing file, and throws when GitHub does not answer; the strip is then
-// not shown. Kitden's release.yml: a push to main runs the checks and, for a new version with
-// notes, tags it; the tag's run builds, publishes to PyPI, makes the GitHub release and has
+// not shown. Release prep opens a pull request from `prepare-v<version>`, whose checks are
+// release.yml's run on it. Kitden's release.yml: a push to main runs the checks and, for a new
+// version with notes, tags it; the tag's run builds, publishes to PyPI, makes the GitHub release and has
 // kitden-sdlc's publish.yml update the stores.
 
 const API = `https://api.github.com/repos/${REPO}`;
 const RAW = `https://raw.githubusercontent.com/${REPO}/`;
-export const RELEASE_RUNS = `${API}/actions/workflows/release.yml/runs?event=push&per_page=20`;
+export const RELEASE_RUNS = `${API}/actions/workflows/release.yml/runs?per_page=30`;
 export const RELEASE_STEPS = [
+  { name: 'Pull request', pr: true },
   { name: 'Checks on main', jobs: j => /^build \(/.test(j), main: true },
   { name: 'Tag', jobs: j => j === 'autotag', main: true },
   { name: 'Build', jobs: j => /^build \(/.test(j) },
@@ -379,11 +381,20 @@ export const RELEASE_STEPS = [
   { name: 'Stores', jobs: j => j === 'stores' || j.startsWith('stores / ') },
 ];
 const TAG = /^v\d+\.\d+\.\d+/;
+const PREP = /^prepare-v(\d+\.\d+\.\d+)$/;
 const WAITS = ['queued', 'waiting', 'pending', 'requested'];
 const FAILS = ['failure', 'cancelled', 'timed_out', 'startup_failure', 'action_required'];
 const SHA = /^[0-9a-f]{40}$/;
 const VERSION = /^\d+\.\d+\.\d+[\w.+-]*$/;
 const releaseOf = new Map(); // a main commit → whether it carries a new release; read once
+const closed = new Set(); // release pull requests found closed: not asked again
+
+/** Is version a ("1.2.3") newer than b? */
+function newer(a, b) {
+  const [x, y] = [a, b].map(v => (isText(v) ? v.split(/[^\d]+/).filter(Boolean).slice(0, 3).map(Number) : []));
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
 
 const minutes = (from, to) => `${Math.max(1, Math.round((to - Date.parse(from)) / 60e3))} min`;
 /** "macOS", "Ubuntu" or '' from a job's runner labels. */
@@ -436,6 +447,18 @@ function stepOf(step, jobs, run, now) {
   return { name: step.name, state: done ? 'done' : 'ahead', note: [] };
 }
 
+/** The release pull request's step, from its run of the checks and from the pull request. */
+function prStep(run, pr, now) {
+  const open = ['Open the pull request', pr.html_url];
+  if (pr.draft === true) return { name: 'Pull request', state: 'now', note: ['a draft: finish what its body lists · ', linked(...open)] };
+  if (run.status !== 'completed') {
+    const since = isText(run.run_started_at) ? run.run_started_at : run.created_at;
+    return { name: 'Pull request', state: 'now', note: [`checks running · ${minutes(since, now)}`] };
+  }
+  if (run.conclusion !== 'success') return { name: 'Pull request', state: 'failed', note: ['a check failed · ', linked('Open the run', run.html_url)] };
+  return { name: 'Pull request', state: 'now', note: ['waiting for your merge · ', linked(...open)] };
+}
+
 /** The release in flight, or the last one when it failed; null when there is none to show. */
 export async function releaseNow(get, now = new Date()) {
   const runs = list(JSON.parse(await get(RELEASE_RUNS))?.workflow_runs);
@@ -448,14 +471,29 @@ export async function releaseNow(get, now = new Date()) {
     version = await carriesRelease(get, main.head_sha);
     if (version) { run = main; onMain = true; }
   }
+  // An open release pull request for a version newer than the newest tag.
+  const prep = !run && newest(b => PREP.test(b));
+  const number = prep && list(prep.pull_requests)[0]?.number;
+  if (Number.isInteger(number) && !closed.has(number) && newer(PREP.exec(prep.head_branch)[1], tag?.head_branch)) {
+    const pr = JSON.parse(await get(`${API}/pulls/${number}`));
+    if (isObject(pr) && pr.state === 'open') {
+      return {
+        version: PREP.exec(prep.head_branch)[1], url: href(pr.html_url),
+        steps: RELEASE_STEPS.map(s => (s.pr ? prStep(prep, pr, now) : { name: s.name, state: 'ahead', note: [] })),
+      };
+    }
+    closed.add(number);
+  }
   if (!run && tag && !(tag.status === 'completed' && tag.conclusion === 'success')) {
     run = tag; version = tag.head_branch.slice(1);
   }
   if (!run || !Number.isInteger(run.id)) return null;
   const jobs = list(JSON.parse(await get(`${API}/actions/runs/${run.id}/jobs?per_page=30`))?.jobs);
   // A main run reads Checks on main and Tag, the rest is ahead; a tag run is past those two.
-  const steps = RELEASE_STEPS.map(s => (Boolean(s.main) === onMain ? stepOf(s, jobs, run, now)
-    : { name: s.name, state: onMain ? 'ahead' : 'done', note: [] }));
+  // Both are past the pull request.
+  const steps = RELEASE_STEPS.map(s => (s.pr ? { name: s.name, state: 'done', note: [] }
+    : Boolean(s.main) === onMain ? stepOf(s, jobs, run, now)
+      : { name: s.name, state: onMain ? 'ahead' : 'done', note: [] }));
   // A finished run that failed where no step shows it: the first step not done takes the blame.
   if (run.status === 'completed' && run.conclusion !== 'success' && !steps.some(s => s.state === 'failed')) {
     const first = steps.find(s => s.state !== 'done');
