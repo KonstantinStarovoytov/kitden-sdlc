@@ -4,9 +4,10 @@ Everything the agents leave to you, one row each. Each is a click on GitHub or a
 daily page is [the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/): what
 waits for you, where each release is published, main's checks, the nightly tests by system, the
 start-up time by release, bugs, upstream changes and the agents. It reads `desk.json` each time
-it opens, and keeps updating when `AGENTS_ENABLED` is off. While a Kitden release runs, or when
-the last one failed, a strip at the top shows its steps, read from GitHub every minute. A red
-nightly test part also opens a `ci-failure` issue in Kitden, which notifies you.
+it opens, and keeps updating when `AGENTS_ENABLED` is off. From a Kitden release's pull request
+until the release is out, or when the last one failed, a strip at the top shows its steps, read
+from GitHub every minute. A red nightly test part also opens a `ci-failure` issue in Kitden,
+which notifies you.
 
 | You want to | You do |
 |---|---|

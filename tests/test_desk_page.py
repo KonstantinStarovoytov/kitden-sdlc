@@ -282,11 +282,17 @@ def marks(strip):
     return [(s["name"], s["state"]) for s in strip["steps"]]
 
 
+def states(strip):
+    """The steps' states, after checking the steps are all there, in order."""
+    assert [s["name"] for s in strip["steps"]] == STEPS
+    return [s["state"] for s in strip["steps"]]
+
+
 def note(step):
     return "".join(p if isinstance(p, str) else p["text"] for p in step["note"])
 
 
-STEPS = ["Checks on main", "Tag", "Build", "PyPI", "GitHub release", "Stores"]
+STEPS = ["Pull request", "Checks on main", "Tag", "Build", "PyPI", "GitHub release", "Stores"]
 RUN = "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44126374060"
 
 
@@ -294,10 +300,9 @@ RUN = "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44126374060"
 def test_a_job_without_a_machine_says_which_machine_it_waits_for_and_how_long():
     strip = release_of("queued")
     assert strip["version"] == "0.10.0" and strip["url"] == RUN
-    assert marks(strip) == list(zip(STEPS, ["done", "done", "now", "ahead", "ahead", "ahead"],
-                                    strict=True))
-    assert note(strip["steps"][2]) == "waiting for a macOS machine · 12 min"
-    assert [note(s) for s in strip["steps"] if s["state"] != "now"] == [""] * 5
+    assert states(strip) == ["done", "done", "done", "now", "ahead", "ahead", "ahead"]
+    assert note(strip["steps"][3]) == "waiting for a macOS machine · 12 min"
+    assert [note(s) for s in strip["steps"] if s["state"] != "now"] == [""] * 6
 
 
 @needs_node
@@ -306,17 +311,15 @@ def test_a_rerun_is_read_by_its_newest_attempt_and_a_later_step_can_wait_too():
     # done and the GitHub release waits for an Ubuntu machine. A main push after the tag, with
     # the same version, carries no release.
     strip = release_of("running")
-    assert marks(strip) == list(zip(STEPS, ["done", "done", "done", "done", "now", "ahead"],
-                                    strict=True))
-    assert note(strip["steps"][4]) == "waiting for an Ubuntu machine · 4 min"
+    assert states(strip) == ["done", "done", "done", "done", "done", "now", "ahead"]
+    assert note(strip["steps"][5]) == "waiting for an Ubuntu machine · 4 min"
 
 
 @needs_node
 def test_a_failed_release_says_why_and_links_to_its_run():
     strip = release_of("failed")
-    assert marks(strip) == list(zip(STEPS, ["done", "done", "failed", "ahead", "ahead", "ahead"],
-                                    strict=True))
-    build = strip["steps"][2]
+    assert states(strip) == ["done", "done", "done", "failed", "ahead", "ahead", "ahead"]
+    build = strip["steps"][3]
     assert note(build) == "the macOS build was cancelled: no machine came in 15 min · Open the run"
     assert build["note"][-1] == {"text": "Open the run", "href": RUN}
     stores = release_of("failed_stores")
@@ -334,9 +337,8 @@ def test_a_release_that_is_out_shows_no_strip():
 def test_a_push_to_main_with_a_new_version_shows_the_checks_before_the_tag():
     strip = release_of("main_release")
     assert strip["version"] == "0.10.0"
-    assert marks(strip) == list(zip(STEPS, ["now", "ahead", "ahead", "ahead", "ahead", "ahead"],
-                                    strict=True))
-    assert note(strip["steps"][0]) == "running on macOS · 6 min"
+    assert states(strip) == ["done", "now", "ahead", "ahead", "ahead", "ahead", "ahead"]
+    assert note(strip["steps"][1]) == "running on macOS · 6 min"
 
 
 @needs_node
@@ -344,9 +346,36 @@ def test_without_an_answer_there_is_no_strip_and_odd_data_stays_text():
     assert "error" in node("release", {}, NOW)
     saved = json.loads((FIXTURES / "failed.json").read_text())
     answers = saved["answers"]
-    runs = answers[next(u for u in answers if u.endswith("per_page=20"))]["workflow_runs"]
+    runs = answers[next(u for u in answers if u.endswith("per_page=30"))]["workflow_runs"]
     tag = next(r for r in runs if r["head_branch"] == "v0.10.0")
     tag.update(html_url="https://evil.example/run", head_branch="v0.10.0<b>")
     strip = node("release", answers, datetime.fromisoformat(saved["now"]))
     assert strip["url"] is None and strip["version"] == "0.10.0<b>"
     assert all(ALLOWED.match(h) for h in hrefs(strip) if h)
+
+
+PR = "https://github.com/KonstantinStarovoytov/kitden/pull/136"
+AHEAD = ["ahead"] * 6
+
+
+@needs_node
+def test_an_open_release_pull_request_shows_its_checks_then_waits_for_the_merge():
+    strip = release_of("pr_checks")
+    assert strip["version"] == "0.10.1" and strip["url"] == PR
+    assert states(strip) == ["now", *AHEAD]
+    assert note(strip["steps"][0]) == "checks running · 4 min"
+    ready = release_of("pr_ready")["steps"][0]
+    assert ready["state"] == "now"
+    assert note(ready) == "waiting for your merge · Open the pull request"
+    assert ready["note"][-1] == {"text": "Open the pull request", "href": PR}
+    draft = release_of("pr_draft")["steps"][0]
+    assert note(draft) == "a draft: finish what its body lists · Open the pull request"
+
+
+@needs_node
+def test_a_release_pull_request_whose_checks_failed_says_so_and_a_closed_one_shows_nothing():
+    failed = release_of("pr_failed")["steps"][0]
+    assert failed["state"] == "failed" and note(failed) == "a check failed · Open the run"
+    assert failed["note"][-1]["href"].startswith(
+        "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44186760536")
+    assert release_of("pr_closed") is None
