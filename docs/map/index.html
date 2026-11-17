@@ -517,7 +517,8 @@ const WF = [
      'Open Kitden’s page on the demo sample and press its buttons|preview, Apply, Undo; an error in the browser console fails']},
    {n:'engines', about:'Kitden’s page in Chrome, Firefox and WebKit, one engine a run', tags:['Ubuntu and macOS','Playwright','holds no secret'], when:'always: 3 runs, one per engine',
     steps:['Install Kitden',
-     'Install the run’s browser, and check Playwright loads|without Playwright the tests would skip and look green',
+     'Install Firefox or WebKit; Chrome is already on the runner',
+     'Check Playwright loads|without Playwright the tests would skip and look green',
      'Run the page’s browser tests in that engine|a page bug in one engine shows within a day']}
   ]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
