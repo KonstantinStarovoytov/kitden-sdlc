@@ -6,8 +6,8 @@ waits for you, where each release is published, main's checks, the nightly tests
 start-up time by release, bugs, upstream changes and the agents. It reads `desk.json` each time
 it opens, and keeps updating when `AGENTS_ENABLED` is off. From a Kitden release's pull request
 until the release is out, or when the last one failed, a strip at the top shows its steps, read
-from GitHub every minute. A red nightly test part also opens a `ci-failure` issue in Kitden,
-which notifies you.
+from GitHub every minute while a step runs, else every five minutes. A red nightly test part
+also opens a `ci-failure` issue in Kitden, which notifies you.
 
 | You want to | You do |
 |---|---|

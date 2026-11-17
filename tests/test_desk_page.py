@@ -379,3 +379,14 @@ def test_a_release_pull_request_whose_checks_failed_says_so_and_a_closed_one_sho
     assert failed["note"][-1]["href"].startswith(
         "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44186760536")
     assert release_of("pr_closed") is None
+
+
+@needs_node
+def test_only_a_strip_where_something_runs_asks_github_every_minute():
+    # Checks, a build or a job waiting for a machine change by the minute; a failed release,
+    # a draft or a pull request waiting for the merge waits for a person: the page asks every
+    # five minutes then, and with no strip at all.
+    running = ["queued", "running", "main_release", "pr_checks"]
+    waiting = ["failed", "failed_stores", "pr_ready", "pr_draft", "pr_failed"]
+    assert [release_of(c)["live"] for c in running] == [True] * len(running)
+    assert [release_of(c)["live"] for c in waiting] == [False] * len(waiting)

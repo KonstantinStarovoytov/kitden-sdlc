@@ -79,9 +79,11 @@ Which strip:
 
 ## Limits
 
-- GitHub allows 60 requests an hour from one address without a token. A poll is one request
-  with nothing to show and two while a strip is shown, so a page left open through an hour of
-  release uses that up. The page does not poll while it is hidden. When GitHub refuses after
+- GitHub allows 60 requests an hour from one address without a token, and a poll takes one or
+  two. So the page asks every minute only while a step runs or waits for a machine, and every
+  five minutes otherwise: with no strip, a failed release, a draft or a pull request waiting
+  for the merge (added 17 Nov, after one tab open all evening used the hour up). It does not
+  poll while it is hidden. When GitHub refuses after
   a strip was shown, the strip stays with the time it is from, and says when the limit ends.
 - A tag run that is not among the newest 30 runs of the workflow (pull requests count too,
   so about a day) is not found: a release that failed longer ago leaves the strip.
