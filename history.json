@@ -1027,5 +1027,25 @@
     }
    }
   ]
+ },
+ {
+  "id": 44102060233,
+  "attempt": 1,
+  "unread_logs": 0,
+  "tries": 0,
+  "workflow": "latest-deps.yml",
+  "night": "2026-11-17",
+  "sha": "b6a3d7c5efbb82067f8216f90707c24a43396cca",
+  "version": "0.9.2",
+  "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44102060233",
+  "jobs": [
+   {
+    "name": "test",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44102060233/job/134104397942",
+    "failed_step": null,
+    "startup": null
+   }
+  ]
  }
 ]
