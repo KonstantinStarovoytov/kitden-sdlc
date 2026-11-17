@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://konstantinstarovoytov.github.io/kitden-sdlc/map/"><img src="https://img.shields.io/badge/Open_the_live_map-C85835?style=for-the-badge" alt="Open the live map"></a>
+  <a href="https://konstantinstarovoytov.github.io/kitden-sdlc/desk/"><img src="https://img.shields.io/badge/Open_the_desk-C85835?style=for-the-badge" alt="Open the desk"></a>
 </p>
 
 <p align="center">
