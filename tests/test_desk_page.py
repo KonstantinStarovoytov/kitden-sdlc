@@ -31,9 +31,17 @@ const m = await import(process.argv[1]);
 let text = '';
 for await (const chunk of process.stdin) text += chunk;
 const input = JSON.parse(text);
+// For 'release', `desk` is {url: body} of saved GitHub answers; 404 is a missing file.
+const get = async url => {
+  if (!Object.hasOwn(input.desk, url)) throw new Error(`no answer for ${url}`);
+  const body = input.desk[url];
+  return body === 404 ? null : typeof body === 'string' ? body : JSON.stringify(body);
+};
 const out = input.call === 'consts'
   ? Object.fromEntries(Object.entries(m).filter(([, v]) => typeof v !== 'function'))
-  : m.view(input.desk, new Date(input.now));
+  : input.call === 'release'
+    ? await m.releaseNow(get, new Date(input.now)).catch(e => ({ error: e.message }))
+    : m.view(input.desk, new Date(input.now));
 process.stdout.write(JSON.stringify(out));
 """
 
@@ -238,14 +246,16 @@ def test_a_key_from_the_data_never_reaches_an_objects_own_properties():
     assert view["waiting"][0]["kind"] == "constructor"
 
 
-def test_the_page_puts_no_text_in_as_html_and_reads_only_desk_json():
+def test_the_page_puts_no_text_in_as_html_and_reads_only_desk_json_and_kitdens_runs():
     script = PAGE.split('<script type="module" blocking="render">', 1)[1]
     assert not re.search(r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(", script)
-    assert "connect-src https://raw.githubusercontent.com;" in PAGE
+    assert "connect-src https://raw.githubusercontent.com https://api.github.com;" in PAGE
     view = VIEW.read_text()
-    assert re.findall(r"https://raw\.githubusercontent\.com/[^']+", view) == [
+    assert re.findall(r"https://raw\.githubusercontent\.com/[^'`]+", view) == [
         "https://raw.githubusercontent.com/KonstantinStarovoytov/kitden-sdlc/numbers/desk.json",
+        "https://raw.githubusercontent.com/${REPO}/",
     ]
+    assert re.findall(r"https://api\.github\.com/[^'`]+", view) == ["https://api.github.com/repos/${REPO}"]
 
 
 def test_the_page_loads_this_view_js_and_says_so_when_it_cannot_start():
@@ -255,3 +265,88 @@ def test_the_page_loads_this_view_js_and_says_so_when_it_cannot_start():
     assert f"from './view.js?v={digest}';" in PAGE, "after a change to view.js, set the new ?v="
     assert "document.documentElement.dataset.started = 'yes';" in PAGE
     assert "The page could not start. Reload it." in PAGE
+
+
+# --- The release strip: GitHub's answers as they were on 14 and 17 Nov, trimmed ---
+
+FIXTURES = ROOT / "tests/fixtures/desk_release"
+
+
+def release_of(case: str, now: str | None = None):
+    saved = json.loads((FIXTURES / f"{case}.json").read_text())
+    when = datetime.fromisoformat(now or saved["now"])
+    return node("release", saved["answers"], when)
+
+
+def marks(strip):
+    return [(s["name"], s["state"]) for s in strip["steps"]]
+
+
+def note(step):
+    return "".join(p if isinstance(p, str) else p["text"] for p in step["note"])
+
+
+STEPS = ["Checks on main", "Tag", "Build", "PyPI", "GitHub release", "Stores"]
+RUN = "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44126374060"
+
+
+@needs_node
+def test_a_job_without_a_machine_says_which_machine_it_waits_for_and_how_long():
+    strip = release_of("queued")
+    assert strip["version"] == "0.10.0" and strip["url"] == RUN
+    assert marks(strip) == list(zip(STEPS, ["done", "done", "now", "ahead", "ahead", "ahead"],
+                                    strict=True))
+    assert note(strip["steps"][2]) == "waiting for a macOS machine · 12 min"
+    assert [note(s) for s in strip["steps"] if s["state"] != "now"] == [""] * 5
+
+
+@needs_node
+def test_a_rerun_is_read_by_its_newest_attempt_and_a_later_step_can_wait_too():
+    # Attempt 2: the Ubuntu build was carried from attempt 1, the macOS build passed, PyPI is
+    # done and the GitHub release waits for an Ubuntu machine. A main push after the tag, with
+    # the same version, carries no release.
+    strip = release_of("running")
+    assert marks(strip) == list(zip(STEPS, ["done", "done", "done", "done", "now", "ahead"],
+                                    strict=True))
+    assert note(strip["steps"][4]) == "waiting for an Ubuntu machine · 4 min"
+
+
+@needs_node
+def test_a_failed_release_says_why_and_links_to_its_run():
+    strip = release_of("failed")
+    assert marks(strip) == list(zip(STEPS, ["done", "done", "failed", "ahead", "ahead", "ahead"],
+                                    strict=True))
+    build = strip["steps"][2]
+    assert note(build) == "the macOS build was cancelled: no machine came in 15 min · Open the run"
+    assert build["note"][-1] == {"text": "Open the run", "href": RUN}
+    stores = release_of("failed_stores")
+    assert stores["version"] == "0.9.2"
+    assert marks(stores)[-1] == ("Stores", "failed") and marks(stores)[-2][1] == "done"
+    assert note(stores["steps"][-1]).startswith('stores / summary failed at "Write the summary"')
+
+
+@needs_node
+def test_a_release_that_is_out_shows_no_strip():
+    assert release_of("released") is None
+
+
+@needs_node
+def test_a_push_to_main_with_a_new_version_shows_the_checks_before_the_tag():
+    strip = release_of("main_release")
+    assert strip["version"] == "0.10.0"
+    assert marks(strip) == list(zip(STEPS, ["now", "ahead", "ahead", "ahead", "ahead", "ahead"],
+                                    strict=True))
+    assert note(strip["steps"][0]) == "running on macOS · 6 min"
+
+
+@needs_node
+def test_without_an_answer_there_is_no_strip_and_odd_data_stays_text():
+    assert "error" in node("release", {}, NOW)
+    saved = json.loads((FIXTURES / "failed.json").read_text())
+    answers = saved["answers"]
+    runs = answers[next(u for u in answers if u.endswith("per_page=20"))]["workflow_runs"]
+    tag = next(r for r in runs if r["head_branch"] == "v0.10.0")
+    tag.update(html_url="https://evil.example/run", head_branch="v0.10.0<b>")
+    strip = node("release", answers, datetime.fromisoformat(saved["now"]))
+    assert strip["url"] is None and strip["version"] == "0.10.0<b>"
+    assert all(ALLOWED.match(h) for h in hrefs(strip) if h)

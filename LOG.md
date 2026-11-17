@@ -160,3 +160,9 @@ Problems found while building the reviewers, and what changed because of each.
   skipped, unless they redirect: a move is still told, since nothing else would see it.
   Kept by: `tests/test_watch_moved.py::test_a_section_the_manifest_does_not_cover_is_not_judged`
   and `::test_a_section_the_manifest_does_not_cover_still_reports_a_redirect`.
+- **A release stood still and nothing said so.** The tag run of Kitden 0.10.0 waited 15 minutes
+  for a macOS machine GitHub did not have; the job was cancelled and PyPI, the GitHub release
+  and the stores were skipped. The desk is built once a day and could not show it. Now the desk
+  page reads the release in flight from GitHub's API every minute and shows its steps.
+  Kept by: `tests/test_desk_page.py::test_a_job_without_a_machine_says_which_machine_it_waits_for_and_how_long`
+  and `::test_a_failed_release_says_why_and_links_to_its_run`.

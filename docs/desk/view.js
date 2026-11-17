@@ -1,6 +1,8 @@
 // The desk page's words: desk.json turned into what docs/desk/index.html shows. No DOM here,
 // so tests/test_desk_page.py runs it in Node. No model wrote any of it.
 //
+// Besides, releaseNow (at the end) reads the Kitden release in flight from GitHub's API.
+//
 // The page reads desk.json's `bench` (scripts/desk_bench.py): main's checks, the nightly rows,
 // the start-up times by release, the stores, the bugs and the upstream changes; and of desk.py's
 // facts the lights, what waits and the agents' week. MEANS is what desk_post.py's ci-failure
@@ -355,4 +357,109 @@ export function view(desk, now = new Date()) {
     supported: SUPPORTED,
     notSupported: NOT_SUPPORTED,
   };
+}
+
+// --- The release in flight: read from GitHub's API by the page itself, not from desk.json ---
+//
+// docs/superpowers/specs/2026-11-17-desk-release-strip-design.md. `get(url)` gives a body as
+// text, null for a missing file, and throws when GitHub does not answer; the strip is then
+// not shown. Kitden's release.yml: a push to main runs the checks and, for a new version with
+// notes, tags it; the tag's run builds, publishes to PyPI, makes the GitHub release and has
+// kitden-sdlc's publish.yml update the stores.
+
+const API = `https://api.github.com/repos/${REPO}`;
+const RAW = `https://raw.githubusercontent.com/${REPO}/`;
+export const RELEASE_RUNS = `${API}/actions/workflows/release.yml/runs?event=push&per_page=20`;
+export const RELEASE_STEPS = [
+  { name: 'Checks on main', jobs: j => /^build \(/.test(j), main: true },
+  { name: 'Tag', jobs: j => j === 'autotag', main: true },
+  { name: 'Build', jobs: j => /^build \(/.test(j) },
+  { name: 'PyPI', jobs: j => j === 'publish' },
+  { name: 'GitHub release', jobs: j => j === 'release' },
+  { name: 'Stores', jobs: j => j === 'stores' || j.startsWith('stores / ') },
+];
+const TAG = /^v\d+\.\d+\.\d+/;
+const WAITS = ['queued', 'waiting', 'pending', 'requested'];
+const FAILS = ['failure', 'cancelled', 'timed_out', 'startup_failure', 'action_required'];
+const SHA = /^[0-9a-f]{40}$/;
+const VERSION = /^\d+\.\d+\.\d+[\w.+-]*$/;
+const releaseOf = new Map(); // a main commit → whether it carries a new release; read once
+
+const minutes = (from, to) => `${Math.max(1, Math.round((to - Date.parse(from)) / 60e3))} min`;
+/** "macOS", "Ubuntu" or '' from a job's runner labels. */
+function machine(job) {
+  const labels = Array.isArray(job.labels) ? job.labels.filter(isText).join(' ') : '';
+  return /macos/i.test(labels) ? 'macOS' : /ubuntu/i.test(labels) ? 'Ubuntu' : '';
+}
+const an = word => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${word}`);
+
+/** Does the commit `sha` of main carry a version with notes and no tag yet? */
+async function carriesRelease(get, sha) {
+  if (releaseOf.has(sha)) return releaseOf.get(sha);
+  const toml = await get(`${RAW}${sha}/pyproject.toml`);
+  const m = isText(toml) ? /^version\s*=\s*"([^"]+)"/m.exec(toml) : null;
+  let found = null;
+  if (m && VERSION.test(m[1])) {
+    const refs = JSON.parse(await get(`${API}/git/matching-refs/tags/v${m[1]}`) ?? '[]');
+    const tagged = list(refs).some(r => r.ref === `refs/tags/v${m[1]}`);
+    if (!tagged && isText(await get(`${RAW}${sha}/docs/releases/v${m[1]}.md`))) found = m[1];
+  }
+  releaseOf.set(sha, found);
+  return found;
+}
+
+/** One step from its jobs: done, now (with what happens), failed (with why), or ahead. */
+function stepOf(step, jobs, run, now) {
+  const mine = jobs.filter(j => isText(j.name) && step.jobs(j.name));
+  const failed = mine.find(j => j.status === 'completed' && FAILS.includes(j.conclusion));
+  if (failed) {
+    const who = /^build \(/.test(failed.name) && machine(failed) ? `the ${machine(failed)} build` : line(failed.name);
+    const at = list(failed.steps).find(s => FAILS.includes(s.conclusion));
+    let why = `${who} ${failed.conclusion === 'timed_out' ? 'timed out' : failed.conclusion === 'cancelled' ? 'was cancelled' : 'failed'}`;
+    if (at) why += ` at "${line(at.name)}"`;
+    else if (failed.conclusion === 'cancelled' && !failed.runner_name && isText(failed.completed_at)) {
+      why += `: no machine came in ${minutes(failed.created_at, Date.parse(failed.completed_at))}`;
+    }
+    return { name: step.name, state: 'failed', note: [`${why} · `, linked('Open the run', run.html_url)] };
+  }
+  const waiting = mine.find(j => WAITS.includes(j.status));
+  const running = mine.find(j => j.status === 'in_progress');
+  if (waiting) {
+    const m = machine(waiting);
+    return { name: step.name, state: 'now', note: [`waiting for ${m ? an(`${m} machine`) : 'a machine'} · ${minutes(waiting.created_at, now)}`] };
+  }
+  if (running) {
+    const m = machine(running);
+    return { name: step.name, state: 'now', note: [`running${m ? ` on ${m}` : ''} · ${minutes(running.started_at, now)}`] };
+  }
+  const done = mine.length && mine.every(j => j.status === 'completed' && j.conclusion === 'success');
+  return { name: step.name, state: done ? 'done' : 'ahead', note: [] };
+}
+
+/** The release in flight, or the last one when it failed; null when there is none to show. */
+export async function releaseNow(get, now = new Date()) {
+  const runs = list(JSON.parse(await get(RELEASE_RUNS))?.workflow_runs);
+  const newest = test => runs.filter(r => isText(r.head_branch) && test(r.head_branch))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+  const tag = newest(b => TAG.test(b));
+  const main = newest(b => b === 'main');
+  let run = null, version = null, onMain = false;
+  if (main && SHA.test(main.head_sha) && (!tag || Date.parse(main.created_at) > Date.parse(tag.created_at))) {
+    version = await carriesRelease(get, main.head_sha);
+    if (version) { run = main; onMain = true; }
+  }
+  if (!run && tag && !(tag.status === 'completed' && tag.conclusion === 'success')) {
+    run = tag; version = tag.head_branch.slice(1);
+  }
+  if (!run || !Number.isInteger(run.id)) return null;
+  const jobs = list(JSON.parse(await get(`${API}/actions/runs/${run.id}/jobs?per_page=30`))?.jobs);
+  // A main run reads Checks on main and Tag, the rest is ahead; a tag run is past those two.
+  const steps = RELEASE_STEPS.map(s => (Boolean(s.main) === onMain ? stepOf(s, jobs, run, now)
+    : { name: s.name, state: onMain ? 'ahead' : 'done', note: [] }));
+  // A finished run that failed where no step shows it: the first step not done takes the blame.
+  if (run.status === 'completed' && run.conclusion !== 'success' && !steps.some(s => s.state === 'failed')) {
+    const first = steps.find(s => s.state !== 'done');
+    if (first) Object.assign(first, { state: 'failed', note: [`the run ${line(run.conclusion) || 'stopped'} · `, linked('Open the run', run.html_url)] });
+  }
+  return { version: line(version), url: href(run.html_url), steps };
 }
