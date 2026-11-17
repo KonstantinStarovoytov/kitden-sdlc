@@ -1,5 +1,5 @@
-"""The desk page (docs/desk): its words match the desk issue's, its headline follows the bench,
-every text goes in as text, and a link goes only to GitHub or a store Kitden is published in.
+"""The desk page (docs/desk): its words match the ci-failure issues', its headline follows the
+bench, every text goes in as text, and a link goes only to GitHub or a store Kitden is published in.
 view.js runs in Node; without Node those tests are skipped."""
 import json
 import re
@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+import count_reviews
 import desk_bench
 import desk_post
 from tests.test_desk_bench import night_line
@@ -105,16 +106,11 @@ def desk(history=None, lights=GREEN_LIGHTS, seen=SEEN, gate=GATE, **changes):
 
 
 @needs_node
-def test_the_page_shares_the_issues_words():
+def test_the_page_says_what_the_ci_failure_issues_say():
     consts = node("consts")
-    assert consts["CHECKS"] == desk_post.CHECKS
-    assert consts["OVERALL"] == desk_post.OVERALL
-    assert consts["KINDS"] == desk_post.KINDS
     assert consts["MEANS"] == desk_post.MEANS and consts["MEANS_ELSE"] == desk_post.MEANS_ELSE
-    assert tuple(consts["SUMMARIES"]) in desk_post.SEARCHES
-    assert consts["NOT_MEASURED_YET"] == desk_post.NOT_MEASURED_YET
-    assert consts["DATA_PAGE"] == desk_post.DATA and consts["HOW_TO"] == desk_post.HOW_TO
-    assert consts["REPO"] == desk_post.REPO and consts["NIGHTS"] == desk_bench.NIGHTS
+    assert consts["REPO"] == count_reviews.REPO and consts["NIGHTS"] == desk_bench.NIGHTS
+    assert "CHECKS" not in consts and "OVERALL" not in consts  # the issue's, gone with it
 
 
 @needs_node
@@ -249,10 +245,6 @@ def test_the_page_puts_no_text_in_as_html_and_reads_only_desk_json():
     assert re.findall(r"https://raw\.githubusercontent\.com/[^']+", view) == [
         "https://raw.githubusercontent.com/KonstantinStarovoytov/kitden-sdlc/numbers/desk.json",
     ]
-
-
-def test_the_issue_links_the_page():
-    assert desk_post.PAGE in desk_post.render(DESK)
 
 
 def test_the_page_loads_this_view_js_and_says_so_when_it_cannot_start():

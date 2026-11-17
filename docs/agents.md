@@ -11,7 +11,7 @@ do and its limits. Every workflow that runs an agent follows [RULES.md](../RULES
 | `luna` reviewer | the same | GPT-6 Luna | read in a sandbox with no network, answer with findings | see below | the same |
 | workflow check | a pull request changes `.github/workflows/` | none | run zizmor, actionlint and the rule checker | read only | none |
 | list check | a Kitden pull request changes `docs/clients.md` | none: a script, not an agent | read the doc page of each row it adds or changes, and warn | read only, no secret; 10 minutes; at most 20 pages, 40 exact words a row and 3 minutes of checking; never turns red for a page | none |
-| the desk | every day at 06:41 UTC, or by hand | none | count reviews, read Kitden's facts, commit `numbers.md`, `numbers.json` and `desk.json` to the `numbers` branch; a second job shows `desk.json` as the issue "Kitden desk" in Kitden, and opens a `ci-failure` issue for each red nightly part, as Lantern | no model, no pull request code; 10 and 5 minutes, one run at a time | `AGENTS_ENABLED`, in kitden-sdlc, for the issue only: the numbers update without it |
+| the desk | every day at 06:41 UTC, or by hand | none | count reviews, read Kitden's facts, commit `numbers.md`, `numbers.json`, `desk.json` and `history.json` to the `numbers` branch for the desk page; a second job opens a `ci-failure` issue in Kitden for each red nightly part, as Lantern | no model, no pull request code; 10 and 5 minutes, one run at a time | `AGENTS_ENABLED`, in kitden-sdlc, for the issue only: the numbers update without it |
 | client watcher | every day at 05:17 UTC, or by hand | Claude Sonnet 5.5 at effort medium, on `ANTHROPIC_API_KEY` | read client release notes and docs; a job without the model opens issues in Kitden as Lantern and commits the memory to the `watch` branch | 15 minutes per job, 60 model calls, one run at a time | `AGENTS_ENABLED` and `WATCH_LIVE`, in kitden-sdlc |
 | release prep | the owner runs it by hand in Kitden | Claude, the model Kitden's caller names | read the checkout and the release context; write the notes, the README, the guide, the policy files and the plugin README to one output folder; scripts check them, and the model gets one pass to fix what they find; jobs without the model set the version, record the README pictures and open the release pull request as the release app (a draft when a problem is left) | two agent jobs with the same read-only tools: 25 minutes and 60 turns, then 10 minutes and 15 turns; one run at a time; it does not start while a release pull request is open or three bot pull requests wait, and stops when the branch `prepare-vX.Y.Z` exists | `AGENTS_ENABLED`, in Kitden; started by hand |
 | release watch | every day in Kitden, or by hand | none | open or update two issues in Kitden as Lantern | no model, writes issues only, one run at a time | `AGENTS_ENABLED`, in Kitden |
@@ -48,10 +48,11 @@ heading of its own: it is put on one line, or inside a quote.
 Once a day a job without a model reads facts from GitHub and files and works out five lights and
 what waits for the owner ([desk.py](../scripts/desk.py)). It saves them as `desk.json` on the
 `numbers` branch, next to the public page
-[numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md). A
-second job, only with `AGENTS_ENABLED` on, shows `desk.json` as the pinned issue "Kitden desk" and
-adds one comment with the week's first run. Started by hand from another branch, the desk
-neither commits nor posts. What the owner does about each line is in [owner.md](owner.md).
+[numbers.md](https://github.com/KonstantinStarovoytov/kitden-sdlc/blob/numbers/numbers.md), and
+[the desk page](https://konstantinstarovoytov.github.io/kitden-sdlc/desk/) shows it (below). A
+second job, only with `AGENTS_ENABLED` on, opens the `ci-failure` issues (below). Until 17 Nov
+2026 the desk was also the pinned issue "Kitden desk"; the page took its place. Started by hand
+from another branch, the desk neither commits nor posts. What the owner does about each line is in [owner.md](owner.md).
 
 ### The desk page
 
@@ -84,7 +85,7 @@ keeps: each day it reads the scheduled runs of `nightly.yml` and `latest-deps.ym
 of `release.yml` on a release tag that it does not hold yet, at most 20 a day, the oldest first,
 with the logs of the jobs that measure the start-up (only the numbers are read from them). A run
 that was re-run since is read again, and so is one whose log could not be read, on up to 3
-days. It keeps every release and the newest 120 nightly runs. As in the issue, a newest run
+days. It keeps every release and the newest 120 nightly runs. As in desk.py, a newest run
 older than yesterday is grey, and a red row keeps its first red night through grey nights. The
 page's headline is red when a check on main (the build, or the Works light) or a supported
 platform is red; amber when anything else needs a look, a red Clients, Bugs, Agents or Queue
@@ -128,10 +129,8 @@ example "Nightly tests: clients is red"; the workflow is the run's name, or its 
 the run has none), with the labels `automated` and `ci-failure` and the bots' one look. It is
 rewritten each day and closed when the part is green: one issue per part, not per night or per
 system. A grey part's issue stays as it is. When no part is grey, an open `ci-failure` issue of
-the bot that names no part of today is closed, because its job no longer exists. The desk issue's
-Health section has one "Nightly:" line: each part's mark, since when a red part is red, since
-when a part grey for a second night has had no finished run, the night the rows are about, and
-the count of the tests set aside.
+the bot that names no part of today is closed, because its job no longer exists. These issues
+are the desk's only notice: the page shows the rest, and sends none.
 
 The desk also checks the [workflow map](map/index.html) against the workflow files, as
 `map_text.py --check` does: this repository's from the desk's checkout of `main`, Kitden's and

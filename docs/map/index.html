@@ -391,7 +391,7 @@ table.hold tr:last-child td{border-bottom:0}
  "s-publish": {"name": "Publish", "what": "after a new Kitden version is on PyPI, moves the `release` branch, publishes to the MCP Registry, opens the Homebrew pull request when Kitden's runtime dependencies did not change, and writes a table of every store.", "why": "one tag updates the stores a script can reach, and the table shows which are behind or must be checked by hand."},
  "s-release-watch": {"name": "Release watch", "what": "with no model, opens or updates an issue in Kitden while a release is due or a store is behind, and closes it when that no longer holds. Kitden calls it once a day.", "why": "so that merged work does not sit unreleased, and a release that reached only some stores is noticed."},
  "s-watch": {"name": "Client watcher", "what": "once a day, reads what Claude Code, Codex and Cursor changed, and a model judges whether each change touches what Kitden reads or shows. A sure, major break or wrong data gets an issue in Kitden at once (two a week at most); the rest goes into a weekly summary issue.", "why": "Kitden depends on these clients' files and settings. A change there breaks Kitden quietly unless something watches for it."},
- "s-desk": {"name": "Kitden desk", "what": "every day, with no model, counts the facts about Kitden and its agents and shows them as one issue in Kitden, \"Kitden desk\", and opens an issue when a nightly test job is red.", "why": "the owner sees in one place whether everything is healthy and what waits for a decision, without opening each workflow."},
+ "s-desk": {"name": "Kitden desk", "what": "every day, with no model, counts the facts about Kitden and its agents for the desk page, and opens an issue when a nightly test job is red.", "why": "the owner sees in one place whether everything is healthy and what waits for a decision, without opening each workflow."},
  "s-checks": {"name": "Tests and checks", "what": "on every push and pull request in this repository, runs the tests, ruff, the rule checker, zizmor and actionlint.", "why": "Kitden calls these workflows at `main`, so a broken or unsafe change here would reach Kitden at once."},
  "t-tests": {"name": "brew test-bot", "what": "on every pull request and push to main, \"brew test-bot\" checks the formula and the workflows. On a pull request that changes the formula, it also builds the bottles (ready-built packages) on macOS and Linux, tests them and keeps them for publish.yml.", "why": "a formula that does not install must fail here, not on a user's computer."},
  "t-auto-pull": {"name": "auto-pull", "what": "once \"brew test-bot\" passes on a Kitden version-bump pull request, checks that a trusted bot opened it, that it changes only the formula and that the tested commit is still its newest. Then it starts publish.yml, which publishes the formula and the bottles (ready-built packages), and checks that the formula on main names the new version and its bottles.", "why": "a new Kitden version reaches Homebrew without anyone pressing the Merge button."},
@@ -645,9 +645,8 @@ const WF = [
     steps:['Read the facts: checks on `main`, nightly runs, issues, reviews|and whether this map still matches the workflow files',
      'Turn them into five status lights and what waits for you|green, amber or red by the worst fact read; grey: not read',
      'Commit `desk.json` and the week’s numbers to a side branch, `numbers`|`main` takes pull requests only; only a run from `main` commits']},
-   {n:'post', about:'Lantern, the app that posts comments and issues, shows the desk in Kitden', tags:['no model','as Lantern'], when:'the agents’ switch `AGENTS_ENABLED` is on, on `main`',
-    steps:['Rewrite the “Kitden desk” issue from `desk.json`|one issue: the five status lights and what waits for you',
-     'Open a `ci-failure` issue for each red nightly part|closed on its own once that part is green']}
+   {n:'post', about:'Lantern opens an issue in Kitden for each red nightly part', tags:['no model','as Lantern'], when:'the agents’ switch `AGENTS_ENABLED` is on, on `main`',
+    steps:['Open a `ci-failure` issue for each red nightly part|closed on its own once that part is green']}
   ]},
  {id:'s-checks', r:'s', file:'checks.yml', kind:'own',
   trigger:'Any push or pull request in kitden-sdlc',
@@ -789,13 +788,13 @@ const STORIES = {
       [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Warned when a client change breaks Kitden', sub:'a sure break gets an issue, the rest a weekly summary; confirm it or close it'}],
       [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A broken new dependency, caught first', sub:'before people who install Kitden meet it; red: a ci-failure issue'}],
       [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'Merged work does not sit unreleased', sub:'“Time for a release?” when changes wait; “not everywhere” when a store lags', go:'rel'}],
-      [{id:'c4', kind:'clock', t:'06:41'}, {wf:'s-desk'}, {id:'d4', kind:'thing', ic:'lantern', t:'Health and your to-do in one place', sub:'the “Kitden desk” issue: five lights and what waits for you, every day'}],
+      [{id:'c4', kind:'clock', t:'06:41'}, {wf:'s-desk'}, {id:'d4', kind:'thing', ic:'github', t:'Health and your to-do in one place', sub:'the desk page: stores, checks, nightly tests, start-up time and what waits for you, every day'}],
       [{id:'c5', kind:'clock', t:'13:10'}, {wf:'t-autobump'}, {id:'d5', kind:'thing', ic:'kettle', t:'Homebrew’s formula stays up to date', sub:'if the formula lags Kitden, a bump PR that publishes itself', go:'rel'}]
     ],
     edges:[['c0','k-nightly','','h'],['k-nightly','d0','','h'],['c1','s-watch','','h'],['s-watch','d1','Lantern opens','h'],['c2','k-latest-deps','','h'],['k-latest-deps','d2','','h'],
       ['c3','k-release-watch','','h'],['k-release-watch','s-release-watch','uses','h'],['s-release-watch','d3','Lantern opens','h'],
       ['d0','s-desk','the desk reads it','t'],['d2','s-desk','the desk reads it','r'],
-      ['c4','s-desk','','h'],['s-desk','d4','Lantern updates','h'],['c5','t-autobump','','h'],['t-autobump','d5','opens','h']]}
+      ['c4','s-desk','','h'],['s-desk','d4','the page reads it','h'],['c5','t-autobump','','h'],['t-autobump','d5','opens','h']]}
 };
 const flow = $('flow');
 let cur = 'pr', nodes = {}, hot = null;
