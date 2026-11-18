@@ -443,7 +443,8 @@
       "0.2.26": "d3fd57aedea3398b4981ec9649e784954dd17f04a192ec44c9fc761ac4262422",
       "0.2.21": "389fa5732f4e37228fe863cd515853de2e814dae0333054769b142f1e7c5c205",
       "2.1.325": "057831d458d6c67665b85867bd2b17cef8f2bdcf7f6b95340ed70dd847760c10",
-      "2.1.326": "814b58eab4b67d566e80961e13eaee4d725410262842411f5bd9f2839db3ba0e"
+      "2.1.326": "814b58eab4b67d566e80961e13eaee4d725410262842411f5bd9f2839db3ba0e",
+      "2.1.327": "1c6dbada4e46af63e56c5e1a127fcb0b2059018434cb7f0ac42dceb62574380d"
     },
     "cursor-changelog": {
       "": "01c91aaabc4986baa25082a6254a65d3e1bcd0c357644d489eb04d8faf923e5d",
@@ -458,7 +459,9 @@
       "rust-v0.168.0": "cf956409d8b8243d2eecb49b6eb65f9392fd02c398f5cb87995be63c9f16e02a",
       "rust-v0.167.2": "9b33d982509a854c6a1e7f422203299fc439246816c868afe05e4f3645866d6b",
       "rust-v0.167.1": "bf78adc18f322037af83c7129666358532fa90f22cb6b430871753a81e7334af",
-      "rust-v0.167.0": "9f67528a7151bf4e17b1b382eb2fa53b029e8c68904bc00c354376838ddee062"
+      "rust-v0.167.0": "9f67528a7151bf4e17b1b382eb2fa53b029e8c68904bc00c354376838ddee062",
+      "rust-v0.170.0": "28e22939d3efc033abd9560275f7fcee1afc0a945f249e3aa86372f58a290d19",
+      "rust-v0.169.1": "0d682fde58540da8f08536a9d39e3bce55354479bbb196d3929b3f7ed9162849"
     },
     "https://code.claude.com/docs/en/mcp": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
@@ -476,7 +479,7 @@
       "MCP client runtimes": "c3c463593fde9aa2f0b8b919804c02aeee805459b7c568926b4166ff390e1bb6",
       "Dynamic tool updates": "a07adac2d894ff124359d762dedecae5efc1bde6f8460084aae75dccb263d936",
       "Automatic reconnection": "c748a26b760ef7f3f1091d3980a1e88615aa924a80f9680a04c0cabc6ab73bdb",
-      "Push messages with channels": "377d45a54496b7e2fc6005b749998c0cd76562d885105d224174f15dacbd5418",
+      "Push messages with channels": "2a021bd6c6bbda7570f667377cff2cb5b5d0b0014e3e646ba35c9eb84d470180",
       "Time limits on MCP tool calls": "ad600b22ad4eb51b58a6989ccd42d105b1bf202bcf94822cf60a16fc82bb3d33",
       "Automatic backgrounding of long tool calls": "2c2d27fdbc97d7302acb2db3922792ef16fd80fa78d9f85808317e3bc9440958",
       "MCP tasks that run on the server": "7fb78c5dbc41ede03b238ed99219f1f2938faaccee0f578f71eb1890d1bae0dd",
@@ -508,7 +511,7 @@
       "Disable claude.ai connectors": "d4696014e7dd04a896dda1a6f4c520077451aec4c3184c45d3fc492c077dd516",
       "Use Claude Code as an MCP server": "7d655fc48376f3a3c4ee317b0d20f7568d59725a146323417ae1fbbb0022a710",
       "Read a background command's output as an MCP client": "35c637bce741fcdcb514bbf11c654c88e98e66c044cf1686098cf50d2edf723f",
-      "MCP output limits and warnings": "340dcbd8fb75354d205c706fc0a2c592c0272e71d573c57c9c35d52df63ee108",
+      "MCP output limits and warnings": "b3836ba8ac03cf61d90640bd77f9a6456e6a97af8dc2c44f16c9bca70149ba46",
       "Raise the limit for a specific tool": "0551bba09771695db587d6742f03d0ad777a3d59b34446d949fb9dff4ec1ed17",
       "Images in tool results": "71a62fc77c3c2f4357cd2d168aa0b94f8388e69b43315e01a2c6a35b58f15d15",
       "Tool input schemas with a root-level combinator": "11dba9eee27242aec82329f4c97a00fbe300ca2a45eea62230cb8eddaaa21abe",
@@ -520,7 +523,7 @@
       "Respond to MCP elicitation requests": "b1a566304d696a4c680301349514cb16bab075b824dc9a20f19d6fe616ffc9d7",
       "Answer an elicitation request in a cloud session": "ee587d78997125cacff2cd20526fbab0206342d5bfc96614eae32e18988b6eb9",
       "Elicitation modes Claude Code declares": "ae2e379c1be5b16d69c8346827a780dabb45a5dbf957d4667614a5195a37db5a",
-      "Use MCP resources": "c69e151b7e98a6c25b5d8d5a6a95944feadfa2a8f73b4dabc463a500b40216ee",
+      "Use MCP resources": "87b4eea402e0a31b2935c9354504dbcea04288270e6ab1fa98a8dc0f7a67b569",
       "Reference MCP resources": "97c5dcd633ec55322cb983ecc14908e8bfdc1092141df8f6cb58c2517290f67b",
       "Scale with MCP tool search": "396a20b66d6405f2a8463b07037c3b03bff98d77f2a5f28c7957b0943cd43e40",
       "Tool search for MCP server authors": "ae1f68624c0028a5f56d05d306a3176a9d0fef71db3e40ed5853cafb6e6cb3fc",
@@ -563,7 +566,7 @@
       "claude plugin commands": "4771176b42dd5e0d8a8af831e5ea5501e733814f80f40d0c656e2008bc6717c1",
       "plugin init": "5e44c91a2fe9baa3d63c910dbdc592bb65adc25427fcef39073fbeac906c6d78",
       "plugin install": "7ba03c61610ef8cbd0ecd39de5633335d65cb78e48d9d65a371c11e01221e1be",
-      "plugin uninstall": "147cdb757952d05abe696e8859af6e92dc7c5f10ac2d17016c655d9af698f1e4",
+      "plugin uninstall": "5dcc553bcad4ca3fc1b883e1f2baa6ad424e455d6614c4deb72b51d8229dd0ac",
       "plugin enable": "1442a69fd69168f241a81fe28c6686d6df24e80e3c61dc65cb1109ddd1d52183",
       "plugin disable": "b55dca8ccfa208d4b80bcfe287f39cfd9121f7b10a5f4be1993a30e7ca512608",
       "plugin update": "8d8cba963d24d7ddb5f641f2200f7820e2080ca7c15bba1f24c77e576e27b13c",
@@ -698,7 +701,7 @@
       "Write effective instructions": "913ea975a60702d2467cfe59044de3305f26460b64f276715fb1f69207b6664e",
       "Import additional files": "442f959edb644dc47f8bffd35b903760abbcc62c4f69e33fb88c119f72c79a0f",
       "How CLAUDE.md files load": "d8381f403aa6e91054e8254d852312c6c6ff44a0ce47a5ec808b7fea4879210b",
-      "Organize rules with `.claude/rules/`": "fa595ba4b4637b9814f9d12d856bb1fb376f7be658a0bfa4e8d5e5166d177c03",
+      "Organize rules with `.claude/rules/`": "9a0a2fca7bdf02f270572b9f69604fb5d515ccaee4e2367a43cfcb4a04789a6c",
       "Manage CLAUDE.md for large teams": "8c2343b3ed5bf43827f9a9469f7195afaae38017dc165390e39495937aa49674",
       "AGENTS.md": "314b3969e58854bea8d331872eedecc777885c750303a7b938952807e857a471",
       "When Claude Code reads AGENTS.md": "a127df140a363a859cc9b0641d221f0b60e0c66f6cc6b287411a44d54b7b769d",
@@ -1099,7 +1102,7 @@
       "Settings for Local computer access with Work Cloud": "bcd2160697717f8f62528036a7331bc3967cd1700f4d05da6a08e5cf4a96bd99",
       "Agent Security requirements for Local computer access with Work Cloud": "94c8b49b5b1a0241f8085e3cbde8ef6c32a7bcb227bd96c7553f583af4990063",
       "Local computer access with Work Cloud compatibility limits": "99a28e6d981c911713bfde70e3b401e64b381542b00562a8da4e085307cf52a1",
-      "`config.toml`": "f3f9ff5b001797d64aaf394fb617efc6a725e40c123ab971a816d222bd33a6aa",
+      "`config.toml`": "677cce6e93180c74545d811aba01d8fc9e466fd78ae6077885349dba62102cf0",
       "`requirements.toml`": "55550f2d73ce118941c01c0bd30f68839aa5703eb8cdc45d66b555be73788655"
     },
     "https://learn.chatgpt.com/docs/extend/mcp": {
@@ -1330,6 +1333,155 @@
       "user_gets": "not checked",
       "systems": "not checked",
       "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "claude-code-changelog#2.1.327",
+      "client": "claude-code",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "`claude mcp add-json -s user <name> '<json>'` takes the entry as an argument, no stdin or file",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "claude mcp add-json can read JSON from stdin",
+      "changed": "`claude mcp add-json` can now take the JSON from stdin with `-`, so the row's statement of argument only, no stdin, no longer holds.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden keeps working and still writes secret-holding entries directly to ~/.claude.json, but the comment in _add_entry and the row saying add-json has no stdin option are no longer true.",
+      "systems": "not checked",
+      "why": "_add_entry still writes the same command and file edits, which the client accepts, so nothing breaks. Only the code comment and the row claiming no stdin or file option are now stale.",
+      "fix": "Update the comment in `_add_entry` in `src/kitden/clients/claude_code.py` and the research row to say add-json can read stdin with `-`. Optionally pass secret entries through stdin instead of editing the file, with a fallback inside a Claude Code session.",
+      "sure": true
+    },
+    {
+      "piece": "claude-code-changelog#2.1.327",
+      "client": "claude-code",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "These commands work with no account: `claude --version`, `claude mcp add-json`, `get`, `list` and `remove`, `claude plugin validate --strict`, `marketplace add` and `remove`, `install`, `list --json`, `disable`, `enable` and `uninstall`; seen on Linux (2026-11-15, version 2.1.325). The nightly installs it with its own installer, `https://claude.ai/install.sh` run by `bash`, which puts `claude` in `~/.local/bin` and writes `~/.claude.json` with no account (2026-11-15, version 2.1.325, Linux)",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/versions.py"
+      ],
+      "title": "Claude Code mcp add-json gains a stdin form",
+      "changed": "The `claude mcp add-json` command gains a stdin form; the account-free command list may need to cover it.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden still works, but the comment in `_add_entry` saying add-json has no stdin option is no longer true on new versions, and secret entries are still written directly to the file.",
+      "systems": "not checked",
+      "why": "`_add_entry` still passes the existing add-json argument form, which works, and writes secret entries to `~/.claude.json` itself. The comment saying the docs show no stdin option is now stale, and the row's command list does not cover the stdin form.",
+      "fix": "Update the comment in `_add_entry` in `src/kitden/clients/claude_code.py`, and add the stdin form to the row. Optionally pass secret entries through `add-json <name> -` on stdin on versions that support it, instead of writing the file.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "",
+      "files": [],
+      "title": "--setting-sources can exclude project rules",
+      "changed": "The --setting-sources flag decides whether project rules load; excluding project skips them.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden lists project rules as loaded when a session started with --setting-sources excluding project does not load them.",
+      "systems": "not checked",
+      "why": "No row covers a flag that decides which instruction files load; CC-21 only lists where the files are.",
+      "fix": "Read how Claude Code is launched for the --setting-sources value to know whether project rules are loaded.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "",
+      "files": [],
+      "title": "User-level rules",
+      "changed": "The page names user-level rules, a kind of instruction file kept for the user.",
+      "effect": "gap",
+      "severity": "minor",
+      "user_gets": "User-level rules, if kept in the home .claude folder, may not be shown.",
+      "systems": "not checked",
+      "why": "CC-21 names rules in `.claude` at the project root, not clearly the user-level folder.",
+      "fix": "Read the user-level rules folder under ~/.claude/rules for instruction files.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Symlinked rules outside working directory need approval to load",
+      "changed": "Rule files in .claude/rules reached by symlink to targets outside the working directory load only after external imports are approved, and then only those without paths; network-path symlinks never load. Affects which instruction files load.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees symlinked rule files listed as loaded instructions that Claude Code is not actually loading.",
+      "systems": "not checked",
+      "why": "_instruction_files uses expand() on the rules folder and lists every file found, and nothing in it follows symlinks or checks their targets or approval. Whether expand() follows or filters symlinks is not shown, so this is partly a guess.",
+      "fix": "In src/kitden/clients/claude_code.py, have _instruction_files (or its caller) resolve rule symlinks and mark those pointing outside the project folder as not loaded, or unknown, unless external imports are approved.",
+      "sure": false
+    },
+    {
+      "piece": "claude-code-changelog#2.1.327",
+      "client": "claude-code",
+      "title": "Mentions `<name>`",
+      "hint": true,
+      "changed": "The text of 2.1.327 has the word `<name>`.",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "`claude mcp remove -s <scope> <name>`",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "claude-code-changelog#2.1.327",
+      "client": "claude-code",
+      "title": "Mentions `~/.claude/settings.json`",
+      "hint": true,
+      "changed": "The text of 2.1.327 has the word `~/.claude/settings.json`.",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "claude-code-changelog#2.1.327",
+      "client": "claude-code",
+      "title": "Mentions `.claude/settings.json`",
+      "hint": true,
+      "changed": "The text of 2.1.327 has the word `.claude/settings.json`.",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "Project and user settings files `.claude/settings.json` and `.claude/settings.local.json`",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
     }
   ],
   "urgent": {
@@ -1352,8 +1504,8 @@
   "rule_skips": {},
   "fact_pages": {
     "https://code.claude.com/docs/en/mcp": {
-      "hash": "50f375a3bc0aa08a6def5b8f8fc2db27c4c3a9acc63c164c95393ba345cf8a50",
-      "changed": "",
+      "hash": "16f495712e121f89fc768bfd28712c704e8bde2490b0e627a579c282c19b1022",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/install": {
@@ -1362,8 +1514,8 @@
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/cli-reference": {
-      "hash": "afa5713a79eddb6a8857236b5855353288d620f113638d1bbf76f7224f11efff",
-      "changed": "",
+      "hash": "2437f2e3f03859d9a7035a8854f7a1693d65d8bb2d30f4b65c6be8519708bb77",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/loading": {
@@ -1382,8 +1534,8 @@
       "unstable": false
     },
     "https://code.claude.com/docs/en/memory": {
-      "hash": "8de0e82365c31b0f6a740fbe99a725807b11c833e7d7f8a1111054f64db18f8c",
-      "changed": "",
+      "hash": "7889a5c0009f98851d2266d04fc4aad64cb51b3347b87a5a1402a8ab84eeee0d",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://code.claude.com/docs/en/hooks-guide": {
@@ -1397,8 +1549,8 @@
       "unstable": false
     },
     "https://learn.chatgpt.com/docs/config-file/config-reference": {
-      "hash": "a22ab0113458ea6590e485e2bdc99e2119a47c55bafce0570dced2e052b83c7c",
-      "changed": "",
+      "hash": "5f3c41c677c12764e3d934cfbd7fd1c36cb60ea31089da5a50ac4d35fd2fcef7",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://developers.openai.com/plugins/build/plugins": {
@@ -1447,18 +1599,18 @@
       "unstable": false
     },
     "https://claude.com/docs/plugins/submit": {
-      "hash": "e9b6e230ec87a74d490ca5017049fba7e350eee10771f5a5598907de68264e0d",
-      "changed": "",
+      "hash": "75580b4f70cec67cfd2fd3548cfbbb7c7678d33cecaac032fc4e87723dda943e",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://claude.com/docs/plugins/pre-submission-checklist": {
-      "hash": "4e6050155fde557cccc6be26744806182975288158c3f26fe15e7b96f5fdced0",
-      "changed": "",
+      "hash": "1edcf2691e5974b0037f297760ee6630e817c30f4a7b51b658ccb940d1597056",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins-reference": {
-      "hash": "0b20d10898eace364c6b48a0c10d48493d613744619ef35426cdac37a81bc8c2",
-      "changed": "",
+      "hash": "930f2333f75b390b4ac0b897d8c0f91687d3f9a73936ef5c737affa59451fa1b",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": {
@@ -1492,8 +1644,8 @@
       "unstable": false
     },
     "https://glama.ai/mcp/methodology": {
-      "hash": "8eaa3e04dfcc29da34da5fd35e1ec8dd1b8d086ca715efbba56cdea4a1834c20",
-      "changed": "",
+      "hash": "3d31223f248e20a512444da58903c9e28ae3f45294225856f26c258e3e7bb55d",
+      "changed": "2026-11-18",
       "unstable": false
     },
     "https://packaging.python.org/en/latest/specifications/core-metadata/": {
@@ -1549,11 +1701,93 @@
   },
   "stale_week": "2026-W47",
   "feed": {
-    "day": "2026-11-16",
-    "wait": [],
+    "day": "2026-11-17",
+    "wait": [
+      {
+        "day": "2026-11-17",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/vs-code.md",
+        "product": "claude-code",
+        "sections": [
+          "Change the font"
+        ]
+      },
+      {
+        "day": "2026-11-17",
+        "kind": "changed",
+        "url": "https://learn.chatgpt.com/docs/app-server.md",
+        "product": "codex",
+        "sections": [
+          "Sign in to a configured gateway"
+        ]
+      },
+      {
+        "day": "2026-11-17",
+        "kind": "changed",
+        "url": "https://learn.chatgpt.com/docs/enterprise/work-admin-faq.md",
+        "product": "codex",
+        "sections": [
+          "How do locked chats affect workspace administration?"
+        ]
+      },
+      {
+        "day": "2026-11-17",
+        "kind": "changed",
+        "url": "https://learn.chatgpt.com/docs/features/composer-predictions.md",
+        "product": "codex",
+        "sections": [
+          "Example: Refine a project update"
+        ]
+      },
+      {
+        "day": "2026-11-17",
+        "kind": "changed",
+        "url": "https://learn.chatgpt.com/docs/projects.md",
+        "product": "codex",
+        "sections": [
+          "Use locked chats"
+        ]
+      },
+      {
+        "day": "2026-11-17",
+        "kind": "changed",
+        "url": "https://learn.chatgpt.com/docs/security/plugin/export-findings.md",
+        "product": "codex",
+        "sections": [
+          "Export findings"
+        ]
+      }
+    ],
     "dropped": 0,
-    "held": 0,
+    "held": 14,
     "gone": 0,
-    "taken": []
+    "failed": 0,
+    "taken": [
+      "https://cursor.com/docs/cloud-agent/repo-access",
+      "https://cursor.com/help/customization/context",
+      "https://cursor.com/help/customization/extensions",
+      "https://cursor.com/help/customization/ignore-files",
+      "https://cursor.com/help/customization/keyboard-shortcuts",
+      "https://cursor.com/help/customization/mcp",
+      "https://cursor.com/help/customization/plugins",
+      "https://cursor.com/help/customization/skills",
+      "https://cursor.com/help/customization/themes",
+      "https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode",
+      "https://code.claude.com/docs/en/agent-sdk/troubleshooting",
+      "https://code.claude.com/docs/en/artifacts",
+      "https://code.claude.com/docs/en/desktop-ios-simulator",
+      "https://code.claude.com/docs/en/errors",
+      "https://code.claude.com/docs/en/vs-code",
+      "https://cursor.com/docs/agent/voice-chat",
+      "https://cursor.com/docs/cloud-agent/private-connectivity",
+      "https://cursor.com/docs/cloud-agent/setup",
+      "https://cursor.com/docs/enterprise/model-and-integration-management",
+      "https://cursor.com/docs/origin/settings",
+      "https://learn.chatgpt.com/docs/app-server",
+      "https://learn.chatgpt.com/docs/enterprise/work-admin-faq",
+      "https://learn.chatgpt.com/docs/features/composer-predictions",
+      "https://learn.chatgpt.com/docs/projects",
+      "https://learn.chatgpt.com/docs/security/plugin/export-findings"
+    ]
   }
 }
