@@ -368,7 +368,6 @@ def _map_stale(api, fetch: Fetch, root: Path) -> list[str]:
 
 
 HISTORY_RUNS = 30  # the newest scheduled runs of each nightly workflow looked at each day
-RELEASE_RUNS = 100  # the newest push runs of release.yml looked at, for its release tags
 NEW_RUNS = 20  # at most this many runs read in full each day: a first day fills the rest later
 RELEASE = "release.yml"  # its build and startup jobs measure the start-up on every release tag
 PYPROJECT = "https://raw.githubusercontent.com/{repo}/{sha}/pyproject.toml"
@@ -440,10 +439,19 @@ def update_history(api, fetch: Fetch, repo: str, history: list[dict]) -> list[di
         address = (f"repos/{repo}/actions/workflows/{workflow}/runs?branch={BRANCH}"
                    f"&event=schedule&status=completed&per_page={HISTORY_RUNS}")
         waiting += [(workflow, run) for run in _runs(api, address, f"history ({workflow})")]
-    address = (f"repos/{repo}/actions/workflows/{RELEASE}/runs?event=push&status=completed"
-               f"&per_page={RELEASE_RUNS}")
-    waiting += [(RELEASE, run) for run in _runs(api, address, f"history ({RELEASE})")
-                if release_stores.TAG.match(run.get("head_branch") or "")]
+    # Each release tag's own build, found by its tag: in the list of all push runs an old tag's
+    # run is soon past the first page. Only tags with no line yet, or a log to read again, are
+    # looked up.
+    have = {line.get("version") for line in history if line.get("workflow") == RELEASE
+            and not (line.get("unread_logs") and (line.get("tries") or 0) < desk_bench.LOG_TRIES)}
+    tags = _read("tags", lambda: _dicts(api.get(f"repos/{repo}/tags?per_page=100"))) or []
+    for tag in tags:
+        found = release_stores.TAG.match(tag.get("name") or "")
+        if not found or found.group(1) in have:
+            continue
+        address = (f"repos/{repo}/actions/workflows/{RELEASE}/runs?branch={tag['name']}"
+                   "&event=push&status=completed&per_page=1")
+        waiting += [(RELEASE, run) for run in _runs(api, address, f"build of {tag['name']}")]
     waiting = [(workflow, run) for workflow, run in waiting
                if isinstance(run.get("id"), int) and _again(known.get(run["id"]), run)]
     new = []

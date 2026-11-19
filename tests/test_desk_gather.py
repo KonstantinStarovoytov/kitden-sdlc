@@ -940,8 +940,9 @@ HISTORY = {
                    "&status=completed&per_page=30",
     "latest-deps.yml": f"repos/{REPO}/actions/workflows/latest-deps.yml/runs?branch=main"
                        "&event=schedule&status=completed&per_page=30",
-    "release.yml": f"repos/{REPO}/actions/workflows/release.yml/runs?event=push"
-                   "&status=completed&per_page=100",
+    "tags": f"repos/{REPO}/tags?per_page=100",
+    "release.yml": f"repos/{REPO}/actions/workflows/release.yml/runs?branch=v0.9.2"
+                   "&event=push&status=completed&per_page=1",
 }
 SHA_A = "a" * 40
 
@@ -960,9 +961,8 @@ def measuring_job(name, job_id):
 BENCH = {
     HISTORY["nightly.yml"]: {"workflow_runs": [history_run(70, "2026-11-16T02:37:00Z")]},
     HISTORY["latest-deps.yml"]: {"workflow_runs": []},
-    HISTORY["release.yml"]: {"workflow_runs": [
-        history_run(80, "2026-11-14T17:00:00Z", "v0.9.2"),
-        history_run(81, "2026-11-15T09:00:00Z")]},  # a push to main: no release
+    HISTORY["tags"]: [{"name": "v0.9.2"}, {"name": "dev-notes-2026-11-09"}],
+    HISTORY["release.yml"]: {"workflow_runs": [history_run(80, "2026-11-14T17:00:00Z", "v0.9.2")]},
     night_jobs(70): {"jobs": [measuring_job("systems (macos-latest, 3.14)", 701),
                               {"id": 702, "name": "browser", "conclusion": "success",
                                "steps": []}]},
@@ -1000,7 +1000,7 @@ def test_the_history_gets_each_new_nightly_run_and_each_release_with_its_times()
     assert nightly[0]["times"] == {"first": 0.8, "complete": 0.9, "demo": 0.2}
     assert "times" not in nightly[1]  # the browser job measures nothing: its log is not read
     assert f"repos/{REPO}/actions/jobs/702/logs" not in api.asked
-    assert night_jobs(81) not in api.asked  # a push to main is no release
+    assert not any("dev-notes" in address for address in api.asked)  # no release tag
 
 
 def test_a_run_already_in_the_history_is_not_read_again():
@@ -1122,3 +1122,11 @@ def test_main_writes_the_history_and_the_bench(tmp_path):
     # Offline and with no release faked: no store is read, nor the newest release, so grey.
     assert bench["stores"]["stores"][0]["state"] == "grey"
 
+
+
+def test_a_release_with_a_line_is_not_looked_up_again():
+    known = [{"id": 80, "workflow": "release.yml", "version": "0.9.2", "night": "2026-11-14",
+              "jobs": []}]
+    api = LogApi(BENCH)
+    desk_gather.update_history(api, pyproject, REPO, known)
+    assert HISTORY["release.yml"] not in api.asked
