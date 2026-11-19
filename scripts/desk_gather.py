@@ -368,13 +368,8 @@ def _map_stale(api, fetch: Fetch, root: Path) -> list[str]:
 
 
 HISTORY_RUNS = 30  # the newest scheduled runs of each nightly workflow looked at each day
-RELEASE_RUNS = 100  # the newest push runs of release.yml looked at, for its release tags
 NEW_RUNS = 20  # at most this many runs read in full each day: a first day fills the rest later
 RELEASE = "release.yml"  # its build and startup jobs measure the start-up on every release tag
-# Kitden's one-off: run once by hand, each job measuring one earlier release on one system and
-# naming both. Its lines stay in history.json (desk_bench.KEPT); once Kitden deletes the file,
-# this read and the map's entry go too.
-HISTORY_WORKFLOW = "startup-history.yml"
 PYPROJECT = "https://raw.githubusercontent.com/{repo}/{sha}/pyproject.toml"
 GLAMA = "https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden"
 # Only the latest version: the search lists every version, oldest first, 30 to a page.
@@ -387,8 +382,6 @@ def _version(fetch: Fetch, repo: str, workflow: str, run: dict) -> str | None:
     if workflow == RELEASE:
         found = release_stores.TAG.match(run.get("head_branch") or "")
         return found.group(1) if found else None
-    if workflow == HISTORY_WORKFLOW:
-        return None  # each job's name carries its release
     sha = run.get("head_sha")
     if not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}", sha)):
         return None
@@ -446,14 +439,19 @@ def update_history(api, fetch: Fetch, repo: str, history: list[dict]) -> list[di
         address = (f"repos/{repo}/actions/workflows/{workflow}/runs?branch={BRANCH}"
                    f"&event=schedule&status=completed&per_page={HISTORY_RUNS}")
         waiting += [(workflow, run) for run in _runs(api, address, f"history ({workflow})")]
-    address = (f"repos/{repo}/actions/workflows/{RELEASE}/runs?event=push&status=completed"
-               f"&per_page={RELEASE_RUNS}")
-    waiting += [(RELEASE, run) for run in _runs(api, address, f"history ({RELEASE})")
-                if release_stores.TAG.match(run.get("head_branch") or "")]
-    address = (f"repos/{repo}/actions/workflows/{HISTORY_WORKFLOW}/runs?status=completed"
-               f"&per_page={HISTORY_RUNS}")
-    waiting += [(HISTORY_WORKFLOW, run)
-                for run in _runs(api, address, f"history ({HISTORY_WORKFLOW})")]
+    # Each release tag's own build, found by its tag: in the list of all push runs an old tag's
+    # run is soon past the first page. Only tags with no line yet, or a log to read again, are
+    # looked up.
+    have = {line.get("version") for line in history if line.get("workflow") == RELEASE
+            and not (line.get("unread_logs") and (line.get("tries") or 0) < desk_bench.LOG_TRIES)}
+    tags = _read("tags", lambda: _dicts(api.get(f"repos/{repo}/tags?per_page=100"))) or []
+    for tag in tags:
+        found = release_stores.TAG.match(tag.get("name") or "")
+        if not found or found.group(1) in have:
+            continue
+        address = (f"repos/{repo}/actions/workflows/{RELEASE}/runs?branch={tag['name']}"
+                   "&event=push&status=completed&per_page=1")
+        waiting += [(RELEASE, run) for run in _runs(api, address, f"build of {tag['name']}")]
     waiting = [(workflow, run) for workflow, run in waiting
                if isinstance(run.get("id"), int) and _again(known.get(run["id"]), run)]
     new = []

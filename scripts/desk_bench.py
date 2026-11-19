@@ -40,7 +40,9 @@ STARTUP_STEP = "Run uv run python scripts/measure-start.py"
 # whose run on a release tag measures that release.
 MEASURING = ("systems", "build", "startup")
 MEASURED_IN = ("nightly.yml", "release.yml", "startup-history.yml")
-# Kept for good, however many nightly runs come after: each is one release's own measure.
+# Kept for good, however many nightly runs come after: each is one release's own measure. The
+# startup-history lines are Kitden's one-off of 19 Nov 2026 (earlier releases on the Intel Mac and
+# Linux on ARM); the workflow is gone, its lines stay.
 KEPT = ("release.yml", "startup-history.yml")
 TAG = re.compile(r"v(\d+\.\d+\.\d+)")
 # What measure-start.py prints, one line each, after the log's timestamp.
