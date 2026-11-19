@@ -72,8 +72,10 @@ page. Besides the lights and what waits, `desk.json` has a `bench`
   Chromium, the start-up budget); **Compatibility** only informs (the newest Claude Code and
   Codex, the newest dependencies), because a red there is often the other side's change.
 - **Start-up time by release:** what `measure-start.py` printed, per system: a release's point
-  is its build on its tag (macOS arm64 and Linux x86_64) and the nights main was at that
-  release's own commit (all four systems, both Pythons), as a median; the last point, `main`, is
+  is its build on its tag (macOS arm64 and Linux x86_64; since 0.10.2 also the Intel Mac and
+  Linux on ARM, release.yml's `startup` job), the one-off `startup-history.yml` run that measured
+  earlier releases on those two, and the nights main was at that release's own commit (all four
+  systems, both Pythons), as a median; the last point, `main`, is
   the newest night on a later commit, so a slowdown merged after a release shows before the
   next. The times are printed to a tenth of a second, so the page marks a point only when it is
   at least 0.2 s and 20% slower than the one before.

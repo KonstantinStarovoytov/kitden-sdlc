@@ -38,8 +38,11 @@ CLIENT_SYSTEMS = (("macos-latest", "macOS"), ("ubuntu-latest", "Linux"))
 STARTUP_STEP = "Run uv run python scripts/measure-start.py"
 # The jobs that run STARTUP_STEP: the nightly's systems jobs, and release.yml's build jobs,
 # whose run on a release tag measures that release.
-MEASURING = ("systems", "build")
-MEASURED_IN = ("nightly.yml", "release.yml")
+MEASURING = ("systems", "build", "startup")
+MEASURED_IN = ("nightly.yml", "release.yml", "startup-history.yml")
+# Kept for good, however many nightly runs come after: each is one release's own measure.
+KEPT = ("release.yml", "startup-history.yml")
+TAG = re.compile(r"v(\d+\.\d+\.\d+)")
 # What measure-start.py prints, one line each, after the log's timestamp.
 STARTUP_LINE = re.compile(
     r"^\S+\s+(first usable|complete|demo \(medium\)): (\d+(?:\.\d+)?) s \(budget", re.M)
@@ -169,9 +172,9 @@ def merge(history: list[dict], new: list[dict], keep: int = KEEP_RUNS) -> list[d
     by_id = {line["id"]: line for line in history if isinstance(line, dict) and "id" in line}
     by_id.update({line["id"]: line for line in new})
     lines = sorted(by_id.values(), key=lambda line: (line.get("night") or "", line["id"]))
-    nights = [line for line in lines if line.get("workflow") != "release.yml"][-keep:]
+    nights = [line for line in lines if line.get("workflow") not in KEPT][-keep:]
     kept = {line["id"] for line in nights}
-    return [line for line in lines if line.get("workflow") == "release.yml" or line["id"] in kept]
+    return [line for line in lines if line.get("workflow") in KEPT or line["id"] in kept]
 
 
 # --- The rows of the nightly bench ---
@@ -280,16 +283,22 @@ def startup(history: list[dict]) -> dict | None:
                 and line.get("sha")}
     values: dict[tuple[str, str, str], list[float]] = {}
 
-    def take(line: dict, point: str) -> bool:
+    def take(line: dict, point: str | None) -> bool:
+        """The line's times under `point`; a job whose name ends in a release tag (the
+        startup-history workflow) counts for that release instead."""
         took = False
         for job in line.get("jobs") or []:
             part, args = job_parts(job.get("name", ""))
             times = job.get("times")
             if part not in MEASURING or not args or not isinstance(times, dict):
                 continue
+            tagged = next((m.group(1) for a in args[1:] if (m := TAG.fullmatch(a))), None)
+            at = tagged or point
+            if at is None:
+                continue
             for key in ("first", "complete"):
                 if isinstance(times.get(key), int | float) and not isinstance(times[key], bool):
-                    values.setdefault((args[0], point, key), []).append(float(times[key]))
+                    values.setdefault((args[0], at, key), []).append(float(times[key]))
                     took = True
         return took
 
@@ -298,6 +307,8 @@ def startup(history: list[dict]) -> dict | None:
         workflow = line.get("workflow")
         if workflow == "release.yml" and isinstance(line.get("version"), str):
             take(line, line["version"])
+        elif workflow == "startup-history.yml":
+            take(line, None)  # each job names its release
         elif workflow == "nightly.yml":
             if line.get("sha") in releases:
                 take(line, releases[line["sha"]])
