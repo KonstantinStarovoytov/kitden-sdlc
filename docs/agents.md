@@ -73,8 +73,8 @@ page. Besides the lights and what waits, `desk.json` has a `bench`
   Codex, the newest dependencies), because a red there is often the other side's change.
 - **Start-up time by release:** what `measure-start.py` printed, per system: a release's point
   is its build on its tag (macOS arm64 and Linux x86_64; since 0.10.2 also the Intel Mac and
-  Linux on ARM, release.yml's `startup` job), the one-off `startup-history.yml` run that measured
-  earlier releases on those two, and the nights main was at that release's own commit (all four
+  Linux on ARM, release.yml's `startup` job), Kitden's one-off run of 19 Nov 2026 that measured
+  earlier releases on those two (kept in `history.json`), and the nights main was at that release's own commit (all four
   systems, both Pythons), as a median; the last point, `main`, is
   the newest night on a later commit, so a slowdown merged after a release shows before the
   next. The times are printed to a tenth of a second, so the page marks a point only when it is
