@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-18T15:58:36Z",
+  "updated": "2026-11-19T09:44:00Z",
   "repo": "KonstantinStarovoytov/kitden",
   "overall": "amber",
   "lights": [
@@ -39,28 +39,28 @@
     "issues_from_others": 0,
     "pulls_from_others": 7,
     "stars": 1,
-    "downloads": 1806
+    "downloads": 1830
   },
   "waiting": [],
   "week": [
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 79,
+      "runs": 74,
       "failed": 5,
-      "did": 53,
-      "agreed": 6,
-      "disagreed": 0,
+      "did": 50,
+      "agreed": 5,
+      "disagreed": 1,
       "no_answer": 1
     },
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 79,
+      "runs": 74,
       "failed": 5,
-      "did": 52,
-      "agreed": 5,
-      "disagreed": 0,
+      "did": 49,
+      "agreed": 4,
+      "disagreed": 1,
       "no_answer": 2
     },
     {
@@ -83,7 +83,7 @@
     }
   ],
   "review": {
-    "clean": 54,
+    "clean": 55,
     "fixed": 5,
     "days_to_merge": 0.0
   },
@@ -179,12 +179,12 @@
     "agents": [
       {
         "agent": "claude",
-        "runs": 79,
+        "runs": 74,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 79,
+        "runs": 74,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
@@ -241,60 +241,60 @@
   },
   "bench": {
     "gate": {
-      "sha": "6a6bccd8dded748b7299bfaf17088768618082b6",
-      "at": "2026-11-17T23:30:31Z",
-      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405",
+      "sha": "097c87b4ed0d0f305cdb32de76c732ba43a69abc",
+      "at": "2026-11-19T09:18:36Z",
+      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239",
       "state": "green",
       "steps": [
         {
           "name": "Lint",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Types",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Real keyring",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423778"
         },
         {
           "name": "Page tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Start-up time",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Workflow security",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Dependency audit",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448056613"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Release check",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448057119"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         },
         {
           "name": "Package",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44199053405/job/134448057119"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493693239/job/135455423142"
         }
       ]
     },
@@ -661,6 +661,8 @@
     ],
     "startup": {
       "versions": [
+        "0.4.0",
+        "0.5.0",
         "0.6.0",
         "0.6.1",
         "0.6.5",
@@ -681,6 +683,8 @@
           "os": "macOS",
           "arch": "arm64",
           "first": [
+            null,
+            null,
             0.7,
             0.4,
             0.4,
@@ -696,6 +700,8 @@
             0.65
           ],
           "complete": [
+            null,
+            null,
             0.5,
             0.5,
             0.5,
@@ -711,6 +717,8 @@
             0.6
           ],
           "runs": [
+            0,
+            0,
             1,
             1,
             1,
@@ -731,48 +739,54 @@
           "os": "macOS",
           "arch": "x86_64 (Intel)",
           "first": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
+            1.4,
+            1.2,
+            2.5,
+            1.9,
+            1.8,
+            2.0,
+            1.5,
+            1.6,
+            1.6,
+            1.3,
+            1.3,
+            1.3,
+            2.1,
+            1.7,
             1.25
           ],
           "complete": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
+            1.4,
+            1.3,
+            2.0,
+            1.8,
+            2.1,
+            2.6,
+            1.9,
+            1.5,
+            2.0,
+            1.5,
+            1.8,
+            1.5,
+            2.4,
+            2.2,
             1.55
           ],
           "runs": [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
             2
           ]
         },
@@ -781,6 +795,8 @@
           "os": "Linux",
           "arch": "x86_64",
           "first": [
+            null,
+            null,
             0.2,
             0.4,
             0.3,
@@ -796,6 +812,8 @@
             0.55
           ],
           "complete": [
+            null,
+            null,
             0.3,
             0.5,
             0.5,
@@ -811,6 +829,8 @@
             0.65
           ],
           "runs": [
+            0,
+            0,
             1,
             1,
             1,
@@ -831,48 +851,54 @@
           "os": "Linux",
           "arch": "arm64",
           "first": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
+            0.6,
+            0.6,
+            0.6,
+            0.5,
+            0.6,
+            0.6,
+            0.6,
+            0.6,
+            0.6,
+            0.6,
+            0.5,
+            0.6,
+            0.6,
+            0.6,
             0.45
           ],
           "complete": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
+            0.6,
+            0.6,
+            0.6,
+            0.5,
+            0.6,
+            0.6,
+            0.6,
+            0.6,
+            0.6,
+            0.6,
+            0.5,
+            0.6,
+            0.6,
+            0.6,
             0.65
           ],
           "runs": [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
             2
           ]
         }
@@ -958,7 +984,7 @@
     "upstream": {
       "confirmed": 0,
       "unconfirmed": 0,
-      "watcher_days": 0.7,
+      "watcher_days": 1.4,
       "url": "https://github.com/KonstantinStarovoytov/kitden/issues?q=is%3Aissue+is%3Aopen+label%3Aclient-change"
     }
   }

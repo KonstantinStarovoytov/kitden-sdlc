@@ -1425,5 +1425,368 @@
     "startup": null
    }
   ]
+ },
+ {
+  "id": 44493892223,
+  "attempt": 1,
+  "unread_logs": 0,
+  "tries": 0,
+  "workflow": "startup-history.yml",
+  "night": "2026-11-19",
+  "sha": "097c87b4ed0d0f305cdb32de76c732ba43a69abc",
+  "version": null,
+  "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223",
+  "jobs": [
+   {
+    "name": "startup (macos-15-intel, v0.3.0)",
+    "state": "red",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456094730",
+    "failed_step": "Run uv run python scripts/measure-start.py",
+    "startup": "red"
+   },
+   {
+    "name": "startup (macos-15-intel, v0.6.5)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456094958",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.8,
+     "complete": 2.1,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.7.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095043",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.5,
+     "complete": 1.9,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.9.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095068",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.3,
+     "complete": 1.8,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.10.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095096",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.7.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095100",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 2.0,
+     "complete": 2.6,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.8.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095118",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.6,
+     "complete": 2.0,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.10.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095127",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.6.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095138",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.9,
+     "complete": 1.8,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.6.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095147",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.5,
+     "complete": 0.5,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.6.5)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095175",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.6.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095183",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.6.0)",
+    "state": "red",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095212",
+    "failed_step": "Run uv run python scripts/measure-start.py",
+    "startup": "red",
+    "times": {
+     "first": 2.5,
+     "complete": 2.0,
+     "demo": 0.4
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.4.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095236",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.7.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095242",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.5.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095247",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.4.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095248",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.4,
+     "complete": 1.4,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.9.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095268",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.3,
+     "complete": 1.5,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.10.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095305",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.7,
+     "complete": 2.2,
+     "demo": 0.7
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.9.2)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095311",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.3,
+     "complete": 1.5,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.5.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095385",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.2,
+     "complete": 1.3,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.9.2)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095393",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.7.2)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095399",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.6,
+     "complete": 1.5,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.7.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095400",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.8.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095416",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.7.2)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095424",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (macos-15-intel, v0.10.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095444",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 2.1,
+     "complete": 2.4,
+     "demo": 0.3
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.9.0)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095448",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.3.0)",
+    "state": "red",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456095915",
+    "failed_step": "Run uv run python scripts/measure-start.py",
+    "startup": "red"
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm, v0.9.1)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44493892223/job/135456098709",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.5,
+     "complete": 0.5,
+     "demo": 0.1
+    }
+   }
+  ]
  }
 ]
