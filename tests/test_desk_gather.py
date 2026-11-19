@@ -942,6 +942,8 @@ HISTORY = {
                        "&event=schedule&status=completed&per_page=30",
     "release.yml": f"repos/{REPO}/actions/workflows/release.yml/runs?event=push"
                    "&status=completed&per_page=100",
+    "startup-history.yml": f"repos/{REPO}/actions/workflows/startup-history.yml/runs"
+                           "?status=completed&per_page=30",
 }
 SHA_A = "a" * 40
 
@@ -1121,3 +1123,18 @@ def test_main_writes_the_history_and_the_bench(tmp_path):
     assert bench["startup"]["versions"] == ["0.9.2"] and bench["rows"][0]["name"] == "macOS · arm64"
     # Offline and with no release faked: no store is read, nor the newest release, so grey.
     assert bench["stores"]["stores"][0]["state"] == "grey"
+
+
+def test_the_one_off_start_up_history_is_read_once_with_each_job_s_tag():
+    answers = {**BENCH,
+               HISTORY["startup-history.yml"]: {"workflow_runs": [
+                   history_run(90, "2026-11-19T10:00:00Z")]},
+               night_jobs(90): {"jobs": [measuring_job("startup (macos-15-intel, v0.9.2)", 901)]}}
+    logs = {**LOGS, f"repos/{REPO}/actions/jobs/901/logs": LOG}
+    history = desk_gather.update_history(LogApi(answers, logs), pyproject, REPO, [])
+    line = next(line for line in history if line["id"] == 90)
+    assert line["workflow"] == "startup-history.yml" and line["version"] is None
+    assert line["jobs"][0]["times"]["first"] == 0.8
+    api = LogApi(answers, logs)
+    desk_gather.update_history(api, pyproject, REPO, history)
+    assert night_jobs(90) not in api.asked  # read once

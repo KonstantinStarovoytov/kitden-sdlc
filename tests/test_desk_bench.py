@@ -275,3 +275,23 @@ def test_stores_compare_with_the_newest_release():
     assert found["claude-plugin"]["state"] == "planned"
     assert found["mcprush"]["state"] == "grey"  # not read in this test
     assert stores(None, seen)["stores"][0]["state"] == "grey"  # nothing to match it against
+
+
+def test_the_tag_s_startup_jobs_and_the_one_off_history_fill_the_other_systems():
+    release = record("release.yml",
+                     run(60, "2026-11-17", head_branch="v0.10.1", head_sha="f" * 40),
+                     [job("startup (ubuntu-24.04-arm)", job_id=61)], "0.10.1",
+                     {"startup (ubuntu-24.04-arm)": {"first": 0.7, "complete": 0.8}})
+    history = record("startup-history.yml", run(70, "2026-11-19", head_branch="main"),
+                     [job("startup (macos-15-intel, v0.9.1)", job_id=71),
+                      job("startup (macos-15-intel, v0.10.1)", job_id=72),
+                      job("startup (ubuntu-24.04-arm, nonsense)", job_id=73)], None,
+                     {"startup (macos-15-intel, v0.9.1)": {"first": 1.6, "complete": 2.0},
+                      "startup (macos-15-intel, v0.10.1)": {"first": 1.5, "complete": 1.9},
+                      "startup (ubuntu-24.04-arm, nonsense)": {"first": 9.0, "complete": 9.0}})
+    found = startup([release, history])
+    assert found["versions"] == ["0.9.1", "0.10.1"]
+    _mac, intel, _linux, arm = found["systems"]
+    assert intel["first"] == [1.6, 1.5] and arm["first"] == [None, 0.7]  # no tag: not counted
+    nights = [night_line(i, f"2026-11-{i:02}") for i in range(1, 11)]
+    assert 70 in [line["id"] for line in merge([history], nights, keep=2)]  # kept for good
