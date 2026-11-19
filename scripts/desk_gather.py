@@ -371,7 +371,9 @@ HISTORY_RUNS = 30  # the newest scheduled runs of each nightly workflow looked a
 RELEASE_RUNS = 100  # the newest push runs of release.yml looked at, for its release tags
 NEW_RUNS = 20  # at most this many runs read in full each day: a first day fills the rest later
 RELEASE = "release.yml"  # its build and startup jobs measure the start-up on every release tag
-# Run by hand, once: each job measures one earlier release on one system, and names both.
+# Kitden's one-off: run once by hand, each job measuring one earlier release on one system and
+# naming both. Its lines stay in history.json (desk_bench.KEPT); once Kitden deletes the file,
+# this read and the map's entry go too.
 HISTORY_WORKFLOW = "startup-history.yml"
 PYPROJECT = "https://raw.githubusercontent.com/{repo}/{sha}/pyproject.toml"
 GLAMA = "https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden"

@@ -409,7 +409,7 @@ table.hold tr:last-child td{border-bottom:0}
  "t-auto-pull": {"name": "auto-pull", "what": "once \"brew test-bot\" passes on a Kitden version-bump pull request, checks that a trusted bot opened it, that it changes only the formula and that the tested commit is still its newest. Then it starts publish.yml, which publishes the formula and the bottles (ready-built packages), and checks that the formula on main names the new version and its bottles.", "why": "a new Kitden version reaches Homebrew without anyone pressing the Merge button."},
  "t-publish": {"name": "brew pr-pull", "what": "for one pull request (auto-pull.yml starts it), \"brew pr-pull\" takes the bottles (ready-built packages) that brew test-bot built and uploads them to a GitHub release. Then the workflow signs a record that the bottles came from this repository and pushes the formula to main.", "why": "on the systems the bottles are built for (macOS 26 on Apple Silicon, and Linux on x86-64), `brew install` gets a ready-built bottle and does not build Kitden from source."},
  "t-autobump": {"name": "brew bump", "what": "every day, checks whether Kitden has a newer version than the formula and, if so, opens a version-bump pull request as the tap app (kitden-kettle).", "why": "the formula stays up to date even when Kitden's own release did not open the bump."},
- "k-startup-history": {"name": "Start-up history", "what": "by hand, measures the start-up time of earlier releases on the systems their build did not measure, for the desk page's trend in kitden-sdlc.", "why": "a release's build measured only macOS on Apple silicon and Linux on x86_64 until the startup job in release.yml; this fills in the Intel Mac and Linux on ARM once."}
+ "k-startup-history": {"name": "Start-up history", "what": "once, by hand, measures the start-up time of earlier releases on the Intel Mac and Linux on ARM, for the desk page's trend in kitden-sdlc.", "why": "their builds measured only macOS on Apple silicon and Linux on x86_64. Delete this file after its one run: kitden-sdlc keeps the times it read."}
 }
 </script>
 <script>
@@ -521,7 +521,7 @@ const WF = [
   trigger:'You press Run workflow, once',
   stages:[['startup']],
   jobs:[{n:'startup', tags:['Intel Mac and Linux on ARM'], when:'one job per release tag and system',
-    steps:['Check out one earlier release tag|v0.3.0 to v0.10.1 by default',
+    steps:['Check out one earlier release tag|each of v0.3.0 to v0.10.1',
      'Time how fast that release’s page starts|the desk page charts it beside the release builds’ times']}]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
   trigger:'A pull request that changes `src/kitden`, the recorder or `tests/conftest.py`',
