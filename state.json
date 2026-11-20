@@ -445,7 +445,8 @@
       "2.1.325": "057831d458d6c67665b85867bd2b17cef8f2bdcf7f6b95340ed70dd847760c10",
       "2.1.326": "814b58eab4b67d566e80961e13eaee4d725410262842411f5bd9f2839db3ba0e",
       "2.1.327": "1c6dbada4e46af63e56c5e1a127fcb0b2059018434cb7f0ac42dceb62574380d",
-      "2.1.328": "6552df478c8759922e11cd7d6d8fbb3205d1e11434efac5d7eb8bf3c6f6efa0a"
+      "2.1.328": "6552df478c8759922e11cd7d6d8fbb3205d1e11434efac5d7eb8bf3c6f6efa0a",
+      "2.1.329": "264910e49282eac97ec9893b417f737bc00f8810a7272e00a167379b009948b0"
     },
     "cursor-changelog": {
       "": "01c91aaabc4986baa25082a6254a65d3e1bcd0c357644d489eb04d8faf923e5d",
@@ -462,7 +463,8 @@
       "rust-v0.167.1": "bf78adc18f322037af83c7129666358532fa90f22cb6b430871753a81e7334af",
       "rust-v0.167.0": "9f67528a7151bf4e17b1b382eb2fa53b029e8c68904bc00c354376838ddee062",
       "rust-v0.170.0": "28e22939d3efc033abd9560275f7fcee1afc0a945f249e3aa86372f58a290d19",
-      "rust-v0.169.1": "0d682fde58540da8f08536a9d39e3bce55354479bbb196d3929b3f7ed9162849"
+      "rust-v0.169.1": "0d682fde58540da8f08536a9d39e3bce55354479bbb196d3929b3f7ed9162849",
+      "rust-v0.171.0": "063499425fcbc2d447413decf35ac34989ac6dd86e604a49e8859d1031673590"
     },
     "https://code.claude.com/docs/en/mcp": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
@@ -508,15 +510,15 @@
       "Import MCP servers from Claude Desktop": "0df3fb1f983e38bd9282d83b895ff35cec594bd8250732fb1a2bc6e5c2c0beec",
       "Use MCP servers from claude.ai": "9bd73e1f3b8ff63f79ddbe4ec8d0025a4a82627a4fc7300aa2b6af374a47216c",
       "How connectors reach Claude Code": "34006c016bf1c53e17574a1d6cf71680e9886cb2810502b473acb9ed7937da3b",
-      "Organization controls on connector tools": "f00c7bb2c15bd42615f967d431e84089c4d62f17523a46f243840256f5641d1f",
+      "Organization controls on connector tools": "170477b0eea7d92bcc72479641cad61153865cda729ba1fdf733bccbe6b784ea",
       "Disable claude.ai connectors": "d4696014e7dd04a896dda1a6f4c520077451aec4c3184c45d3fc492c077dd516",
       "Use Claude Code as an MCP server": "7d655fc48376f3a3c4ee317b0d20f7568d59725a146323417ae1fbbb0022a710",
       "Read a background command's output as an MCP client": "35c637bce741fcdcb514bbf11c654c88e98e66c044cf1686098cf50d2edf723f",
       "MCP output limits and warnings": "b3836ba8ac03cf61d90640bd77f9a6456e6a97af8dc2c44f16c9bca70149ba46",
       "Raise the limit for a specific tool": "0551bba09771695db587d6742f03d0ad777a3d59b34446d949fb9dff4ec1ed17",
       "Images in tool results": "71a62fc77c3c2f4357cd2d168aa0b94f8388e69b43315e01a2c6a35b58f15d15",
-      "Tool input schemas with a root-level combinator": "11dba9eee27242aec82329f4c97a00fbe300ca2a45eea62230cb8eddaaa21abe",
-      "Tools with invalid input schemas": "86eb9104a93f5121c0914b2f6512c175f40de186a0e4629a4ed1fc63e37b99cf",
+      "Tool input schemas with a root-level combinator": "7676be336cdfe99b68a62413f8d8d28b131fc3077e15fcf02decf0083cc59ea6",
+      "Tools with invalid input schemas": "1caec38a65b163c7ad1918ba37eda547ccd931490be33fe4fe3d3b98c3e64065",
       "Tools whose input schema the API refuses": "62ef30e0d5f1d798b3e10f75a8e2e8e9192c756b582306975a5597cd9ac6ea75",
       "Tools with names longer than 128 characters": "1ae13cc01f7167cb986556a93da8ebc284e5585038f82b8ebc02a0065623eecb",
       "Require approval for a specific tool": "0c0459e4b6993776a6238637edbf744713ce588651e8e972571f4c2b76fc658a",
@@ -538,13 +540,13 @@
     "https://code.claude.com/docs/en/plugins/install": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Install and manage plugins": "72e26d790d9bdb04eacd6a348c29205b42a21d0247b7dbf2abe924db52b3ad5f",
-      "Install a plugin": "6a026f1ce0d1e04932bd2f87eb6c3388c28785d8a948f1b7b0835bda801d7fe6",
+      "Install a plugin": "fe03714fb7af92c208d4777bdcc232426b496a5e4f86d4ce36c7c91ac0d324a2",
       "Choose an install scope": "4eebaabf51f0b42c917ca3be7f6e0ef7e953dda53c25e52e787d55ed99b9e471",
       "JetBrains, non-interactive runs, and the Agent SDK": "e0de7b15581cd397389a8815b306a04aea0c0fb3f684f76eedb75b3735d56f9c",
       "Plugins from your claude.ai account": "326f43a110a782bc3749f1986a300de5bea3b08bc0fba277c2bedc55e6b159af",
-      "Install from your shell": "2e104d5d54100ec83d7c18e2611c3c9ae9f1dbcf38e7fcbe1d6a74c77404fe98",
+      "Install from your shell": "d523901e2ec09906cd1101a53e9e36b171f8b7d0b4c607242e3c826f958506bd",
       "Add a marketplace": "4d26eabeec91a2ade168e5d722c4dcc9114f61a4c6b691dc18e304d0f9aed314",
-      "Add a marketplace and install in one command": "0bbacdfc57d1530c4337d7a37d302bd648b417c531d93c1092b2132bfd95e31b",
+      "Add a marketplace and install in one command": "1b604a3930239162db1caa57d645ce9b456a84634377ac0e050868efb0329c45",
       "Add a private marketplace": "d235c3c2f8f8065bf985041078ff42fabb52daf4545e7f4bc49480687188a615",
       "Add a marketplace from claude.ai": "31513274ac8e913b2c1b386f14a0ab28ccf90c5321baeb5549765fbfcdf46d9e",
       "Manage installed plugins": "3ff142c691e28043eeb5a6f6cf8faf97df4c7529e7d467a37d9e75a367718db5",
@@ -554,7 +556,7 @@
       "Find plugins you no longer use": "5b4e733cd0a42c3345c2703620d14f70f06f8d9472189189148d39506828bea4",
       "Plugins with dependencies": "15b0f2580102c621df8acf0d149a7567644a47f00fe5ca7df19bd4c4e2d3ce4d",
       "Manage plugins from your shell": "8aa5ab6b41c7e4ccff7d22c129b210d5bd198ef230cfb89b7ea80e93e0e6bd53",
-      "Keep plugins updated": "c612afdb3e599d9dcdd20220a660d6fa931c1f8b7b0f282a62d1477656af8f74",
+      "Keep plugins updated": "4a940ed26b09ce84c95b327bd6ad63e796a451ffd848201eff6174ff64cec719",
       "Turn auto-update on or off for a marketplace": "50efb0bc9409cdd1ca70372419c027827e31fc44cbef3a6a219e413902a503a8",
       "Update plugins now": "8edc2789afb826fb8529db90e41f53d2c0914e6d0d7f5b3d35f6099157a02d7b",
       "Auto-update from a private marketplace": "02d60e43cf09f807d01946eb9540fc86d69fb4c379f527b44253dd7adb58c54e",
@@ -564,7 +566,7 @@
     "https://code.claude.com/docs/en/plugins/cli-reference": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Plugin commands reference": "6caeffbaf2e8b7c61140c8bd5635a1fea09c74fb9e019e1d52bb57e7027e6927",
-      "claude plugin commands": "4771176b42dd5e0d8a8af831e5ea5501e733814f80f40d0c656e2008bc6717c1",
+      "claude plugin commands": "5f7210c7f67ffbdec193e84ee024c37ca09c29e904fbf3a0200daffcb4355dc4",
       "plugin init": "5e44c91a2fe9baa3d63c910dbdc592bb65adc25427fcef39073fbeac906c6d78",
       "plugin install": "7ba03c61610ef8cbd0ecd39de5633335d65cb78e48d9d65a371c11e01221e1be",
       "plugin uninstall": "5dcc553bcad4ca3fc1b883e1f2baa6ad424e455d6614c4deb72b51d8229dd0ac",
@@ -579,35 +581,36 @@
       "plugin eval init": "26fc13cd04238deaab9bde98971d8d04accf9049f53afb54ba2dbd3d8c8a5372",
       "plugin tag": "e7033452d7a150a2eea484ddc7e338b689b16d5959a6b2be8b869099a73e1c64",
       "plugin test": "adbf1ee3ed38539acd146bf0a22d43bc6287fd30ac8f0508972a80974750df47",
-      "plugin validate": "fbff9d4bb9acd380274ebd10a18136ff8eef3a88baff596ea067c2298cc8bdf9",
+      "plugin validate": "d6a5c1bed036fdb9e559e8dd0d46cfcb2b736bdf3bffd63c266e8fba0b61630f",
       "claude plugin marketplace commands": "4ecccaaa478bd541c8075a32f5c5b85d1dedb1329cf8d0e73655e6694efb8c7c",
-      "plugin marketplace add": "cf7eb5a7006a7ec128a7d3961151aa418d5dfc7ea780832b9e9eaf525e26870f",
+      "plugin marketplace add": "a4963f770fd4e85940d68d1ab3fc2bdcea6198113a5031681e5ae51a11903f41",
       "plugin marketplace list": "aec80c36820ab0d86c875b4b5afa7042020c23c2a87b365edba823de5b8933df",
       "plugin marketplace remove": "abfabd68282529e178a2d41d91f848f535496cabd37ec3eeddf4e47ac9ed1945",
       "plugin marketplace update": "6ccfb6922a5cfc801e8c81d62060611a7013bc699a8b2bd925287d9742b97107",
-      "/plugin in a session": "c4084fbc77f69784bc1f3facadf7d59e2e94a2b59254bd79c1277ba3a9a133b1",
+      "/plugin in a session": "5c8d2459bd7ed332a4887a8816deb9e01b9cbccbd201a032dff3630580bd766b",
       "/reload-plugins": "c4d295ab33032836c7ed059c985246701cf170ae24b77d3c303a21fbaf445a3c",
-      "Reload summary": "44a5dc4298754a3ebfead3e50a98da65b5ae8ccfbd3323cc79dade645132b1ef",
+      "Reload summary": "0c43b4112e8674d06851e0397bf4085622b00cf29f7b48f1981d63a58d507027",
       "Reloads that change MCP tools": "1e36b0c205c21848b5536ae78cd61cf8ab465261048e72f88be41a6249dedc58",
       "Sessions without an interactive terminal": "f364231119b21d12223f7079bde287999b279684624efa608983169838892317",
-      "Flags that load a plugin for one session": "9cd1c6b1ba6db28e951060ecdfe69944cae2805f7cc19047fd60e57397bcb461",
-      "Next steps": "cfdc9319ccdaaa4d73a3d14b5299183cd40411a7fbb5576b1d20f8a546197bde"
+      "Flags that load a plugin for one session": "19e08dad50c037c79f2b3c384caf710c36afdb9f44137af1e482a8d9cc488407",
+      "Next steps": "cfdc9319ccdaaa4d73a3d14b5299183cd40411a7fbb5576b1d20f8a546197bde",
+      "Dependencies installed during a reload": "05d5b3b623898d1534e5531734e016c4c1bb6721ada4782efec1c98031060775"
     },
     "https://code.claude.com/docs/en/plugins/loading": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Plugin loading reference": "f573856929394a88944c710dac7ad66c277c65fa1b1cb2b5dcadb3f72ee09ad6",
-      "Check which stage a plugin reached": "27f9ca9bfe22c514fd329f0e8358ddbd88d281b76438b29fb6b3e8403b615805",
+      "Check which stage a plugin reached": "61b6872a748d207b33eb6358e54fb9427f4b3458eb34e07791b42aa96073703f",
       "Plugins and marketplaces that aren't on disk at session start": "8b96b08cce93faba1f0fc72fa141b225207868986f1d60137ad18a2f2f27767d",
       "Find where a plugin came from": "7fb5fbadb6f7cd868b5205441fb5748b55caa04579fd2e4a5b55c1afd0cdbdee",
       "Entry name and manifest name": "de1a3034d7609f78939d553b101f2f7ad01a0ef10b940aa5a6dacd73d8e37da3",
       "Plugins shared through a repository": "2c8adb9aa74022b4da47e08e9299a19743b99b57803e1431ac0c3c9a940d7148",
       "Skills-directory plugins blocked by managed settings": "fdc77724bc5cd93b5ba5f4644516df0b39e771162751c2303e4aebba7314a084",
       "Plugins synced from claude.ai": "41bf0d9b74b762e73cf5d9da80e0b1420bfb67fd1a61000ad18e1ceaae375b75",
-      "Find where a plugin is enabled": "8924686e2cc60878fae5ad75f57d53fbbe401bd77967c669624af8e87dabd867",
+      "Find where a plugin is enabled": "03f24d0285fa687540ea8fca5cafaf2f8931bc367c9c18cf4424f799ac92d67f",
       "Disabled in user settings but still loads": "1702fda6754bac5e36b54871b309a13f8656ea553c9eb71cd30fda3f072ef973",
-      "Enabled in an `--add-dir` directory but not loaded": "e9de2127f41f6496b8be10b7b93e21056c8520ec1e982c1cd9b047fb42b1259a",
+      "Enabled in an `--add-dir` directory but not loaded": "173a99a615911d292587c7a92ed3fc566ee1c52cad2ef33e888859fbcd4fc075",
       "Enabled in project settings but not installed": "3a3f8d831488393ac0ecd556c07d6491e81002d9f1fa48b716975a5060053708",
-      "Find plugins on disk": "8fd588faec3fa4341eab1ccbd3911193488c7e7eac09d2e0ad34caae11808aef",
+      "Find plugins on disk": "7a2ba85dd6afa03d8b384d8c9478a292d9fcc84b7783a3eff180e2bf637ed6f2",
       "In-place and copied plugins": "27d6c5974582305e3821c8a80e43f0612c5ede85ba7e2b44f882b87a3eaf0764",
       "Paths that escape the plugin directory": "d0941d1de6e4e358bde4972452733c76d24f3dde3426515406a7bb7108143908",
       "Cleanup of previous versions": "4f7e0ff4f6056e75bbd254a28b111d9e1ac57b828163e7ac4af1080634d48b6a",
@@ -1610,6 +1613,150 @@
       "user_gets": "not checked",
       "systems": "not checked",
       "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#Flags that load a plugin for one session",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "",
+      "files": [],
+      "title": "CLAUDE_CODE_PLUGIN_DIRS variable and disableSideloadFlags setting",
+      "changed": "Plugins can be loaded from folders named in the CLAUDE_CODE_PLUGIN_DIRS variable, and a managed setting disableSideloadFlags can reject them.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden does not show plugins loaded from folders in CLAUDE_CODE_PLUGIN_DIRS, nor that disableSideloadFlags stops them loading.",
+      "systems": "not checked",
+      "why": "No row covers plugin folders set by an environment variable or the disableSideloadFlags setting.",
+      "fix": "Read the CLAUDE_CODE_PLUGIN_DIRS environment variable and the managed disableSideloadFlags setting.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "",
+      "files": [],
+      "title": "--settings flag can enable plugins",
+      "changed": "A settings value passed at launch with --settings can carry enabledPlugins and overrides user, project and local.",
+      "effect": "gap",
+      "severity": "minor",
+      "user_gets": "Kitden does not show plugins enabled or disabled by a --settings value for a session.",
+      "systems": "not checked",
+      "why": "No row covers the --settings launch flag as a source of enabledPlugins.",
+      "fix": "Kitden would need to read the --settings value from the running client's launch command.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "",
+      "files": [],
+      "title": "Managed settings enable or block plugins",
+      "changed": "Managed settings can force-enable or block plugins via enabledPlugins, overriding every other source.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Kitden shows plugins as on or off per user, project and local files, missing plugins forced on or blocked by managed policy.",
+      "systems": "not checked",
+      "why": "No row names managed settings as a source of enabledPlugins.",
+      "fix": "Kitden would need to read the managed settings file or policy location for enabledPlugins.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "`enabledPlugins` in user, project and local settings; local wins over project over user; set false in the local file to opt out (2026-10-26)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "enabledPlugins can be set from six sources, including managed settings",
+      "changed": "enabledPlugins can come from --add-dir directory settings, user, project, local, --settings flag and managed settings, merged key by key with managed highest (true force-enables, false blocks); the row names only user, project and local.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "A plugin that managed settings block can appear as on in Kitden, or one that managed settings force on can appear as off.",
+      "systems": "not checked",
+      "why": "scan and _project_files read enabledPlugins only from user, project and local settings files (the _on(value) state), and the code comment at the `_project_files` plugin block states only those three sources. The quote adds sources the code never reads, though the quote does not itself say whether the three-file precedence still holds, so the extent is a guess.",
+      "fix": "In src/kitden/clients/claude_code.py, read enabledPlugins from managed settings and note that --settings and --add-dir sources exist, or mark the state unknown when those sources cannot be read. Update the row to list all six sources.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Enabled in an `--add-dir` directory but not loaded",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "",
+      "files": [],
+      "title": "--add-dir directories as a source of enabled plugins",
+      "changed": "Plugins enabled in settings files of directories added with --add-dir load only when trusted and when the session's --setting-sources include the file's source.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden does not show plugins enabled by an added directory's settings, nor that --setting-sources stops some from loading.",
+      "systems": "not checked",
+      "why": "No row covers --add-dir directories or the --setting-sources setting that decides which settings files load.",
+      "fix": "Read the session's --add-dir directories and --setting-sources, then each added directory's .claude settings files and trust state.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "`~/.claude/plugins/installed_plugins.json` (`plugins.<id>[].installPath`) and `known_marketplaces.json` (`source`, `installLocation`)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "claude.ai-hosted marketplaces recorded in known_marketplaces_claudeai.json",
+      "changed": "installed_plugins.json and known_marketplaces.json sit under the plugins root, which may be moved by CLAUDE_CODE_PLUGIN_CACHE_DIR, not always ~/.claude/plugins; claude.ai-hosted marketplaces go to known_marketplaces_claudeai.json.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user does not see claude.ai-hosted marketplaces, and with a relocated plugins root sees no installed plugins or marketplaces that Claude Code actually has.",
+      "systems": "not checked",
+      "why": "scan and marketplace_sources read only the fixed ~/.claude/plugins/known_marketplaces.json, so a marketplace recorded in known_marketplaces_claudeai.json is missing from a list that looks complete. It is not stated whether claude.ai marketplaces were always recorded there, or whether the relocated root is new, so the change may not be the cause.",
+      "fix": "In src/kitden/clients/claude_code.py, also read known_marketplaces_claudeai.json beside known_marketplaces.json in scan, marketplace_sources and marketplace_roots. Resolve the plugins root from CLAUDE_CODE_PLUGIN_CACHE_DIR instead of hardcoding ~/.claude/plugins.",
+      "sure": false
+    },
+    {
+      "piece": "claude-code-changelog#2.1.329",
+      "client": "claude-code",
+      "title": "Mentions `~/.claude.json`",
+      "hint": true,
+      "changed": "The text of 2.1.329 has the word `~/.claude.json`.",
+      "version": "2.1.329",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "User servers live in `~/.claude.json` under `mcpServers`; local servers under `projects.<path>.mcpServers`; Claude Code rewrites the file in normal use",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "claude-code-changelog#2.1.329",
+      "client": "claude-code",
+      "title": "Mentions `CLAUDE.md`",
+      "hint": true,
+      "changed": "The text of 2.1.329 has the word `CLAUDE.md`.",
+      "version": "2.1.329",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
     }
   ],
   "urgent": {
@@ -1632,33 +1779,33 @@
   "rule_skips": {},
   "fact_pages": {
     "https://code.claude.com/docs/en/mcp": {
-      "hash": "4a42bd083eefcdf88cb8c9446b475fd047070009b08d84ee798dd91668fa4e75",
-      "changed": "2026-11-19",
+      "hash": "5700309284ae6715cacb91a9228cabc69d494c4629c314b23864ffedf9b1595b",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/install": {
-      "hash": "9e9803f5df84d5bbe5b295ff00f734138f660f8db9f03921530d6ab20dfcf159",
-      "changed": "2026-11-19",
+      "hash": "3dd00596a0ee5ea8882566eb407d455b12676b89ceee7f54a2c5a326ec3e4f5f",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/cli-reference": {
-      "hash": "cc279f0e5ac8a3736cccc2c3a992f1cf88efa35b5f81a3bf33def254216fe74b",
-      "changed": "2026-11-19",
+      "hash": "c47e227cf7a5923df15014026a2b7e3bcd7b02cbda3f16566110182d03053035",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/loading": {
-      "hash": "7fde089ec3c49faef2f539d43fd1f50fcb6314c4baa2e2522609e9e08648d0dd",
-      "changed": "2026-11-19",
+      "hash": "5d94a268168fc2f560709b931dca7c6f6a1623dbf62a0134500e861a56ac2502",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/settings": {
-      "hash": "ef7dd3ed98241d973049b86bc3d59d13ddbd6a8a83bfdfebd957b21e2030ff92",
-      "changed": "",
+      "hash": "a4cac6c1f939a1754a5643899c7bee14781b01c33623f62665156bf982ac39b2",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/skills": {
-      "hash": "6531cc50537e020cc6f3b65d2149dbe0c794591dcc159bf3b91811b390b0781e",
-      "changed": "",
+      "hash": "cf7103f9f0c84a9f7c271cdbddb3c6bc3aab45de162c254da5cb45978a0feccb",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/memory": {
@@ -1727,18 +1874,18 @@
       "unstable": false
     },
     "https://claude.com/docs/plugins/submit": {
-      "hash": "743ff8d03d908967ffb6d0ad8c09b466cb9a0366363b4411919d49e5f9d380d0",
-      "changed": "2026-11-19",
+      "hash": "20031b8235f61a15e172104f5b2cb0a33905d1206964aa56cb2ccdf9c7ea6c9e",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://claude.com/docs/plugins/pre-submission-checklist": {
-      "hash": "2be433f82f6bb79c4b647520a150547e24a15cd50334d1c899e940f6e68e5c50",
-      "changed": "2026-11-19",
+      "hash": "c39a47521e6279cb1d66c203fdd017c0f244a6f18ea200dd4b1bb502a62c508a",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins-reference": {
-      "hash": "930f2333f75b390b4ac0b897d8c0f91687d3f9a73936ef5c737affa59451fa1b",
-      "changed": "2026-11-18",
+      "hash": "7de1b3d2fd4467ebc897e000f71fc92c482e241f5870f9e060b04ee160000b48",
+      "changed": "2026-11-20",
       "unstable": false
     },
     "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": {
@@ -1829,7 +1976,7 @@
   },
   "stale_week": "2026-W47",
   "feed": {
-    "day": "2026-11-18",
+    "day": "2026-11-19",
     "wait": [
       {
         "day": "2026-11-18",
@@ -1880,24 +2027,96 @@
           "Speed multipliers",
           "Token rates"
         ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "added",
+        "url": "https://learn.chatgpt.com/docs/developer-settings.md",
+        "product": "codex",
+        "sections": []
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/monitoring-usage.md",
+        "product": "claude-code",
+        "sections": [
+          "Identify the machine a session ran on"
+        ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/permission-modes.md",
+        "product": "claude-code",
+        "sections": [
+          "Restricted mode refuses bypassPermissions"
+        ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/plugins/mods/troubleshoot.md",
+        "product": "claude-code",
+        "sections": [
+          "`stopped \u00b7 type a message to continue`"
+        ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/plugins/troubleshooting.md",
+        "product": "claude-code",
+        "sections": [
+          "`Couldn't install: <plugin> (<reason>)` or `Failed to install: <plugin> (<reason>)`",
+          "`Plugin \"<name>\" is on in project settings but isn't installed here`",
+          "`Couldn't load hooks from <path>` and hooks that don't fire"
+        ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/sandboxing.md",
+        "product": "claude-code",
+        "sections": [
+          "`/sandbox` fails with `Sandbox settings can't be changed here`"
+        ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/vs-code.md",
+        "product": "claude-code",
+        "sections": [
+          "Sign in to a Claude apps gateway"
+        ]
+      },
+      {
+        "day": "2026-11-19",
+        "kind": "changed",
+        "url": "https://learn.chatgpt.com/docs/security/cli/reference.md",
+        "product": "codex",
+        "sections": [
+          "`codex-security import continuum`"
+        ]
       }
     ],
     "dropped": 0,
-    "held": 17,
+    "held": 20,
     "gone": 0,
     "failed": 0,
     "taken": [
-      "https://learn.chatgpt.com/docs/enterprise/connect-to-vertex-ai",
-      "https://code.claude.com/docs/en/auto-mode-config",
-      "https://code.claude.com/docs/en/desktop",
-      "https://cursor.com/docs/cloud-agent/api/endpoints",
-      "https://cursor.com/docs/cloud-agent/self-hosted/pool",
-      "https://cursor.com/docs/enterprise/opentelemetry-export/wire",
-      "https://learn.chatgpt.com/docs/agent-configuration/speed",
-      "https://learn.chatgpt.com/docs/dots/channels",
-      "https://learn.chatgpt.com/docs/enterprise/dots-security",
-      "https://learn.chatgpt.com/docs/enterprise/workspace-model-availability",
-      "https://learn.chatgpt.com/docs/pricing"
+      "https://cursor.com/docs/models/gemini-4-neon",
+      "https://learn.chatgpt.com/docs/developer-settings",
+      "https://code.claude.com/docs/en/monitoring-usage",
+      "https://code.claude.com/docs/en/permission-modes",
+      "https://code.claude.com/docs/en/plugins/mods/troubleshoot",
+      "https://code.claude.com/docs/en/plugins/troubleshooting",
+      "https://code.claude.com/docs/en/sandboxing",
+      "https://code.claude.com/docs/en/vs-code",
+      "https://cursor.com/docs/cloud-agent/automations",
+      "https://cursor.com/docs/enterprise/model-and-integration-management",
+      "https://learn.chatgpt.com/docs/security/cli/reference"
     ]
   }
 }
