@@ -79,7 +79,8 @@ def night(jobs=GREEN_JOBS, run=GIVEN, made=MADE, workflow="nightly.yml"):
             "jobs": None if run is None else list(jobs)}
 
 
-GREEN_NIGHTS = [night(), night([job("test")], workflow="latest-deps.yml")]
+GREEN_NIGHTS = [night(), night([job("test")], workflow="latest-deps.yml"),
+                night([job("use"), job("use-store")], workflow="use.yml")]
 
 
 def row(name, state, since=None, grey_since=None, grey_nights=None, why=""):
@@ -1028,6 +1029,7 @@ def test_a_row_has_every_key_and_the_latest_deps_workflow_has_its_own():
         ("nightly.yml", "browser", "green"),
         ("nightly.yml", "engines", "green"),
         ("latest-deps.yml", "test", "green"),
+        ("use.yml", "use", "green"),
     ]
     assert rows[0] == {"workflow": "nightly.yml", "name": "Nightly tests", "part": "systems",
                        "state": "green", "failed": [], "run": RUN_URL, "night": NIGHT,

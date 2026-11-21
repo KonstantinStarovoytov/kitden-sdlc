@@ -143,6 +143,8 @@ ANSWERS = {
     night_runs("latest-deps.yml"): {"total_count": 1,
                                     "workflow_runs": [night_run(8, "Latest dependencies")]},
     night_jobs(8): {"total_count": 1, "jobs": [night_job("test")]},
+    night_runs("use.yml"): {"total_count": 1, "workflow_runs": [night_run(9, "CPU and memory")]},
+    night_jobs(9): {"total_count": 2, "jobs": [night_job("use"), night_job("use-store")]},
 }
 LISTED = [  # every state, newest update first, as count_reviews.list_pulls gives them
     pull(6, ago(2), created=ago(3), title="open now"),
@@ -407,7 +409,7 @@ def test_no_watch_log_path_is_none_without_a_warning(capsys):
 
 def test_nightly_holds_the_newest_finished_scheduled_run_and_its_jobs():
     night = read().nightly
-    assert [entry["workflow"] for entry in night] == ["nightly.yml", "latest-deps.yml"]
+    assert [entry["workflow"] for entry in night] == ["nightly.yml", "latest-deps.yml", "use.yml"]
     assert night[0]["name"] == "Nightly tests" and night[0]["run"]["id"] == 7
     assert [job["name"] for job in night[0]["jobs"]] == [
         "systems (ubuntu-latest, 3.13)", "clients", "browser", "engines (webkit)"]

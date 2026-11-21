@@ -21,7 +21,7 @@ import statistics
 from datetime import UTC, date, datetime
 
 NIGHTS = 14  # the nights each row's strip shows
-KEEP_RUNS = 120  # runs kept in history.json, across both workflows
+KEEP_RUNS = 120  # runs kept in history.json, across the nightly workflows
 NIGHT_DAYS = 1  # desk.NIGHT_DAYS: a newest run older than this means GitHub skipped a night
 LOG_TRIES = 3  # a log that could not be read is tried again on this many days, then left
 RED = ("failure", "timed_out", "action_required", "startup_failure")
