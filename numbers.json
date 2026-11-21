@@ -1,25 +1,25 @@
 {
-  "updated": "2026-11-19",
+  "updated": "2026-11-21",
   "days": 90,
   "reviews": {
-    "prs": 68,
+    "prs": 73,
     "up": 6,
     "down": 1
   },
   "reviewers": {
     "claude": {
-      "prs": 67,
+      "prs": 72,
       "findings": 7,
       "shared": 5
     },
     "luna": {
-      "prs": 66,
+      "prs": 71,
       "findings": 14,
       "shared": 5
     }
   },
   "summary": {
-    "clean": 56,
+    "clean": 61,
     "fixed": 5,
     "days_to_merge": 0.0
   }
