@@ -376,9 +376,9 @@ def test_use_keeps_releases_in_order_then_main_and_only_whole_points():
 
 
 def test_use_leaves_out_numbers_that_would_break_the_page():
-    bad = [float("nan"), float("inf"), 1e300]
-    points = [{**use_point(f"0.{i}.0"), "cpu_ready_s": {"median": v, "low": 0.5, "high": 0.9}}
-              for i, v in enumerate(bad, 1)]
+    bad = [float("nan"), float("inf"), 1e300, 10**400]  # 10**400 is too big for a float
+    points = [{**use_point(f"0.{i}.0"), "cpu_ready_s": {"median": v, "low": v, "high": v}}
+              for i, v in enumerate(bad, 6)]
     points.append({**use_point("0.4.0"), "peak_mb": {"median": 0, "low": 0, "high": 0}})
     points.append({**use_point("0.5.0"), "peak_mb": {"median": 58.0, "low": 59.0, "high": 60.0}})
     found = use_trend(use_chart(*points, use_point("main")))

@@ -16,7 +16,6 @@ Every text here is ours or a job's or step's name from Kitden's own workflows; t
 a person or a model never reach this file.
 """
 
-import math
 import re
 import statistics
 from datetime import UTC, date, datetime
@@ -356,7 +355,7 @@ def _spread(value) -> dict | None:
     keys = ("median", "low", "high")
     if not isinstance(value, dict) or not all(
             isinstance(value.get(k), int | float) and not isinstance(value.get(k), bool)
-            and math.isfinite(value[k]) and 0 < value[k] <= 1e6 for k in keys):
+            and 0 < value[k] <= 1e6 for k in keys):  # also false for NaN, inf, a huge int
         return None
     if not value["low"] <= value["median"] <= value["high"]:
         return None
