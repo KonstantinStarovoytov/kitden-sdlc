@@ -262,7 +262,7 @@ jobs:
       # The two skills by exact name; the release-notes skill runs first, so the README
       # skill reads its notes and its PRIVACY.md (out/notes.md, out/policy/PRIVACY.md).
       - name: Write the release
-        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           github_token: ${{ github.token }}
@@ -580,7 +580,7 @@ jobs:
       - name: Put problems.md in the checkout
         run: cp "$RUNNER_TEMP/verdict/problems.md" problems.md
       - name: Fix the files
-        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           github_token: ${{ github.token }}
