@@ -255,6 +255,7 @@ def rows(history: list[dict], now: datetime) -> list[dict] | None:
     today = now.astimezone(UTC).date()
     nightly = [line for line in history if line.get("workflow") == "nightly.yml"]
     deps = [line for line in history if line.get("workflow") == "latest-deps.yml"]
+    use = [line for line in history if line.get("workflow") == "use.yml"]
     found = []
     for runner, os_name, arch in SYSTEMS:
         found.append(_row("platforms", f"{os_name} · {arch}",
@@ -267,6 +268,7 @@ def rows(history: list[dict], now: datetime) -> list[dict] | None:
     found.append(_row("platforms", "Start-up time",
                       [(f"{os_name} · {arch.split(' ')[0]}", _is("systems", runner))
                        for runner, os_name, arch in SYSTEMS], nightly, today, key="startup"))
+    found.append(_row("platforms", "CPU and memory", [("Linux · x86_64", _is("use"))], use, today))
     found.append(_row("compatibility", "Claude Code and Codex, newest",
                       [(os_name, _is("clients", runner)) for runner, os_name in CLIENT_SYSTEMS],
                       nightly, today))

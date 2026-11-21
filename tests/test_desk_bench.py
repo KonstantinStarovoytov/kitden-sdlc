@@ -70,6 +70,13 @@ def night_line(run_id, night, states=None, version="0.9.2", times=None):
     return record("nightly.yml", run(run_id, night), jobs, version, found)
 
 
+
+def use_line(run_id, night, conclusion="success"):
+    """A night of use.yml: its two jobs; only `use` is a part."""
+    return record("use.yml", run(run_id, night, workflow="use.yml"),
+                  [job("use", conclusion, 1, None, run_id), job("use-store", "success", 2)],
+                  "0.9.2", {})
+
 def test_job_names_split_into_part_and_arguments():
     assert job_parts("systems (macos-15-intel, 3.14)") == ("systems", ("macos-15-intel", "3.14"))
     assert job_parts("browser") == ("browser", ())
@@ -124,6 +131,7 @@ def test_rows_follow_the_page_and_show_the_last_nights():
         "End-to-end in Chromium",
         "End-to-end in three browsers",
         "Start-up time",
+        "CPU and memory",
         "Claude Code and Codex, newest",
         "Newest dependencies",
     ]
@@ -195,6 +203,17 @@ def test_a_missed_budget_turns_the_start_up_row_red_not_the_platform():
     start = next(r for r in found if r["name"] == "Start-up time")
     assert start["state"] == "red"
     assert [c["state"] for c in start["cells"]] == ["green", "red", "green", "green"]
+
+
+def test_the_cpu_and_memory_row_reads_only_the_use_job_of_use_yml():
+    history = [night_line(1, "2026-11-16"), use_line(2, "2026-11-15"),
+               use_line(3, "2026-11-16", "failure")]
+    row = next(r for r in rows(history, NOW) if r["name"] == "CPU and memory")
+    assert row["group"] == "platforms" and row["state"] == "red" and row["since"] == "2026-11-16"
+    assert [(c["label"], c["state"]) for c in row["cells"]] == [("Linux · x86_64", "red")]
+    assert [f["job"] for f in row["failed"]] == ["use"]  # use-store is no part
+    assert [n["state"] for n in row["nights"]] == ["green", "red"]
+    assert row["url"] == RUN_URL.format(3)
 
 
 def test_an_old_newest_run_is_grey():

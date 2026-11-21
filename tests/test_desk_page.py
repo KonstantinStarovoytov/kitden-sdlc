@@ -13,7 +13,7 @@ import pytest
 import count_reviews
 import desk_bench
 import desk_post
-from tests.test_desk_bench import night_line
+from tests.test_desk_bench import night_line, use_line
 from tests.test_desk_post import DESK
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -108,7 +108,8 @@ MAC = "systems (macos-latest, 3.14)"
 
 def desk(history=None, lights=GREEN_LIGHTS, seen=SEEN, gate=GATE, **changes):
     """A desk.json the way desk_gather writes it, with a bench from `history`."""
-    history = history if history is not None else [night_line(1, "2026-11-16")]
+    history = history if history is not None else [night_line(1, "2026-11-16"),
+                                                   use_line(2, "2026-11-16")]
     bench = desk_bench.bench(history, NOW, gate_read=gate, newest=NEWEST, seen=seen,
                              issues=[], watch_days=0.5, repo="KonstantinStarovoytov/kitden")
     return {**DESK, "updated": "2026-11-17T06:41:00Z", "lights": lights, "waiting": [],
@@ -158,6 +159,14 @@ def test_a_red_browser_engine_blocks_and_says_what_it_means():
 def test_a_failed_check_on_main_blocks():
     view = node("view", desk(gate={**GATE, "state": "red"}))
     assert view["head"] == {"state": "red", "text": "A check on main failed."}
+
+
+@needs_node
+def test_a_red_cpu_and_memory_night_blocks_and_says_what_it_means():
+    view = node("view", desk([night_line(1, "2026-11-16"), use_line(2, "2026-11-16", "failure")]))
+    assert view["head"] == {"state": "red", "text": "Blocked: CPU and memory is red."}
+    row = next(r for r in view["bench"]["platforms"] if r["name"] == "CPU and memory")
+    assert row["means"] == desk_post.MEANS["use"]
 
 
 @needs_node
