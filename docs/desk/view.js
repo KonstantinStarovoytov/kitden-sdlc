@@ -39,6 +39,8 @@ export const MEANS = {
   systems: 'Kitden may not work on that system or Python.',
   clients: 'The newest Claude Code or Codex writes or answers something Kitden\'s tests do not expect.',
   browser: 'A main flow of the page is broken in a real browser.',
+  engines: 'A main flow of the page is broken in one browser engine: Chrome, Firefox or WebKit.',
+  use: 'Main uses clearly more CPU or memory than allowed, or the measuring failed.',
 };
 export const MEANS_ELSE = 'A scheduled test run failed.';
 export const SUMMARIES = ["The watcher's weekly summaries", 'issues', 'is:issue label:client-change label:summary'];
@@ -61,7 +63,13 @@ const LINKS = [
 ];
 const SLUG = /^[\w-]+\/[\w.-]+$/;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const PLATFORM_PARTS = { 'End-to-end in Chromium': 'browser' };
+// A row's part, by its name, for MEANS; a row not named here is a `clients` row in
+// Compatibility and a `systems` row elsewhere.
+const PLATFORM_PARTS = {
+  'End-to-end in Chromium': 'browser',
+  'End-to-end in three browsers': 'engines',
+  'CPU and memory': 'use',
+};
 
 // --- Small pieces ---
 

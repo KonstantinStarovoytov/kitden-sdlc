@@ -56,6 +56,7 @@ def night_line(run_id, night, states=None, version="0.9.2", times=None):
     names = [f"systems ({runner}, {py})" for runner, _, _ in desk_bench.SYSTEMS
              for py in desk_bench.PYTHONS]
     names += ["browser", "clients (macos-latest)", "clients (ubuntu-latest)"]
+    names += [f"engines ({leg})" for leg, _ in desk_bench.ENGINES]
     jobs = []
     for i, name in enumerate(names):
         failed = states.get(name) == "failure"
@@ -116,9 +117,16 @@ def test_rows_follow_the_page_and_show_the_last_nights():
     history = [night_line(i, f"2026-11-{i:02}") for i in range(1, 17)]
     found = rows(history, NOW)
     assert [r["name"] for r in found] == [
-        "macOS · arm64", "macOS · x86_64 (Intel)", "Linux · x86_64", "Linux · arm64",
-        "End-to-end in Chromium", "Start-up time", "Claude Code and Codex, newest",
-        "Newest dependencies"]
+        "macOS · arm64",
+        "macOS · x86_64 (Intel)",
+        "Linux · x86_64",
+        "Linux · arm64",
+        "End-to-end in Chromium",
+        "End-to-end in three browsers",
+        "Start-up time",
+        "Claude Code and Codex, newest",
+        "Newest dependencies",
+    ]
     mac = found[0]
     assert mac["state"] == "green" and [c["label"] for c in mac["cells"]] == [
         "Python 3.13", "Python 3.14"]
@@ -153,6 +161,26 @@ def test_a_newest_night_without_the_rows_job_is_grey_not_green():
     line["jobs"] = [j for j in line["jobs"] if j["name"] != "browser"]
     e2e = next(r for r in rows([line], NOW) if r["name"] == "End-to-end in Chromium")
     assert e2e["state"] == "grey"
+
+
+def test_a_newest_night_without_one_engines_leg_is_grey_not_green():
+    line = night_line(1, "2026-11-16")
+    line["jobs"] = [j for j in line["jobs"] if j["name"] != "engines (firefox)"]
+    row = next(r for r in rows([line], NOW) if r["name"] == "End-to-end in three browsers")
+    assert row["state"] == "grey"
+    assert [(c["label"], c["state"]) for c in row["cells"]] == [
+        ("Chrome", "green"), ("Firefox", "grey"), ("WebKit", "green")]
+
+
+def test_the_engines_row_shows_each_browser_and_names_the_red_one():
+    red = "engines (webkit)"
+    history = [night_line(1, "2026-11-15"), night_line(2, "2026-11-16", {red: "failure"})]
+    row = next(r for r in rows(history, NOW) if r["name"] == "End-to-end in three browsers")
+    assert row["group"] == "platforms" and row["state"] == "red" and row["since"] == "2026-11-16"
+    assert [(c["label"], c["state"]) for c in row["cells"]] == [
+        ("Chrome", "green"), ("Firefox", "green"), ("WebKit", "red")]
+    assert [f["job"] for f in row["failed"]] == [red]
+    assert [n["state"] for n in row["nights"]] == ["green", "red"]
 
 
 def test_a_skipped_night_turns_the_rows_grey_as_in_the_issue():

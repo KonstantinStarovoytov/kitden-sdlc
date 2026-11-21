@@ -492,7 +492,7 @@ const WF = [
      'Run the Python tests with `pytest`|red: a new version breaks Kitden for people who install it now']}]},
  {id:'k-nightly', r:'k', file:'nightly.yml', kind:'own',
   trigger:'Every night at 02:37 UTC, or by hand',
-  readBy:['s-desk'], stages:[['systems','clients','browser']],
+  readBy:['s-desk'], stages:[['systems','clients','browser','engines']],
   jobs:[
    {n:'systems', about:'Kitden’s tests on each of 4 systems and 2 Pythons', tags:['macOS ARM and Intel','Ubuntu x64 and ARM','Python 3.13 and 3.14','holds no secret'],
     when:'always: 8 runs, one per system and Python',
@@ -514,7 +514,12 @@ const WF = [
    {n:'browser', about:'Kitden’s page in a real browser, pressed as a user would', tags:['on Ubuntu','Playwright','holds no secret'], when:'always',
     steps:['Install Kitden',
      'Install Playwright and its Chromium browser, and check it loads|without Playwright the tests would skip and look green',
-     'Open Kitden’s page on the demo sample and press its buttons|preview, Apply, Undo; an error in the browser console fails']}
+     'Open Kitden’s page on the demo sample and press its buttons|preview, Apply, Undo; an error in the browser console fails']},
+   {n:'engines', about:'Kitden’s page in Chrome, Firefox and WebKit, one engine a run', tags:['Ubuntu and macOS','Playwright','holds no secret'], when:'always: 3 runs, one per engine',
+    steps:['Install Kitden',
+     'Install Firefox or WebKit; Chrome is already on the runner',
+     'Check Playwright loads|without Playwright the tests would skip and look green',
+     'Run the page’s browser tests in that engine|a page bug in one engine shows within a day']}
   ]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
   trigger:'A pull request that changes `src/kitden`, the recorder or `tests/conftest.py`',
@@ -804,7 +809,7 @@ const STORIES = {
       ['bump','t-tests','starts','z'],['t-tests','t-auto-pull','tests pass','z'],['t-auto-pull','t-publish','starts','z'],['t-publish','brew','','h']]},
   day:{note:'Times are UTC. Nothing here needs you until an issue, a pull request or a red run shows up.',
     rows:[
-      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Breaks found before your users find them', sub:'4 systems, newest Claude Code and Codex, a real browser; red: a ci-failure issue'}],
+      [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Breaks found before your users find them', sub:'4 systems, newest Claude Code and Codex, three browser engines; red: a ci-failure issue'}],
       [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Warned when a client change breaks Kitden', sub:'a sure break gets an issue, the rest a weekly summary; confirm it or close it'}],
       [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A broken new dependency, caught first', sub:'before people who install Kitden meet it; red: a ci-failure issue'}],
       [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'Merged work does not sit unreleased', sub:'“Time for a release?” when changes wait; “not everywhere” when a store lags', go:'rel'}],

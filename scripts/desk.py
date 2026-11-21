@@ -38,7 +38,10 @@ CAUSED_BY = re.compile(r"^###[ \t]*Caused by[ \t\r]*$(.*?)(?=^###|\Z)", re.I | r
 REFERENCE = re.compile(
     rf"(?:(?<![\w&])|(?<=\bPR))#(\d+)\b|https://github\.com/{re.escape(REPO)}/pull/(\d+)\b", re.I)
 # The workflows in Kitden that test it every night, and the job ids of each.
-NIGHTLY = (("nightly.yml", ("systems", "clients", "browser")), ("latest-deps.yml", ("test",)))
+NIGHTLY = (
+    ("nightly.yml", ("systems", "clients", "browser", "engines")),
+    ("latest-deps.yml", ("test",)),
+)
 # GitHub starts scheduled runs hours late, so the desk may see the night before; each reason
 # gives the run's date.
 # A run is current when its date (UTC) is the desk's day or at most NIGHT_DAYS days before:

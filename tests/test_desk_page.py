@@ -146,6 +146,15 @@ def test_a_red_platform_blocks_and_says_which():
 
 
 @needs_node
+def test_a_red_browser_engine_blocks_and_says_what_it_means():
+    view = node("view", desk([night_line(1, "2026-11-16", {"engines (firefox)": "failure"})]))
+    assert view["head"] == {"state": "red", "text": "Blocked: End-to-end in three browsers is red."}
+    row = next(r for r in view["bench"]["platforms"] if r["name"] == "End-to-end in three browsers")
+    assert [c["label"] for c in row["cells"]] == ["Chrome", "Firefox", "WebKit"]
+    assert row["means"] == desk_post.MEANS["engines"]
+
+
+@needs_node
 def test_a_failed_check_on_main_blocks():
     view = node("view", desk(gate={**GATE, "state": "red"}))
     assert view["head"] == {"state": "red", "text": "A check on main failed."}

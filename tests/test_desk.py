@@ -64,7 +64,8 @@ def job(name, conclusion="success", failed_step=None):
             "html_url": JOB_URL, "steps": steps}
 
 
-GREEN_JOBS = [job("systems (a, 3.13)"), job("systems (b, 3.12)"), job("clients"), job("browser")]
+GREEN_JOBS = [job("systems (a, 3.13)"), job("systems (b, 3.12)"), job("clients"), job("browser"),
+              job("engines (chrome)"), job("engines (firefox)"), job("engines (webkit)")]
 GIVEN = object()
 
 
@@ -952,10 +953,11 @@ def test_no_run_an_old_run_or_a_cancelled_job_is_grey_never_green(found):
 
 def test_an_expected_part_with_no_job_is_grey():
     rows = nightly([night(jobs=[job("systems (a, 3.13)")])], None, NOW)
-    assert [(r["part"], r["state"]) for r in rows[:3]] == [
+    assert [(r["part"], r["state"]) for r in rows if r["workflow"] == "nightly.yml"] == [
         ("systems", "green"),
         ("clients", "grey"),
         ("browser", "grey"),
+        ("engines", "grey"),
     ]
 
 
@@ -1021,26 +1023,40 @@ def states(rows):
 def test_a_row_has_every_key_and_the_latest_deps_workflow_has_its_own():
     rows = nightly(GREEN_NIGHTS, None, NOW)
     assert states(rows) == [
-        ("nightly.yml", "systems", "green"), ("nightly.yml", "clients", "green"),
-        ("nightly.yml", "browser", "green"), ("latest-deps.yml", "test", "green")]
+        ("nightly.yml", "systems", "green"),
+        ("nightly.yml", "clients", "green"),
+        ("nightly.yml", "browser", "green"),
+        ("nightly.yml", "engines", "green"),
+        ("latest-deps.yml", "test", "green"),
+    ]
     assert rows[0] == {"workflow": "nightly.yml", "name": "Nightly tests", "part": "systems",
                        "state": "green", "failed": [], "run": RUN_URL, "night": NIGHT,
                        "since": None, "grey_since": None, "grey_nights": None, "why": ""}
     json.dumps(rows)
 
 
+def test_one_red_engine_makes_the_engines_part_red_and_names_its_leg():
+    jobs = [*GREEN_JOBS[:-1],
+            job("engines (webkit)", "failure", failed_step="The browser tests")]
+    rows = nightly([night(jobs=jobs)], None, NOW)
+    engines = next(r for r in rows if r["part"] == "engines")
+    assert engines["state"] == "red"
+    assert [f["job"] for f in engines["failed"]] == ["engines (webkit)"]
+
+
 def test_nightly_not_read_is_none_and_a_workflow_not_given_is_grey():
     assert nightly(None, None, NOW) is None
     rows = nightly([night()], None, NOW)
-    assert rows[3]["state"] == "grey" and rows[3]["night"] is None and rows[3]["run"] is None
-    assert "latest-deps.yml were not read" in rows[3]["why"]
+    deps = next(r for r in rows if r["part"] == "test")
+    assert deps["state"] == "grey" and deps["night"] is None and deps["run"] is None
+    assert "latest-deps.yml were not read" in deps["why"]
 
 
 def test_a_run_that_failed_at_start_has_no_jobs_and_says_so():
     started = night(jobs=[])
     started["run"]["conclusion"] = "startup_failure"
     rows = nightly([started], None, NOW)
-    assert {r["state"] for r in rows[:3]} == {"grey"}
+    assert {r["state"] for r in rows if r["workflow"] == "nightly.yml"} == {"grey"}
     assert rows[0]["why"] == ("the nightly run of nightly.yml made 2026-11-15 has no jobs; it "
                               "ended startup_failure.")
     assert "no finished run" not in rows[0]["why"]
@@ -1062,8 +1078,9 @@ def test_a_run_that_failed_at_start_has_no_jobs_and_says_so():
 ])
 def test_a_run_or_jobs_of_another_shape_are_grey_with_a_reason(change):
     rows = nightly([{**night(), **change}], None, NOW)
-    assert {r["state"] for r in rows[:3]} == {"grey"}
-    assert all(r["why"] and "no finished run" not in r["why"] for r in rows[:3])
+    nights = [r for r in rows if r["workflow"] == "nightly.yml"]
+    assert {r["state"] for r in nights} == {"grey"}
+    assert all(r["why"] and "no finished run" not in r["why"] for r in nights)
     assert light_works([OK], [], nightly=rows)["state"] == "grey"
 
 

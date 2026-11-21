@@ -172,7 +172,7 @@ def test_what_keeps_its_second_paragraph_and_why_stops_at_a_tool_directive():
 
 def test_the_nightly_run_is_on_the_map_with_its_jobs_and_links():
     assert map_ids(HTML)["k-nightly"] == ("k", "nightly.yml")
-    assert map_jobs(HTML)["k-nightly"] == ["systems", "clients", "browser"]
+    assert map_jobs(HTML)["k-nightly"] == ["systems", "clients", "browser", "engines"]
     links = map_links(HTML)
     assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps"]
     assert links["k-nightly"]["readBy"] == links["k-latest-deps"]["readBy"] == ["s-desk"]
@@ -208,7 +208,7 @@ def test_a_link_to_a_workflow_opens_it_because_the_start_keeps_the_hash():
 def test_the_every_day_story_draws_the_nightly_run_and_who_reads_it():
     day = HTML.split("day:{")[1].split("\n};")[0]
     assert "{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}" in day
-    assert "t:'Breaks found before your users find them'" in day and "a real browser" in day
+    assert "t:'Breaks found before your users find them'" in day and "three browser engines" in day
     assert "red: a ci-failure issue" in day and "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
     assert day.count("'s-desk','the desk reads it'") == 2
@@ -252,7 +252,7 @@ def test_every_step_is_one_short_line_with_at_most_one_short_why():
     wf = HTML.split("\nconst WF = [\n")[1].split("\n];")[0]
     hosts = re.search(r"\nconst HOSTS = '([^'\\]*)';", HTML).group(1)
     lists = re.findall(r"steps:\[((?:HOSTS|'[^'\\]*'|\s|,)*)\]", wf)
-    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 50
+    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 51
     steps = [hosts if s == "HOSTS" else s[1:-1] for found in lists
              for s in re.findall(r"HOSTS|'[^']*'", found)]
     assert len(steps) > 100

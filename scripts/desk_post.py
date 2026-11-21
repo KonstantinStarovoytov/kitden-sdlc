@@ -38,6 +38,9 @@ MEANS = {
     "clients": "The newest Claude Code or Codex writes or answers something Kitden's tests "
                "do not expect.",
     "browser": "A main flow of the page is broken in a real browser.",
+    "engines": "A main flow of the page is broken in one browser engine: Chrome, Firefox or "
+               "WebKit.",
+    "use": "Main uses clearly more CPU or memory than allowed, or the measuring failed.",
 }
 MEANS_ELSE = "A scheduled test run failed."
 # An address GitHub would make a link of by itself, in text: the scheme's "//", "www." or an
