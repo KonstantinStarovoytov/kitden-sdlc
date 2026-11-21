@@ -446,7 +446,8 @@
       "2.1.326": "814b58eab4b67d566e80961e13eaee4d725410262842411f5bd9f2839db3ba0e",
       "2.1.327": "1c6dbada4e46af63e56c5e1a127fcb0b2059018434cb7f0ac42dceb62574380d",
       "2.1.328": "6552df478c8759922e11cd7d6d8fbb3205d1e11434efac5d7eb8bf3c6f6efa0a",
-      "2.1.329": "264910e49282eac97ec9893b417f737bc00f8810a7272e00a167379b009948b0"
+      "2.1.329": "264910e49282eac97ec9893b417f737bc00f8810a7272e00a167379b009948b0",
+      "2.1.330": "909b19bd5b9b8b4f1b97e85d2bc2b3465b94b40d852188bb2494bdae2afb692c"
     },
     "cursor-changelog": {
       "": "01c91aaabc4986baa25082a6254a65d3e1bcd0c357644d489eb04d8faf923e5d",
@@ -477,16 +478,16 @@
       "Option 3: Add a local stdio server": "d3502b05c9e546621fe7a26eb260a182d3e3f3a9ebe3962810792384843cf480",
       "Option 4: Add a remote WebSocket server": "c05877a1a032dc26cbcca861d40f54731ca63f273f268166ff430633976c069d",
       "Add a server from setup instructions written for another client": "83db7ff073a8b393f840c1bf447aef960f4fe994985ef22a06c616037967dd4d",
-      "Managing your servers": "6b88c750856c7fedcf2ab462d7fa779e299c43fe16d30e52d08ede9d3de4dade",
+      "Managing your servers": "fd8350fc883e29e02ffaaa8eac013823bed8e3a14146301fc2040135d377cc07",
       "Disable a server without removing it": "1da9e3bdaa9d09524b26ec1517b08408f201f04d191241a4fcc10df08962e43f",
       "MCP client runtimes": "c3c463593fde9aa2f0b8b919804c02aeee805459b7c568926b4166ff390e1bb6",
       "Dynamic tool updates": "a07adac2d894ff124359d762dedecae5efc1bde6f8460084aae75dccb263d936",
-      "Automatic reconnection": "426b7ec7706ce3c30c8ed2a1f0814cb66a7121019ca1fed6ad346f3b66cf6045",
+      "Automatic reconnection": "c50220ab5a372bc2ac2e7e5ad0ca3ac201a27f93062fe50132e1ff80708a3f74",
       "Push messages with channels": "2a021bd6c6bbda7570f667377cff2cb5b5d0b0014e3e646ba35c9eb84d470180",
       "Time limits on MCP tool calls": "ad600b22ad4eb51b58a6989ccd42d105b1bf202bcf94822cf60a16fc82bb3d33",
       "Automatic backgrounding of long tool calls": "6382c615c022e8b7021753357a6b8db8a56db3223c41581383d9ca332c1e022f",
-      "MCP tasks that run on the server": "e36c33a13fa720b14b163872de60c3cd5b138264c957580825783c7a23d91cf7",
-      "MCP tasks for server authors": "c3ef6d3e18e448c58941a1bbdf369f6fc7993658575daf1df266e2147a41330a",
+      "MCP tasks that run on the server": "5ec502626d46e7d0787982131dd5569f9a818a73b8780be370f64cdecd245cdb",
+      "MCP tasks for server authors": "f6267d67e24a05b839d0121081a4b96ab8284fba8aa1c21355bffc524d068dae",
       "Plugin-provided MCP servers": "52772a9c696428d223c3f427c40ba422a5b0235794377a55c2578893711bc406",
       "MCP installation scopes": "2604bbdf6d29a79f400eb97c18d18d8c69e837d8e3f117ecea9d6f3ad405dfae",
       "Local scope": "05cd4d80d024b73b5817d6bef3ece9d8b92bb27838f29521404b82d07a405ed7",
@@ -566,9 +567,9 @@
     "https://code.claude.com/docs/en/plugins/cli-reference": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Plugin commands reference": "6caeffbaf2e8b7c61140c8bd5635a1fea09c74fb9e019e1d52bb57e7027e6927",
-      "claude plugin commands": "5f7210c7f67ffbdec193e84ee024c37ca09c29e904fbf3a0200daffcb4355dc4",
+      "claude plugin commands": "e8ea1c3c3448936a3ba3cced35ee6d0a31bf02d4bf3e880151f7a6c7f111b01b",
       "plugin init": "5e44c91a2fe9baa3d63c910dbdc592bb65adc25427fcef39073fbeac906c6d78",
-      "plugin install": "7ba03c61610ef8cbd0ecd39de5633335d65cb78e48d9d65a371c11e01221e1be",
+      "plugin install": "6b6e87f92df8efd41a3d60a51cc3b39bd4e49f3ea5a288c1498440eab14bd858",
       "plugin uninstall": "5dcc553bcad4ca3fc1b883e1f2baa6ad424e455d6614c4deb72b51d8229dd0ac",
       "plugin enable": "1442a69fd69168f241a81fe28c6686d6df24e80e3c61dc65cb1109ddd1d52183",
       "plugin disable": "b55dca8ccfa208d4b80bcfe287f39cfd9121f7b10a5f4be1993a30e7ca512608",
@@ -581,7 +582,7 @@
       "plugin eval init": "26fc13cd04238deaab9bde98971d8d04accf9049f53afb54ba2dbd3d8c8a5372",
       "plugin tag": "e7033452d7a150a2eea484ddc7e338b689b16d5959a6b2be8b869099a73e1c64",
       "plugin test": "adbf1ee3ed38539acd146bf0a22d43bc6287fd30ac8f0508972a80974750df47",
-      "plugin validate": "d6a5c1bed036fdb9e559e8dd0d46cfcb2b736bdf3bffd63c266e8fba0b61630f",
+      "plugin validate": "ae34e2aef0c58e18fbc84ea09f1dbfc49cb73f851ab53a2e87880c845d429373",
       "claude plugin marketplace commands": "4ecccaaa478bd541c8075a32f5c5b85d1dedb1329cf8d0e73655e6694efb8c7c",
       "plugin marketplace add": "a4963f770fd4e85940d68d1ab3fc2bdcea6198113a5031681e5ae51a11903f41",
       "plugin marketplace list": "aec80c36820ab0d86c875b4b5afa7042020c23c2a87b365edba823de5b8933df",
@@ -594,7 +595,8 @@
       "Sessions without an interactive terminal": "f364231119b21d12223f7079bde287999b279684624efa608983169838892317",
       "Flags that load a plugin for one session": "19e08dad50c037c79f2b3c384caf710c36afdb9f44137af1e482a8d9cc488407",
       "Next steps": "cfdc9319ccdaaa4d73a3d14b5299183cd40411a7fbb5576b1d20f8a546197bde",
-      "Dependencies installed during a reload": "05d5b3b623898d1534e5531734e016c4c1bb6721ada4782efec1c98031060775"
+      "Dependencies installed during a reload": "05d5b3b623898d1534e5531734e016c4c1bb6721ada4782efec1c98031060775",
+      "plugin restore-set-aside": "8f2c899720d2a8f2cae4b4174abe6ef2a08e300b7dadb7ad98ebf3d04d95a1e1"
     },
     "https://code.claude.com/docs/en/plugins/loading": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
@@ -696,8 +698,8 @@
     },
     "https://code.claude.com/docs/en/memory": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
-      "How Claude remembers your project": "3be39c538ce103a80468167ee035919e4bbc95f2f6c3e9f6dcf57693c3dc4883",
-      "CLAUDE.md vs auto memory": "ef2a4170ebeac7514eeb45910b2fac85c6bab5ec9a9a9eee4381134561c596b8",
+      "How Claude remembers your project": "d79c3befd92878610d299ca1d5f0a7cf9f4bc275bd09e03f0d6a2749e4c3ae43",
+      "CLAUDE.md vs auto memory": "e0ac65c0a974dcb33e13c45f8629a4aa6b054525162377496b9c72f7d6107a0f",
       "CLAUDE.md files": "2463521a7b3b0918085ea9d2d5b073b96c656ae1588642062833022c6c9d5b79",
       "When to add to CLAUDE.md": "830317c5d1f53a63fa787a84a7d21584cbc0c7d739166aab7cc84e26e6949a5b",
       "Choose where to put CLAUDE.md files": "b59216060f96dbbadf3cc3cb8cc194f7335c877c770bccf3cf025f9fde04c068",
@@ -717,8 +719,8 @@
       "Migrate instructions from other tools": "95300d07bc99b1a050c2270337062da352474fefbc3b2769109708ea6fbcf3a3",
       "Auto memory": "d3b3876342240fc4bdbefe474832577754a861032f86cce01c5583bfd66ec37a",
       "Enable or disable auto memory": "ffe448ee3b42e43c94b3d1930b05c12d1d81bd10bb0b7810cb10c6c6f420f5c8",
-      "Storage location": "ef24df4041d60c9a4ba12ba87d9cd9df4027a989416cef608c0fb208369a7da7",
-      "How it works": "3ac487b35a6c4c2b2d275f5e44bb4e8d1d51a39bccc8ed9660b80711f845c43a",
+      "Storage location": "56a52412aac857dae50eec45d0e00a20f70882de0f894b16a66d71f75d87bf2a",
+      "How it works": "8725e1dd1c507f8feae12cf299841d4790a5b02fff063e67b41fcf69a5898e03",
       "Audit and edit your memory": "1229e8e24cd8dc68b408dac6a41e047daa8f909544527d8416837d5125c48d1c",
       "View and edit with `/memory`": "8ad6c12b9cac8ad13d2b99d0173265abb637620e882342770fe1ed64e6f7e4c9",
       "Troubleshoot memory issues": "1d45f99655c5467252e17b90223786a62dc282463038e053a195b28c8e9aa4dd",
@@ -916,8 +918,8 @@
       "How hooks work": "5165cbb40f38c82e198a5172a9335f8223b4a2b9d2ee2fe6de7e201454d6a0d7",
       "Combine results from multiple hooks": "b994a3ed61d9eab5e1462992144f3edb2ef074657aa938f75c4c8c1c61f0ecaf",
       "Read input and return output": "a21c60aa09a4c5f7be0c4835340d1898d8520ed3214e14ae11442ced2f61360e",
-      "Filter hooks with matchers": "bf4cc525e5a3fa7690c6d1e995cd26a35ea0ebc8b4e7e338f13032478fe414f2",
-      "Configure hook location": "7d48d6833c894faf7b21e88c3df01e7b3610bdcb44168e24f666215b616ffe30",
+      "Filter hooks with matchers": "bbfc2a19c254018462e04af57b9ac2c8478fdfd1914c10a45778a3bbd7fe4d56",
+      "Configure hook location": "42dc63316a6ba40e078eb348fbedecc5f2e99f1a766657c0561337810a2906ba",
       "Prompt-based hooks": "5acf87a23f072d54fa3263d424e7e5fbbe9a742adc36b98245109c8bb4280dca",
       "Agent-based hooks": "0e6c2b83d75071176c216aa6014a6bcc6d9120f7d48f1bc443b1706d198e6933",
       "HTTP hooks": "e54e325b093e7272f6555b7549316d9180a4d0d68871d25e013e7d21b029cffd",
@@ -1757,11 +1759,230 @@
       "user_gets": "not checked",
       "systems": "not checked",
       "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/hooks-guide#Filter hooks with matchers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide",
+      "row": "Hooks in the `hooks` key of settings files (2026-11-15)",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/base.py"
+      ],
+      "title": "Hook `if` field on non-tool events stops the hook from running",
+      "changed": "Hooks in the settings `hooks` key are shown with a `matcher` and nested `hooks` array with type/command; the doc describes this shape and matcher values per event.\nHooks in the `hooks` key of settings files can carry an `if` field that is valid only on tool events; on other events the hook does not run.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees a hook listed as loaded for an event where the client refuses to run it, and believes it fires.",
+      "systems": "not checked",
+      "why": "`hook_items` creates an item for every matcher group and ignores the `if` key. The quote says an `if` on a non-tool event stops the hook from running, so the listed hook does not run. The `if` field may sit in nested hook handlers rather than the group, so this is partly a guess.",
+      "fix": "In `hook_items` in `src/kitden/clients/base.py`, check the nested hook entries for `if` on non-tool events and mark that hook as not running or unknown.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/hooks-guide#Configure hook location",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide",
+      "row": "",
+      "files": [],
+      "title": "disableAllHooks setting turns off hooks",
+      "changed": "A settings key `disableAllHooks` stops all hooks from running, resolved by settings precedence; managed settings hooks still run unless set there.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Kitden lists hooks as active even when disableAllHooks switches them off.",
+      "systems": "not checked",
+      "why": "CC-22 only says hooks live in the hooks key of settings files; no row covers a setting that decides whether hooks load.",
+      "fix": "Read `disableAllHooks` from the user, project, local and managed settings files and apply precedence.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/hooks-guide#Configure hook location",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide",
+      "row": "",
+      "files": [],
+      "title": "Plugin hooks/hooks.json as hook source",
+      "changed": "Hooks can come from a plugin's hooks/hooks.json file, active when the plugin is enabled.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Hooks bundled with enabled plugins are not shown.",
+      "systems": "not checked",
+      "why": "CC-22 covers only the hooks key of settings files, not plugin hook files.",
+      "fix": "Read hooks/hooks.json in each enabled plugin's install folder.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/hooks-guide#Configure hook location",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide",
+      "row": "",
+      "files": [],
+      "title": "Hooks in skill and subagent frontmatter",
+      "changed": "Hooks can be defined in skill and subagent frontmatter.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Hooks defined in SKILL.md or agent file frontmatter are not shown.",
+      "systems": "not checked",
+      "why": "No row covers hooks in frontmatter of skills or agents.",
+      "fix": "Parse the hooks frontmatter of SKILL.md and agent files.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/mcp",
+      "row": "",
+      "files": [],
+      "title": "Per-project disabledMcpServers list",
+      "changed": "A project-level disabledMcpServers list turns off MCP servers for that project.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Kitden shows a server as active that Claude Code has disabled for the project.",
+      "systems": "not checked",
+      "why": "No row names disabledMcpServers; CC-04 covers only the .mcp.json approval keys.",
+      "fix": "Read the disabledMcpServers list for each project and mark the servers it names as off.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/mcp",
+      "row": "`claude mcp remove -s <scope> <name>`",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "claude mcp remove also deletes stored OAuth tokens for remote servers",
+      "changed": "claude mcp remove for a remote server now also deletes the stored OAuth tokens and client registration, beyond removing the entry.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden removes the server entry as before, but the user is not told that stored OAuth tokens and client registration go too, so the remove cannot be undone by re-adding the entry alone.",
+      "systems": "not checked",
+      "why": "remove_step still runs the same command and edits the same key, so the action works and nothing shown is wrong. The row's description of what remove does is incomplete, and the Undo behaviour may not restore the sign-in.",
+      "fix": "In src/kitden/clients/claude_code.py, add a note to remove_step for remote servers saying that OAuth tokens and client registration are deleted too, and that the user should run `claude mcp logout <name>` first to revoke them.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/mcp",
+      "row": "User servers live in `~/.claude.json` under `mcpServers`; local servers under `projects.<path>.mcpServers`; Claude Code rewrites the file in normal use",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Claude Code adds per-project disabledMcpServers list that disables MCP servers",
+      "changed": "A project's disabledMcpServers list turns off a server, which touches how servers are stored and read for a project.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user may see an MCP server as enabled when Claude Code has disabled it for that project, so they believe it is loaded when it is not.",
+      "systems": "not checked",
+      "why": "scan and _approval never read a per-project disabledMcpServers list, so a server it names is not shown as off. The note does not state the file or key location, so this is a guess about where the list lives.",
+      "fix": "In src/kitden/clients/claude_code.py, once the key's location is confirmed, read disabledMcpServers in scan and _approval and mark the servers it names as Enabled.OFF for that project.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/mcp",
+      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Untrusted folders wait for trust before applying local approvals, except the config home",
+      "changed": "In an untrusted folder, approvals come only from user settings, managed settings or --settings; committed project settings are ignored. Managed settings and --settings are sources the row does not list.\nApprovals in an untracked .claude/settings.local.json wait for trust in an untrusted folder, except when the folder is the home directory or a CLAUDE_CONFIG_DIR location; the row says an untrusted folder takes approval only from ~/.claude/settings.json.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "A server the client has approved and connects to shows as pending/unknown in Kitden for a home or CLAUDE_CONFIG_DIR folder.",
+      "systems": "not checked",
+      "why": "_approval() limits an untrusted folder to the user file and has no exemption for the home directory or CLAUDE_CONFIG_DIR, which the quote says apply local-file approvals without trust. The case is narrow, and the home folder's local files may be handled differently (at_home), so this is a guess.",
+      "fix": "In src/kitden/clients/claude_code.py, treat a folder that is the home directory or a CLAUDE_CONFIG_DIR location as trusted when calling _approval(), so its local settings approvals count.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#How Claude remembers your project",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Claude Code reads AGENTS.md in place of CLAUDE.md",
+      "changed": "Claude Code can read AGENTS.md files as project instructions instead of CLAUDE.md, adding another instruction file name beyond those the row lists.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user does not see AGENTS.md among the instructions Claude Code loads, and may believe those instructions are not applied.",
+      "systems": "not checked",
+      "why": "_instruction_files and the file list in _project_files name only CLAUDE.md, CLAUDE.local.md and the .claude subfolders, so AGENTS.md is never listed. The quote does not say when AGENTS.md is read (only 'in place of' CLAUDE.md), so the exact behaviour is a guess.",
+      "fix": "In src/kitden/clients/claude_code.py, add the project-root AGENTS.md to the files list in _project_files, once the docs say exactly when Claude reads it (for example only when no CLAUDE.md exists).",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#How it works",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "",
+      "files": [],
+      "title": "Auto memory files MEMORY.md in project memory folder",
+      "changed": "Auto memory loads the first 200 lines or 25KB of MEMORY.md from ~/.claude/projects/<project>/memory/ at session start.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden does not show the auto memory MEMORY.md that loads into each session as instructions.",
+      "systems": "not checked",
+      "why": "No row covers the auto memory folder; instruction file rows name CLAUDE.md, rules, commands and agents only.",
+      "fix": "Read MEMORY.md in ~/.claude/projects/<project>/memory/ and show it as an instruction file with its load limit.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#How it works",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Claude Code skips CLAUDE.md files over 4 MiB",
+      "changed": "CLAUDE.md files over 4 MiB are skipped entirely, with per-file limits for subdirectory files and path-scoped rules; the instruction files row may need to account for this.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees an oversized CLAUDE.md listed as loaded and believes Claude follows it, when Claude Code skips the whole file.",
+      "systems": "not checked",
+      "why": "_instruction_files and instruction_items list every existing instruction file without checking size, so a CLAUDE.md over 4 MiB is shown as loaded. It is unconfirmed whether instruction_items (in base.py, not shown) already handles size, and the quote does not say whether the limit is new.",
+      "fix": "In src/kitden/clients/claude_code.py (or instruction_items in base.py), mark a CLAUDE.md over 4 MiB as not loaded, and apply the smaller per-file limit to subdirectory files and path-scoped rules.",
+      "sure": false
+    },
+    {
+      "piece": "claude-code-changelog#2.1.330",
+      "client": "claude-code",
+      "title": "Mentions `--json`",
+      "hint": true,
+      "changed": "The text of 2.1.330 has the word `--json`.",
+      "version": "2.1.330",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "`claude plugin install <id> -s <scope> --json`, run in the project for `-s project`",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
     }
   ],
   "urgent": {
     "week": "2026-W47",
-    "count": 0
+    "count": 1
   },
   "summary_week": "2026-W47",
   "tries": {},
@@ -1779,23 +2000,23 @@
   "rule_skips": {},
   "fact_pages": {
     "https://code.claude.com/docs/en/mcp": {
-      "hash": "5700309284ae6715cacb91a9228cabc69d494c4629c314b23864ffedf9b1595b",
-      "changed": "2026-11-20",
+      "hash": "7626787df9072479da4ac22b54e01671ae746f7178a6ae964ef20ccf9dab8084",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/install": {
-      "hash": "3dd00596a0ee5ea8882566eb407d455b12676b89ceee7f54a2c5a326ec3e4f5f",
-      "changed": "2026-11-20",
+      "hash": "e0a8e12c364b456ee655d113d4fe2321b7f2a3df93eae12f7357b1e3f9bdec0f",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/cli-reference": {
-      "hash": "c47e227cf7a5923df15014026a2b7e3bcd7b02cbda3f16566110182d03053035",
-      "changed": "2026-11-20",
+      "hash": "c544f12dd9412d68cba45beea0a90680c2c0352258b125095c8877fc0676eec7",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/loading": {
-      "hash": "5d94a268168fc2f560709b931dca7c6f6a1623dbf62a0134500e861a56ac2502",
-      "changed": "2026-11-20",
+      "hash": "c2b122f1f7fbde7ae133af0d180a4ec179762eea64eed4b6f373203e18e4b755",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/settings": {
@@ -1804,18 +2025,18 @@
       "unstable": false
     },
     "https://code.claude.com/docs/en/skills": {
-      "hash": "cf7103f9f0c84a9f7c271cdbddb3c6bc3aab45de162c254da5cb45978a0feccb",
-      "changed": "2026-11-20",
+      "hash": "e62a36848be40df95b03ef7b9be7985d8e78b4a4564290d45bb19a3e80bbf92e",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/memory": {
-      "hash": "7889a5c0009f98851d2266d04fc4aad64cb51b3347b87a5a1402a8ab84eeee0d",
-      "changed": "2026-11-18",
+      "hash": "7b6e7baefa3d0a5ab45268ced0b03b542e0facd5d6a6ea872a875d95612e7ccb",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/hooks-guide": {
-      "hash": "a6367d9150bcc8c393c1390b99e48fd159e7d4bb0be26b4e1c4025339c352419",
-      "changed": "",
+      "hash": "947da10fccf91cf7489c1834281bcdd6ae9fe8221ce8fb9e6ee294611bc6733f",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://learn.chatgpt.com/docs/extend/mcp": {
@@ -1874,18 +2095,18 @@
       "unstable": false
     },
     "https://claude.com/docs/plugins/submit": {
-      "hash": "20031b8235f61a15e172104f5b2cb0a33905d1206964aa56cb2ccdf9c7ea6c9e",
-      "changed": "2026-11-20",
+      "hash": "af21bed77e9edd2982f4422321df066875ca5f617350ea6140c7b7dff0a11452",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://claude.com/docs/plugins/pre-submission-checklist": {
-      "hash": "c39a47521e6279cb1d66c203fdd017c0f244a6f18ea200dd4b1bb502a62c508a",
-      "changed": "2026-11-20",
+      "hash": "193858930e6ec889c4e705dd89c05d991bf42fcad9379d37dd9f9f832bca8176",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins-reference": {
-      "hash": "7de1b3d2fd4467ebc897e000f71fc92c482e241f5870f9e060b04ee160000b48",
-      "changed": "2026-11-20",
+      "hash": "4243f1be458baf65466beba3358046a36a4213244adae31594f10c1964e18288",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": {
@@ -1944,8 +2165,8 @@
       "unstable": false
     },
     "https://docs.brew.sh/Formula-Cookbook": {
-      "hash": "630c9cadcb14903c7ee21361db2ce0b61bbdff6d31881779968fde465581e9b5",
-      "changed": "2026-11-19",
+      "hash": "01b924957f768a9586c3ce81777c73a2d735129721d4f92899fd119ddb26455b",
+      "changed": "2026-11-21",
       "unstable": false
     },
     "https://docs.brew.sh/Description-Guidelines": {
@@ -1976,7 +2197,7 @@
   },
   "stale_week": "2026-W47",
   "feed": {
-    "day": "2026-11-19",
+    "day": "2026-11-20",
     "wait": [
       {
         "day": "2026-11-18",
@@ -2063,14 +2284,15 @@
         ]
       },
       {
-        "day": "2026-11-19",
+        "day": "2026-11-20",
         "kind": "changed",
         "url": "https://code.claude.com/docs/en/plugins/troubleshooting.md",
         "product": "claude-code",
         "sections": [
           "`Couldn't install: <plugin> (<reason>)` or `Failed to install: <plugin> (<reason>)`",
           "`Plugin \"<name>\" is on in project settings but isn't installed here`",
-          "`Couldn't load hooks from <path>` and hooks that don't fire"
+          "`Couldn't load hooks from <path>` and hooks that don't fire",
+          "`No plugins yet` or `No marketplaces configured`"
         ]
       },
       {
@@ -2099,24 +2321,87 @@
         "sections": [
           "`codex-security import continuum`"
         ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/agent-sdk/subagents.md",
+        "product": "claude-code",
+        "sections": [
+          "Resume a subagent from your code"
+        ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/artifacts.md",
+        "product": "claude-code",
+        "sections": [
+          "Set a retention policy on Enterprise plans"
+        ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/authentication.md",
+        "product": "claude-code",
+        "sections": [
+          "Check when a stored login ends"
+        ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/code-mode.md",
+        "product": "claude-code",
+        "sections": [
+          "Limit shell commands with the sandbox",
+          "Stop code in progress",
+          "Check code output with a hook"
+        ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/desktop-ios-simulator.md",
+        "product": "claude-code",
+        "sections": [
+          "Open the simulator pane yourself"
+        ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/plugins/dependencies.md",
+        "product": "claude-code",
+        "sections": [
+          "When a dependency installs automatically"
+        ]
+      },
+      {
+        "day": "2026-11-20",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/troubleshoot-install.md",
+        "product": "claude-code",
+        "sections": [
+          "That doesn't look like the full code"
+        ]
       }
     ],
     "dropped": 0,
-    "held": 20,
+    "held": 21,
     "gone": 0,
     "failed": 0,
     "taken": [
-      "https://cursor.com/docs/models/gemini-4-neon",
-      "https://learn.chatgpt.com/docs/developer-settings",
-      "https://code.claude.com/docs/en/monitoring-usage",
-      "https://code.claude.com/docs/en/permission-modes",
-      "https://code.claude.com/docs/en/plugins/mods/troubleshoot",
+      "https://code.claude.com/docs/en/agent-sdk/subagents",
+      "https://code.claude.com/docs/en/artifacts",
+      "https://code.claude.com/docs/en/authentication",
+      "https://code.claude.com/docs/en/code-mode",
+      "https://code.claude.com/docs/en/desktop-ios-simulator",
+      "https://code.claude.com/docs/en/plugins/dependencies",
       "https://code.claude.com/docs/en/plugins/troubleshooting",
-      "https://code.claude.com/docs/en/sandboxing",
-      "https://code.claude.com/docs/en/vs-code",
-      "https://cursor.com/docs/cloud-agent/automations",
-      "https://cursor.com/docs/enterprise/model-and-integration-management",
-      "https://learn.chatgpt.com/docs/security/cli/reference"
+      "https://code.claude.com/docs/en/troubleshoot-install",
+      "https://cursor.com/docs/cloud-agent/repo-access"
     ]
   }
 }

@@ -6,3 +6,4 @@
 {"date": "2026-11-18", "pieces": 9, "judged": 9, "failed": 0, "findings": 10, "urgent": 0, "summary": 0, "paused": false, "feed": {"mode": "shadow", "pieces": 5, "waiting": 6, "dropped": 0, "held": 14, "gone": 0, "failed": 0}}
 {"date": "2026-11-19", "pieces": 16, "judged": 16, "failed": 0, "findings": 12, "urgent": 0, "summary": 0, "paused": false, "feed": {"mode": "shadow", "pieces": 4, "waiting": 5, "dropped": 0, "held": 17, "gone": 0, "failed": 0}}
 {"date": "2026-11-20", "pieces": 20, "judged": 20, "failed": 0, "findings": 11, "urgent": 0, "summary": 0, "paused": false, "feed": {"mode": "shadow", "pieces": 0, "waiting": 13, "dropped": 0, "held": 20, "gone": 0, "failed": 0}}
+{"date": "2026-11-21", "pieces": 20, "judged": 15, "failed": 0, "findings": 17, "urgent": 1, "summary": 0, "paused": false, "feed": {"mode": "shadow", "pieces": 0, "waiting": 20, "dropped": 0, "held": 21, "gone": 0, "failed": 0}}
