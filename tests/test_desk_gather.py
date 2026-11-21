@@ -935,7 +935,7 @@ def test_a_list_that_fails_stops_the_map_read_before_the_next_list():
 # --- The bench: the history of the runs, main's checks, the stores ---
 
 
-from tests.test_desk_bench import LOG  # noqa: E402
+from tests.test_desk_bench import LOG, use_chart, use_point  # noqa: E402
 
 STEP = desk_gather.desk_bench.STARTUP_STEP
 HISTORY = {
@@ -1113,6 +1113,21 @@ def test_each_store_gives_the_version_it_serves():
     assert desk_gather._glama(store_fetch)["listed"] is True
     assert desk_gather._mcprush(store_fetch) == {"version": "0.9.2", "at": None,
                                                  "url": desk_gather.MCPRUSH}
+
+
+def test_the_bench_reads_the_cpu_and_memory_chart_from_use_numbers():
+    chart = use_chart(use_point("0.9.2"))
+    def fetch(url):
+        if url == desk_gather.USE_CHART.format(repo=REPO):
+            return json.dumps(chart)
+        return store_fetch(url)
+
+    bench = desk_gather.read_bench(FakeApi(ANSWERS), fetch, REPO, read(), [], NOW)
+    assert bench["use"]["points"][0]["label"] == "0.9.2"
+    assert desk_gather.USE_CHART == (
+        "https://raw.githubusercontent.com/{repo}/use-numbers/chart.json")
+    assert desk_gather.read_bench(FakeApi(ANSWERS), store_fetch, REPO, read(), [], NOW)[
+        "use"] is None  # not read: no chart
 
 
 def test_main_writes_the_history_and_the_bench(tmp_path):

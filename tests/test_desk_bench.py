@@ -15,6 +15,7 @@ from desk_bench import (
     startup_times,
     stores,
     upstream,
+    use_trend,
     version_of,
 )
 
@@ -346,3 +347,33 @@ def test_the_tag_s_startup_jobs_and_the_one_off_history_fill_the_other_systems()
     assert intel["first"] == [1.6, 1.5] and arm["first"] == [None, 0.7]  # no tag: not counted
     nights = [night_line(i, f"2026-11-{i:02}") for i in range(1, 11)]
     assert 70 in [line["id"] for line in merge([history], nights, keep=2)]  # kept for good
+
+
+def use_point(label, commit=None):
+    """A point of Kitden's chart.json on use-numbers (scripts/measure-use.py, chart())."""
+    return {"label": label, "commit": commit,
+            "cpu_ready_s": {"median": 0.7, "low": 0.66, "high": 0.77},
+            "peak_mb": {"median": 58.0, "low": 57.4, "high": 58.9}}
+
+
+def use_chart(*points):
+    """Kitden's chart.json: one backfill run, its machine and its points."""
+    return {"series": 1, "run_id": "9001", "date": "2026-11-19", "cpu": "AMD EPYC 7763",
+            "runs": 5, "points": list(points)}
+
+
+def test_use_keeps_releases_in_order_then_main_and_only_whole_points():
+    found = use_trend(use_chart(
+        use_point("main", "abc1234"), use_point("0.10.0"), use_point("0.9.2"),
+        {**use_point("0.4.0"), "peak_mb": {"median": "58"}},  # not a number: left out
+        {**use_point("0.5.0"), "label": "<b>0.5</b>"}))  # not a release number: left out
+    assert [p["label"] for p in found["points"]] == ["0.9.2", "0.10.0", "main"]
+    assert found["points"][-1] == {"label": "main", "commit": "abc1234",
+                                   "cpu_ready_s": {"median": 0.7, "low": 0.66, "high": 0.77},
+                                   "peak_mb": {"median": 58.0, "low": 57.4, "high": 58.9}}
+    assert (found["date"], found["cpu"], found["runs"]) == ("2026-11-19", "AMD EPYC 7763", 5)
+
+
+def test_use_is_none_when_not_read_or_empty():
+    assert use_trend(None) is None and use_trend({"points": []}) is None
+    assert use_trend({"points": "x"}) is None
