@@ -70,12 +70,13 @@ def night_line(run_id, night, states=None, version="0.9.2", times=None):
     return record("nightly.yml", run(run_id, night), jobs, version, found)
 
 
-
-def use_line(run_id, night, conclusion="success"):
+def use_line(run_id, night, conclusion="success", store="success"):
     """A night of use.yml: its two jobs; only `use` is a part."""
     return record("use.yml", run(run_id, night, workflow="use.yml"),
-                  [job("use", conclusion, 1, None, run_id), job("use-store", "success", 2)],
+                  [job("use", conclusion, 1, None, run_id),
+                   job("use-store", store, 2, None, run_id)],
                   "0.9.2", {})
+
 
 def test_job_names_split_into_part_and_arguments():
     assert job_parts("systems (macos-15-intel, 3.14)") == ("systems", ("macos-15-intel", "3.14"))
@@ -214,6 +215,9 @@ def test_the_cpu_and_memory_row_reads_only_the_use_job_of_use_yml():
     assert [f["job"] for f in row["failed"]] == ["use"]  # use-store is no part
     assert [n["state"] for n in row["nights"]] == ["green", "red"]
     assert row["url"] == RUN_URL.format(3)
+    store_red = [use_line(4, "2026-11-16", store="failure")]
+    row = next(r for r in rows(store_red, NOW) if r["name"] == "CPU and memory")
+    assert row["state"] == "green" and row["failed"] == []
 
 
 def test_an_old_newest_run_is_grey():
