@@ -14,5 +14,5 @@ shot() { # story, file name, height
   done
 }
 shot pr pull-request 1016
-shot rel release 1206
-shot day every-day 1015
+shot rel release 1234
+shot day every-day 1186

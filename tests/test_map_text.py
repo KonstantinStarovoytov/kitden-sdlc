@@ -174,10 +174,19 @@ def test_the_nightly_run_is_on_the_map_with_its_jobs_and_links():
     assert map_ids(HTML)["k-nightly"] == ("k", "nightly.yml")
     assert map_jobs(HTML)["k-nightly"] == ["systems", "clients", "browser", "engines"]
     links = map_links(HTML)
-    assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps"]
+    assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps", "k-use"]
     assert links["k-nightly"]["readBy"] == links["k-latest-deps"]["readBy"] == ["s-desk"]
     assert links["s-review"] == {"calledBy": ["k-agents-review"]}
-    assert "All 22 workflows" in HTML
+    assert "All 23 workflows" in HTML
+
+
+def test_the_cpu_and_memory_run_is_on_the_map_and_the_desk_reads_it():
+    assert map_ids(HTML)["k-use"] == ("k", "use.yml")
+    assert map_jobs(HTML)["k-use"] == ["use", "use-store"]
+    links = map_links(HTML)
+    assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps", "k-use"]
+    assert links["k-use"]["readBy"] == ["s-desk"]
+    assert "All 23 workflows" in HTML
 
 
 def test_every_link_names_a_workflow_on_the_map_and_has_its_other_end():
@@ -192,7 +201,7 @@ def test_every_link_names_a_workflow_on_the_map_and_has_its_other_end():
 
 
 def test_a_reads_link_is_read_and_the_page_shows_it():
-    assert map_links(HTML)["s-desk"] == {"reads": ["k-nightly", "k-latest-deps"]}
+    assert map_links(HTML)["s-desk"] == {"reads": ["k-nightly", "k-latest-deps", "k-use"]}
     for kind, label in (("reads", "Reads"), ("readBy", "Read by")):
         shown = (f"(w.{kind} ? '<div class=\"fact\"><span class=\"cap\">{label}</span>"
                  f"<span>' + w.{kind}.map(ref)")
@@ -211,24 +220,26 @@ def test_the_every_day_story_draws_the_nightly_run_and_who_reads_it():
     assert "t:'Breaks found before your users find them'" in day and "three browser engines" in day
     assert "red: a ci-failure issue" in day and "emails" not in day
     assert "['c0','k-nightly','','h'],['k-nightly','d0','','h']" in day
-    assert day.count("'s-desk','the desk reads it'") == 2
+    assert day.count("'s-desk','the desk reads it'") == 3
     assert "['d0','s-desk','the desk reads it','t']" in day
     assert "['d2','s-desk','the desk reads it','r']" in day
+    assert "{id:'c6', kind:'clock', t:'03:23'}, {wf:'k-use'}" in day
+    assert "['c6','k-use','','h'],['k-use','d6','','h']" in day
 
 
 def test_the_every_day_clock_runs_in_time_order():
     """The wires into the desk go down the gap before the last column, so no row moves."""
     rows = HTML.split("day:{")[1].split("rows:[")[1].split("\n    ],")[0]
     times = re.findall(r"kind:'clock', t:'(\d\d:\d\d)'", rows)
-    assert times == sorted(times) and times[0] == "02:37" and len(times) == 6
+    assert times == sorted(times) and times[0] == "02:37" and len(times) == 7
 
 
-def test_both_wires_the_desk_reads_run_from_a_result_card_into_the_desk():
+def test_the_three_wires_the_desk_reads_run_from_a_result_card_into_the_desk():
     day = HTML.split("day:{")[1].split("\n};")[0]
     things = set(re.findall(r"\{id:'(\w+)', kind:'thing'", day))
     edges = re.findall(r"\['(\w+)','([\w-]+)','the desk reads it','(\w)'\]", day)
-    assert sorted(edges) == [("d0", "s-desk", "t"), ("d2", "s-desk", "r")]
-    assert {"d0", "d2"} <= things
+    assert sorted(edges) == [("d0", "s-desk", "t"), ("d2", "s-desk", "r"), ("d6", "s-desk", "t")]
+    assert {"d0", "d2", "d6"} <= things
     assert "if (shape === 'r')" in HTML and "if (shape === 't')" in HTML
 
 
@@ -252,7 +263,7 @@ def test_every_step_is_one_short_line_with_at_most_one_short_why():
     wf = HTML.split("\nconst WF = [\n")[1].split("\n];")[0]
     hosts = re.search(r"\nconst HOSTS = '([^'\\]*)';", HTML).group(1)
     lists = re.findall(r"steps:\[((?:HOSTS|'[^'\\]*'|\s|,)*)\]", wf)
-    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 51
+    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 53
     steps = [hosts if s == "HOSTS" else s[1:-1] for found in lists
              for s in re.findall(r"HOSTS|'[^']*'", found)]
     assert len(steps) > 100
@@ -264,7 +275,7 @@ def test_every_step_is_one_short_line_with_at_most_one_short_why():
         assert 0 < len(about.split()) <= 14, about
     stories = HTML.split("const STORIES = {")[1].split("\n};")[0]
     cards = re.findall(r"kind:'thing'[^}]*?t:'([^'\\]*)'(?:, sub:'([^'\\]*)')?", stories)
-    assert len(cards) == 15
+    assert len(cards) == 16
     for title, line in cards:  # a result card: at most 8 words, then at most 16
         assert len(title.split()) <= 8 and len(line.split()) <= 16, (title, line)
     assert "'<span class=\"why\">'" in HTML
@@ -285,4 +296,4 @@ def test_the_tools_view_shows_what_the_nightly_tests_use():
     for name in ("Claude Code", "Codex", "pytest", "Node", "Playwright"):
         assert re.search(rf"'{name}':\[[^\]]*'k-nightly'", used), name
     assert "'Cursor':['s-watch']" in used
-    assert "'GitHub Actions':'All 22 workflows'" in used and len(map_ids(HTML)) == 22
+    assert "'GitHub Actions':'All 23 workflows'" in used and len(map_ids(HTML)) == 23
