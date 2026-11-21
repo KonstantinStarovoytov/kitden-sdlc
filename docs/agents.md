@@ -69,8 +69,9 @@ page. Besides the lights and what waits, `desk.json` has a `bench`
   audits, the release check, the package), each green, red or grey over both systems.
 - **Nightly**, in two groups, each row with the last 14 nights: **Supported platforms** block a
   release (each system by OS and architecture with Python 3.13 and 3.14, the end-to-end tests in
-  Chromium, the start-up budget); **Compatibility** only informs (the newest Claude Code and
-  Codex, the newest dependencies), because a red there is often the other side's change.
+  Chromium and in three browsers (Chrome, Firefox, WebKit), the start-up budget); **Compatibility**
+  only informs (the newest Claude Code and Codex, the newest dependencies), because a red there is
+  often the other side's change.
 - **Start-up time by release:** what `measure-start.py` printed, per system: a release's point
   is its build on its tag (macOS arm64 and Linux x86_64; since 0.10.2 also the Intel Mac and
   Linux on ARM, release.yml's `startup` job), Kitden's one-off run of 19 Nov 2026 that measured

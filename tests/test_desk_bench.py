@@ -163,6 +163,15 @@ def test_a_newest_night_without_the_rows_job_is_grey_not_green():
     assert e2e["state"] == "grey"
 
 
+def test_a_newest_night_without_one_engines_leg_is_grey_not_green():
+    line = night_line(1, "2026-11-16")
+    line["jobs"] = [j for j in line["jobs"] if j["name"] != "engines (firefox)"]
+    row = next(r for r in rows([line], NOW) if r["name"] == "End-to-end in three browsers")
+    assert row["state"] == "grey"
+    assert [(c["label"], c["state"]) for c in row["cells"]] == [
+        ("Chrome", "green"), ("Firefox", "grey"), ("WebKit", "green")]
+
+
 def test_the_engines_row_shows_each_browser_and_names_the_red_one():
     red = "engines (webkit)"
     history = [night_line(1, "2026-11-15"), night_line(2, "2026-11-16", {red: "failure"})]
