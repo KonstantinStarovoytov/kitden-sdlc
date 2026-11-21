@@ -16,6 +16,7 @@ Every text here is ours or a job's or step's name from Kitden's own workflows; t
 a person or a model never reach this file.
 """
 
+import math
 import re
 import statistics
 from datetime import UTC, date, datetime
@@ -72,9 +73,9 @@ GATE_STEPS = (
 WORST = ("red", "grey", "green")  # the first one any part has is the whole's state
 # The CPU and memory charts: what Kitden's chart.json (branch use-numbers) holds per point.
 USE_MEASURES = ("cpu_ready_s", "peak_mb")
-RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
-DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
+RELEASE = re.compile(r"\d+\.\d+\.\d+")  # these three are used with fullmatch
+DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+COMMIT = re.compile(r"[0-9a-f]{7,40}")
 
 
 # --- Small pieces ---
@@ -350,10 +351,14 @@ def startup(history: list[dict]) -> dict | None:
 
 
 def _spread(value) -> dict | None:
+    """A median with its lowest and highest run, or None. JSON can carry NaN, Infinity and
+    huge numbers; they would break desk.json or the chart, so only 0 < v <= 1e6 passes."""
     keys = ("median", "low", "high")
     if not isinstance(value, dict) or not all(
             isinstance(value.get(k), int | float) and not isinstance(value.get(k), bool)
-            for k in keys):
+            and math.isfinite(value[k]) and 0 < value[k] <= 1e6 for k in keys):
+        return None
+    if not value["low"] <= value["median"] <= value["high"]:
         return None
     return {k: float(value[k]) for k in keys}
 
@@ -370,19 +375,19 @@ def use_trend(chart) -> dict | None:
     for p in chart["points"]:
         label = p.get("label") if isinstance(p, dict) else None
         values = {k: _spread(p.get(k)) for k in USE_MEASURES} if label else {}
-        if not (label == "main" or (isinstance(label, str) and RELEASE.match(label))) \
+        if not (label == "main" or (isinstance(label, str) and RELEASE.fullmatch(label))) \
                 or None in values.values():
             continue
         commit = p.get("commit")
         points.append({"label": label, **values, "commit": commit
-                       if isinstance(commit, str) and COMMIT.match(commit) else None})
+                       if isinstance(commit, str) and COMMIT.fullmatch(commit) else None})
     points.sort(key=lambda p: (p["label"] == "main", () if p["label"] == "main"
                                else _semver(p["label"])))
     if not points:
         return None
     date_ = chart.get("date")
     return {
-        "date": date_ if isinstance(date_, str) and DAY.match(date_) else None,
+        "date": date_ if isinstance(date_, str) and DAY.fullmatch(date_) else None,
         "cpu": _text(chart.get("cpu")),
         "runs": chart.get("runs") if isinstance(chart.get("runs"), int) else None,
         "points": points,

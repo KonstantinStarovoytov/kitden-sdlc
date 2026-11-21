@@ -534,7 +534,7 @@ const WF = [
      'Keep the numbers as a file of the run|before any limit is checked',
      'Warn when main uses clearly more|a warning keeps the job green; a broken limit turns it red']},
    {n:'use-store', about:'Adds the numbers to the `use-numbers` branch', tags:['can push'],
-    when:'after `use`, unless cancelled; only on `main`',
+    when:'after `use` measured, unless cancelled; only on `main`',
     steps:['Add the files and rebuild the tables|by hand with releases: the desk page’s chart file too',
      'Push them to the `use-numbers` branch|only main’s own report code runs here; it holds no secret']}
   ]},

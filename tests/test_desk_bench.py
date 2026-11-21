@@ -366,12 +366,23 @@ def test_use_keeps_releases_in_order_then_main_and_only_whole_points():
     found = use_trend(use_chart(
         use_point("main", "abc1234"), use_point("0.10.0"), use_point("0.9.2"),
         {**use_point("0.4.0"), "peak_mb": {"median": "58"}},  # not a number: left out
-        {**use_point("0.5.0"), "label": "<b>0.5</b>"}))  # not a release number: left out
+        {**use_point("0.5.0"), "label": "<b>0.5</b>"},  # not a release number: left out
+        use_point("0.5.0\n")))  # a trailing newline: left out
     assert [p["label"] for p in found["points"]] == ["0.9.2", "0.10.0", "main"]
     assert found["points"][-1] == {"label": "main", "commit": "abc1234",
                                    "cpu_ready_s": {"median": 0.7, "low": 0.66, "high": 0.77},
                                    "peak_mb": {"median": 58.0, "low": 57.4, "high": 58.9}}
     assert (found["date"], found["cpu"], found["runs"]) == ("2026-11-19", "AMD EPYC 7763", 5)
+
+
+def test_use_leaves_out_numbers_that_would_break_the_page():
+    bad = [float("nan"), float("inf"), 1e300]
+    points = [{**use_point(f"0.{i}.0"), "cpu_ready_s": {"median": v, "low": 0.5, "high": 0.9}}
+              for i, v in enumerate(bad, 1)]
+    points.append({**use_point("0.4.0"), "peak_mb": {"median": 0, "low": 0, "high": 0}})
+    points.append({**use_point("0.5.0"), "peak_mb": {"median": 58.0, "low": 59.0, "high": 60.0}})
+    found = use_trend(use_chart(*points, use_point("main")))
+    assert [p["label"] for p in found["points"]] == ["main"]
 
 
 def test_use_is_none_when_not_read_or_empty():

@@ -439,7 +439,7 @@ function trendPanel(u, c, first) {
   vals.forEach((v, i) => {
     if (v === null) return;
     root.append(svg('circle', { cx: x(i), cy: y(v), r: i === n - 1 ? 3.6 : 2.4, fill: i === n - 1 ? COLOR : 'var(--panel)', stroke: COLOR, 'stroke-width': 1.4, 'pointer-events': 'none' }));
-    const hit = svg('circle', { cx: x(i), cy: y(v), r: 10, fill: 'transparent', class: 'hit', tabindex: 0, 'aria-label': `Kitden ${u.versions[i]}, ${c.label}: ${c.points[i].text}, lowest to highest ${c.points[i].range}` });
+    const hit = svg('circle', { cx: x(i), cy: y(v), r: 10, fill: 'transparent', class: 'hit', tabindex: 0, 'aria-label': `${u.versions[i] === 'main' ? 'main, after the newest release' : `Kitden ${u.versions[i]}`}, ${c.label}: ${c.points[i].text}, lowest to highest ${c.points[i].range}` });
     hit.addEventListener('mouseenter', () => show(i));
     hit.addEventListener('focus', () => show(i));
     hit.addEventListener('mouseleave', hide);
