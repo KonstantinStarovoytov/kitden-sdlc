@@ -69,9 +69,9 @@ page. Besides the lights and what waits, `desk.json` has a `bench`
   audits, the release check, the package), each green, red or grey over both systems.
 - **Nightly**, in two groups, each row with the last 14 nights: **Supported platforms** block a
   release (each system by OS and architecture with Python 3.13 and 3.14, the end-to-end tests in
-  Chromium and in three browsers (Chrome, Firefox, WebKit), the start-up budget); **Compatibility**
-  only informs (the newest Claude Code and Codex, the newest dependencies), because a red there is
-  often the other side's change.
+  Chromium and in three browsers (Chrome, Firefox, WebKit), the start-up budget, the CPU and
+  memory run); **Compatibility** only informs (the newest Claude Code and Codex, the newest
+  dependencies), because a red there is often the other side's change.
 - **Start-up time by release:** what `measure-start.py` printed, per system: a release's point
   is its build on its tag (macOS arm64 and Linux x86_64; since 0.10.2 also the Intel Mac and
   Linux on ARM, release.yml's `startup` job), Kitden's one-off run of 19 Nov 2026 that measured
@@ -80,19 +80,22 @@ page. Besides the lights and what waits, `desk.json` has a `bench`
   the newest night on a later commit, so a slowdown merged after a release shows before the
   next. The times are printed to a tenth of a second, so the page marks a point only when it is
   at least 0.2 s and 20% slower than the one before.
+- **CPU and memory by release:** two charts, CPU to ready and Peak memory, from `chart.json` on
+  Kitden's `use-numbers` branch. A `use.yml` run by hand over a list of releases writes it: each
+  release, then main, all measured in that one run on one machine.
 - **Bugs, upstream changes, AI agents:** open `bug` issues, the watcher's open client changes
   (confirmed, and waiting for a verdict), and each agent's runs this week.
 
 The runs and times come from `history.json` on the `numbers` branch, which the measure job
-keeps: each day it reads the scheduled runs of `nightly.yml` and `latest-deps.yml` and the runs
-of `release.yml` on a release tag that it does not hold yet, at most 20 a day, the oldest first,
-with the logs of the jobs that measure the start-up (only the numbers are read from them). A run
-that was re-run since is read again, and so is one whose log could not be read, on up to 3
-days. It keeps every release and the newest 120 nightly runs. As in desk.py, a newest run
-older than yesterday is grey, and a red row keeps its first red night through grey nights. The
-page's headline is red when a check on main (the build, or the Works light) or a supported
-platform is red; amber when anything else needs a look, a red Clients, Bugs, Agents or Queue
-light included; grey when a part that blocks a release was not read. Links go only to
+keeps: each day it reads the scheduled runs of `nightly.yml`, `latest-deps.yml` and `use.yml`
+and the runs of `release.yml` on a release tag that it does not hold yet, at most 20 a day, the
+oldest first, with the logs of the jobs that measure the start-up (only the numbers are read
+from them). A run that was re-run since is read again, and so is one whose log could not be
+read, on up to 3 days. It keeps every release and the newest 120 nightly runs. As in desk.py, a
+newest run older than yesterday is grey, and a red row keeps its first red night through grey
+nights. The page's headline is red when a check on main (the build, or the Works light) or a
+supported platform is red; amber when anything else needs a look, a red Clients, Bugs, Agents
+or Queue light included; grey when a part that blocks a release was not read. Links go only to
 github.com and to the stores.
 
 A light is the worst thing the read facts prove: bad news that was read always wins, and grey
@@ -105,15 +108,15 @@ the push to `main` started. A check `main` requires counts whatever started it, 
 check whose start is not known. Release prep started by hand and scheduled runs do not count.
 
 Works and Clients also judge Kitden's nightly tests: the newest finished scheduled run on
-`main` of `nightly.yml` (parts `systems`, `clients`, `browser`, `engines`) and of
-`latest-deps.yml` (part `test`). The jobs of one matrix are one part. A part is red when one of
-its jobs ended `failure`, `timed_out`, `action_required` or `startup_failure`, green when every
-one of its jobs passed, and grey otherwise. Grey covers a job that ended `cancelled` (stopped
-by hand or by a newer run, or past its time limit: `nightly.yml` has fail-fast off), a skipped
-job, no job of the part, and a run that could not be read. It also covers a skipped night: the
-run must be dated (UTC) the desk's day or the day before. Clients judges the part `clients`,
-Works the rest. GitHub starts scheduled runs hours late, so the desk may show the night before;
-each reason gives the run's date.
+`main` of `nightly.yml` (parts `systems`, `clients`, `browser`, `engines`), of
+`latest-deps.yml` (part `test`) and of `use.yml` (part `use`). The jobs of one matrix are one
+part. A part is red when one of its jobs ended `failure`, `timed_out`, `action_required` or
+`startup_failure`, green when every one of its jobs passed, and grey otherwise. Grey covers a
+job that ended `cancelled` (stopped by hand or by a newer run, or past its time limit:
+`nightly.yml` has fail-fast off), a skipped job, no job of the part, and a run that could not
+be read. It also covers a skipped night: the run must be dated (UTC) the desk's day or the day
+before. Clients judges the part `clients`, Works the rest. GitHub starts scheduled runs hours
+late, so the desk may show the night before; each reason gives the run's date.
 
 A grey night does not wipe what came before it. A red part keeps the day it turned red
 through grey nights, and its light stays as a red part's would (amber, then red from 3 days
