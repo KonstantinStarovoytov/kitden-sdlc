@@ -9,8 +9,8 @@ is grey or None, never good news.
   job's log printed.
 - `merge` keeps the history (history.json on the `numbers` branch) to the newest KEEP_RUNS runs.
 - `bench` builds what the page shows: the checks of main's newest push, the nightly rows with
-  their last NIGHTS nights, the start-up times by release and system, the stores, the bugs and
-  the upstream changes.
+  their last NIGHTS nights, the start-up times by release and system, the stores, the bugs, the
+  upstream changes, and the CPU and memory by release from Kitden's chart.json.
 
 Every text here is ours or a job's or step's name from Kitden's own workflows; titles written by
 a person or a model never reach this file.
@@ -21,7 +21,7 @@ import statistics
 from datetime import UTC, date, datetime
 
 NIGHTS = 14  # the nights each row's strip shows
-KEEP_RUNS = 120  # runs kept in history.json, across both workflows
+KEEP_RUNS = 120  # runs kept in history.json, across the nightly workflows
 NIGHT_DAYS = 1  # desk.NIGHT_DAYS: a newest run older than this means GitHub skipped a night
 LOG_TRIES = 3  # a log that could not be read is tried again on this many days, then left
 RED = ("failure", "timed_out", "action_required", "startup_failure")
@@ -70,6 +70,11 @@ GATE_STEPS = (
     ("Package", ("Run uv build", "The built files", "The wheel runs")),
 )
 WORST = ("red", "grey", "green")  # the first one any part has is the whole's state
+# The CPU and memory charts: what Kitden's chart.json (branch use-numbers) holds per point.
+USE_MEASURES = ("cpu_ready_s", "peak_mb")
+RELEASE = re.compile(r"\d+\.\d+\.\d+")  # these three are used with fullmatch
+DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+COMMIT = re.compile(r"[0-9a-f]{7,40}")
 
 
 # --- Small pieces ---
@@ -255,6 +260,7 @@ def rows(history: list[dict], now: datetime) -> list[dict] | None:
     today = now.astimezone(UTC).date()
     nightly = [line for line in history if line.get("workflow") == "nightly.yml"]
     deps = [line for line in history if line.get("workflow") == "latest-deps.yml"]
+    use = [line for line in history if line.get("workflow") == "use.yml"]
     found = []
     for runner, os_name, arch in SYSTEMS:
         found.append(_row("platforms", f"{os_name} · {arch}",
@@ -267,6 +273,7 @@ def rows(history: list[dict], now: datetime) -> list[dict] | None:
     found.append(_row("platforms", "Start-up time",
                       [(f"{os_name} · {arch.split(' ')[0]}", _is("systems", runner))
                        for runner, os_name, arch in SYSTEMS], nightly, today, key="startup"))
+    found.append(_row("platforms", "CPU and memory", [("Linux · x86_64", _is("use"))], use, today))
     found.append(_row("compatibility", "Claude Code and Codex, newest",
                       [(os_name, _is("clients", runner)) for runner, os_name in CLIENT_SYSTEMS],
                       nightly, today))
@@ -340,6 +347,50 @@ def startup(history: list[dict]) -> dict | None:
         })
     return {"versions": points, "systems": systems, "budgets": BUDGETS,
             "main_night": later.get("night") if later else None}
+
+
+def _spread(value) -> dict | None:
+    """A median with its lowest and highest run, or None. JSON can carry NaN, Infinity and
+    huge numbers; they would break desk.json or the chart, so only 0 < v <= 1e6 passes."""
+    keys = ("median", "low", "high")
+    if not isinstance(value, dict) or not all(
+            isinstance(value.get(k), int | float) and not isinstance(value.get(k), bool)
+            and 0 < value[k] <= 1e6 for k in keys):  # also false for NaN, inf, a huge int
+        return None
+    if not value["low"] <= value["median"] <= value["high"]:
+        return None
+    return {k: float(value[k]) for k in keys}
+
+
+def use_trend(chart) -> dict | None:
+    """The CPU and memory charts, from Kitden's chart.json on its branch use-numbers, which its
+    newest backfill run wrote (scripts/measure-use.py): that run's releases in version order,
+    then main, all measured in that one run, on one machine (B0 rule 8). Each point is a median
+    with its lowest and highest run. Only numbers, release numbers and short texts pass; a point
+    that is not whole is left out. None when it was not read or has no point."""
+    if not isinstance(chart, dict) or not isinstance(chart.get("points"), list):
+        return None
+    points = []
+    for p in chart["points"]:
+        label = p.get("label") if isinstance(p, dict) else None
+        values = {k: _spread(p.get(k)) for k in USE_MEASURES} if label else {}
+        if not (label == "main" or (isinstance(label, str) and RELEASE.fullmatch(label))) \
+                or None in values.values():
+            continue
+        commit = p.get("commit")
+        points.append({"label": label, **values, "commit": commit
+                       if isinstance(commit, str) and COMMIT.fullmatch(commit) else None})
+    points.sort(key=lambda p: (p["label"] == "main", () if p["label"] == "main"
+                               else _semver(p["label"])))
+    if not points:
+        return None
+    date_ = chart.get("date")
+    return {
+        "date": date_ if isinstance(date_, str) and DAY.fullmatch(date_) else None,
+        "cpu": _text(chart.get("cpu")),
+        "runs": chart.get("runs") if isinstance(chart.get("runs"), int) else None,
+        "points": points,
+    }
 
 
 # --- The checks of main's newest push ---
@@ -447,7 +498,7 @@ def stores(newest: dict | None, seen: dict[str, dict | None]) -> dict:
 
 def bench(history: list[dict] | None, now: datetime, *, gate_read: dict | None,
           newest: dict | None, seen: dict[str, dict | None], issues: list[dict] | None,
-          watch_days: float | None, repo: str) -> dict:
+          watch_days: float | None, repo: str, use_chart: dict | None = None) -> dict:
     """Everything the page shows beside the lights, as desk.json's `bench`."""
     return {
         "gate": gate_read,
@@ -456,5 +507,6 @@ def bench(history: list[dict] | None, now: datetime, *, gate_read: dict | None,
         "stores": stores(newest, seen),
         "bugs": bugs(issues, repo),
         "upstream": upstream(issues, watch_days, repo),
+        "use": use_trend(use_chart),
     }
 

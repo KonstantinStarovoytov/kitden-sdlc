@@ -371,6 +371,8 @@ HISTORY_RUNS = 30  # the newest scheduled runs of each nightly workflow looked a
 NEW_RUNS = 20  # at most this many runs read in full each day: a first day fills the rest later
 RELEASE = "release.yml"  # its build and startup jobs measure the start-up on every release tag
 PYPROJECT = "https://raw.githubusercontent.com/{repo}/{sha}/pyproject.toml"
+# Kitden's CPU and memory by release, written for this page by its use.yml (measure-use.py).
+USE_CHART = "https://raw.githubusercontent.com/{repo}/use-numbers/chart.json"
 GLAMA = "https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden"
 # Only the latest version: the search lists every version, oldest first, 30 to a page.
 REGISTRY_LATEST = release_stores.REGISTRY + "&version=latest"
@@ -570,7 +572,9 @@ def read_bench(api, fetch: Fetch, repo: str, facts: Facts, history: list[dict],
         history, now,
         gate_read=_read("checks of main's push", lambda: _gate(api, repo, facts.checks)),
         newest=_read("newest release", lambda: _newest(api, repo)),
-        seen=seen, issues=facts.issues, watch_days=_watch_days(facts.watch_log, now), repo=repo)
+        seen=seen, issues=facts.issues, watch_days=_watch_days(facts.watch_log, now), repo=repo,
+        use_chart=_read("CPU and memory chart",
+                        lambda: json.loads(fetch(USE_CHART.format(repo=repo)))))
 
 
 # --- All the facts ---

@@ -15,6 +15,7 @@ from desk_bench import (
     startup_times,
     stores,
     upstream,
+    use_trend,
     version_of,
 )
 
@@ -68,6 +69,14 @@ def night_line(run_id, night, states=None, version="0.9.2", times=None):
                         else states.get(name, "success"), i, steps, run_id))
     found = {name: t for name, t in (times or {}).items()}
     return record("nightly.yml", run(run_id, night), jobs, version, found)
+
+
+def use_line(run_id, night, conclusion="success", store="success"):
+    """A night of use.yml: its two jobs; only `use` is a part."""
+    return record("use.yml", run(run_id, night, workflow="use.yml"),
+                  [job("use", conclusion, 1, None, run_id),
+                   job("use-store", store, 2, None, run_id)],
+                  "0.9.2", {})
 
 
 def test_job_names_split_into_part_and_arguments():
@@ -124,6 +133,7 @@ def test_rows_follow_the_page_and_show_the_last_nights():
         "End-to-end in Chromium",
         "End-to-end in three browsers",
         "Start-up time",
+        "CPU and memory",
         "Claude Code and Codex, newest",
         "Newest dependencies",
     ]
@@ -195,6 +205,20 @@ def test_a_missed_budget_turns_the_start_up_row_red_not_the_platform():
     start = next(r for r in found if r["name"] == "Start-up time")
     assert start["state"] == "red"
     assert [c["state"] for c in start["cells"]] == ["green", "red", "green", "green"]
+
+
+def test_the_cpu_and_memory_row_reads_only_the_use_job_of_use_yml():
+    history = [night_line(1, "2026-11-16"), use_line(2, "2026-11-15"),
+               use_line(3, "2026-11-16", "failure")]
+    row = next(r for r in rows(history, NOW) if r["name"] == "CPU and memory")
+    assert row["group"] == "platforms" and row["state"] == "red" and row["since"] == "2026-11-16"
+    assert [(c["label"], c["state"]) for c in row["cells"]] == [("Linux · x86_64", "red")]
+    assert [f["job"] for f in row["failed"]] == ["use"]  # use-store is no part
+    assert [n["state"] for n in row["nights"]] == ["green", "red"]
+    assert row["url"] == RUN_URL.format(3)
+    store_red = [use_line(4, "2026-11-16", store="failure")]
+    row = next(r for r in rows(store_red, NOW) if r["name"] == "CPU and memory")
+    assert row["state"] == "green" and row["failed"] == []
 
 
 def test_an_old_newest_run_is_grey():
@@ -323,3 +347,44 @@ def test_the_tag_s_startup_jobs_and_the_one_off_history_fill_the_other_systems()
     assert intel["first"] == [1.6, 1.5] and arm["first"] == [None, 0.7]  # no tag: not counted
     nights = [night_line(i, f"2026-11-{i:02}") for i in range(1, 11)]
     assert 70 in [line["id"] for line in merge([history], nights, keep=2)]  # kept for good
+
+
+def use_point(label, commit=None):
+    """A point of Kitden's chart.json on use-numbers (scripts/measure-use.py, chart())."""
+    return {"label": label, "commit": commit,
+            "cpu_ready_s": {"median": 0.7, "low": 0.66, "high": 0.77},
+            "peak_mb": {"median": 58.0, "low": 57.4, "high": 58.9}}
+
+
+def use_chart(*points):
+    """Kitden's chart.json: one backfill run, its machine and its points."""
+    return {"series": 1, "run_id": "9001", "date": "2026-11-19", "cpu": "AMD EPYC 7763",
+            "runs": 5, "points": list(points)}
+
+
+def test_use_keeps_releases_in_order_then_main_and_only_whole_points():
+    found = use_trend(use_chart(
+        use_point("main", "abc1234"), use_point("0.10.0"), use_point("0.9.2"),
+        {**use_point("0.4.0"), "peak_mb": {"median": "58"}},  # not a number: left out
+        {**use_point("0.5.0"), "label": "<b>0.5</b>"},  # not a release number: left out
+        use_point("0.5.0\n")))  # a trailing newline: left out
+    assert [p["label"] for p in found["points"]] == ["0.9.2", "0.10.0", "main"]
+    assert found["points"][-1] == {"label": "main", "commit": "abc1234",
+                                   "cpu_ready_s": {"median": 0.7, "low": 0.66, "high": 0.77},
+                                   "peak_mb": {"median": 58.0, "low": 57.4, "high": 58.9}}
+    assert (found["date"], found["cpu"], found["runs"]) == ("2026-11-19", "AMD EPYC 7763", 5)
+
+
+def test_use_leaves_out_numbers_that_would_break_the_page():
+    bad = [float("nan"), float("inf"), 1e300, 10**400]  # 10**400 is too big for a float
+    points = [{**use_point(f"0.{i}.0"), "cpu_ready_s": {"median": v, "low": v, "high": v}}
+              for i, v in enumerate(bad, 6)]
+    points.append({**use_point("0.4.0"), "peak_mb": {"median": 0, "low": 0, "high": 0}})
+    points.append({**use_point("0.5.0"), "peak_mb": {"median": 58.0, "low": 59.0, "high": 60.0}})
+    found = use_trend(use_chart(*points, use_point("main")))
+    assert [p["label"] for p in found["points"]] == ["main"]
+
+
+def test_use_is_none_when_not_read_or_empty():
+    assert use_trend(None) is None and use_trend({"points": []}) is None
+    assert use_trend({"points": "x"}) is None

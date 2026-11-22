@@ -395,6 +395,7 @@ table.hold tr:last-child td{border-bottom:0}
  "k-release-watch": {"name": "Release watch", "what": "every day, with no model, opens, updates or closes two issues: \"Time for a release?\" while merged changes for users wait and the last release is a week old or one of them has the `bug` label, and \"Release vX.Y.Z is not everywhere\" while a store is behind.", "why": "so that merged work does not sit unreleased, and a release that reached only some stores is noticed."},
  "k-latest-deps": {"name": "Newest dependencies", "what": "once a day, runs the Python tests on the newest versions of the dependencies.", "why": "people who install Kitden get those versions, not the ones in uv.lock, so a break shows here first."},
  "k-nightly": {"name": "Nightly tests", "what": "every night, runs the tests where a pull request does not: on four systems and two Pythons, and against the newest Claude Code and Codex, and in a real browser.", "why": "the maintainer has one Mac, and nobody presses every button of the page before a release. A break on Linux on ARM, an Intel Mac, Python 3.13, a new client version or in the page must show here first, not at a user."},
+ "k-use": {"name": "CPU and memory", "what": "every night, measures the CPU and memory of the newest release and of main, the page and the gateway, in turn on one runner, and keeps the numbers on the `use-numbers` branch. By hand, it can measure a list of old releases instead, then this commit last; the charts are redrawn from that run alone, so list every release.", "why": "a slow leak or a busy loop would ship unseen, because no test measures CPU or memory and no number was kept from one version to the next."},
  "k-scenes": {"name": "README scenes", "what": "when a pull request changes Kitden's code or the README recorder (its scripts and tests/conftest.py), records every README scene once and fails when a scene fails.", "why": "the README pictures are recorded again at each release. When a change to these files breaks a scene, its pull request shows it, not release day."},
  "s-review": {"name": "Agent review", "what": "Claude and GPT-6 Luna each read a pull request, and one \"Agent review\" comment with their findings is posted.", "why": "a second look at a pull request before the owner merges, up to a daily limit. It only comments; it never approves or blocks."},
  "s-check": {"name": "Check the workflows", "what": "checks the calling repository's workflow files with zizmor, actionlint and the rule checker (7 of the 11 rules in RULES.md).", "why": "a workflow that runs an agent is where a mistake leaks a secret. This shows an unsafe change these tools can find as a red check before the merge."},
@@ -520,6 +521,22 @@ const WF = [
      'Install Firefox or WebKit; Chrome is already on the runner',
      'Check Playwright loads|without Playwright the tests would skip and look green',
      'Run the page’s browser tests in that engine|a page bug in one engine shows within a day']}
+  ]},
+ {id:'k-use', r:'k', file:'use.yml', kind:'own',
+  trigger:'Every night at 03:23 UTC, or by hand with a list of releases',
+  readBy:['s-desk'], stages:[['use'],['use-store']],
+  jobs:[
+   {n:'use', about:'CPU and memory of the page and the gateway: newest release against main', tags:['Ubuntu','read-only token'],
+    when:'always; by hand: the releases listed instead, the page only',
+    steps:['Install the newest release and a wheel of main in fresh venvs|the same way, at the same moment',
+     'Measure each one’s page 5 times after a warm-up, in turn|A B, then B A: same runner, same script',
+     'At night, the gateway too: `kitden mcp` with three test echo servers|never for old releases; its rounds come after the page’s',
+     'Keep the numbers as a file of the run|before any limit is checked',
+     'Warn when main uses clearly more|a warning keeps the job green; a broken limit turns it red']},
+   {n:'use-store', about:'Adds the numbers to the `use-numbers` branch', tags:['can push'],
+    when:'after `use` measured, unless cancelled; only on `main`',
+    steps:['Add the files and rebuild the tables|by hand with releases: the desk page’s chart file too',
+     'Push them to the `use-numbers` branch|only main’s own report code runs here; it holds no secret']}
   ]},
  {id:'k-scenes', r:'k', file:'scenes.yml', kind:'own',
   trigger:'A pull request that changes `src/kitden`, the recorder or `tests/conftest.py`',
@@ -661,7 +678,7 @@ const WF = [
   ]},
  {id:'s-desk', r:'s', file:'desk.yml', kind:'own',
   trigger:'Every day at 06:41 UTC, after each release, or by hand',
-  reads:['k-nightly','k-latest-deps'], stages:[['measure'],['post']],
+  reads:['k-nightly','k-latest-deps','k-use'], stages:[['measure'],['post']],
   jobs:[
    {n:'measure', about:'Works out from facts, with no model, what is healthy and what waits', tags:['no model'], when:'always',
     steps:['Read the facts: checks on `main`, nightly runs, issues, reviews|and whether this map still matches the workflow files',
@@ -810,6 +827,7 @@ const STORIES = {
   day:{note:'Times are UTC. Nothing here needs you until an issue, a pull request or a red run shows up.',
     rows:[
       [{id:'c0', kind:'clock', t:'02:37'}, {wf:'k-nightly'}, {id:'d0', kind:'thing', ic:'github', t:'Breaks found before your users find them', sub:'4 systems, newest Claude Code and Codex, three browser engines; red: a ci-failure issue'}],
+      [{id:'c6', kind:'clock', t:'03:23'}, {wf:'k-use'}, {id:'d6', kind:'thing', ic:'github', t:'More CPU or memory, seen the next day', sub:'the page and the gateway, main against the newest release; red: a ci-failure issue'}],
       [{id:'c1', kind:'clock', t:'05:17'}, {wf:'s-watch', stages:[['fetch'],['judge'],['post']]}, {id:'d1', kind:'thing', ic:'lantern', t:'Warned when a client change breaks Kitden', sub:'a sure break gets an issue, the rest a weekly summary; confirm it or close it'}],
       [{id:'c2', kind:'clock', t:'05:17'}, {wf:'k-latest-deps'}, {id:'d2', kind:'thing', ic:'github', t:'A broken new dependency, caught first', sub:'before people who install Kitden meet it; red: a ci-failure issue'}],
       [{id:'c3', kind:'clock', t:'06:23'}, {wf:'k-release-watch'}, {wf:'s-release-watch'}, {id:'d3', kind:'thing', ic:'lantern', t:'Merged work does not sit unreleased', sub:'“Time for a release?” when changes wait; “not everywhere” when a store lags', go:'rel'}],
@@ -817,8 +835,9 @@ const STORIES = {
       [{id:'c5', kind:'clock', t:'13:10'}, {wf:'t-autobump'}, {id:'d5', kind:'thing', ic:'kettle', t:'Homebrew’s formula stays up to date', sub:'if the formula lags Kitden, a bump PR that publishes itself', go:'rel'}]
     ],
     edges:[['c0','k-nightly','','h'],['k-nightly','d0','','h'],['c1','s-watch','','h'],['s-watch','d1','Lantern opens','h'],['c2','k-latest-deps','','h'],['k-latest-deps','d2','','h'],
+      ['c6','k-use','','h'],['k-use','d6','','h'],
       ['c3','k-release-watch','','h'],['k-release-watch','s-release-watch','uses','h'],['s-release-watch','d3','Lantern opens','h'],
-      ['d0','s-desk','the desk reads it','t'],['d2','s-desk','the desk reads it','r'],
+      ['d0','s-desk','the desk reads it','t'],['d2','s-desk','the desk reads it','r'],['d6','s-desk','the desk reads it','t'],
       ['c4','s-desk','','h'],['s-desk','d4','the page reads it','h'],['c5','t-autobump','','h'],['t-autobump','d5','opens','h']]}
 };
 const flow = $('flow');
@@ -1008,7 +1027,7 @@ const USED = {
   'Claude Sonnet 5.5':['s-review','s-watch','s-release-prep'], 'GPT-6 Luna':['s-review'],
   'ruff':['k-release','s-checks'], 'pyright':['k-release'], 'pytest':['k-release','k-latest-deps','k-nightly','s-checks','s-release-prep'], 'Node':['k-release','k-nightly'],
   'zizmor':['k-release','s-check','s-checks'], 'actionlint':['s-check','s-checks'], 'pip-audit':['k-release'], 'macOS Keychain':['k-nightly'], 'GNOME Keyring':['k-release','k-nightly'],
-  'GitHub Actions':'All 22 workflows', 'uv':'Every workflow in kitden and kitden-sdlc', 'Python':'Every workflow in kitden and kitden-sdlc',
+  'GitHub Actions':'All 23 workflows', 'uv':'Every workflow in kitden and kitden-sdlc', 'Python':'Every workflow in kitden and kitden-sdlc',
   'PyPI':['k-release','s-publish','t-autobump'], 'GitHub Releases':['k-release'], 'MCP Registry':['s-publish'],
   'Homebrew':['s-publish','t-autobump','t-tests','t-auto-pull','t-publish'], 'Playwright':['k-scenes','k-nightly','s-release-prep'], 'ffmpeg':['k-scenes','s-release-prep'],
   'Harden-Runner':['s-review','s-watch','s-release-prep','s-list-check'], 'Langfuse':['s-watch'],

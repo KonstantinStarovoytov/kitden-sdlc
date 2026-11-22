@@ -143,6 +143,8 @@ ANSWERS = {
     night_runs("latest-deps.yml"): {"total_count": 1,
                                     "workflow_runs": [night_run(8, "Latest dependencies")]},
     night_jobs(8): {"total_count": 1, "jobs": [night_job("test")]},
+    night_runs("use.yml"): {"total_count": 1, "workflow_runs": [night_run(9, "CPU and memory")]},
+    night_jobs(9): {"total_count": 2, "jobs": [night_job("use"), night_job("use-store")]},
 }
 LISTED = [  # every state, newest update first, as count_reviews.list_pulls gives them
     pull(6, ago(2), created=ago(3), title="open now"),
@@ -407,7 +409,7 @@ def test_no_watch_log_path_is_none_without_a_warning(capsys):
 
 def test_nightly_holds_the_newest_finished_scheduled_run_and_its_jobs():
     night = read().nightly
-    assert [entry["workflow"] for entry in night] == ["nightly.yml", "latest-deps.yml"]
+    assert [entry["workflow"] for entry in night] == ["nightly.yml", "latest-deps.yml", "use.yml"]
     assert night[0]["name"] == "Nightly tests" and night[0]["run"]["id"] == 7
     assert [job["name"] for job in night[0]["jobs"]] == [
         "systems (ubuntu-latest, 3.13)", "clients", "browser", "engines (webkit)"]
@@ -933,7 +935,7 @@ def test_a_list_that_fails_stops_the_map_read_before_the_next_list():
 # --- The bench: the history of the runs, main's checks, the stores ---
 
 
-from tests.test_desk_bench import LOG  # noqa: E402
+from tests.test_desk_bench import LOG, use_chart, use_point  # noqa: E402
 
 STEP = desk_gather.desk_bench.STARTUP_STEP
 HISTORY = {
@@ -1111,6 +1113,21 @@ def test_each_store_gives_the_version_it_serves():
     assert desk_gather._glama(store_fetch)["listed"] is True
     assert desk_gather._mcprush(store_fetch) == {"version": "0.9.2", "at": None,
                                                  "url": desk_gather.MCPRUSH}
+
+
+def test_the_bench_reads_the_cpu_and_memory_chart_from_use_numbers():
+    chart = use_chart(use_point("0.9.2"))
+    def fetch(url):
+        if url == desk_gather.USE_CHART.format(repo=REPO):
+            return json.dumps(chart)
+        return store_fetch(url)
+
+    bench = desk_gather.read_bench(FakeApi(ANSWERS), fetch, REPO, read(), [], NOW)
+    assert bench["use"]["points"][0]["label"] == "0.9.2"
+    assert desk_gather.USE_CHART == (
+        "https://raw.githubusercontent.com/{repo}/use-numbers/chart.json")
+    assert desk_gather.read_bench(FakeApi(ANSWERS), store_fetch, REPO, read(), [], NOW)[
+        "use"] is None  # not read: no chart
 
 
 def test_main_writes_the_history_and_the_bench(tmp_path):

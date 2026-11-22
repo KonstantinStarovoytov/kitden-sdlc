@@ -50,6 +50,13 @@ export const MEASURES = [
   { id: 'complete', label: 'Complete', dash: '6 4',
     tip: 'How long until the first scan has read everything: every client, project, plugin and server, with every client answering at once.' },
 ];
+// The CPU and memory charts (desk_bench.use_trend): one per measure, by release, then main.
+export const USE_CHARTS = [
+  { id: 'cpu_ready_s', title: 'CPU to ready by release', label: 'CPU to ready', unit: 's',
+    tip: 'CPU time Kitden uses from its start until the first scan of the large demo sample is done.' },
+  { id: 'peak_mb', title: 'Peak memory by release', label: 'Peak memory', unit: 'MB',
+    tip: 'The most memory Kitden held during a run: start, 30 s idle, then 1,000 reads of its items.' },
+];
 export const SUPPORTED = 'Supported: macOS and Linux, Python 3.13 and 3.14.';
 export const NOT_SUPPORTED = 'Not supported: Windows.';
 
@@ -292,6 +299,33 @@ function startup(benchData) {
   return { versions, newest, systems, budgets, rows, mainNight };
 }
 
+/** The CPU and memory charts' data: each point a median, its text and its lowest–highest run. */
+function use(benchData) {
+  const u = benchData.use;
+  const pts = isObject(u) ? list(u.points).filter(p => isText(p.label)) : [];
+  if (!pts.length) return null;
+  const versions = pts.map(p => line(p.label));
+  const charts = USE_CHARTS.map(c => {
+    const fmt = v => (c.unit === 's' ? seconds(v) : `${figure(v)} ${c.unit}`);
+    const points = pts.map(p => {
+      const v = isObject(p[c.id]) ? p[c.id] : {};
+      return [v.median, v.low, v.high].every(isNumber)
+        ? { median: v.median, text: fmt(v.median), range: `${fmt(v.low)}–${fmt(v.high)}` } : null;
+    });
+    const shown = points.map((p, i) => [p, i]).filter(([p]) => p);
+    const [was, now] = shown.slice(-2);
+    const pct = was && now && now[1] === pts.length - 1
+      ? Math.round(((now[0].median - was[0].median) / was[0].median) * 100) : null;
+    const change = pct === null ? '—' : `${pct > 0 ? '+' : ''}${pct}% vs ${versions[was[1]]}`;
+    return { ...c, points, change };
+  });
+  // One backfill run measured every point, on one machine (B0 rule 8): say which.
+  const main = pts.find(p => p.label === 'main' && isText(p.commit));
+  const said = [`Measured ${isText(u.date) ? day(u.date) : 'on an unknown day'} on ${line(u.cpu) || 'an unknown CPU'}${main ? `; main = ${line(main.commit)}` : ''}.`];
+  said.push(`Each dot is the median of ${Number.isInteger(u.runs) ? count(u.runs, 'run', 'runs') : 'its runs'}; point at a dot for its lowest and highest run.`);
+  return { versions, newest: versions.at(-1), charts, note: said.join(' ') };
+}
+
 function cards(desk, benchData) {
   const bugs = isObject(benchData.bugs) ? benchData.bugs : null;
   const up = isObject(benchData.upstream) ? benchData.upstream : null;
@@ -361,6 +395,7 @@ export function view(desk, now = new Date()) {
     gate: g,
     bench: b,
     startup: startup(benchData),
+    use: use(benchData),
     cards: cards(desk, benchData),
     supported: SUPPORTED,
     notSupported: NOT_SUPPORTED,

@@ -41,6 +41,7 @@ REFERENCE = re.compile(
 NIGHTLY = (
     ("nightly.yml", ("systems", "clients", "browser", "engines")),
     ("latest-deps.yml", ("test",)),
+    ("use.yml", ("use",)),
 )
 # GitHub starts scheduled runs hours late, so the desk may see the night before; each reason
 # gives the run's date.

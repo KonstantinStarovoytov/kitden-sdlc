@@ -13,7 +13,7 @@ import pytest
 import count_reviews
 import desk_bench
 import desk_post
-from tests.test_desk_bench import night_line
+from tests.test_desk_bench import night_line, use_chart, use_line, use_point
 from tests.test_desk_post import DESK
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -106,11 +106,13 @@ GATE = {"sha": "f" * 40, "at": "2026-11-16T18:29:27Z", "state": "green",
 MAC = "systems (macos-latest, 3.14)"
 
 
-def desk(history=None, lights=GREEN_LIGHTS, seen=SEEN, gate=GATE, **changes):
+def desk(history=None, lights=GREEN_LIGHTS, seen=SEEN, gate=GATE, use_chart=None, **changes):
     """A desk.json the way desk_gather writes it, with a bench from `history`."""
-    history = history if history is not None else [night_line(1, "2026-11-16")]
+    history = history if history is not None else [night_line(1, "2026-11-16"),
+                                                   use_line(2, "2026-11-16")]
     bench = desk_bench.bench(history, NOW, gate_read=gate, newest=NEWEST, seen=seen,
-                             issues=[], watch_days=0.5, repo="KonstantinStarovoytov/kitden")
+                             issues=[], watch_days=0.5, repo="KonstantinStarovoytov/kitden",
+                             use_chart=use_chart)
     return {**DESK, "updated": "2026-11-17T06:41:00Z", "lights": lights, "waiting": [],
             "bench": bench, **changes}
 
@@ -158,6 +160,14 @@ def test_a_red_browser_engine_blocks_and_says_what_it_means():
 def test_a_failed_check_on_main_blocks():
     view = node("view", desk(gate={**GATE, "state": "red"}))
     assert view["head"] == {"state": "red", "text": "A check on main failed."}
+
+
+@needs_node
+def test_a_red_cpu_and_memory_night_blocks_and_says_what_it_means():
+    view = node("view", desk([night_line(1, "2026-11-16"), use_line(2, "2026-11-16", "failure")]))
+    assert view["head"] == {"state": "red", "text": "Blocked: CPU and memory is red."}
+    row = next(r for r in view["bench"]["platforms"] if r["name"] == "CPU and memory")
+    assert row["means"] == desk_post.MEANS["use"]
 
 
 @needs_node
@@ -213,6 +223,22 @@ def test_start_up_marks_a_point_only_when_it_is_clearly_slower():
     assert noise["startup"]["rows"][0]["slower"] is False  # 0.1 s is within one run's noise
     slow = node("view", desk([release(1, "0.9.1", 3.0, 3.0), release(2, "0.9.2", 3.3, 3.3)]))
     assert slow["startup"]["rows"][0]["slower"] is False  # 0.3 s, but only 10%
+
+
+@needs_node
+def test_the_cpu_and_memory_charts_show_one_backfill_run_and_say_where():
+    chart = use_chart(use_point("0.9.1"), use_point("0.9.2"), use_point("main", "abc1234"))
+    use = node("view", desk(use_chart=chart))["use"]
+    assert use["versions"] == ["0.9.1", "0.9.2", "main"]
+    cpu, memory = use["charts"]
+    assert (cpu["title"], memory["title"]) == ("CPU to ready by release", "Peak memory by release")
+    assert cpu["points"][-1] == {"median": 0.7, "text": "700 ms", "range": "660 ms–770 ms"}
+    assert memory["points"][0] == {"median": 58, "text": "58 MB", "range": "57.4 MB–58.9 MB"}
+    assert memory["change"] == "0% vs 0.9.2"
+    assert use["note"] == (
+        "Measured 19 Nov on AMD EPYC 7763; main = abc1234. Each dot is the median of 5 runs; "
+        "point at a dot for its lowest and highest run.")
+    assert node("view", desk())["use"] is None
 
 
 @needs_node
