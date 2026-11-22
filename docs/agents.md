@@ -104,8 +104,10 @@ could not read, and links the issue it names. The overall light is the worst of 
 first, then amber, grey and green.
 
 Works judges the newest run of each check on `main`'s newest commit, among the checks that
-the push to `main` started. A check `main` requires counts whatever started it, and so does a
-check whose start is not known. Release prep started by hand and scheduled runs do not count.
+the push to `main` started, and among CodeQL's (its default setup has no workflow file, and
+GitHub starts its runs, like Dependabot's, with the event `dynamic`). A check `main` requires
+counts whatever started it, and so does a check whose start is not known. Release prep started
+by hand, scheduled runs and Dependabot's runs do not count.
 
 Works and Clients also judge Kitden's nightly tests: the newest finished scheduled run on
 `main` of `nightly.yml` (parts `systems`, `clients`, `browser`, `engines`), of

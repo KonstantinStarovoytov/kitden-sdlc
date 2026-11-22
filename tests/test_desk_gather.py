@@ -707,6 +707,20 @@ def test_each_check_run_gets_the_event_of_its_workflow_run():
         ("prepare / agent", "workflow_dispatch"), ("build (ubuntu-latest)", "push")]
 
 
+def test_codeql_runs_get_their_own_event_and_dependabots_stay_dynamic():
+    """CodeQL's default setup has no workflow file: GitHub starts its runs with the event
+    `dynamic`, as it starts Dependabot's. Only CodeQL's become `codeql`, which Works judges."""
+    runs = {"workflow_runs": [
+        {"id": 7, "name": "Push on main", "event": "dynamic",
+         "path": "dynamic/github-code-scanning/codeql", "head_sha": SHA},
+        {"id": 8, "name": "uv in /. - Update #1", "event": "dynamic",
+         "path": "dynamic/dependabot/dependabot-updates", "head_sha": SHA}]}
+    checks = {"check_runs": [check_run("Analyze (python)", 7), check_run("Dependabot", 8)]}
+    facts = read(**{CHECKS: checks, HEAD_RUNS: runs})
+    assert [(c["name"], c["event"]) for c in facts.checks] == [
+        ("Analyze (python)", "codeql"), ("Dependabot", "dynamic")]
+
+
 def test_runs_of_the_commit_are_read_once():
     api = FakeApi(ANSWERS)
     gather(api, REPO, ROSTER, NOW, None, fetch=lambda url: DOWNLOADS)

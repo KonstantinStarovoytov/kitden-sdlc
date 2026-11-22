@@ -39,6 +39,7 @@ MAP = Path("docs/map/index.html")
 API = "https://api.github.com/"
 WORKFLOW = re.compile(r"^jobs:", re.M)  # every workflow file has it; an error page has not
 RUN_ID = re.compile(r"/actions/runs/(\d+)/")  # in a check run's details_url
+CODEQL_PATH = "dynamic/github-code-scanning/"  # the `path` of CodeQL's default-setup runs
 
 
 # --- Talking to GitHub ---
@@ -204,13 +205,22 @@ def _checks(api, repo: str) -> list[dict]:
 
 
 def _run_events(api, repo: str, sha: str) -> dict[int, str]:
-    """The event that started each workflow run of the commit `sha`, by run id."""
+    """The event that started each workflow run of the commit `sha`, by run id. CodeQL's
+    default setup has no workflow file, and GitHub starts its runs with the event `dynamic`,
+    as it starts Dependabot's; CodeQL's get the event `codeql`, so Works can judge them."""
     runs = _dicts(api.pages(f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100",
                             "workflow_runs"))
     if not all(isinstance(run.get("id"), int) and isinstance(run.get("event"), str)
                for run in runs):
         raise TypeError("a run without an id or an event")
-    return {run["id"]: run["event"] for run in runs}
+    return {run["id"]: _event(run) for run in runs}
+
+
+def _event(run: dict) -> str:
+    path = run.get("path")
+    if run["event"] == "dynamic" and isinstance(path, str) and path.startswith(CODEQL_PATH):
+        return "codeql"
+    return run["event"]
 
 
 def _run_id(check: dict) -> int | None:
