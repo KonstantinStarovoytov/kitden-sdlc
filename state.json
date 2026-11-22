@@ -552,7 +552,7 @@
       "Add a marketplace from claude.ai": "31513274ac8e913b2c1b386f14a0ab28ccf90c5321baeb5549765fbfcdf46d9e",
       "Manage installed plugins": "3ff142c691e28043eeb5a6f6cf8faf97df4c7529e7d467a37d9e75a367718db5",
       "Manage plugins synced from claude.ai": "636676c701a6eae311530f7ed91a4136cf56a75ed4811cb40370a7a65b83007b",
-      "Uninstall a plugin the project enables": "a012490b189a7650fd12f7fbc1b2e2d5112d13e9bad4deb7ecb9ef3fb70c3bfb",
+      "Uninstall a plugin the project enables": "9dee59bf20182ce22bbad3c95e5790ea3e56c1e6aa6077bca20f340187122bc8",
       "See what an installed plugin adds to your sessions": "120d1e441ef16135347164242134ca760f7e8e290f1ef152f66b462a768679b9",
       "Find plugins you no longer use": "5b4e733cd0a42c3345c2703620d14f70f06f8d9472189189148d39506828bea4",
       "Plugins with dependencies": "15b0f2580102c621df8acf0d149a7567644a47f00fe5ca7df19bd4c4e2d3ce4d",
@@ -588,7 +588,7 @@
       "plugin marketplace list": "aec80c36820ab0d86c875b4b5afa7042020c23c2a87b365edba823de5b8933df",
       "plugin marketplace remove": "abfabd68282529e178a2d41d91f848f535496cabd37ec3eeddf4e47ac9ed1945",
       "plugin marketplace update": "6ccfb6922a5cfc801e8c81d62060611a7013bc699a8b2bd925287d9742b97107",
-      "/plugin in a session": "5c8d2459bd7ed332a4887a8816deb9e01b9cbccbd201a032dff3630580bd766b",
+      "/plugin in a session": "b64f93dc72afa5cb7cec51b29124cb227b0e61d92c1fea8674b2387f1cf1a19b",
       "/reload-plugins": "c4d295ab33032836c7ed059c985246701cf170ae24b77d3c303a21fbaf445a3c",
       "Reload summary": "0c43b4112e8674d06851e0397bf4085622b00cf29f7b48f1981d63a58d507027",
       "Reloads that change MCP tools": "1e36b0c205c21848b5536ae78cd61cf8ab465261048e72f88be41a6249dedc58",
@@ -602,7 +602,7 @@
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Plugin loading reference": "f573856929394a88944c710dac7ad66c277c65fa1b1cb2b5dcadb3f72ee09ad6",
       "Check which stage a plugin reached": "61b6872a748d207b33eb6358e54fb9427f4b3458eb34e07791b42aa96073703f",
-      "Plugins and marketplaces that aren't on disk at session start": "8b96b08cce93faba1f0fc72fa141b225207868986f1d60137ad18a2f2f27767d",
+      "Plugins and marketplaces that aren't on disk at session start": "af6de3ff70296a147651d06f59a60120edae05688114a338442a0514d5009c66",
       "Find where a plugin came from": "7fb5fbadb6f7cd868b5205441fb5748b55caa04579fd2e4a5b55c1afd0cdbdee",
       "Entry name and manifest name": "de1a3034d7609f78939d553b101f2f7ad01a0ef10b940aa5a6dacd73d8e37da3",
       "Plugins shared through a repository": "2c8adb9aa74022b4da47e08e9299a19743b99b57803e1431ac0c3c9a940d7148",
@@ -620,7 +620,7 @@
       "Versions and updates": "2ee0af51b0d7b729e251b80005fc885cd185b9a31e064a9e24c457ffa5b4c87d",
       "How Claude Code computes the version": "5dca15bfb23d9891c87fd592cb1b1bd04253e908ec44e5c330be5b5e0a17332e",
       "When Claude Code refreshes a marketplace before an install": "af847bad778842d4d37a2000160db9b08a6aa6ee9626d431c5ed694242fe2dca",
-      "When auto-update runs": "649ca540f91ce517c51d0da6dd71cac5e74dfca4e9b28f1623448f4a7ef6e834",
+      "When auto-update runs": "87fc5192d033468f4344fa648f061c36de71743c3f901782c78d97c313be3f78",
       "When a command source re-runs": "937a656d5985f55744cba3a893069e882d123501c91db185bd65c2a2de70b16a",
       "Name conflicts": "04aa01828264de8898afc7ba952e00e62e993953fbe94dd2772cbf08778786ac",
       "Hooks when two enabled plugins share a name": "ed685f71f15192835b6bf02054d35b852c965d4f0ca07214d7c82dc19fff9404",
@@ -632,12 +632,12 @@
       "Settings files and precedence": "dc7e6c58306951f086ed4582bc4be4f5f3c22b33fb89afd31a01f9fd706c1a66",
       "Settings files and who they affect": "3acea0d2216b9e8bac98a1a8ad0e3468284de79e71a1787e2bab5919e3f712e3",
       "Compare the scope of each settings file": "ae6150420afd778f4509bc79c7e231b67af900a7535b70e38207da5a51b50913",
-      "Find or create your settings files": "a035dc5854d3ce0c00770701d53fc1c3354dbfe593441c36237f9826704edd09",
+      "Find or create your settings files": "5f5d4aea1dafcb84320e6dc8c6f2eef5ead20bfbd0cd8366109a252ba028b6e8",
       "Share settings with your team": "5c08e5402031f0e69dcfd02d40d4c291b57555fb4eea6b043b624f26358beb3c",
       "Keep personal settings out of a repository": "fd15bc40e5a219090bdb75c8e7a55fa9d03bc6bf1a7e603c70ce487f9ff57a67",
       "Check what your organization enforces": "bb592d187f4c637f6825d8201be231920fc22deb7305a70563f299145a8f4abe",
       "Change a setting": "147baa8edaf31e68c70f4f8c12f30f1ae08fb6c65a7b5a8857e9d3ff4f93d591",
-      "Use the /config menu": "bbc27a830a744b5fa5e2483b87a0ae6ae20109c2dc311dcbaccf094017ea62dd",
+      "Use the /config menu": "e4e992b9ef6a25c03a61637b131c53dea47e7549e89b58b7429936b788486534",
       "Edit a settings file": "d9e953fc16d27fab0dc5c9225ee2c01687b29ffb7922db83421eb5b4d702ca75",
       "Change a setting for one session": "dd24adf8fe25a491638040f50b8ff9e00aa4b69ac697b5970bea2046ea2eeba3",
       "When edits take effect": "76a88187c032f0b009685fef4c41d4ab1168a2c08f94533534d3541f14bea426",
@@ -648,7 +648,7 @@
       "Precedence examples": "051edd4c148cf4778f15c76d33b3c3a4866c8b323ceec59ac8745d1ea1ab6508",
       "Troubleshoot a setting that doesn't apply": "26fd540f28a09c28797d17e62238750bd7f4cf7c321685f6642b48975e407d6a",
       "Exceptions to managed settings precedence": "43a8d4ec989b6c995384bfa8bb779a80e01eead589407b5ff126ed52c77a7859",
-      "Settings in cloud sessions": "7fc819b7b891947bad18d93a42a1dd6a16b1302a8f9a6c02c5693a5c5ef462b1",
+      "Settings in cloud sessions": "fe91e8427d1677babc0a132fb866053fda9830157b08de6ebf712e1f5cd71556",
       "What's next": "b1181eb20d36d4e7e4715f75aa22ebec8f974fdd3f53a81b0c765b1206bfc762"
     },
     "https://code.claude.com/docs/en/skills": {
@@ -661,17 +661,17 @@
       "Work on Claude API projects": "c9aa687dc5ebaeb35d01d00fbb8621b4f7906a224be26251cb7670b97b96dc5e",
       "Getting started": "79eb659e005ff4845161992705da3e668e6aef55a4e616c59a71c30337ebb69b",
       "Create your first skill": "6014b1fe2a26664538a0921cf63658a43a605d29f912d15a30d8b0f6f2b70854",
-      "Choose where skills load": "51209d517c1ebbc98151c37546c865d491aef03a648aaa5787eff9e88e277318",
+      "Choose where skills load": "a96092deae2f4939af72bf5438d0d508dd30296848373a55e97c82740e282b23",
       "Load skills in monorepos and subdirectories": "2f031d22c02d7eb813b87f435bfa26e3247e0f91d67af8a0bd0e30cbb9174249",
       "Load skills from a directory outside the project": "02ed891d6f9f5b05cc956800ea5e9a11177aa7ea6d55344e4bd7546db464deaa",
       "Resolve skills that share a name": "d76f05cd2da505a5d560b7f0f9adc5e65fe99d90f8e36684c204f52c5031d336",
-      "Use skills in Cowork and cloud sessions": "fd3f68eb28a7ed150d64cb1b5ae25c429ab4af968f1be3be29f94420e7f20f23",
+      "Use skills in Cowork and cloud sessions": "a9d67578387bd92c8b969228e65a25367b5edfd71c66c2d7865bdf61c51fa38e",
       "Skills synced from claude.ai": "2f50f90503edfe4a163baba694676a385a00f70222fa6e81d571a5a186fd23fc",
-      "Edit a skill during a session": "6cb439c4831fb4a87f2fbd6401284bda9da68dea628f3d9412bb6b2b5345d531",
+      "Edit a skill during a session": "bd51bff2e0d4fae1438d2dee6ea8b28ff25177623cae56e4f075427e4f65ab4c",
       "Remove a skill": "12e48976fbc094f0c932071b68634636f7c139a54f2e3d390754f3281076aae0",
       "Configure skills": "f9f7eb230527fa32bf4a2c523f49e15169e0cf1150cc84779b9212bbd23b7ee2",
       "Types of skill content": "351a4d326d79f4c25995584434844fc4aa05c9b096412da27ae15e71bafd42f3",
-      "Frontmatter reference": "788cfd183dcfcbbcd3eb5f3594a917fc35300aa6e073cace5b111bd7bec12d6a",
+      "Frontmatter reference": "18bd9c6ca2aec8c326554dc9ee846eb541c42915e0994aa4c8b53ba390ba4cf0",
       "Add supporting files": "b072d4ceddebf97c584ab1d5b6566233ee40fdbf1a6b1f643857f4244f57a6bd",
       "Control who invokes a skill": "9c75ee7b915585932e85d070b44525f6385d71caa24aa011690a2c0d462b02ed",
       "Skill content lifecycle": "c2a4cf04caac09c3abd53864c86df0e5aed5834a7125bba8bdf5e2db361a1493",
@@ -688,9 +688,9 @@
       "Share skills": "604071963d3ffd1fdf0d786f8b7b072d31323f7d48380e408849772f4ed445f4",
       "Generate visual output": "b075f1099d0c81e8080092737bd0105138121ca4fac5c68fe22ac15b78d6a7b5",
       "Troubleshooting": "659a188b36f9c3262a28539e24c345df4edc9657f59b116b0a1d9887cf2e28e0",
-      "Skill not triggering": "d696455ce074a451eca20808948a98b5401bccd64ec32395e7de7e516b1f17b4",
+      "Skill not triggering": "3d2c2b297a171d24da349a382eb8e992e35d3a285ebe967f30a7b356e1a33211",
       "Skill triggers too often": "6be3f8de71b02e3d98fb20e5a7e1274749a3599cc87d7a48035d37072ede1199",
-      "Claude stops following a skill": "0be6e722fd2e9027688fd5bf66b1e90979583b2b8a7a4f5459b81664ce1a6ef6",
+      "Claude stops following a skill": "3027f2a68e2dee130a9fb8388356a7e90b74df9705af462eabf9dcfba0aa4ffb",
       "Skill descriptions are cut short": "5c8635c89b6df90a6c07148e1b190805fbd20b88496fbc9999f404cac3404e81",
       "Angle brackets in a skill description show as `&lt;` and `&gt;`": "d73789ef5cc7282725354e3bc63c8d33f4f2a4763446548ce77d0490850ad8ba",
       "Personal skills disappeared": "26931d28b22247565a0a80d444fe2c400e335fc17d6ec4eeb7253ad72d1126fc",
@@ -1978,6 +1978,230 @@
       "user_gets": "not checked",
       "systems": "not checked",
       "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/settings#Find or create your settings files",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/settings",
+      "row": "`~/.claude/plugins/installed_plugins.json` (`plugins.<id>[].installPath`) and `known_marketplaces.json` (`source`, `installLocation`)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "CLAUDE_CONFIG_DIR moves Claude Code plugins and settings out of ~/.claude",
+      "changed": "Setting CLAUDE_CONFIG_DIR moves settings, session history and plugins out of ~/.claude, so the plugin files installed_plugins.json and known_marketplaces.json are read from there.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "A user who sets CLAUDE_CONFIG_DIR sees plugins and marketplaces that do not match what Claude Code actually loads.",
+      "systems": "not checked",
+      "why": "scan, plugin_folders and marketplace_roots build paths from self.home / \".claude/plugins/...\" and never consult CLAUDE_CONFIG_DIR, so the relocated plugin files are not read. Whether this is new in this client version is unclear, because the variable may have worked this way before; the quote also does not say that the variable is new.",
+      "fix": "In src/kitden/clients/claude_code.py, resolve the Claude config root from CLAUDE_CONFIG_DIR when set (falling back to home/.claude) and use it for the plugins, settings and skills paths in scan, plugin_folders, marketplace_roots and marketplace_sources.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/settings#Find or create your settings files",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/settings",
+      "row": "Chat logs at `~/.claude/projects/*/*.jsonl`; entry fields `timestamp`, `version`, `entrypoint`, `cwd`, `isSidechain`, and attachment `type` `skill_listing` with `isInitial`, `skillCount`, `names`, `content` (2026-11-09)",
+      "files": [
+        "src/kitden/context/claude_log.py"
+      ],
+      "title": "Session history moves to CLAUDE_CONFIG_DIR when it is set",
+      "changed": "Chat logs would be under the CLAUDE_CONFIG_DIR folder rather than ~/.claude/projects when it is set.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "A user with CLAUDE_CONFIG_DIR set sees no skill list or a stale one, and may believe the client loads different skills than it does.",
+      "systems": "not checked",
+      "why": "last_claude_list hardcodes home / \".claude/projects\" and never reads CLAUDE_CONFIG_DIR, so the logs of a relocated config folder are never found. The quote does not say whether this is new in this client version or whether old logs remain in ~/.claude, so it is not certain.",
+      "fix": "In last_claude_list in src/kitden/context/claude_log.py, use the CLAUDE_CONFIG_DIR folder when the variable is set, otherwise home / \".claude\", and glob projects/*/*.jsonl under it.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "",
+      "files": [],
+      "title": "Enterprise managed skills location",
+      "changed": "Skills are loaded from a `.claude/skills` folder inside the managed settings directory for all users on a machine.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Skills deployed by the organization in the managed settings directory are not shown.",
+      "systems": "not checked",
+      "why": "No row covers the managed settings directory as a skill source; CC-20 names only the home and project skills folders.",
+      "fix": "Read the `.claude/skills` folder inside the managed settings directory.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "",
+      "files": [],
+      "title": "Skills from --add-dir directories",
+      "changed": "A directory passed with `--add-dir` can supply skills from its `.claude/skills` folder for that session.",
+      "effect": "gap",
+      "severity": "minor",
+      "user_gets": "Skills loaded from additional directories are not shown.",
+      "systems": "not checked",
+      "why": "The directory is passed on the command line in a session, and no row covers it as a skill source.",
+      "fix": "Read the `--add-dir` directories of a session and their `.claude/skills` folders.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "",
+      "files": [],
+      "title": "Skill folders with plugin.json load as skills-dir plugins",
+      "changed": "A skill folder in ~/.claude/skills or <project>/.claude/skills containing .claude-plugin/plugin.json is loaded as a plugin named <name>@\u2060skills-dir, bringing its own agents, hooks and MCP servers.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Kitden does not show the agents, hooks and MCP servers that come from skills-dir plugins, nor that the skill folder is a plugin.",
+      "systems": "not checked",
+      "why": "Rows cover skill folders with SKILL.md, installed_plugins.json and the @\u2060skills-dir id only as having no install; none reads plugin.json inside skill folders or the MCP servers, hooks and agents it bundles.",
+      "fix": "Read .claude-plugin/plugin.json in each skill folder under ~/.claude/skills and <project>/.claude/skills, honoring workspace trust and managed-settings blocking, and list its bundled agents, hooks and MCP servers.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "Skills in `~/.claude/skills` and `<project>/.claude/skills`, each a folder with `SKILL.md`",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/base.py"
+      ],
+      "title": "Claude Code loads skills from nested subdirectory .claude/skills folders",
+      "changed": "Skills are also read from `.claude/skills` in nested subdirectories, enterprise managed settings and `--add-dir` directories, and a skill entry can be a symlink; the row names only the home and project skills folders.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user does not see nested-folder skills that Claude Code loads in monorepo subdirectories, and may believe those skills are not active.",
+      "systems": "not checked",
+      "why": "skill_items/skills_in in base.py, called from _project_files in claude_code.py, only scan the project root's .claude/skills, so nested <subdir>/.claude/skills are never listed. Nested loading may have existed before this version, and the quote does not say it is new, so this is a guess about the change.",
+      "fix": "In src/kitden/clients/claude_code.py, make _project_files also scan nested subdirectory .claude/skills folders of a project (and in base.py skills_in handle them), or mark the project skill list as not covering nested folders.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Edit a skill during a session",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "Skills in `~/.claude/skills` and `<project>/.claude/skills`, each a folder with `SKILL.md`",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/base.py"
+      ],
+      "title": "Claude Code skills live reload mentions --add-dir skill folders",
+      "changed": "Skills are also read from a `.claude/skills/` inside an `--add-dir` directory, a place beyond the user and project skill folders the row names.",
+      "effect": "unknown",
+      "severity": "minor",
+      "user_gets": "Skills from a directory added with --add-dir may be missing from Kitden's skill list, but the note does not clearly say this is new behaviour, and Kitden has no way to know the session's flags.",
+      "systems": "not checked",
+      "why": "skill_items is only called for the user and project skill folders in ClaudeCodeAdapter.scan and _project_files. The quote describes live reload and mentions --add-dir only in passing, so it is not a plain statement of a new loading behaviour, and the flag is not something Kitden can read from files.",
+      "fix": "",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Frontmatter reference",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "`disable-model-invocation: true` in SKILL.md keeps the description out of context (2026-11-06)",
+      "files": [
+        "src/kitden/clients/base.py"
+      ],
+      "title": "disable-model-invocation also blocks subagent preload and scheduled tasks",
+      "changed": "The doc says disable-model-invocation: true also prevents preloading into subagents and running from a session-scoped scheduled task, and accepts yes/no/on/off/1/0 in any case as booleans. The row only states it keeps the description out of context.",
+      "effect": "unknown",
+      "severity": "minor",
+      "user_gets": "The skill list state stays right for 'true'; the extra subagent and scheduled-task blocking is not shown.",
+      "systems": "not checked",
+      "why": "The quoted line only adds that the skill is also blocked from subagent preload and scheduled tasks. This does not change the auto-loading meaning that waits_to_be_asked() relies on. The boolean-variant claim is not in the quote, so Kitden's wrong output cannot be named.",
+      "fix": "",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Frontmatter reference",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "The skill list may use 1% of the window; one description is cut at 1536 characters (2026-11-07)",
+      "files": [
+        "src/kitden/context/tables.py"
+      ],
+      "title": "Claude Code counts when_to_use toward the 1,536-character skill description cap",
+      "changed": "The 1,536-character cut applies to description and when_to_use combined, not description alone.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The estimated skill list size for skills with `when_to_use` may be smaller than what Claude Code actually uses, and the budget rebuild may differ from the client.",
+      "systems": "not checked",
+      "why": "CLAUDE_DESCRIPTION_CAP is documented as a cap on one description, but the client now applies it to description plus when_to_use combined. The code that applies the cap is not in the files provided, so this is a guess.",
+      "fix": "In the Claude skill list code that uses CLAUDE_DESCRIPTION_CAP, apply the cap to description plus when_to_use combined, and update the comment in src/kitden/context/tables.py.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#/plugin in a session",
+      "client": "claude-code",
+      "title": "Mentions `owner/repo`",
+      "hint": true,
+      "changed": "The text of this page has the word `owner/repo`.",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "A plugin's `git-subdir` source whose `url` is the short `owner/repo` form is cloned over SSH and fails without a GitHub SSH key; the https address works with none; Claude Code's docs describe a fall back to https for the short form, and this clone did not make it (2026-11-15, version 2.1.325, Linux)",
+      "files": [
+        ".claude-plugin/marketplace.json"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#/plugin in a session",
+      "client": "claude-code",
+      "title": "Mentions `<source>`",
+      "hint": true,
+      "changed": "The text of this page has the word `<source>`.",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "`claude plugin marketplace add <source>` and `remove <name>`; the source is recorded under `extraKnownMarketplaces` in `~/.claude/settings.json` (2026-10-19, version 2.1.283)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/install#Uninstall a plugin the project enables",
+      "client": "claude-code",
+      "title": "Mentions `.claude/settings.local.json`",
+      "hint": true,
+      "changed": "The text of this page has the word `.claude/settings.local.json`.",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/install",
+      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "effect": "unknown",
+      "severity": "minor",
+      "sure": false,
+      "user_gets": "not checked",
+      "systems": "not checked",
+      "why": "The word is in the text; the model reported nothing for this row."
     }
   ],
   "urgent": {
@@ -2095,13 +2319,13 @@
       "unstable": false
     },
     "https://claude.com/docs/plugins/submit": {
-      "hash": "af21bed77e9edd2982f4422321df066875ca5f617350ea6140c7b7dff0a11452",
-      "changed": "2026-11-21",
+      "hash": "9999c315c15cc18fa4eb8424164ebfd35de6b67e3030702458086369096a884b",
+      "changed": "2026-11-22",
       "unstable": false
     },
     "https://claude.com/docs/plugins/pre-submission-checklist": {
-      "hash": "193858930e6ec889c4e705dd89c05d991bf42fcad9379d37dd9f9f832bca8176",
-      "changed": "2026-11-21",
+      "hash": "95db32a54874674ecfb5b37350cb3f3aaa1e6a5be0bf8631f3ebf1d966e72b7c",
+      "changed": "2026-11-22",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins-reference": {
@@ -2197,104 +2421,8 @@
   },
   "stale_week": "2026-W47",
   "feed": {
-    "day": "2026-11-20",
+    "day": "2026-11-21",
     "wait": [
-      {
-        "day": "2026-11-18",
-        "kind": "changed",
-        "url": "https://learn.chatgpt.com/docs/agent-configuration/speed.md",
-        "product": "codex",
-        "sections": [
-          "Fast and Ultrafast modes",
-          "Choose a speed in the composer",
-          "Codex CLI controls"
-        ]
-      },
-      {
-        "day": "2026-11-18",
-        "kind": "changed",
-        "url": "https://learn.chatgpt.com/docs/dots/channels.md",
-        "product": "codex",
-        "sections": [
-          "Slack"
-        ]
-      },
-      {
-        "day": "2026-11-18",
-        "kind": "changed",
-        "url": "https://learn.chatgpt.com/docs/enterprise/dots-security.md",
-        "product": "codex",
-        "sections": [
-          "Data residency and EKM"
-        ]
-      },
-      {
-        "day": "2026-11-18",
-        "kind": "changed",
-        "url": "https://learn.chatgpt.com/docs/enterprise/workspace-model-availability.md",
-        "product": "codex",
-        "sections": [
-          "GPT-6.2 Astra and GPT-6.2 Sol in Enterprise and Edu"
-        ]
-      },
-      {
-        "day": "2026-11-18",
-        "kind": "changed",
-        "url": "https://learn.chatgpt.com/docs/pricing.md",
-        "product": "codex",
-        "sections": [
-          "Pricing options",
-          "Included usage",
-          "Speed multipliers",
-          "Token rates"
-        ]
-      },
-      {
-        "day": "2026-11-19",
-        "kind": "added",
-        "url": "https://learn.chatgpt.com/docs/developer-settings.md",
-        "product": "codex",
-        "sections": []
-      },
-      {
-        "day": "2026-11-19",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/monitoring-usage.md",
-        "product": "claude-code",
-        "sections": [
-          "Identify the machine a session ran on"
-        ]
-      },
-      {
-        "day": "2026-11-19",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/permission-modes.md",
-        "product": "claude-code",
-        "sections": [
-          "Restricted mode refuses bypassPermissions"
-        ]
-      },
-      {
-        "day": "2026-11-19",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/plugins/mods/troubleshoot.md",
-        "product": "claude-code",
-        "sections": [
-          "`stopped \u00b7 type a message to continue`"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/plugins/troubleshooting.md",
-        "product": "claude-code",
-        "sections": [
-          "`Couldn't install: <plugin> (<reason>)` or `Failed to install: <plugin> (<reason>)`",
-          "`Plugin \"<name>\" is on in project settings but isn't installed here`",
-          "`Couldn't load hooks from <path>` and hooks that don't fire",
-          "`No plugins yet` or `No marketplaces configured`"
-        ]
-      },
       {
         "day": "2026-11-19",
         "kind": "changed",
@@ -2386,22 +2514,42 @@
         "sections": [
           "That doesn't look like the full code"
         ]
+      },
+      {
+        "day": "2026-11-21",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/plugins/mods/overview.md",
+        "product": "claude-code",
+        "sections": [
+          "Check the charts mod requirements"
+        ]
+      },
+      {
+        "day": "2026-11-21",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/settings-reference.md",
+        "product": "claude-code",
+        "sections": [
+          "`enforceAnthropicSignIn`"
+        ]
       }
     ],
     "dropped": 0,
-    "held": 21,
+    "held": 29,
     "gone": 0,
     "failed": 0,
     "taken": [
-      "https://code.claude.com/docs/en/agent-sdk/subagents",
-      "https://code.claude.com/docs/en/artifacts",
-      "https://code.claude.com/docs/en/authentication",
-      "https://code.claude.com/docs/en/code-mode",
-      "https://code.claude.com/docs/en/desktop-ios-simulator",
-      "https://code.claude.com/docs/en/plugins/dependencies",
+      "https://cursor.com/docs/agent-sdk/guides/teams",
+      "https://cursor.com/docs/agent-sdk/guides/workload-identity",
+      "https://cursor.com/docs/origin/access-policies",
+      "https://code.claude.com/docs/en/plugins/mods/overview",
       "https://code.claude.com/docs/en/plugins/troubleshooting",
-      "https://code.claude.com/docs/en/troubleshoot-install",
-      "https://cursor.com/docs/cloud-agent/repo-access"
+      "https://code.claude.com/docs/en/settings-reference",
+      "https://cursor.com/docs/agent-sdk/deployment",
+      "https://cursor.com/docs/agent-sdk/guides/cloud-agents",
+      "https://cursor.com/docs/agent-sdk/reference/cli",
+      "https://cursor.com/docs/agent-sdk/reference/sessions",
+      "https://cursor.com/docs/agent-sdk/troubleshooting"
     ]
   }
 }
