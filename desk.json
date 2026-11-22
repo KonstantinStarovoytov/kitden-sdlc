@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "updated": "2026-11-21T14:56:32Z",
+  "updated": "2026-11-22T10:13:21Z",
   "repo": "KonstantinStarovoytov/kitden",
   "overall": "amber",
   "lights": [
     {
       "id": "works",
       "name": "Works",
-      "state": "green",
-      "why": ""
+      "state": "grey",
+      "why": "Not measured yet: the nightly runs of use.yml were not read, or it has no finished scheduled run on main."
     },
     {
       "id": "clients",
@@ -41,22 +41,14 @@
     "stars": 1,
     "downloads": null
   },
-  "waiting": [
-    {
-      "kind": "verdict",
-      "title": "Claude Code: Claude Code adds disableAllHooks setting to switch off all hooks",
-      "url": "https://github.com/KonstantinStarovoytov/kitden/issues/147",
-      "do": "Put `confirmed` on it, or close it with `false-alarm`.",
-      "days": 0.1
-    }
-  ],
+  "waiting": [],
   "week": [
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 47,
+      "runs": 41,
       "failed": 0,
-      "did": 39,
+      "did": 32,
       "agreed": 1,
       "disagreed": 1,
       "no_answer": 0
@@ -64,9 +56,9 @@
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 47,
+      "runs": 41,
       "failed": 0,
-      "did": 39,
+      "did": 32,
       "agreed": 1,
       "disagreed": 1,
       "no_answer": 0
@@ -77,21 +69,21 @@
       "runs": 7,
       "failed": 0,
       "did": 1,
-      "agreed": 0,
+      "agreed": 1,
       "disagreed": 0
     },
     {
       "agent": "release-prep",
       "name": "Release prep",
-      "runs": 3,
+      "runs": 2,
       "failed": 0,
-      "did": 3,
+      "did": 2,
       "agreed": null,
       "disagreed": null
     }
   ],
   "review": {
-    "clean": 61,
+    "clean": 63,
     "fixed": 5,
     "days_to_merge": 0.0
   },
@@ -101,8 +93,8 @@
       "review": 5,
       "nightly": 0,
       "tester": null,
-      "watcher": 0,
-      "owner": 8,
+      "watcher": 1,
+      "owner": 10,
       "others": 0
     },
     {
@@ -190,24 +182,35 @@
       "grey_since": null,
       "grey_nights": null,
       "why": ""
+    },
+    {
+      "workflow": "use.yml",
+      "name": null,
+      "part": "use",
+      "state": "grey",
+      "failed": [],
+      "run": null,
+      "night": null,
+      "since": null,
+      "grey_since": "2026-11-21",
+      "grey_nights": 1,
+      "why": "the nightly runs of use.yml were not read, or it has no finished scheduled run on main."
     }
   ],
   "set_aside": 0,
   "map": {
-    "stale": [
-      "kitden: use.yml is not on the map"
-    ]
+    "stale": []
   },
   "budget": {
     "agents": [
       {
         "agent": "claude",
-        "runs": 47,
+        "runs": 41,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 47,
+        "runs": 41,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
@@ -217,7 +220,7 @@
       },
       {
         "agent": "release-prep",
-        "runs": 3,
+        "runs": 2,
         "cap": "60 turns and 25 minutes, then one fix pass of 15 turns and 10 minutes"
       }
     ],
@@ -264,60 +267,60 @@
   },
   "bench": {
     "gate": {
-      "sha": "513aa0672a1e2bbc05a43c80d29d1b666f86ae2b",
-      "at": "2026-11-21T11:58:52Z",
-      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679",
+      "sha": "afa158d89c226af3f6236d8c59b4aa7f343a421e",
+      "at": "2026-11-22T09:23:22Z",
+      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398",
       "state": "green",
       "steps": [
         {
           "name": "Lint",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Types",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Real keyring",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949751"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619808"
         },
         {
           "name": "Page tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Start-up time",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Workflow security",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Dependency audit",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Release check",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         },
         {
           "name": "Package",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44901092679/job/136836949489"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45006649398/job/137159619463"
         }
       ]
     },
@@ -737,6 +740,23 @@
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/44892821065"
           }
         ]
+      },
+      {
+        "group": "platforms",
+        "name": "CPU and memory",
+        "state": "grey",
+        "cells": [
+          {
+            "label": "Linux \u00b7 x86_64",
+            "state": "grey",
+            "url": null
+          }
+        ],
+        "since": null,
+        "failed": [],
+        "night": null,
+        "url": null,
+        "nights": []
       },
       {
         "group": "compatibility",
@@ -1184,14 +1204,245 @@
       ]
     },
     "bugs": {
-      "open": 5,
+      "open": 7,
       "url": "https://github.com/KonstantinStarovoytov/kitden/issues?q=is%3Aissue+is%3Aopen+label%3Abug"
     },
     "upstream": {
-      "confirmed": 0,
-      "unconfirmed": 1,
-      "watcher_days": 0.6,
+      "confirmed": 1,
+      "unconfirmed": 0,
+      "watcher_days": 1.4,
       "url": "https://github.com/KonstantinStarovoytov/kitden/issues?q=is%3Aissue+is%3Aopen+label%3Aclient-change"
+    },
+    "use": {
+      "date": "2026-11-21",
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "runs": 5,
+      "points": [
+        {
+          "label": "0.3.0",
+          "cpu_ready_s": {
+            "median": 0.39,
+            "low": 0.39,
+            "high": 0.39
+          },
+          "peak_mb": {
+            "median": 45.437,
+            "low": 45.261,
+            "high": 45.634
+          },
+          "commit": null
+        },
+        {
+          "label": "0.4.0",
+          "cpu_ready_s": {
+            "median": 0.39,
+            "low": 0.39,
+            "high": 0.4
+          },
+          "peak_mb": {
+            "median": 46.465,
+            "low": 46.354,
+            "high": 46.649
+          },
+          "commit": null
+        },
+        {
+          "label": "0.5.0",
+          "cpu_ready_s": {
+            "median": 0.39,
+            "low": 0.39,
+            "high": 0.39
+          },
+          "peak_mb": {
+            "median": 46.129,
+            "low": 45.982,
+            "high": 46.313
+          },
+          "commit": null
+        },
+        {
+          "label": "0.6.0",
+          "cpu_ready_s": {
+            "median": 0.39,
+            "low": 0.38,
+            "high": 0.4
+          },
+          "peak_mb": {
+            "median": 46.285,
+            "low": 46.129,
+            "high": 46.584
+          },
+          "commit": null
+        },
+        {
+          "label": "0.6.1",
+          "cpu_ready_s": {
+            "median": 0.39,
+            "low": 0.39,
+            "high": 0.39
+          },
+          "peak_mb": {
+            "median": 46.375,
+            "low": 46.215,
+            "high": 46.395
+          },
+          "commit": null
+        },
+        {
+          "label": "0.6.5",
+          "cpu_ready_s": {
+            "median": 0.39,
+            "low": 0.38,
+            "high": 0.42
+          },
+          "peak_mb": {
+            "median": 46.502,
+            "low": 46.285,
+            "high": 46.567
+          },
+          "commit": null
+        },
+        {
+          "label": "0.7.0",
+          "cpu_ready_s": {
+            "median": 0.44,
+            "low": 0.44,
+            "high": 0.48
+          },
+          "peak_mb": {
+            "median": 46.875,
+            "low": 46.801,
+            "high": 47.051
+          },
+          "commit": null
+        },
+        {
+          "label": "0.7.1",
+          "cpu_ready_s": {
+            "median": 0.44,
+            "low": 0.44,
+            "high": 0.44
+          },
+          "peak_mb": {
+            "median": 46.932,
+            "low": 46.834,
+            "high": 47.067
+          },
+          "commit": null
+        },
+        {
+          "label": "0.7.2",
+          "cpu_ready_s": {
+            "median": 0.44,
+            "low": 0.44,
+            "high": 0.48
+          },
+          "peak_mb": {
+            "median": 46.883,
+            "low": 46.723,
+            "high": 47.165
+          },
+          "commit": null
+        },
+        {
+          "label": "0.8.0",
+          "cpu_ready_s": {
+            "median": 0.45,
+            "low": 0.45,
+            "high": 0.45
+          },
+          "peak_mb": {
+            "median": 46.957,
+            "low": 46.797,
+            "high": 47.01
+          },
+          "commit": null
+        },
+        {
+          "label": "0.9.0",
+          "cpu_ready_s": {
+            "median": 0.44,
+            "low": 0.44,
+            "high": 0.45
+          },
+          "peak_mb": {
+            "median": 47.088,
+            "low": 46.981,
+            "high": 47.231
+          },
+          "commit": null
+        },
+        {
+          "label": "0.9.1",
+          "cpu_ready_s": {
+            "median": 0.45,
+            "low": 0.44,
+            "high": 0.46
+          },
+          "peak_mb": {
+            "median": 47.047,
+            "low": 47.006,
+            "high": 47.268
+          },
+          "commit": null
+        },
+        {
+          "label": "0.9.2",
+          "cpu_ready_s": {
+            "median": 0.45,
+            "low": 0.44,
+            "high": 0.46
+          },
+          "peak_mb": {
+            "median": 47.022,
+            "low": 46.94,
+            "high": 47.411
+          },
+          "commit": null
+        },
+        {
+          "label": "0.10.0",
+          "cpu_ready_s": {
+            "median": 0.44,
+            "low": 0.44,
+            "high": 0.45
+          },
+          "peak_mb": {
+            "median": 46.993,
+            "low": 46.78,
+            "high": 47.12
+          },
+          "commit": null
+        },
+        {
+          "label": "0.10.1",
+          "cpu_ready_s": {
+            "median": 0.45,
+            "low": 0.44,
+            "high": 0.46
+          },
+          "peak_mb": {
+            "median": 46.862,
+            "low": 46.715,
+            "high": 47.088
+          },
+          "commit": null
+        },
+        {
+          "label": "main",
+          "cpu_ready_s": {
+            "median": 0.45,
+            "low": 0.44,
+            "high": 0.45
+          },
+          "peak_mb": {
+            "median": 47.022,
+            "low": 46.871,
+            "high": 47.161
+          },
+          "commit": "e7e5e31"
+        }
+      ]
     }
   }
 }
