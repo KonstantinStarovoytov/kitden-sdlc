@@ -177,7 +177,7 @@ def test_the_nightly_run_is_on_the_map_with_its_jobs_and_links():
     assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps", "k-use"]
     assert links["k-nightly"]["readBy"] == links["k-latest-deps"]["readBy"] == ["s-desk"]
     assert links["s-review"] == {"calledBy": ["k-agents-review"]}
-    assert "All 23 workflows" in HTML
+    assert "All 24 workflows" in HTML
 
 
 def test_the_cpu_and_memory_run_is_on_the_map_and_the_desk_reads_it():
@@ -186,7 +186,7 @@ def test_the_cpu_and_memory_run_is_on_the_map_and_the_desk_reads_it():
     links = map_links(HTML)
     assert links["s-desk"]["reads"] == ["k-nightly", "k-latest-deps", "k-use"]
     assert links["k-use"]["readBy"] == ["s-desk"]
-    assert "All 23 workflows" in HTML
+    assert "All 24 workflows" in HTML
 
 
 def test_every_link_names_a_workflow_on_the_map_and_has_its_other_end():
@@ -263,7 +263,7 @@ def test_every_step_is_one_short_line_with_at_most_one_short_why():
     wf = HTML.split("\nconst WF = [\n")[1].split("\n];")[0]
     hosts = re.search(r"\nconst HOSTS = '([^'\\]*)';", HTML).group(1)
     lists = re.findall(r"steps:\[((?:HOSTS|'[^'\\]*'|\s|,)*)\]", wf)
-    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 53
+    assert len(lists) == sum(len(jobs) for jobs in map_jobs(HTML).values()) == 54
     steps = [hosts if s == "HOSTS" else s[1:-1] for found in lists
              for s in re.findall(r"HOSTS|'[^']*'", found)]
     assert len(steps) > 100
@@ -296,4 +296,4 @@ def test_the_tools_view_shows_what_the_nightly_tests_use():
     for name in ("Claude Code", "Codex", "pytest", "Node", "Playwright"):
         assert re.search(rf"'{name}':\[[^\]]*'k-nightly'", used), name
     assert "'Cursor':['s-watch']" in used
-    assert "'GitHub Actions':'All 23 workflows'" in used and len(map_ids(HTML)) == 23
+    assert "'GitHub Actions':'All 24 workflows'" in used and len(map_ids(HTML)) == 24

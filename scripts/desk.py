@@ -15,6 +15,7 @@ from count_reviews import MAINTAINER, REPO, Review, summary
 from watch_route import URGENT_PER_WEEK
 
 ORDER = ("red", "amber", "grey", "green")  # the first one any light has is the overall light
+JUDGED_EVENTS = (None, "push", "codeql")  # what Works judges besides required checks
 RED_ENDINGS = ("failure", "timed_out", "cancelled", "action_required", "startup_failure")
 GOOD_ENDINGS = ("success", "neutral", "skipped")
 WATCH_LOG_DAYS = 2  # older than this, the watcher's issues say nothing about today
@@ -362,9 +363,10 @@ def _started(check: dict) -> tuple[datetime, int]:
 
 def _judged(checks: list[dict], required: list[str] | None) -> list[dict]:
     """The check runs Works judges: of each name, the newest run, among the runs started by the
-    push to main or of unknown event. A check main requires counts whatever its event."""
+    push to main, by CodeQL (`codeql`, see desk_gather._run_events) or of unknown event. A
+    check main requires counts whatever its event."""
     needed = set(required or ())
-    ours = [c for c in checks if c.get("event") in (None, "push") or c["name"] in needed]
+    ours = [c for c in checks if c.get("event") in JUDGED_EVENTS or c["name"] in needed]
     newest: dict[str, dict] = {}
     for check in ours:
         if check["name"] not in newest or _started(check) > _started(newest[check["name"]]):

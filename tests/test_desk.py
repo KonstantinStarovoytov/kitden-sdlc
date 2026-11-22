@@ -712,6 +712,14 @@ def test_a_failed_run_started_by_hand_beside_green_builds_is_green():
     assert light_works([*BUILDS, watch], REQUIRED)["state"] == "green"
 
 
+def test_codeql_on_main_is_judged_and_other_dynamic_runs_are_not():
+    analyze = check("Analyze (python)", "failure", event="codeql")
+    red = light_works([*BUILDS, analyze], None)
+    assert red["state"] == "red" and "Analyze (python)" in red["why"]
+    dependabot = check("Dependabot", "failure", event="dynamic")
+    assert light_works([*BUILDS, dependabot], REQUIRED)["state"] == "green"
+
+
 def test_a_check_of_unknown_event_is_judged_as_before():
     unknown = check("prepare / agent", "failure", event=None, url="")
     red = light_works([*BUILDS, unknown], None)
