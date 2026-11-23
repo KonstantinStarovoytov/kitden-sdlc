@@ -77,7 +77,7 @@ Your job is editing, not copying the log.
 ## The format
 
 ```text
-# Kitden X.Y.Z — <theme>
+# Kitden X.Y.Z — <what the person gets>
 
 <overview>
 
@@ -96,8 +96,20 @@ Your job is editing, not copying the log.
 **Full changelog:** https://github.com/KonstantinStarovoytov/kitden/compare/vA.B.C...vX.Y.Z
 ```
 
-- **Title.** `# Kitden X.Y.Z — <theme>`, with an em dash. The theme is the main gain in a few
-  lowercase words, such as "update from the page" or "see if your skills fit".
+- **Title.** `# Kitden X.Y.Z — <what the person gets>`, with an em dash. The first line
+  becomes the title of the GitHub release, so it says what the person gets in this release, in
+  their words: what they can now do or see, not the area that changed.
+  - Start with `new: ` when the release adds something a person could not do before; with
+    `fix: ` when the release only fixes; with neither when it makes an existing thing better.
+  - Name one or two things at most, the biggest first, joined with `; `. Keep it under about
+    90 characters after the dash.
+  - Plain words. No backticks, links or markdown.
+  - Be honest: do not call something new that was there before, and do not name something the
+    release does not hold.
+  - Examples:
+    - `# Kitden 0.7.0 — new Context page: see which skills your last chat cut, and turn them off`
+    - `# Kitden 0.9.2 — fix: scan says exactly what it leaves alone`
+    - `# Kitden 0.11.0 — new: turn off the agents you do not use; scan puts the problem first`
 - **Overview.** Two to four sentences. Start with "Kitden X.Y.Z" and the biggest change, in
   the user's words: what they can now do. Then the rest in one sentence.
 - **Sections.** New, Better, Fixed, Documentation, in this order. Leave out a section with no
@@ -161,7 +173,7 @@ Kitden's `AGENTS.md` asks for simple English, short and plain.
 Shortened from Kitden's 0.8.0 notes. It shows the form; do not copy its items.
 
 ````markdown
-# Kitden 0.8.0 — update from the page
+# Kitden 0.8.0 — new: update Kitden from its page
 
 Kitden 0.8.0 updates itself. When a new version is out, the page shows an Update button.
 After your yes it runs the update, shows each real step and opens the new version, and the
@@ -215,6 +227,8 @@ have not all been completed.
 
 - The first line starts with `# Kitden X.Y.Z — `, and X.Y.Z follows the version rule or the
   version the run gave.
+- After the dash, the first line says what the person gets, follows the `new: ` / `fix: ` rule,
+  names one or two things, and has no backticks, links or markdown.
 - `## Upgrade and limits` and the `**Full changelog:**` line are there, and the compare link
   goes from the last tag to `vX.Y.Z`.
 - Every pull request and every author in `context.json` appears once.
