@@ -26,6 +26,7 @@ FINDINGS_MAX = 5
 KINDS = ("bug", "rule")
 TOP_KEYS = {"summary", "findings"}
 FINDING_KEYS = {"path", "line", "kind", "text"}
+SKIPPED_MAX = 10**9  # a diff's size in bytes stays under this
 # Text that looks like a real token (a prefix plus a long tail), not just a token's name.
 # The model must never be able to publish one.
 SECRET_LIKE = re.compile(
@@ -161,6 +162,20 @@ def load_report(path: Path) -> Report | None:
         summary=_cut(data["summary"], SUMMARY_MAX),
         findings=findings,
     )
+
+
+def skipped_bytes(path: Path) -> int | None:
+    """The size of a diff too large to review, when prepare_review.sh left only that in
+    findings.json (0: GitHub did not return the diff), or None for any other file.
+
+    Only a size, never text: a model could write the file too, and its text would reach the
+    comment past the check for keys."""
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    size = data.get("skipped") if isinstance(data, dict) and set(data) == {"skipped"} else None
+    return size if type(size) is int and 0 <= size < SKIPPED_MAX else None
 
 
 # --- Keeping secrets out ---
@@ -581,15 +596,18 @@ def review_body(
     earlier: Earlier | None = None,
     changes: dict[str, FileChange] | None = None,
     names: dict[str, str] = REVIEWERS,
+    skipped: dict[str, int] | None = None,
 ) -> str:
     """The whole comment. `reports` has None for a reviewer that gave no usable answer.
     `earlier` is what the comment held before, and `changes` what changed since. `names`
-    are the reviewers' names as the comment shows them.
+    are the reviewers' names as the comment shows them. `skipped` has the diff's size for
+    each reviewer that was not run because the diff is too large.
 
     With no answer at all this commit was not reviewed: the earlier findings stay as they
     were, none is marked fixed, and the hidden line keeps the last reviewed commit, so the
     next review compares from there."""
     parts = [TITLE]
+    skipped = skipped or {}
     answered_now = [name for name in REVIEWERS if reports.get(name)]
     answered = [n for n in REVIEWERS if n in answered_now or (earlier and n in earlier.answered)]
     reviewed = head_sha
@@ -607,6 +625,7 @@ def review_body(
     latest = next((r for name in REVIEWERS if (r := reports.get(name))), None)
     # The bots' one look (bot_style.py): who answered, how much there is to check, the commit.
     badges = [style.ok(names[n], "answered") if reports.get(n)
+              else style.info(names[n], "skipped") if n in skipped
               else style.warn(names[n], "no answer") for n in REVIEWERS]
     if latest:
         badges.append(style.info("to check", str(len(current))) if current
@@ -616,9 +635,13 @@ def review_body(
     parts.append(style.row(*badges))
     if not latest:
         commit = one_line(head_sha[:7])
-        parts.append(style.box(
-            "WARNING",
-            f"Neither reviewer gave a usable answer for {commit}. This is not a review."))
+        if skipped:
+            size = max(skipped.values())
+            why = f"{size} bytes" if size else "GitHub did not return it"
+            said = f"Not reviewed: the diff of {commit} is too large ({why})."
+        else:
+            said = f"Neither reviewer gave a usable answer for {commit}. This is not a review."
+        parts.append(style.box("WARNING", said))
     else:
         parts.append(one_line(latest.summary))
         if current:
@@ -644,7 +667,7 @@ def review_body(
     left_out = sum(dropped.values())
     if left_out:
         parts.append(f"{left_out} older findings are left out to keep this comment short.")
-    silent = [names[name] for name in REVIEWERS if not reports.get(name)]
+    silent = [names[n] for n in REVIEWERS if not reports.get(n) and n not in skipped]
     if latest and silent:
         parts.append(" and ".join(silent) + " gave no usable answer this time.")
     parts.append("<sub>👍 useful · 👎 wrong</sub>")
@@ -784,9 +807,12 @@ def main(argv: list[str]) -> int:
 
     # A missing or broken file must not fail the job. The comment says who is missing;
     # with no answer at all it says this commit was not reviewed.
-    reports = {"claude": load_report(args.claude), "luna": load_report(args.luna)}
+    files = {"claude": args.claude, "luna": args.luna}
+    sizes = {name: skipped_bytes(path) for name, path in files.items()}
+    skipped = {name: size for name, size in sizes.items() if size is not None}
+    reports = {n: None if n in skipped else load_report(path) for n, path in files.items()}
     for name, report in reports.items():
-        if report is None:
+        if report is None and name not in skipped:
             print(f"::warning::The {name} reviewer gave no usable answer this time.")
     try:
         for report in reports.values():
@@ -794,7 +820,7 @@ def main(argv: list[str]) -> int:
                 refuse_secret_like(report)
         names = {**REVIEWERS, "claude": model_label(args.claude_model)}
         if args.dry_run:
-            print(review_body(reports, args.repo, args.head_sha, names=names))
+            print(review_body(reports, args.repo, args.head_sha, names=names, skipped=skipped))
             return 0
         api = GhApi(read_token=os.environ.get("GH_READ_TOKEN") or None)
         refuse_unknown_runs(
@@ -802,7 +828,7 @@ def main(argv: list[str]) -> int:
         )
         comments = api.list_issue_comments(args.repo, args.pr)
         earlier, changes = earlier_review(api, args.repo, args.head_sha, find_ours(comments))
-        body = review_body(reports, args.repo, args.head_sha, earlier, changes, names)
+        body = review_body(reports, args.repo, args.head_sha, earlier, changes, names, skipped)
         post(api, args.repo, args.pr, body, comments)
     except SecretLikeError as error:
         # Not the missing-report case: fail loud so the job turns red.

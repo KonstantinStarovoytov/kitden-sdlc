@@ -28,6 +28,7 @@ from post_findings import (
     read_state,
     refuse_secret_like,
     review_body,
+    skipped_bytes,
 )
 from tests.fakes import KEY_TAIL, repo, shows_key
 
@@ -314,6 +315,64 @@ def test_no_answer_at_all_says_so_and_is_not_a_review():
     assert "Neither reviewer gave a usable answer for abcdef1. This is not a review." in body
     assert "No problems found." not in body
     assert read_marker(body) == {"claude": None, "luna": None, "both": 0}
+
+
+def skip_file(tmp_path, value=467287):
+    path = tmp_path / "skipped.json"
+    path.write_text(json.dumps({"skipped": value}))
+    return path
+
+
+def test_a_skipped_review_says_not_reviewed_and_why(tmp_path, capsys):
+    path = skip_file(tmp_path)
+    assert main(argv_for(path, path, "--dry-run", "--head-sha", SHA)) == 0
+    printed = capsys.readouterr()
+    body = printed.out
+    assert "Not reviewed: the diff of abcdef1 is too large (467287 bytes)." in body
+    assert 'alt="Claude: skipped"' in body and 'alt="Luna: skipped"' in body
+    for wrong in ("No problems found", ": answered", "new problems", "usable answer"):
+        assert wrong not in body
+    assert "::warning::" not in body and printed.err == ""
+    assert read_marker(body.rstrip()) == {"claude": None, "luna": None, "both": 0}
+
+
+def test_a_skipped_review_without_a_size_says_github_did_not_return_the_diff(tmp_path, capsys):
+    path = skip_file(tmp_path, 0)
+    assert main(argv_for(path, path, "--dry-run", "--head-sha", SHA)) == 0
+    said = "Not reviewed: the diff of abcdef1 is too large (GitHub did not return it)."
+    assert said in capsys.readouterr().out
+
+
+def test_one_skipped_and_one_missing_reviewer_is_not_a_review(tmp_path, capsys):
+    argv = argv_for(skip_file(tmp_path), tmp_path / "nope.json", "--dry-run", "--head-sha", SHA)
+    assert main(argv) == 0
+    body = capsys.readouterr().out
+    assert "Not reviewed: the diff of abcdef1 is too large" in body
+    assert 'alt="Claude: skipped"' in body and 'alt="Luna: no answer"' in body
+
+
+def test_one_skipped_reviewer_leaves_the_others_review(tmp_path, capsys):
+    assert main(argv_for(FIXTURE, skip_file(tmp_path), "--dry-run", "--head-sha", SHA)) == 0
+    body = capsys.readouterr().out
+    assert "src/sync.py:42" in body and "Not reviewed" not in body
+    assert 'alt="Luna: skipped"' in body
+
+
+# The file comes from a job that runs a model, so only a size may stand in it: text there
+# would reach the comment past the check for keys.
+@pytest.mark.parametrize(
+    "value", ["467287", "text", KEY_TAIL, -1, 10**9, True, 1.5, None, [1], {"a": 1}]
+)
+def test_only_a_size_counts_as_skipped(tmp_path, value):
+    assert skipped_bytes(skip_file(tmp_path, value)) is None
+
+
+def test_a_skip_next_to_findings_does_not_count(tmp_path):
+    path = tmp_path / "both.json"
+    path.write_text(json.dumps({"skipped": 1, "summary": "", "findings": []}))
+    assert skipped_bytes(path) is None
+    assert skipped_bytes(FIXTURE) is None
+    assert skipped_bytes(tmp_path / "missing.json") is None
 
 
 def test_the_body_ends_with_the_marker():
@@ -917,6 +976,21 @@ def test_no_answer_keeps_the_earlier_findings_and_marks_none_fixed(tmp_path, mon
     after = run(api, report(), report(), head=LAST)
     assert ("compare", SHA, LAST) in api.calls
     assert "Off by one. *(Claude, fixed in 9999999)*" in after
+
+
+def test_a_skipped_push_keeps_the_earlier_findings_and_marks_none_fixed(tmp_path, monkeypatch):
+    api = FakeApi()
+    before = run(api, report([finding("a.py", 11, text="Off by one."), ROADMAP]), report())
+    api.compared = compared(diff("a.py", "@@ -10,3 +10,3 @@\n ctx\n-old\n+new\n ctx"))
+    monkeypatch.setattr(post_findings, "GhApi", lambda **_: api)
+    path = skip_file(tmp_path)
+    argv = argv_for(path, path, "--pr", "7", "--repo", "o/r", "--head-sha", NEXT)
+    assert main(argv) == 0
+    body = api.comments[0]["body"]
+    assert "Not reviewed: the diff of 1556615 is too large" in body
+    assert "### Not repeated by the latest review (2)" in body and "Fixed" not in body
+    assert read_state(body) == read_state(before)
+    assert read_marker(body) == read_marker(before)
 
 
 def test_a_long_history_is_cut_but_still_counted():

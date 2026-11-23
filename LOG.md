@@ -172,3 +172,13 @@ Problems found while building the reviewers, and what changed because of each.
   minutes before it calls one wrong; the job may take 15 minutes.
   Kept by: `tests/test_release_publish.py::test_the_summary_reads_again_while_a_store_still_shows_the_version_before`
   and `::test_the_summary_stops_reading_again_after_ten_minutes`.
+
+## 2026-11-23
+
+- **A pull request with a picture was never reviewed, and the comment said "No problems found".**
+  `prepare_review.sh` skipped any diff with a binary file and called it too large: five of 99
+  comments on Kitden, three of them on releases, at 3 to 14 KB. The note went out as both
+  reviewers' answer, so the badges said "answered". Now only the size counts, and a skipped
+  review says "Not reviewed" and leaves the earlier findings as they were.
+  Kept by: `tests/test_prepare_review.py::test_a_small_diff_is_reviewed_with_or_without_pictures`
+  and `tests/test_post_findings.py::test_a_skipped_review_says_not_reviewed_and_why`.

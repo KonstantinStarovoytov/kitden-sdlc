@@ -182,7 +182,9 @@ are under Apache-2.0; the text here is rewritten for Kitden.
 Limits for both reviewers: 12 minutes for the model step and 15 for its job, 5 findings
 each, at most 10 reviews a day by default (Kitden's caller sets `AGENTS_REVIEW_DAILY_CAP`, or
 20), fork pull requests and bots skipped, and the label `no-agent-review` skips one pull
-request. The reviewers only comment: they never approve and never block
+request. A diff over 300,000 bytes is not reviewed, and the comment says so; pictures do not
+count, they are one line each in the diff. The reviewers only comment: they never approve and
+never block
 ([rule 11](../RULES.md)).
 
 On Kitden, `agents-review.yml` calls [review.yml](../.github/workflows/review.yml), and the
