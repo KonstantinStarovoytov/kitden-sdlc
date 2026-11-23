@@ -56,9 +56,12 @@ jobs:
       # uvx 0.10.10 did not use one, but the next uv might.
       # The first --no-config: a uv.toml must not change where uv installs from. Our settings
       # file and --no-ignores: .github/zizmor.yml and ignore comments in the pull request must
-      # not hide findings.
+      # not hide findings. The read-only token lets zizmor ask GitHub whether each pinned
+      # action commit is real and has no known vulnerability.
       - name: zizmor
         working-directory: ${{ runner.temp }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: >-
           uvx --no-config zizmor==1.32.0
           --config "$GITHUB_WORKSPACE/.kitden-sdlc/config/zizmor.yml"
