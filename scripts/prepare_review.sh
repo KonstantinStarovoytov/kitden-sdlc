@@ -5,8 +5,8 @@
 # Needs: git, gh (with GH_TOKEN set), and a checkout of the repository.
 #
 # It prints skip=true or skip=false (to $GITHUB_OUTPUT when set, else to the screen).
-# skip=true means the change is too big or has binary files, so the model is not run;
-# findings.json already says so.
+# skip=true means the change is too big, so the model is not run; findings.json then holds
+# only its size: {"skipped": N}, 0 when GitHub would not return the change.
 set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
@@ -26,9 +26,9 @@ OUT="${GITHUB_OUTPUT:-/dev/stdout}"
 rm -rf .review
 mkdir .review
 
-# Report a change the reviewer will not read, and stop.
+# Report a change of $1 bytes that the reviewer will not read, and stop.
 skip_with() {
-  printf '{"summary":"%s","findings":[]}\n' "$1" > .review/findings.json
+  printf '{"skipped":%s}\n' "$1" > .review/findings.json
   echo "skip=true" >> "$OUT"
   exit 0
 }
@@ -36,7 +36,7 @@ skip_with() {
 # The change itself, the names of the changed files, and the pull request text.
 # GitHub refuses to return a very large diff; that counts as too large.
 if ! gh pr diff "$PR" > .review/diff.patch; then
-  skip_with "Diff too large to review (GitHub would not return it)"
+  skip_with 0
 fi
 gh pr diff "$PR" --name-only > .review/files.txt
 gh pr view "$PR" --json title,body --jq '"# " + .title + "\n\n" + (.body // "")' > .review/pr.md
@@ -50,11 +50,11 @@ for file in PRINCIPLES.md AGENTS.md; do
   fi
 done
 
-# Too big or binary: say so in findings.json and skip the model.
+# Too big: say so in findings.json and skip the model. A picture is one line in the diff,
+# "Binary files ... differ", so it does not make the change too big.
 bytes="$(wc -c < .review/diff.patch | tr -d '[:space:]')"
-binary="$(grep -c '^Binary files' .review/diff.patch || true)"
-if [ "$bytes" -gt "$MAX_BYTES" ] || [ "$binary" -gt 0 ]; then
-  skip_with "Diff too large to review ($bytes bytes)"
+if [ "$bytes" -gt "$MAX_BYTES" ]; then
+  skip_with "$bytes"
 else
   echo "skip=false" >> "$OUT"
 fi
