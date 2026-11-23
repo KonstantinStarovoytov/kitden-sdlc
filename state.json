@@ -493,7 +493,7 @@
       "Local scope": "05cd4d80d024b73b5817d6bef3ece9d8b92bb27838f29521404b82d07a405ed7",
       "Project scope": "b66672d7d7f9bb530dd7b4ef712d8e23a9a018f6e2f043f294ee69cb0133c356",
       "User scope": "3cc6150113901df9920a3969242a5097732b7900c498f813e185631c84a6ec2c",
-      "Scope hierarchy and precedence": "9eec0eb96dd24f24cc0f6aa0592abc1ae39dcd4a74ff5a9e8605326b6a1d78cf",
+      "Scope hierarchy and precedence": "196906e25318e1549fa07f2be2b79dbbdf12b6b9c45a384a2b97851f7047b5ad",
       "Environment variable expansion in `.mcp.json`": "63dd124abd0b92cbde34c4cbdf3ed91be9167f31a3dc8acbfc730bc8ba01c5be",
       "Practical examples": "9781bbc8e8b7787132adcd4e4651cc048d65a033177424a4724b5a2e4af1ece9",
       "Example: Connect to GitHub for code reviews": "45a4a5df4765d769162d00886ab18e22c91da84e42a6dc860e45d13bc0bd7b63",
@@ -524,7 +524,7 @@
       "Tools with names longer than 128 characters": "1ae13cc01f7167cb986556a93da8ebc284e5585038f82b8ebc02a0065623eecb",
       "Require approval for a specific tool": "0c0459e4b6993776a6238637edbf744713ce588651e8e972571f4c2b76fc658a",
       "Mark tools that are safe to call twice": "75f01ddcf7560238cedcf5c00545868e89e68f9f764ad1a43cd2fb2253a0999a",
-      "Respond to MCP elicitation requests": "b1a566304d696a4c680301349514cb16bab075b824dc9a20f19d6fe616ffc9d7",
+      "Respond to MCP elicitation requests": "671a9f8bfbe1164061868b6146d2f3aeda6e351019b09d8bb2b5689ca7e92bd4",
       "Answer an elicitation request in a cloud session": "ee587d78997125cacff2cd20526fbab0206342d5bfc96614eae32e18988b6eb9",
       "Elicitation modes Claude Code declares": "ae2e379c1be5b16d69c8346827a780dabb45a5dbf957d4667614a5195a37db5a",
       "Use MCP resources": "87b4eea402e0a31b2935c9354504dbcea04288270e6ab1fa98a8dc0f7a67b569",
@@ -541,7 +541,7 @@
     "https://code.claude.com/docs/en/plugins/install": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
       "Install and manage plugins": "72e26d790d9bdb04eacd6a348c29205b42a21d0247b7dbf2abe924db52b3ad5f",
-      "Install a plugin": "fe03714fb7af92c208d4777bdcc232426b496a5e4f86d4ce36c7c91ac0d324a2",
+      "Install a plugin": "2c2225ed028ee5bbeaf62c84c9f19589f7a656531e5c062a794e58f12a00a7c1",
       "Choose an install scope": "4eebaabf51f0b42c917ca3be7f6e0ef7e953dda53c25e52e787d55ed99b9e471",
       "JetBrains, non-interactive runs, and the Agent SDK": "e0de7b15581cd397389a8815b306a04aea0c0fb3f684f76eedb75b3735d56f9c",
       "Plugins from your claude.ai account": "326f43a110a782bc3749f1986a300de5bea3b08bc0fba277c2bedc55e6b159af",
@@ -550,7 +550,7 @@
       "Add a marketplace and install in one command": "1b604a3930239162db1caa57d645ce9b456a84634377ac0e050868efb0329c45",
       "Add a private marketplace": "d235c3c2f8f8065bf985041078ff42fabb52daf4545e7f4bc49480687188a615",
       "Add a marketplace from claude.ai": "31513274ac8e913b2c1b386f14a0ab28ccf90c5321baeb5549765fbfcdf46d9e",
-      "Manage installed plugins": "3ff142c691e28043eeb5a6f6cf8faf97df4c7529e7d467a37d9e75a367718db5",
+      "Manage installed plugins": "78f2ae3982355f521fc938dbec34a2da47253ec8d8a34c52dfd8bdd7971cd0ca",
       "Manage plugins synced from claude.ai": "636676c701a6eae311530f7ed91a4136cf56a75ed4811cb40370a7a65b83007b",
       "Uninstall a plugin the project enables": "9dee59bf20182ce22bbad3c95e5790ea3e56c1e6aa6077bca20f340187122bc8",
       "See what an installed plugin adds to your sessions": "120d1e441ef16135347164242134ca760f7e8e290f1ef152f66b462a768679b9",
@@ -605,7 +605,7 @@
       "Plugins and marketplaces that aren't on disk at session start": "af6de3ff70296a147651d06f59a60120edae05688114a338442a0514d5009c66",
       "Find where a plugin came from": "7fb5fbadb6f7cd868b5205441fb5748b55caa04579fd2e4a5b55c1afd0cdbdee",
       "Entry name and manifest name": "de1a3034d7609f78939d553b101f2f7ad01a0ef10b940aa5a6dacd73d8e37da3",
-      "Plugins shared through a repository": "2c8adb9aa74022b4da47e08e9299a19743b99b57803e1431ac0c3c9a940d7148",
+      "Plugins shared through a repository": "8879b2775ea73b98ab737616ce6f299a72cf0d2c9360da333a368f13871dec4e",
       "Skills-directory plugins blocked by managed settings": "fdc77724bc5cd93b5ba5f4644516df0b39e771162751c2303e4aebba7314a084",
       "Plugins synced from claude.ai": "41bf0d9b74b762e73cf5d9da80e0b1420bfb67fd1a61000ad18e1ceaae375b75",
       "Find where a plugin is enabled": "03f24d0285fa687540ea8fca5cafaf2f8931bc367c9c18cf4424f799ac92d67f",
@@ -639,7 +639,7 @@
       "Change a setting": "147baa8edaf31e68c70f4f8c12f30f1ae08fb6c65a7b5a8857e9d3ff4f93d591",
       "Use the /config menu": "e4e992b9ef6a25c03a61637b131c53dea47e7549e89b58b7429936b788486534",
       "Edit a settings file": "d9e953fc16d27fab0dc5c9225ee2c01687b29ffb7922db83421eb5b4d702ca75",
-      "Change a setting for one session": "dd24adf8fe25a491638040f50b8ff9e00aa4b69ac697b5970bea2046ea2eeba3",
+      "Change a setting for one session": "47d2433e3f4c6bea33ef8b38006e2ea036838408b92311fbba2abc1e0d219ebe",
       "When edits take effect": "76a88187c032f0b009685fef4c41d4ab1168a2c08f94533534d3541f14bea426",
       "Confirm what loaded": "9336d0018f19202441dd88f7f86a96b7b17078cf454d3d21d8e190e0e39df01f",
       "Fix a broken settings file": "fcb2678129ab872c70f20ed00f19fd6b1e23a516602b0752ff5783af0d734935",
@@ -648,7 +648,7 @@
       "Precedence examples": "051edd4c148cf4778f15c76d33b3c3a4866c8b323ceec59ac8745d1ea1ab6508",
       "Troubleshoot a setting that doesn't apply": "26fd540f28a09c28797d17e62238750bd7f4cf7c321685f6642b48975e407d6a",
       "Exceptions to managed settings precedence": "43a8d4ec989b6c995384bfa8bb779a80e01eead589407b5ff126ed52c77a7859",
-      "Settings in cloud sessions": "fe91e8427d1677babc0a132fb866053fda9830157b08de6ebf712e1f5cd71556",
+      "Settings in cloud sessions": "440ff83c70fad1d91cf20b7d78857f4a41c260cdf444525e65d5324898fc814f",
       "What's next": "b1181eb20d36d4e7e4715f75aa22ebec8f974fdd3f53a81b0c765b1206bfc762"
     },
     "https://code.claude.com/docs/en/skills": {
@@ -665,7 +665,7 @@
       "Load skills in monorepos and subdirectories": "2f031d22c02d7eb813b87f435bfa26e3247e0f91d67af8a0bd0e30cbb9174249",
       "Load skills from a directory outside the project": "02ed891d6f9f5b05cc956800ea5e9a11177aa7ea6d55344e4bd7546db464deaa",
       "Resolve skills that share a name": "d76f05cd2da505a5d560b7f0f9adc5e65fe99d90f8e36684c204f52c5031d336",
-      "Use skills in Cowork and cloud sessions": "a9d67578387bd92c8b969228e65a25367b5edfd71c66c2d7865bdf61c51fa38e",
+      "Use skills in Cowork and cloud sessions": "b389ce7a0b36dde85d4012d72adc1281acbab865e24cd9f6d22fe9c6f9df0e90",
       "Skills synced from claude.ai": "2f50f90503edfe4a163baba694676a385a00f70222fa6e81d571a5a186fd23fc",
       "Edit a skill during a session": "bd51bff2e0d4fae1438d2dee6ea8b28ff25177623cae56e4f075427e4f65ab4c",
       "Remove a skill": "12e48976fbc094f0c932071b68634636f7c139a54f2e3d390754f3281076aae0",
@@ -924,7 +924,7 @@
       "Agent-based hooks": "0e6c2b83d75071176c216aa6014a6bcc6d9120f7d48f1bc443b1706d198e6933",
       "HTTP hooks": "e54e325b093e7272f6555b7549316d9180a4d0d68871d25e013e7d21b029cffd",
       "Limitations and troubleshooting": "2296bc3e04321b1f6f056ed52bdecda34ccb33ebf37f3c4a5cf46d994cab21e9",
-      "Limitations": "bda7a98f7fb8260389523f62b778d9470835fe785d4a0e52cbcf8a6a5da60770",
+      "Limitations": "99b58ba251c38be9cbc86022c36037de369115bcee9fe3c00b21968ec30ee535",
       "Hooks and permission modes": "713619766e01801b749d302185717386d0fe55907d1e1e09c31edf2ec4317f10",
       "Hook not firing": "b37d2fea2441b863b3f7c888e37ef08019ff7603ff239e00e1fc2cc9a199406b",
       "Hook error in output": "36cfdf74c20553c23a6959b3821bed6932adcd06c65bd626f2a6ae4d2677ada4",
@@ -1134,6 +1134,79 @@
       "Configure with config.toml": "96755b334c07528817785d10ee9c5605ca6c064073497f77551c40d70558054b",
       "Plugin-provided MCP servers": "00f482f4576f4034d784fb4bab0162c0d44cff0f57d43cf1c5e0fd271f46352f",
       "Examples of useful MCP servers": "80ccc7ce9a5d3c265667ee96f408507ebbbb15f6c6776a1235ef344fe120ce75"
+    },
+    "https://code.claude.com/docs/en/hooks": {
+      "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
+      "Hooks reference": "0bdad29d2615ce840f9f7ffd552151791a172fccbfaca65eca0f32b708e47a2b",
+      "Hook lifecycle": "eff3884481db732fa2273115fcc4e088a7a33db0a416bf86905d891d6b877818",
+      "How a hook resolves": "87c0d81d2144aef6cf12aa78501e0e2ba2be55c19bb30bf5841e11adc68d5f21",
+      "Configuration": "2c23308891e41599a17cf0b00ed53611189e3ab97d3c5562c3bbc43a10a19f27",
+      "Hook locations": "9ee71cf99eb82e37454fda000d019c330b0ff44f4d0a93586416d589dedc498d",
+      "Matcher patterns": "5ea3af7a9fccdc3f0f6c0d07f90bbe17d448912585df941f2ba028aab2ef1ce3",
+      "Hook handler fields": "901bfb4fc92700d9c10af02185e23fae7d51072f42b64ab3361d1761ee5e7d07",
+      "Reference scripts by path": "7f64ede74ec8986ccb4e049f6f304e170a5c2368b6cd13bf3469e374cfa6b153",
+      "Hooks in skills and agents": "04bd33f29dd0e3e901b5fd806fd85f1f87304ba75591c9dad3d99b806a1a3fc0",
+      "The `/hooks` menu": "9a6814e743434695d5bda699e960d13bc03015dcbb241f98d2c12f17cf2a450e",
+      "Disable or remove hooks": "cda08dafeac8c18a385263544b944fbd6a662bc1c3957825dd8a8af5fb13f1a1",
+      "Hook input and output": "b312c9b5207390016483a2a8454fc63c74d76859814d5313a5c163a31264cd28",
+      "Common input fields": "61f4fe9b506b1547f6e34759d02eb3fef8ff08dd4a859730d6e170eed167282b",
+      "Exit code output": "b2d6debd1b2707a3acc8e3e8800795894562dfe604340cdf4c112a9880ba7067",
+      "HTTP response handling": "5937f7b750977ff28f8d0c07cf5b3ea5ae230133d8b8076a5b5b673f47e3f101",
+      "JSON output": "e2e94aa210386e01d3107ed45b645c447bfa106c1df380ad332bbc4516c046d0",
+      "Hook events": "2d2f4e4fe6f8132c751cfda4c4dd0951bb1495b69da788371e800914339e5541",
+      "SessionStart": "b365026d48279e03554067094a7a9ebe0a3f6a02e9143ac8c08237f94195e138",
+      "Setup": "5957b12c1151d262a845cdb8adf1df174d239c66f62ea48499c8f125e6db0a24",
+      "InstructionsLoaded": "6dc7a3bb6899aadcf285e6feb60675ffc0592c6d720104fa91aef5469b7225a0",
+      "UserPromptSubmit": "577ff5ef9bc2c2dadf5c3a25aba744e6d552445fca6e493bd6fb4cc0d2eeb8f0",
+      "UserPromptExpansion": "e052472dc5b4004fc67b30215ef77fb1ed30bb82bc9c51d202b8793bce2950d8",
+      "MessageDisplay": "d33efdd50ba9e75e06ca47c35df0b6856dfc3aefc2c660a1bb049f6591f2fff5",
+      "PreToolUse": "6f275dca28ed797e46fdb2a0ab11b3e9179d7cbed6b6ceba7a2027caecfcf8eb",
+      "PermissionRequest": "69143bc229cd4d69c54ae016051eaa35f0be875a2b14dfe4ed0c8023fa61604f",
+      "PostToolUse": "75b98253418d2f908b0238212baff53244abfaeede12f06771398f504557e398",
+      "PostToolUseFailure": "9adc5dfb95fd724215654dae86a50ced675f4d640cf86d2e3294eaddeac5401c",
+      "PostToolBatch": "78c792fd6f29f5a649c08611c1a0f0bd05713346b6027bb6e09da21675c71bbd",
+      "PermissionDenied": "a1f8b054d32775616dd9c24865cf5250511e31a90fdfb18e443ad6b7fa54f91a",
+      "Notification": "da34cf627418cf877e2ba06c8257762fe4baa0eda23e0df1e666d90ed9a78fed",
+      "SubagentStart": "84aaca432656f2cfc01228f95ed962fdc85fa291db0630584e27261c47214f84",
+      "SubagentStop": "3a04549becca85c903f9c18cd5f67163d3b6c79dc3d3740312fc4b35875e66ab",
+      "TaskCreated": "555bfe634d17f4d1c9852d75544b89b0c14511c7691d5a7056604daddd215edc",
+      "TaskCompleted": "e4e40e421a4d2c0e3b4530d449b60f0c75a53ecd805160634da5f02eb3ae6e27",
+      "Stop": "abd282589236d3e6472d927dbe4f47fa9451d44a27b7195110a7bdd7a9d9f0fb",
+      "StopFailure": "7cbc56684d0f970ed3c5724f6a9bea448333ea4884c9de55a2ae76732dcf99ab",
+      "TeammateIdle": "1982e45b87f7984ffd4362b0c067bb80274457454e731c39ceb9e2de927fc570",
+      "ConfigChange": "a33df8befd812464198b37b1b0ee1087b42332a441172cab85f063c9e1ef80ff",
+      "CwdChanged": "97b4de00503a9b112b2b3275ba2bc12dfbc4680c0441a06f1d4cd432caeddf72",
+      "DirectoryAdded": "493ee923479d7a859c0faeb46cf74a0e77d757916fa0059cd81ad4c6cbfbe4e9",
+      "FileChanged": "6f95204fb5b0ceb6553fde99156e5c80b6ac84606ca2fce2650f3be1f86d47fd",
+      "WorktreeCreate": "62b3b83a0e92240d45f1a95c774927dc300b1ff374c69c0bae16d94ab1b26d6f",
+      "WorktreeRemove": "06207077504859373a29a4667ad5ff0d61cce5591476115874a756dcecc17b53",
+      "PreCompact": "88b5b413ac307f1e99c6c961eec944fc0f284c71f2a570ceb43061315cddb22d",
+      "PostCompact": "89521d7e9aaa5974f57230bf0e8b610d955c4207612d7f24e6be1824e7931070",
+      "PreModelSwitch": "59a108165f66b60599f33edda9936d40097e89998ee5ff4bd48d087c9c83f6eb",
+      "PostModelSwitch": "b36249b26fa2543c611b58df81244eada97a82723f6cf2984e07f95153de9c59",
+      "SessionEnd": "e673c6431c47b62dd00663af2ed30bceb06de68df125374c48ebe4a23165b1a9",
+      "Elicitation": "7f10c638616cf25b8b7a958fa78ae198af6f0344f8c4f502e908a28a2de0c3b8",
+      "ElicitationResult": "63b33dacf63fa3e3877084795a761624514d8af7299124db4d47acd2a81c9534",
+      "Prompt-based hooks": "c0283576355e4319aa0f9ce02d287b6701a98b9a337f5c8117f3ed0a37cff3fe",
+      "How prompt-based hooks work": "1d6f7f1b25138747ae78c95c8238e5775768250ffef3474320cef054c110de53",
+      "Prompt hook configuration": "79916ce628da8107f8696dd39e97a67c6f2d0d774deafa082ec051c2e4dbf752",
+      "Response schema": "459d0c9f57c20ffac314e81338ff82c4be0588f927d6ba20b0ea5fd921b1679b",
+      "Check multiple conditions before stopping": "c8b9eaa4477ed48bf36e49b61e97c6ab2c6e568e936c8b7ce68fb5e7ee0e9f4a",
+      "Agent-based hooks": "bc54f91310b194515cd5669f21dd5863a61039a7e7ff55b50a4b059ffeb87f56",
+      "How agent hooks work": "a873444d46794742b7e9a4faa166fc5f4f170d0913e134feaecef24d076accb8",
+      "Agent hook configuration": "d4b7d3ed49c2975b0510979a1f620aec5bb70b63a4fb9fd17c0717190a8c777c",
+      "Run hooks in the background": "8fc62898364347e63fba0aa7c84b34effb59951e8fb2aa3e5bcbb4ee82b0195b",
+      "Configure an async hook": "631064281d8cdb4deca11f924458d41b437213479c50e295db466ce46fa7a1d3",
+      "How async hooks execute": "bf4ceb025bf241846738b59756cddddf931be8a848870a92be89caaa52a2efa1",
+      "Run tests after file changes": "3b95f4cdd273c7cf9164f4ad9d87442d1e2291041ac1ed513ea5eb6fbabff118",
+      "Limitations": "758efa0c2c501140394bfabd6cbb139b092b5909d94b6a40e89952591ecfae8a",
+      "Security considerations": "6e52ffe2eb32f24c3da41be6515e30d32f04893760a74418c599ff88970c5305",
+      "Disclaimer": "eb4aa2ed02279296951965ddd3c2ad78d74a94ee282e7dbd495e0c0191e652d9",
+      "Workspace trust": "03fa38719d08012cf73fd9522df2b964afd387f27d9c80540a937b258e758c5b",
+      "Security best practices": "dc8aa93791cebdbb8664d41a278b78d454f4b8bedfb614febbb52feb8c1b447a",
+      "Windows PowerShell tool": "1e1489d2730bae59ae73ab6072548c245d4420478a7ebce99a532f17d84c5da3",
+      "Reference scripts by path in PowerShell hooks": "36f7b45975d63649ea0c3d0e1d319ece4d35c99b1b7473fdecb73a9643e1156c",
+      "Debug hooks": "8b85f6b17afc5bbbc194ca9196da3ac78a8a4861f3a2ee4b74ea5c8407b45c4f"
     }
   },
   "fails": {
@@ -1184,9 +1257,29 @@
     "https://glama.ai/mcp/methodology": 0,
     "https://glama.ai/mcp/schemas/server.json": 0,
     "https://packaging.python.org/en/latest/specifications/core-metadata/": 0,
-    "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": 0
+    "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json": 0,
+    "https://code.claude.com/docs/en/hooks": 0
   },
   "kept": [
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Plugins shared through a repository",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Plugin MCP servers use project approval",
+      "changed": "MCP servers declared by a project-scope plugin go through the same per-server approval as a project .mcp.json, and the trust check applies.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees plugin MCP servers as on that the client has not approved, rejected or would not load in an untrusted folder, so they believe those servers are running.",
+      "systems": "not checked",
+      "why": "_plugin_parts() gives a plugin's MCP servers the plugin's enabled state and never runs _approval() or is_trusted() on them. The note says project-scope plugin servers now need per-server approval, but it does not say whether this covers user-scope plugins or how plugin servers are named in the approval keys, so how far the mismatch goes is a guess.",
+      "fix": "In src/kitden/clients/claude_code.py, for plugins enabled at project scope, apply _approval() and is_trusted() to the MCP servers that _plugin_parts() reads. Confirm the approval key names for plugin servers first.",
+      "sure": false
+    },
     {
       "piece": "claude-code-changelog#2.1.326",
       "client": "claude-code",
@@ -1205,291 +1298,6 @@
       "sure": false
     },
     {
-      "piece": "https://code.claude.com/docs/en/hooks-guide#Filter hooks with matchers",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/hooks-guide",
-      "row": "Hooks in the `hooks` key of settings files (2026-11-15)",
-      "files": [
-        "src/kitden/clients/claude_code.py",
-        "src/kitden/clients/base.py"
-      ],
-      "title": "Hook `if` field stops hooks on non-tool events",
-      "changed": "Hook handlers in the `hooks` key of settings can carry an `if` field that only works on tool events; on other events the hook does not run.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user sees a hook listed for an event such as SessionStart or Stop and believes it runs, while the client skips it because of the `if` field.",
-      "systems": "not checked",
-      "why": "hook_items in base.py makes an item for every event group in settings['hooks'] and never inspects the handlers' `if` field or the event type. A hook the client now refuses to run is still shown as active.",
-      "fix": "In hook_items in src/kitden/clients/base.py, check each handler in the group; when it has `if` and the event is not one of the five tool events, mark the item as not running (off) or leave it out.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#plugin install",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
-      "row": "These commands work with no account: `claude --version`, `claude mcp add-json`, `get`, `list` and `remove`, `claude plugin validate --strict`, `marketplace add` and `remove`, `install`, `list --json`, `disable`, `enable` and `uninstall`; seen on Linux (2026-11-15, version 2.1.325). The nightly installs it with its own installer, `https://claude.ai/install.sh` run by `bash`, which puts `claude` in `~/.local/bin` and writes `~/.claude.json` with no account (2026-11-15, version 2.1.325, Linux)",
-      "files": [
-        "src/kitden/clients/claude_code.py",
-        "src/kitden/clients/versions.py"
-      ],
-      "title": "Claude Code plugin install refused without a TTY for command-source plugins",
-      "changed": "For plugins with command-source or headersHelper entries, install without a TTY is refused with exit 1 unless -y or --accept-command is given, so the no-account install command may behave differently.",
-      "effect": "outdated",
-      "severity": "minor",
-      "user_gets": "Kitden's install step for such a plugin may fail with an error in a non-TTY run, and the row's claim that install works with no account is no longer fully true; nothing wrong is shown.",
-      "systems": "not checked",
-      "why": "plugin_install_step deliberately omits -y so a plugin that installs by running a command stops; the new refusal matches that intent, so Kitden stays right, but the row's blanket claim and the code comment about how it stops are now less precise.",
-      "fix": "In the contract-test row, note that install of plugins with command-source or headersHelper entries is refused without a TTY unless -y or --accept-command is given; optionally update the comment in `plugin_install_step` in `src/kitden/clients/claude_code.py`.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#plugin uninstall",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
-      "row": "`claude plugin uninstall <id> -s <scope> --keep-data --json`; it fails while settings still switch the plugin on",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Plugin uninstall reports settings_still_on when settings still enable the plugin",
-      "changed": "The uninstall command has new flags (--prune, -y, aliases remove/rm) and reports a settings_still_on failure code with --json; the failure while settings still switch the plugin on is confirmed and detailed (v2.1.282+). --json can't be combined with --prune.",
-      "effect": "outdated",
-      "severity": "minor",
-      "user_gets": "Kitden's removal command still works as before, but the code comment that the command fails when settings still switch the plugin on no longer describes the failure code or the version (v2.1.282+).",
-      "systems": "not checked",
-      "why": "plugin_remove_step uses the same flags (-s, --keep-data, --json) and the same settings key as before, so the command still works. Only the comment about the failure behaviour is now less precise (it omits the failureCode settings_still_on and the v2.1.282 requirement).",
-      "fix": "Update the comment above plugin_remove_step in src/kitden/clients/claude_code.py to mention the settings_still_on failure code and that the settings check needs Claude Code v2.1.282 or later.",
-      "sure": true
-    },
-    {
-      "piece": "https://learn.chatgpt.com/docs/config-file/config-reference#`config.toml`",
-      "client": "codex",
-      "version": "",
-      "url": "https://learn.chatgpt.com/docs/config-file/config-reference",
-      "row": "Settings folder is `CODEX_HOME`, default `~/.codex`; settings in `config.toml`",
-      "files": [
-        "src/kitden/clients/codex.py"
-      ],
-      "title": "Codex profile config files next to config.toml",
-      "changed": "Settings can also live in `$CODEX_HOME/profile-name.config.toml` profile files selected with `--profile`, in addition to `config.toml` in the Codex home.",
-      "effect": "unknown",
-      "severity": "minor",
-      "user_gets": "Entries defined only in a profile file are not listed, but they apply only when the user launches Codex with --profile.",
-      "systems": "not checked",
-      "why": "scan() reads only config.toml under codex_home. The quote does not say what a profile file can contain or how it merges, so a concrete wrong value cannot be named. The default config.toml behavior is unchanged.",
-      "fix": "Check what keys a profile file can hold and how Codex merges them. If it can hold mcp_servers or plugins, decide whether to read profile files in src/kitden/clients/codex.py scan().",
-      "sure": false
-    },
-    {
-      "piece": "claude-code-changelog#2.1.326",
-      "client": "claude-code",
-      "title": "Mentions `add-json`",
-      "hint": true,
-      "changed": "The text of 2.1.326 has the word `add-json`.",
-      "version": "2.1.326",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "`claude mcp add-json -s user <name> '<json>'` takes the entry as an argument, no stdin or file",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "claude-code-changelog#2.1.326",
-      "client": "claude-code",
-      "title": "Mentions `headersHelper`",
-      "hint": true,
-      "changed": "The text of 2.1.326 has the word `headersHelper`.",
-      "version": "2.1.326",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "`headersHelper` makes a server read values from a helper command (2026-11-15)",
-      "files": [
-        "src/kitden/clients/entries.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "claude-code-changelog#2.1.326",
-      "client": "claude-code",
-      "title": "Mentions `claude-code`",
-      "hint": true,
-      "changed": "The text of 2.1.326 has the word `claude-code`.",
-      "version": "2.1.326",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "Claude Desktop Code tab: `claude_desktop_config.json` with `mcpServers`, and bundled versions in a `claude-code` folder",
-      "files": [
-        "src/kitden/clients/claude_code.py",
-        "src/kitden/system.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "claude-code-changelog#2.1.327",
-      "client": "claude-code",
-      "version": "2.1.327",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "`claude mcp add-json -s user <name> '<json>'` takes the entry as an argument, no stdin or file",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "claude mcp add-json can read JSON from stdin",
-      "changed": "`claude mcp add-json` can now take the JSON from stdin with `-`, so the row's statement of argument only, no stdin, no longer holds.",
-      "effect": "outdated",
-      "severity": "minor",
-      "user_gets": "Kitden keeps working and still writes secret-holding entries directly to ~/.claude.json, but the comment in _add_entry and the row saying add-json has no stdin option are no longer true.",
-      "systems": "not checked",
-      "why": "_add_entry still writes the same command and file edits, which the client accepts, so nothing breaks. Only the code comment and the row claiming no stdin or file option are now stale.",
-      "fix": "Update the comment in `_add_entry` in `src/kitden/clients/claude_code.py` and the research row to say add-json can read stdin with `-`. Optionally pass secret entries through stdin instead of editing the file, with a fallback inside a Claude Code session.",
-      "sure": true
-    },
-    {
-      "piece": "claude-code-changelog#2.1.327",
-      "client": "claude-code",
-      "version": "2.1.327",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "These commands work with no account: `claude --version`, `claude mcp add-json`, `get`, `list` and `remove`, `claude plugin validate --strict`, `marketplace add` and `remove`, `install`, `list --json`, `disable`, `enable` and `uninstall`; seen on Linux (2026-11-15, version 2.1.325). The nightly installs it with its own installer, `https://claude.ai/install.sh` run by `bash`, which puts `claude` in `~/.local/bin` and writes `~/.claude.json` with no account (2026-11-15, version 2.1.325, Linux)",
-      "files": [
-        "src/kitden/clients/claude_code.py",
-        "src/kitden/clients/versions.py"
-      ],
-      "title": "Claude Code mcp add-json gains a stdin form",
-      "changed": "The `claude mcp add-json` command gains a stdin form; the account-free command list may need to cover it.",
-      "effect": "outdated",
-      "severity": "minor",
-      "user_gets": "Kitden still works, but the comment in `_add_entry` saying add-json has no stdin option is no longer true on new versions, and secret entries are still written directly to the file.",
-      "systems": "not checked",
-      "why": "`_add_entry` still passes the existing add-json argument form, which works, and writes secret entries to `~/.claude.json` itself. The comment saying the docs show no stdin option is now stale, and the row's command list does not cover the stdin form.",
-      "fix": "Update the comment in `_add_entry` in `src/kitden/clients/claude_code.py`, and add the stdin form to the row. Optionally pass secret entries through `add-json <name> -` on stdin on versions that support it, instead of writing the file.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/memory",
-      "row": "",
-      "files": [],
-      "title": "--setting-sources can exclude project rules",
-      "changed": "The --setting-sources flag decides whether project rules load; excluding project skips them.",
-      "effect": "gap",
-      "severity": "medium",
-      "user_gets": "Kitden lists project rules as loaded when a session started with --setting-sources excluding project does not load them.",
-      "systems": "not checked",
-      "why": "No row covers a flag that decides which instruction files load; CC-21 only lists where the files are.",
-      "fix": "Read how Claude Code is launched for the --setting-sources value to know whether project rules are loaded.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/memory",
-      "row": "",
-      "files": [],
-      "title": "User-level rules",
-      "changed": "The page names user-level rules, a kind of instruction file kept for the user.",
-      "effect": "gap",
-      "severity": "minor",
-      "user_gets": "User-level rules, if kept in the home .claude folder, may not be shown.",
-      "systems": "not checked",
-      "why": "CC-21 names rules in `.claude` at the project root, not clearly the user-level folder.",
-      "fix": "Read the user-level rules folder under ~/.claude/rules for instruction files.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/memory",
-      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Symlinked rules outside working directory need approval to load",
-      "changed": "Rule files in .claude/rules reached by symlink to targets outside the working directory load only after external imports are approved, and then only those without paths; network-path symlinks never load. Affects which instruction files load.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user sees symlinked rule files listed as loaded instructions that Claude Code is not actually loading.",
-      "systems": "not checked",
-      "why": "_instruction_files uses expand() on the rules folder and lists every file found, and nothing in it follows symlinks or checks their targets or approval. Whether expand() follows or filters symlinks is not shown, so this is partly a guess.",
-      "fix": "In src/kitden/clients/claude_code.py, have _instruction_files (or its caller) resolve rule symlinks and mark those pointing outside the project folder as not loaded, or unknown, unless external imports are approved.",
-      "sure": false
-    },
-    {
-      "piece": "claude-code-changelog#2.1.327",
-      "client": "claude-code",
-      "title": "Mentions `<name>`",
-      "hint": true,
-      "changed": "The text of 2.1.327 has the word `<name>`.",
-      "version": "2.1.327",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "`claude mcp remove -s <scope> <name>`",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "claude-code-changelog#2.1.327",
-      "client": "claude-code",
-      "title": "Mentions `~/.claude/settings.json`",
-      "hint": true,
-      "changed": "The text of 2.1.327 has the word `~/.claude/settings.json`.",
-      "version": "2.1.327",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "claude-code-changelog#2.1.327",
-      "client": "claude-code",
-      "title": "Mentions `.claude/settings.json`",
-      "hint": true,
-      "changed": "The text of 2.1.327 has the word `.claude/settings.json`.",
-      "version": "2.1.327",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "Project and user settings files `.claude/settings.json` and `.claude/settings.local.json`",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
       "piece": "https://code.claude.com/docs/en/plugins/loading#Enabled in project settings but not installed",
       "client": "claude-code",
       "version": "",
@@ -1504,25 +1312,6 @@
       "systems": "not checked",
       "why": "No row names a seed directory; plugin rows cover only installed_plugins.json and settings.",
       "fix": "Read the seed directory location and list the plugins in it.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Enabled in project settings but not installed",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "`enabledPlugins` in user, project and local settings; local wins over project over user; set false in the local file to opt out (2026-10-26)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Project-enabled plugin needs install to load",
-      "changed": "A plugin set in `enabledPlugins` of project settings does not load until it is installed; some plugins fetch from an external source only when user, local, `--settings` or managed settings set them to true.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user sees a project-enabled plugin as on, but the client does not load it because it is not installed, so they believe its skills and tools are available.",
-      "systems": "not checked",
-      "why": "_project_files turns every enabledPlugins value in the project settings into an ON plugin item without checking installed_plugins.json, while the client skips plugins that are enabled only in the project file and not installed. A second look disagreed.",
-      "fix": "In `_project_files` in `src/kitden/clients/claude_code.py`, for a PROJECT-scope enabledPlugins entry with no user or local setting, check whether the plugin is in installed_plugins.json. If it is not, show it as not loaded (off, or unknown with a 'not installed here' note) instead of on.",
       "sure": false
     },
     {
@@ -1543,114 +1332,6 @@
       "sure": true
     },
     {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "",
-      "files": [],
-      "title": "Claude.ai-hosted marketplaces file",
-      "changed": "Marketplaces hosted on claude.ai are recorded in known_marketplaces_claudeai.json rather than known_marketplaces.json.",
-      "effect": "gap",
-      "severity": "medium",
-      "user_gets": "Marketplaces hosted on claude.ai are not listed.",
-      "systems": "not checked",
-      "why": "CC-14 names only known_marketplaces.json, and no row covers this second file.",
-      "fix": "Read known_marketplaces_claudeai.json in the plugins root as well as known_marketplaces.json.",
-      "sure": true
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "`~/.claude/plugins/installed_plugins.json` (`plugins.<id>[].installPath`) and `known_marketplaces.json` (`source`, `installLocation`)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Plugins root can be moved with CLAUDE_CODE_PLUGIN_CACHE_DIR",
-      "changed": "The plugins root, which holds installed_plugins.json and known_marketplaces.json, is not always ~/.claude/plugins; an environment variable can relocate it. A separate known_marketplaces_claudeai.json records claude.ai-hosted marketplaces.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "A user who sets CLAUDE_CODE_PLUGIN_CACHE_DIR sees missing or stale plugins, marketplaces, plugin skills and plugin MCP servers, and wrongly believes the client does not load them.",
-      "systems": "not checked",
-      "why": "scan, plugin_folders, marketplace_roots and marketplace_sources use the fixed path home/.claude/plugins. The quote says the root moves with an environment variable that Kitden ignores. Kitden may not see the user's environment, and the variable may be new or not, so this is not certain.",
-      "fix": "In src/kitden/clients/claude_code.py, compute the plugins root from CLAUDE_CODE_PLUGIN_CACHE_DIR when it is set, else ~/.claude/plugins, and use it for installed_plugins.json and known_marketplaces.json in scan, marketplace_sources, marketplace_roots and plugin_folders. If the variable cannot be read, show the plugins as unknown.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "Skills the Claude app gives Claude Code (`anthropic-skills:docx`) are at `local-agent-mode-sessions/skills-plugin/<org>/<id>/skills/<skill>/SKILL.md` in the app's folder, some copied to `~/.claude/skills/synced/<org>_<id>/`; the newest copy is read (2026-11-12, version 2.1.309)",
-      "files": [
-        "src/kitden/views/context_view.py"
-      ],
-      "title": "Claude Code documents a synced/ folder under the plugins root",
-      "changed": "Synced plugins live in a `synced/` folder under the plugins root (default ~/.claude/plugins/synced), not only ~/.claude/skills/synced.",
-      "effect": "unknown",
-      "severity": "minor",
-      "user_gets": "If synced skills now sit only under the plugins root, Kitden may find no description for them. The skill list would then show a missing description and size instead of a wrong one.",
-      "systems": "not checked",
-      "why": "_app_description only looks in ~/.claude/skills/synced and the app folder. The quote lists a plugins-root synced folder, but it does not say that skills moved there or that the old path stopped being used, so any effect on Kitden is a guess.",
-      "fix": "Check whether Claude Code 2.1.309 and later put synced skills under ~/.claude/plugins/synced. If so, add that path to the glob in _app_description in src/kitden/views/context_view.py and update the row.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/mcp#Automatic reconnection",
-      "client": "claude-code",
-      "title": "Mentions `.claude`",
-      "hint": true,
-      "changed": "The text of this page has the word `.claude`.",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/mcp",
-      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#Flags that load a plugin for one session",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
-      "row": "",
-      "files": [],
-      "title": "CLAUDE_CODE_PLUGIN_DIRS variable and disableSideloadFlags setting",
-      "changed": "Plugins can be loaded from folders named in the CLAUDE_CODE_PLUGIN_DIRS variable, and a managed setting disableSideloadFlags can reject them.",
-      "effect": "gap",
-      "severity": "medium",
-      "user_gets": "Kitden does not show plugins loaded from folders in CLAUDE_CODE_PLUGIN_DIRS, nor that disableSideloadFlags stops them loading.",
-      "systems": "not checked",
-      "why": "No row covers plugin folders set by an environment variable or the disableSideloadFlags setting.",
-      "fix": "Read the CLAUDE_CODE_PLUGIN_DIRS environment variable and the managed disableSideloadFlags setting.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "",
-      "files": [],
-      "title": "--settings flag can enable plugins",
-      "changed": "A settings value passed at launch with --settings can carry enabledPlugins and overrides user, project and local.",
-      "effect": "gap",
-      "severity": "minor",
-      "user_gets": "Kitden does not show plugins enabled or disabled by a --settings value for a session.",
-      "systems": "not checked",
-      "why": "No row covers the --settings launch flag as a source of enabledPlugins.",
-      "fix": "Kitden would need to read the --settings value from the running client's launch command.",
-      "sure": false
-    },
-    {
       "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
       "client": "claude-code",
       "version": "",
@@ -1666,119 +1347,6 @@
       "why": "No row names managed settings as a source of enabledPlugins.",
       "fix": "Kitden would need to read the managed settings file or policy location for enabledPlugins.",
       "sure": true
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "`enabledPlugins` in user, project and local settings; local wins over project over user; set false in the local file to opt out (2026-10-26)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "enabledPlugins can be set from six sources, including managed settings",
-      "changed": "enabledPlugins can come from --add-dir directory settings, user, project, local, --settings flag and managed settings, merged key by key with managed highest (true force-enables, false blocks); the row names only user, project and local.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "A plugin that managed settings block can appear as on in Kitden, or one that managed settings force on can appear as off.",
-      "systems": "not checked",
-      "why": "scan and _project_files read enabledPlugins only from user, project and local settings files (the _on(value) state), and the code comment at the `_project_files` plugin block states only those three sources. The quote adds sources the code never reads, though the quote does not itself say whether the three-file precedence still holds, so the extent is a guess.",
-      "fix": "In src/kitden/clients/claude_code.py, read enabledPlugins from managed settings and note that --settings and --add-dir sources exist, or mark the state unknown when those sources cannot be read. Update the row to list all six sources.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Enabled in an `--add-dir` directory but not loaded",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "",
-      "files": [],
-      "title": "--add-dir directories as a source of enabled plugins",
-      "changed": "Plugins enabled in settings files of directories added with --add-dir load only when trusted and when the session's --setting-sources include the file's source.",
-      "effect": "gap",
-      "severity": "medium",
-      "user_gets": "Kitden does not show plugins enabled by an added directory's settings, nor that --setting-sources stops some from loading.",
-      "systems": "not checked",
-      "why": "No row covers --add-dir directories or the --setting-sources setting that decides which settings files load.",
-      "fix": "Read the session's --add-dir directories and --setting-sources, then each added directory's .claude settings files and trust state.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/loading",
-      "row": "`~/.claude/plugins/installed_plugins.json` (`plugins.<id>[].installPath`) and `known_marketplaces.json` (`source`, `installLocation`)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "claude.ai-hosted marketplaces recorded in known_marketplaces_claudeai.json",
-      "changed": "installed_plugins.json and known_marketplaces.json sit under the plugins root, which may be moved by CLAUDE_CODE_PLUGIN_CACHE_DIR, not always ~/.claude/plugins; claude.ai-hosted marketplaces go to known_marketplaces_claudeai.json.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user does not see claude.ai-hosted marketplaces, and with a relocated plugins root sees no installed plugins or marketplaces that Claude Code actually has.",
-      "systems": "not checked",
-      "why": "scan and marketplace_sources read only the fixed ~/.claude/plugins/known_marketplaces.json, so a marketplace recorded in known_marketplaces_claudeai.json is missing from a list that looks complete. It is not stated whether claude.ai marketplaces were always recorded there, or whether the relocated root is new, so the change may not be the cause.",
-      "fix": "In src/kitden/clients/claude_code.py, also read known_marketplaces_claudeai.json beside known_marketplaces.json in scan, marketplace_sources and marketplace_roots. Resolve the plugins root from CLAUDE_CODE_PLUGIN_CACHE_DIR instead of hardcoding ~/.claude/plugins.",
-      "sure": false
-    },
-    {
-      "piece": "claude-code-changelog#2.1.329",
-      "client": "claude-code",
-      "title": "Mentions `~/.claude.json`",
-      "hint": true,
-      "changed": "The text of 2.1.329 has the word `~/.claude.json`.",
-      "version": "2.1.329",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "User servers live in `~/.claude.json` under `mcpServers`; local servers under `projects.<path>.mcpServers`; Claude Code rewrites the file in normal use",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "claude-code-changelog#2.1.329",
-      "client": "claude-code",
-      "title": "Mentions `CLAUDE.md`",
-      "hint": true,
-      "changed": "The text of 2.1.329 has the word `CLAUDE.md`.",
-      "version": "2.1.329",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/hooks-guide#Filter hooks with matchers",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/hooks-guide",
-      "row": "Hooks in the `hooks` key of settings files (2026-11-15)",
-      "files": [
-        "src/kitden/clients/claude_code.py",
-        "src/kitden/clients/base.py"
-      ],
-      "title": "Hook `if` field on non-tool events stops the hook from running",
-      "changed": "Hooks in the settings `hooks` key are shown with a `matcher` and nested `hooks` array with type/command; the doc describes this shape and matcher values per event.\nHooks in the `hooks` key of settings files can carry an `if` field that is valid only on tool events; on other events the hook does not run.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user sees a hook listed as loaded for an event where the client refuses to run it, and believes it fires.",
-      "systems": "not checked",
-      "why": "`hook_items` creates an item for every matcher group and ignores the `if` key. The quote says an `if` on a non-tool event stops the hook from running, so the listed hook does not run. The `if` field may sit in nested hook handlers rather than the group, so this is partly a guess.",
-      "fix": "In `hook_items` in `src/kitden/clients/base.py`, check the nested hook entries for `if` on non-tool events and mark that hook as not running or unknown.",
-      "sure": false
     },
     {
       "piece": "https://code.claude.com/docs/en/hooks-guide#Configure hook location",
@@ -1815,23 +1383,6 @@
       "sure": true
     },
     {
-      "piece": "https://code.claude.com/docs/en/hooks-guide#Configure hook location",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/hooks-guide",
-      "row": "",
-      "files": [],
-      "title": "Hooks in skill and subagent frontmatter",
-      "changed": "Hooks can be defined in skill and subagent frontmatter.",
-      "effect": "gap",
-      "severity": "medium",
-      "user_gets": "Hooks defined in SKILL.md or agent file frontmatter are not shown.",
-      "systems": "not checked",
-      "why": "No row covers hooks in frontmatter of skills or agents.",
-      "fix": "Parse the hooks frontmatter of SKILL.md and agent files.",
-      "sure": true
-    },
-    {
       "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
       "client": "claude-code",
       "version": "",
@@ -1847,175 +1398,6 @@
       "why": "No row names disabledMcpServers; CC-04 covers only the .mcp.json approval keys.",
       "fix": "Read the disabledMcpServers list for each project and mark the servers it names as off.",
       "sure": true
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/mcp",
-      "row": "`claude mcp remove -s <scope> <name>`",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "claude mcp remove also deletes stored OAuth tokens for remote servers",
-      "changed": "claude mcp remove for a remote server now also deletes the stored OAuth tokens and client registration, beyond removing the entry.",
-      "effect": "outdated",
-      "severity": "minor",
-      "user_gets": "Kitden removes the server entry as before, but the user is not told that stored OAuth tokens and client registration go too, so the remove cannot be undone by re-adding the entry alone.",
-      "systems": "not checked",
-      "why": "remove_step still runs the same command and edits the same key, so the action works and nothing shown is wrong. The row's description of what remove does is incomplete, and the Undo behaviour may not restore the sign-in.",
-      "fix": "In src/kitden/clients/claude_code.py, add a note to remove_step for remote servers saying that OAuth tokens and client registration are deleted too, and that the user should run `claude mcp logout <name>` first to revoke them.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/mcp",
-      "row": "User servers live in `~/.claude.json` under `mcpServers`; local servers under `projects.<path>.mcpServers`; Claude Code rewrites the file in normal use",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Claude Code adds per-project disabledMcpServers list that disables MCP servers",
-      "changed": "A project's disabledMcpServers list turns off a server, which touches how servers are stored and read for a project.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user may see an MCP server as enabled when Claude Code has disabled it for that project, so they believe it is loaded when it is not.",
-      "systems": "not checked",
-      "why": "scan and _approval never read a per-project disabledMcpServers list, so a server it names is not shown as off. The note does not state the file or key location, so this is a guess about where the list lives.",
-      "fix": "In src/kitden/clients/claude_code.py, once the key's location is confirmed, read disabledMcpServers in scan and _approval and mark the servers it names as Enabled.OFF for that project.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/mcp",
-      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Untrusted folders wait for trust before applying local approvals, except the config home",
-      "changed": "In an untrusted folder, approvals come only from user settings, managed settings or --settings; committed project settings are ignored. Managed settings and --settings are sources the row does not list.\nApprovals in an untracked .claude/settings.local.json wait for trust in an untrusted folder, except when the folder is the home directory or a CLAUDE_CONFIG_DIR location; the row says an untrusted folder takes approval only from ~/.claude/settings.json.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "A server the client has approved and connects to shows as pending/unknown in Kitden for a home or CLAUDE_CONFIG_DIR folder.",
-      "systems": "not checked",
-      "why": "_approval() limits an untrusted folder to the user file and has no exemption for the home directory or CLAUDE_CONFIG_DIR, which the quote says apply local-file approvals without trust. The case is narrow, and the home folder's local files may be handled differently (at_home), so this is a guess.",
-      "fix": "In src/kitden/clients/claude_code.py, treat a folder that is the home directory or a CLAUDE_CONFIG_DIR location as trusted when calling _approval(), so its local settings approvals count.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/memory#How Claude remembers your project",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/memory",
-      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Claude Code reads AGENTS.md in place of CLAUDE.md",
-      "changed": "Claude Code can read AGENTS.md files as project instructions instead of CLAUDE.md, adding another instruction file name beyond those the row lists.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user does not see AGENTS.md among the instructions Claude Code loads, and may believe those instructions are not applied.",
-      "systems": "not checked",
-      "why": "_instruction_files and the file list in _project_files name only CLAUDE.md, CLAUDE.local.md and the .claude subfolders, so AGENTS.md is never listed. The quote does not say when AGENTS.md is read (only 'in place of' CLAUDE.md), so the exact behaviour is a guess.",
-      "fix": "In src/kitden/clients/claude_code.py, add the project-root AGENTS.md to the files list in _project_files, once the docs say exactly when Claude reads it (for example only when no CLAUDE.md exists).",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/memory#How it works",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/memory",
-      "row": "",
-      "files": [],
-      "title": "Auto memory files MEMORY.md in project memory folder",
-      "changed": "Auto memory loads the first 200 lines or 25KB of MEMORY.md from ~/.claude/projects/<project>/memory/ at session start.",
-      "effect": "gap",
-      "severity": "medium",
-      "user_gets": "Kitden does not show the auto memory MEMORY.md that loads into each session as instructions.",
-      "systems": "not checked",
-      "why": "No row covers the auto memory folder; instruction file rows name CLAUDE.md, rules, commands and agents only.",
-      "fix": "Read MEMORY.md in ~/.claude/projects/<project>/memory/ and show it as an instruction file with its load limit.",
-      "sure": true
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/memory#How it works",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/memory",
-      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "Claude Code skips CLAUDE.md files over 4 MiB",
-      "changed": "CLAUDE.md files over 4 MiB are skipped entirely, with per-file limits for subdirectory files and path-scoped rules; the instruction files row may need to account for this.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The user sees an oversized CLAUDE.md listed as loaded and believes Claude follows it, when Claude Code skips the whole file.",
-      "systems": "not checked",
-      "why": "_instruction_files and instruction_items list every existing instruction file without checking size, so a CLAUDE.md over 4 MiB is shown as loaded. It is unconfirmed whether instruction_items (in base.py, not shown) already handles size, and the quote does not say whether the limit is new.",
-      "fix": "In src/kitden/clients/claude_code.py (or instruction_items in base.py), mark a CLAUDE.md over 4 MiB as not loaded, and apply the smaller per-file limit to subdirectory files and path-scoped rules.",
-      "sure": false
-    },
-    {
-      "piece": "claude-code-changelog#2.1.330",
-      "client": "claude-code",
-      "title": "Mentions `--json`",
-      "hint": true,
-      "changed": "The text of 2.1.330 has the word `--json`.",
-      "version": "2.1.330",
-      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
-      "row": "`claude plugin install <id> -s <scope> --json`, run in the project for `-s project`",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/settings#Find or create your settings files",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/settings",
-      "row": "`~/.claude/plugins/installed_plugins.json` (`plugins.<id>[].installPath`) and `known_marketplaces.json` (`source`, `installLocation`)",
-      "files": [
-        "src/kitden/clients/claude_code.py"
-      ],
-      "title": "CLAUDE_CONFIG_DIR moves Claude Code plugins and settings out of ~/.claude",
-      "changed": "Setting CLAUDE_CONFIG_DIR moves settings, session history and plugins out of ~/.claude, so the plugin files installed_plugins.json and known_marketplaces.json are read from there.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "A user who sets CLAUDE_CONFIG_DIR sees plugins and marketplaces that do not match what Claude Code actually loads.",
-      "systems": "not checked",
-      "why": "scan, plugin_folders and marketplace_roots build paths from self.home / \".claude/plugins/...\" and never consult CLAUDE_CONFIG_DIR, so the relocated plugin files are not read. Whether this is new in this client version is unclear, because the variable may have worked this way before; the quote also does not say that the variable is new.",
-      "fix": "In src/kitden/clients/claude_code.py, resolve the Claude config root from CLAUDE_CONFIG_DIR when set (falling back to home/.claude) and use it for the plugins, settings and skills paths in scan, plugin_folders, marketplace_roots and marketplace_sources.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/settings#Find or create your settings files",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/settings",
-      "row": "Chat logs at `~/.claude/projects/*/*.jsonl`; entry fields `timestamp`, `version`, `entrypoint`, `cwd`, `isSidechain`, and attachment `type` `skill_listing` with `isInitial`, `skillCount`, `names`, `content` (2026-11-09)",
-      "files": [
-        "src/kitden/context/claude_log.py"
-      ],
-      "title": "Session history moves to CLAUDE_CONFIG_DIR when it is set",
-      "changed": "Chat logs would be under the CLAUDE_CONFIG_DIR folder rather than ~/.claude/projects when it is set.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "A user with CLAUDE_CONFIG_DIR set sees no skill list or a stale one, and may believe the client loads different skills than it does.",
-      "systems": "not checked",
-      "why": "last_claude_list hardcodes home / \".claude/projects\" and never reads CLAUDE_CONFIG_DIR, so the logs of a relocated config folder are never found. The quote does not say whether this is new in this client version or whether old logs remain in ~/.claude, so it is not certain.",
-      "fix": "In last_claude_list in src/kitden/context/claude_log.py, use the CLAUDE_CONFIG_DIR folder when the variable is set, otherwise home / \".claude\", and glob projects/*/*.jsonl under it.",
-      "sure": false
     },
     {
       "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
@@ -2041,23 +1423,6 @@
       "url": "https://code.claude.com/docs/en/skills",
       "row": "",
       "files": [],
-      "title": "Skills from --add-dir directories",
-      "changed": "A directory passed with `--add-dir` can supply skills from its `.claude/skills` folder for that session.",
-      "effect": "gap",
-      "severity": "minor",
-      "user_gets": "Skills loaded from additional directories are not shown.",
-      "systems": "not checked",
-      "why": "The directory is passed on the command line in a session, and no row covers it as a skill source.",
-      "fix": "Read the `--add-dir` directories of a session and their `.claude/skills` folders.",
-      "sure": false
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
-      "client": "claude-code",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/skills",
-      "row": "",
-      "files": [],
       "title": "Skill folders with plugin.json load as skills-dir plugins",
       "changed": "A skill folder in ~/.claude/skills or <project>/.claude/skills containing .claude-plugin/plugin.json is loaded as a plugin named <name>@\u2060skills-dir, bringing its own agents, hooks and MCP servers.",
       "effect": "gap",
@@ -2069,23 +1434,160 @@
       "sure": true
     },
     {
-      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
+      "piece": "https://code.claude.com/docs/en/mcp#Scope hierarchy and precedence",
       "client": "claude-code",
       "version": "",
-      "url": "https://code.claude.com/docs/en/skills",
-      "row": "Skills in `~/.claude/skills` and `<project>/.claude/skills`, each a folder with `SKILL.md`",
-      "files": [
-        "src/kitden/clients/claude_code.py",
-        "src/kitden/clients/base.py"
-      ],
-      "title": "Claude Code loads skills from nested subdirectory .claude/skills folders",
-      "changed": "Skills are also read from `.claude/skills` in nested subdirectories, enterprise managed settings and `--add-dir` directories, and a skill entry can be a symlink; the row names only the home and project skills folders.",
-      "effect": "wrong-data",
+      "url": "https://code.claude.com/docs/en/mcp",
+      "row": "",
+      "files": [],
+      "title": "managedMcpServers managed setting as MCP source",
+      "changed": "A managedMcpServers managed setting supplies MCP servers that outrank all other scopes and override duplicates.",
+      "effect": "gap",
       "severity": "major",
-      "user_gets": "The user does not see nested-folder skills that Claude Code loads in monorepo subdirectories, and may believe those skills are not active.",
+      "user_gets": "Kitden does not show organization-provided MCP servers, and may show user, project or local servers that are overridden by the managed definition.",
       "systems": "not checked",
-      "why": "skill_items/skills_in in base.py, called from _project_files in claude_code.py, only scan the project root's .claude/skills, so nested <subdir>/.claude/skills are never listed. Nested loading may have existed before this version, and the quote does not say it is new, so this is a guess about the change.",
-      "fix": "In src/kitden/clients/claude_code.py, make _project_files also scan nested subdirectory .claude/skills folders of a project (and in base.py skills_in handle them), or mark the project skill list as not covering nested folders.",
+      "why": "No row covers managed settings as a source of MCP servers or the managedMcpServers key.",
+      "fix": "Kitden would need to read the managedMcpServers key from the managed settings file and apply its precedence over other scopes.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "",
+      "files": [],
+      "title": "--setting-sources can exclude project rules",
+      "changed": "The --setting-sources flag decides whether project rules load; excluding project skips them.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden lists project rules as loaded when a session started with --setting-sources excluding project does not load them.",
+      "systems": "not checked",
+      "why": "No row covers a flag that decides which instruction files load; CC-21 only lists where the files are.",
+      "fix": "Read how Claude Code is launched for the --setting-sources value to know whether project rules are loaded.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "",
+      "files": [],
+      "title": "Claude.ai-hosted marketplaces file",
+      "changed": "Marketplaces hosted on claude.ai are recorded in known_marketplaces_claudeai.json rather than known_marketplaces.json.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Marketplaces hosted on claude.ai are not listed.",
+      "systems": "not checked",
+      "why": "CC-14 names only known_marketplaces.json, and no row covers this second file.",
+      "fix": "Read known_marketplaces_claudeai.json in the plugins root as well as known_marketplaces.json.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#Flags that load a plugin for one session",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "",
+      "files": [],
+      "title": "CLAUDE_CODE_PLUGIN_DIRS variable and disableSideloadFlags setting",
+      "changed": "Plugins can be loaded from folders named in the CLAUDE_CODE_PLUGIN_DIRS variable, and a managed setting disableSideloadFlags can reject them.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden does not show plugins loaded from folders in CLAUDE_CODE_PLUGIN_DIRS, nor that disableSideloadFlags stops them loading.",
+      "systems": "not checked",
+      "why": "No row covers plugin folders set by an environment variable or the disableSideloadFlags setting.",
+      "fix": "Read the CLAUDE_CODE_PLUGIN_DIRS environment variable and the managed disableSideloadFlags setting.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Enabled in an `--add-dir` directory but not loaded",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "",
+      "files": [],
+      "title": "--add-dir directories as a source of enabled plugins",
+      "changed": "Plugins enabled in settings files of directories added with --add-dir load only when trusted and when the session's --setting-sources include the file's source.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden does not show plugins enabled by an added directory's settings, nor that --setting-sources stops some from loading.",
+      "systems": "not checked",
+      "why": "No row covers --add-dir directories or the --setting-sources setting that decides which settings files load.",
+      "fix": "Read the session's --add-dir directories and --setting-sources, then each added directory's .claude settings files and trust state.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/hooks-guide#Configure hook location",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide",
+      "row": "",
+      "files": [],
+      "title": "Hooks in skill and subagent frontmatter",
+      "changed": "Hooks can be defined in skill and subagent frontmatter.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Hooks defined in SKILL.md or agent file frontmatter are not shown.",
+      "systems": "not checked",
+      "why": "No row covers hooks in frontmatter of skills or agents.",
+      "fix": "Parse the hooks frontmatter of SKILL.md and agent files.",
+      "sure": true
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#How it works",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "",
+      "files": [],
+      "title": "Auto memory files MEMORY.md in project memory folder",
+      "changed": "Auto memory loads the first 200 lines or 25KB of MEMORY.md from ~/.claude/projects/<project>/memory/ at session start.",
+      "effect": "gap",
+      "severity": "medium",
+      "user_gets": "Kitden does not show the auto memory MEMORY.md that loads into each session as instructions.",
+      "systems": "not checked",
+      "why": "No row covers the auto memory folder; instruction file rows name CLAUDE.md, rules, commands and agents only.",
+      "fix": "Read MEMORY.md in ~/.claude/projects/<project>/memory/ and show it as an instruction file with its load limit.",
+      "sure": true
+    },
+    {
+      "piece": "https://learn.chatgpt.com/docs/config-file/config-reference#`config.toml`",
+      "client": "codex",
+      "version": "",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "row": "Settings folder is `CODEX_HOME`, default `~/.codex`; settings in `config.toml`",
+      "files": [
+        "src/kitden/clients/codex.py"
+      ],
+      "title": "Codex profile config files next to config.toml",
+      "changed": "Settings can also live in `$CODEX_HOME/profile-name.config.toml` profile files selected with `--profile`, in addition to `config.toml` in the Codex home.",
+      "effect": "unknown",
+      "severity": "minor",
+      "user_gets": "Entries defined only in a profile file are not listed, but they apply only when the user launches Codex with --profile.",
+      "systems": "not checked",
+      "why": "scan() reads only config.toml under codex_home. The quote does not say what a profile file can contain or how it merges, so a concrete wrong value cannot be named. The default config.toml behavior is unchanged.",
+      "fix": "Check what keys a profile file can hold and how Codex merges them. If it can hold mcp_servers or plugins, decide whether to read profile files in src/kitden/clients/codex.py scan().",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find plugins on disk",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "Skills the Claude app gives Claude Code (`anthropic-skills:docx`) are at `local-agent-mode-sessions/skills-plugin/<org>/<id>/skills/<skill>/SKILL.md` in the app's folder, some copied to `~/.claude/skills/synced/<org>_<id>/`; the newest copy is read (2026-11-12, version 2.1.309)",
+      "files": [
+        "src/kitden/views/context_view.py"
+      ],
+      "title": "Claude Code documents a synced/ folder under the plugins root",
+      "changed": "Synced plugins live in a `synced/` folder under the plugins root (default ~/.claude/plugins/synced), not only ~/.claude/skills/synced.",
+      "effect": "unknown",
+      "severity": "minor",
+      "user_gets": "If synced skills now sit only under the plugins root, Kitden may find no description for them. The skill list would then show a missing description and size instead of a wrong one.",
+      "systems": "not checked",
+      "why": "_app_description only looks in ~/.claude/skills/synced and the app folder. The quote lists a plugins-root synced folder, but it does not say that skills moved there or that the old path stopped being used, so any effect on Kitden is a guess.",
+      "fix": "Check whether Claude Code 2.1.309 and later put synced skills under ~/.claude/plugins/synced. If so, add that path to the glob in _app_description in src/kitden/views/context_view.py and update the row.",
       "sure": false
     },
     {
@@ -2128,109 +1630,450 @@
       "sure": false
     },
     {
-      "piece": "https://code.claude.com/docs/en/skills#Frontmatter reference",
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#plugin install",
       "client": "claude-code",
       "version": "",
-      "url": "https://code.claude.com/docs/en/skills",
-      "row": "The skill list may use 1% of the window; one description is cut at 1536 characters (2026-11-07)",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
+      "row": "These commands work with no account: `claude --version`, `claude mcp add-json`, `get`, `list` and `remove`, `claude plugin validate --strict`, `marketplace add` and `remove`, `install`, `list --json`, `disable`, `enable` and `uninstall`; seen on Linux (2026-11-15, version 2.1.325). The nightly installs it with its own installer, `https://claude.ai/install.sh` run by `bash`, which puts `claude` in `~/.local/bin` and writes `~/.claude.json` with no account (2026-11-15, version 2.1.325, Linux)",
       "files": [
-        "src/kitden/context/tables.py"
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/versions.py"
       ],
-      "title": "Claude Code counts when_to_use toward the 1,536-character skill description cap",
-      "changed": "The 1,536-character cut applies to description and when_to_use combined, not description alone.",
-      "effect": "wrong-data",
-      "severity": "major",
-      "user_gets": "The estimated skill list size for skills with `when_to_use` may be smaller than what Claude Code actually uses, and the budget rebuild may differ from the client.",
+      "title": "Claude Code plugin install refused without a TTY for command-source plugins",
+      "changed": "For plugins with command-source or headersHelper entries, install without a TTY is refused with exit 1 unless -y or --accept-command is given, so the no-account install command may behave differently.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden's install step for such a plugin may fail with an error in a non-TTY run, and the row's claim that install works with no account is no longer fully true; nothing wrong is shown.",
       "systems": "not checked",
-      "why": "CLAUDE_DESCRIPTION_CAP is documented as a cap on one description, but the client now applies it to description plus when_to_use combined. The code that applies the cap is not in the files provided, so this is a guess.",
-      "fix": "In the Claude skill list code that uses CLAUDE_DESCRIPTION_CAP, apply the cap to description plus when_to_use combined, and update the comment in src/kitden/context/tables.py.",
+      "why": "plugin_install_step deliberately omits -y so a plugin that installs by running a command stops; the new refusal matches that intent, so Kitden stays right, but the row's blanket claim and the code comment about how it stops are now less precise.",
+      "fix": "In the contract-test row, note that install of plugins with command-source or headersHelper entries is refused without a TTY unless -y or --accept-command is given; optionally update the comment in `plugin_install_step` in `src/kitden/clients/claude_code.py`.",
       "sure": false
     },
     {
-      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#/plugin in a session",
+      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#plugin uninstall",
       "client": "claude-code",
-      "title": "Mentions `owner/repo`",
-      "hint": true,
-      "changed": "The text of this page has the word `owner/repo`.",
       "version": "",
       "url": "https://code.claude.com/docs/en/plugins/cli-reference",
-      "row": "A plugin's `git-subdir` source whose `url` is the short `owner/repo` form is cloned over SSH and fails without a GitHub SSH key; the https address works with none; Claude Code's docs describe a fall back to https for the short form, and this clone did not make it (2026-11-15, version 2.1.325, Linux)",
-      "files": [
-        ".claude-plugin/marketplace.json"
-      ],
-      "effect": "unknown",
-      "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
-      "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
-    },
-    {
-      "piece": "https://code.claude.com/docs/en/plugins/cli-reference#/plugin in a session",
-      "client": "claude-code",
-      "title": "Mentions `<source>`",
-      "hint": true,
-      "changed": "The text of this page has the word `<source>`.",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/cli-reference",
-      "row": "`claude plugin marketplace add <source>` and `remove <name>`; the source is recorded under `extraKnownMarketplaces` in `~/.claude/settings.json` (2026-10-19, version 2.1.283)",
+      "row": "`claude plugin uninstall <id> -s <scope> --keep-data --json`; it fails while settings still switch the plugin on",
       "files": [
         "src/kitden/clients/claude_code.py"
       ],
-      "effect": "unknown",
+      "title": "Plugin uninstall reports settings_still_on when settings still enable the plugin",
+      "changed": "The uninstall command has new flags (--prune, -y, aliases remove/rm) and reports a settings_still_on failure code with --json; the failure while settings still switch the plugin on is confirmed and detailed (v2.1.282+). --json can't be combined with --prune.",
+      "effect": "outdated",
       "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
+      "user_gets": "Kitden's removal command still works as before, but the code comment that the command fails when settings still switch the plugin on no longer describes the failure code or the version (v2.1.282+).",
       "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
+      "why": "plugin_remove_step uses the same flags (-s, --keep-data, --json) and the same settings key as before, so the command still works. Only the comment about the failure behaviour is now less precise (it omits the failureCode settings_still_on and the v2.1.282 requirement).",
+      "fix": "Update the comment above plugin_remove_step in src/kitden/clients/claude_code.py to mention the settings_still_on failure code and that the settings check needs Claude Code v2.1.282 or later.",
+      "sure": true
     },
     {
-      "piece": "https://code.claude.com/docs/en/plugins/install#Uninstall a plugin the project enables",
+      "piece": "claude-code-changelog#2.1.327",
       "client": "claude-code",
-      "title": "Mentions `.claude/settings.local.json`",
-      "hint": true,
-      "changed": "The text of this page has the word `.claude/settings.local.json`.",
-      "version": "",
-      "url": "https://code.claude.com/docs/en/plugins/install",
-      "row": "Project servers in `<project>/.mcp.json`, approved by `enabledMcpjsonServers` and `enableAllProjectMcpServers` and rejected by `disabledMcpjsonServers`, settings keys of any settings file; a rejection in any file wins; a folder not trusted takes approval only from `~/.claude/settings.json`. Trust is `hasTrustDialogAccepted` under `projects.<path>` in `~/.claude.json`, of the folder or, in a git repository, a folder above it up to the root. Earlier versions kept the three keys there under `projects.<path>`; 2.1.311 moves them to `.claude/settings.local.json` the next time it starts in the folder, so Kitden reads both (2026-11-15, version 2.1.311, macOS)",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "`claude mcp add-json -s user <name> '<json>'` takes the entry as an argument, no stdin or file",
       "files": [
         "src/kitden/clients/claude_code.py"
       ],
-      "effect": "unknown",
+      "title": "claude mcp add-json can read JSON from stdin",
+      "changed": "`claude mcp add-json` can now take the JSON from stdin with `-`, so the row's statement of argument only, no stdin, no longer holds.",
+      "effect": "outdated",
       "severity": "minor",
-      "sure": false,
-      "user_gets": "not checked",
+      "user_gets": "Kitden keeps working and still writes secret-holding entries directly to ~/.claude.json, but the comment in _add_entry and the row saying add-json has no stdin option are no longer true.",
       "systems": "not checked",
-      "why": "The word is in the text; the model reported nothing for this row."
+      "why": "_add_entry still writes the same command and file edits, which the client accepts, so nothing breaks. Only the code comment and the row claiming no stdin or file option are now stale.",
+      "fix": "Update the comment in `_add_entry` in `src/kitden/clients/claude_code.py` and the research row to say add-json can read stdin with `-`. Optionally pass secret entries through stdin instead of editing the file, with a fallback inside a Claude Code session.",
+      "sure": true
+    },
+    {
+      "piece": "claude-code-changelog#2.1.327",
+      "client": "claude-code",
+      "version": "2.1.327",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "row": "These commands work with no account: `claude --version`, `claude mcp add-json`, `get`, `list` and `remove`, `claude plugin validate --strict`, `marketplace add` and `remove`, `install`, `list --json`, `disable`, `enable` and `uninstall`; seen on Linux (2026-11-15, version 2.1.325). The nightly installs it with its own installer, `https://claude.ai/install.sh` run by `bash`, which puts `claude` in `~/.local/bin` and writes `~/.claude.json` with no account (2026-11-15, version 2.1.325, Linux)",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/versions.py"
+      ],
+      "title": "Claude Code mcp add-json gains a stdin form",
+      "changed": "The `claude mcp add-json` command gains a stdin form; the account-free command list may need to cover it.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden still works, but the comment in `_add_entry` saying add-json has no stdin option is no longer true on new versions, and secret entries are still written directly to the file.",
+      "systems": "not checked",
+      "why": "`_add_entry` still passes the existing add-json argument form, which works, and writes secret entries to `~/.claude.json` itself. The comment saying the docs show no stdin option is now stale, and the row's command list does not cover the stdin form.",
+      "fix": "Update the comment in `_add_entry` in `src/kitden/clients/claude_code.py`, and add the stdin form to the row. Optionally pass secret entries through `add-json <name> -` on stdin on versions that support it, instead of writing the file.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/mcp#Managing your servers",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/mcp",
+      "row": "`claude mcp remove -s <scope> <name>`",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "claude mcp remove also deletes stored OAuth tokens for remote servers",
+      "changed": "claude mcp remove for a remote server now also deletes the stored OAuth tokens and client registration, beyond removing the entry.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden removes the server entry as before, but the user is not told that stored OAuth tokens and client registration go too, so the remove cannot be undone by re-adding the entry alone.",
+      "systems": "not checked",
+      "why": "remove_step still runs the same command and edits the same key, so the action works and nothing shown is wrong. The row's description of what remove does is incomplete, and the Undo behaviour may not restore the sign-in.",
+      "fix": "In src/kitden/clients/claude_code.py, add a note to remove_step for remote servers saying that OAuth tokens and client registration are deleted too, and that the user should run `claude mcp logout <name>` first to revoke them.",
+      "sure": false
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://code.claude.com/docs/en/mcp changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-23, after these 5 facts were checked: CC-01; CC-03; CC-05; CC-06; CC-07.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/mcp"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/en/plugins/install changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-23, after this fact was checked: CC-09.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/install"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/en/plugins/cli-reference changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-21, after these 2 facts were checked: CC-10; CC-11.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/cli-reference"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/en/plugins/loading changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-23, after this fact was checked: CC-13.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://code.claude.com/docs/en/settings changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-23, after this fact was checked: CC-17.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/settings"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://code.claude.com/docs/en/skills changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-23, after these 2 facts were checked: CC-18; CC-19.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://code.claude.com/docs/en/memory changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-21, after this fact was checked: CC-21.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/en/hooks-guide changed after its facts were checked",
+      "client": "claude-code",
+      "changed": "The page changed on 2026-11-23, after this fact was checked: CC-22.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/hooks-guide"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/config-file/config-reference changed after its facts were checked",
+      "client": "codex",
+      "changed": "The page changed on 2026-11-18, after these 2 facts were checked: CX-03; CX-04.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-reference"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://cursor.com/docs/mcp changed after its facts were checked",
+      "client": "cursor",
+      "changed": "The page changed on 2026-11-19, after these 3 facts were checked: CU-01; CU-02; CU-03.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://cursor.com/docs/mcp"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://claude.com/docs/plugins/submit changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-23, after these 3 facts were checked: Claude plugin directory (plugins/kitden), line 13; Claude plugin directory (plugins/kitden), line 48; Publishing (.github/workflows/publish.yml), line 228.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://claude.com/docs/plugins/submit"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/plugins/pre-submission-checklist changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-23, after this fact was checked: Claude plugin directory (plugins/kitden), line 48.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://claude.com/docs/plugins/pre-submission-checklist"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "docs/en/plugins-reference changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-21, after this fact was checked: Claude plugin directory (plugins/kitden), line 48.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins-reference"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://glama.ai/mcp/methodology changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-18, after this fact was checked: Glama (https://glama.ai/mcp/servers/KonstantinStarovoytov/kitden), line 139.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://glama.ai/mcp/methodology"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "Homebrew/rubocops/shared/desc_helper.rb changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-23, after this fact was checked: Homebrew (desc in the formula, which lives in the tap), line 180.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/rubocops/shared/desc_helper.rb"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "https://docs.brew.sh/Formula-Cookbook changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-21, after these 2 facts were checked: Homebrew (desc in the formula, which lives in the tap), line 180; Homebrew (desc in the formula, which lives in the tap), line 191.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://docs.brew.sh/Formula-Cookbook"
+    },
+    {
+      "effect": "outdated",
+      "severity": "minor",
+      "sure": true,
+      "title": "Language-Specific-Formulae changed after its facts were checked",
+      "client": "Store rules",
+      "changed": "The page changed on 2026-11-19, after this fact was checked: Homebrew (desc in the formula, which lives in the tap), line 197.",
+      "fix": "Read the page and check each fact named here against it. Change the fact if it no longer holds, and its date in either case: a row id is a row of docs/clients.md in Kitden, a heading and line are a rule of docs/platform-rules.md in kitden-sdlc.",
+      "why": "Each fact names the page it was checked against and the day. The page changed after that day, so the fact may no longer be true.",
+      "user_gets": "not checked",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://docs.brew.sh/Language-Specific-Formulae"
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/memory#Organize rules with `.claude/rules/`",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/memory",
+      "row": "",
+      "files": [],
+      "title": "User-level rules",
+      "changed": "The page names user-level rules, a kind of instruction file kept for the user.",
+      "effect": "gap",
+      "severity": "minor",
+      "user_gets": "User-level rules, if kept in the home .claude folder, may not be shown.",
+      "systems": "not checked",
+      "why": "CC-21 names rules in `.claude` at the project root, not clearly the user-level folder.",
+      "fix": "Read the user-level rules folder under ~/.claude/rules for instruction files.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/plugins/loading#Find where a plugin is enabled",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/plugins/loading",
+      "row": "",
+      "files": [],
+      "title": "--settings flag can enable plugins",
+      "changed": "A settings value passed at launch with --settings can carry enabledPlugins and overrides user, project and local.",
+      "effect": "gap",
+      "severity": "minor",
+      "user_gets": "Kitden does not show plugins enabled or disabled by a --settings value for a session.",
+      "systems": "not checked",
+      "why": "No row covers the --settings launch flag as a source of enabledPlugins.",
+      "fix": "Kitden would need to read the --settings value from the running client's launch command.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Choose where skills load",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "",
+      "files": [],
+      "title": "Skills from --add-dir directories",
+      "changed": "A directory passed with `--add-dir` can supply skills from its `.claude/skills` folder for that session.",
+      "effect": "gap",
+      "severity": "minor",
+      "user_gets": "Skills loaded from additional directories are not shown.",
+      "systems": "not checked",
+      "why": "The directory is passed on the command line in a session, and no row covers it as a skill source.",
+      "fix": "Read the `--add-dir` directories of a session and their `.claude/skills` folders.",
+      "sure": false
     }
   ],
   "urgent": {
-    "week": "2026-W47",
-    "count": 1
+    "week": "2026-W48",
+    "count": 0
   },
-  "summary_week": "2026-W47",
+  "summary_week": "2026-W48",
   "tries": {},
   "doc_format": 2,
   "page_start": 0,
   "skips": {},
   "moved": {
-    "week": "2026-W47",
-    "told": {
-      "https://cursor.com/help/customization/rules": "",
-      "https://developers.openai.com/plugins/build/plugins": ""
-    }
+    "week": "2026-W48",
+    "told": {}
   },
   "rule_start": 0,
   "rule_skips": {},
   "fact_pages": {
     "https://code.claude.com/docs/en/mcp": {
-      "hash": "7626787df9072479da4ac22b54e01671ae746f7178a6ae964ef20ccf9dab8084",
-      "changed": "2026-11-21",
+      "hash": "80da609d185740440d8311535da26ce1c22fef3e4c6d8f162d82e38b6f347926",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/install": {
-      "hash": "e0a8e12c364b456ee655d113d4fe2321b7f2a3df93eae12f7357b1e3f9bdec0f",
-      "changed": "2026-11-21",
+      "hash": "3b5abc078fb96937ffb3bd43fedfad920315d9c11899e8861ffc742d5c78bce8",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/cli-reference": {
@@ -2239,18 +2082,18 @@
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins/loading": {
-      "hash": "c2b122f1f7fbde7ae133af0d180a4ec179762eea64eed4b6f373203e18e4b755",
-      "changed": "2026-11-21",
+      "hash": "127330bbd12b5a114c5c1a16c95bebcb8a4e7d1ac2cac2ed0c16c7d24ac85c40",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://code.claude.com/docs/en/settings": {
-      "hash": "a4cac6c1f939a1754a5643899c7bee14781b01c33623f62665156bf982ac39b2",
-      "changed": "2026-11-20",
+      "hash": "c2cbf77db53bca8df180406e1fe02667b8f33a2e4630dd1822c98adfd759bf1e",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://code.claude.com/docs/en/skills": {
-      "hash": "e62a36848be40df95b03ef7b9be7985d8e78b4a4564290d45bb19a3e80bbf92e",
-      "changed": "2026-11-21",
+      "hash": "f9ec56a54df61c8f0347470227c061365243a9541ee0b1ef2f93345406828cac",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://code.claude.com/docs/en/memory": {
@@ -2259,8 +2102,13 @@
       "unstable": false
     },
     "https://code.claude.com/docs/en/hooks-guide": {
-      "hash": "947da10fccf91cf7489c1834281bcdd6ae9fe8221ce8fb9e6ee294611bc6733f",
-      "changed": "2026-11-21",
+      "hash": "53d8eebca759e59520215c58c5e0ac4c0d792051a050cf6b8d7e5af8c65f2631",
+      "changed": "2026-11-23",
+      "unstable": false
+    },
+    "https://code.claude.com/docs/en/hooks": {
+      "hash": "8da669c9794b58fdc4ebb8ec0b7456d6e42ff3e1ce7a1009cf32347f0dfc2489",
+      "changed": "",
       "unstable": false
     },
     "https://learn.chatgpt.com/docs/extend/mcp": {
@@ -2319,13 +2167,13 @@
       "unstable": false
     },
     "https://claude.com/docs/plugins/submit": {
-      "hash": "9999c315c15cc18fa4eb8424164ebfd35de6b67e3030702458086369096a884b",
-      "changed": "2026-11-22",
+      "hash": "d1d7b5afd672714077a9c70a488614d380b5bfd58772e309eba50e6f3e900eec",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://claude.com/docs/plugins/pre-submission-checklist": {
-      "hash": "95db32a54874674ecfb5b37350cb3f3aaa1e6a5be0bf8631f3ebf1d966e72b7c",
-      "changed": "2026-11-22",
+      "hash": "1895e9575f37b6a495d3423b813527247cf6300cb77e46425fb6a3fa3a492345",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins-reference": {
@@ -2384,8 +2232,8 @@
       "unstable": false
     },
     "https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/rubocops/shared/desc_helper.rb": {
-      "hash": "17f21b554b047d8eff72020a662b0e838dee7887f759732b7286ef21ebfdce6d",
-      "changed": "",
+      "hash": "9970c5a6d43de8bcad7b61095cc810ef38920720f0c0b1eedeccb8969e5cb807",
+      "changed": "2026-11-23",
       "unstable": false
     },
     "https://docs.brew.sh/Formula-Cookbook": {
@@ -2419,84 +2267,10 @@
       "unstable": false
     }
   },
-  "stale_week": "2026-W47",
+  "stale_week": "2026-W48",
   "feed": {
-    "day": "2026-11-21",
+    "day": "2026-11-22",
     "wait": [
-      {
-        "day": "2026-11-19",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/sandboxing.md",
-        "product": "claude-code",
-        "sections": [
-          "`/sandbox` fails with `Sandbox settings can't be changed here`"
-        ]
-      },
-      {
-        "day": "2026-11-19",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/vs-code.md",
-        "product": "claude-code",
-        "sections": [
-          "Sign in to a Claude apps gateway"
-        ]
-      },
-      {
-        "day": "2026-11-19",
-        "kind": "changed",
-        "url": "https://learn.chatgpt.com/docs/security/cli/reference.md",
-        "product": "codex",
-        "sections": [
-          "`codex-security import continuum`"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/agent-sdk/subagents.md",
-        "product": "claude-code",
-        "sections": [
-          "Resume a subagent from your code"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/artifacts.md",
-        "product": "claude-code",
-        "sections": [
-          "Set a retention policy on Enterprise plans"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/authentication.md",
-        "product": "claude-code",
-        "sections": [
-          "Check when a stored login ends"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/code-mode.md",
-        "product": "claude-code",
-        "sections": [
-          "Limit shell commands with the sandbox",
-          "Stop code in progress",
-          "Check code output with a hook"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/desktop-ios-simulator.md",
-        "product": "claude-code",
-        "sections": [
-          "Open the simulator pane yourself"
-        ]
-      },
       {
         "day": "2026-11-20",
         "kind": "changed",
@@ -2532,24 +2306,28 @@
         "sections": [
           "`enforceAnthropicSignIn`"
         ]
+      },
+      {
+        "day": "2026-11-22",
+        "kind": "changed",
+        "url": "https://code.claude.com/docs/en/tools-reference.md",
+        "product": "claude-code",
+        "sections": [
+          "Allow a domain",
+          "Block a site or turn WebFetch off",
+          "When a fetch prompts, fails, or WebFetch is missing",
+          "The web-fetch subagent",
+          "Identify WebFetch requests to your site"
+        ]
       }
     ],
     "dropped": 0,
-    "held": 29,
+    "held": 30,
     "gone": 0,
     "failed": 0,
     "taken": [
-      "https://cursor.com/docs/agent-sdk/guides/teams",
-      "https://cursor.com/docs/agent-sdk/guides/workload-identity",
-      "https://cursor.com/docs/origin/access-policies",
-      "https://code.claude.com/docs/en/plugins/mods/overview",
-      "https://code.claude.com/docs/en/plugins/troubleshooting",
-      "https://code.claude.com/docs/en/settings-reference",
-      "https://cursor.com/docs/agent-sdk/deployment",
-      "https://cursor.com/docs/agent-sdk/guides/cloud-agents",
-      "https://cursor.com/docs/agent-sdk/reference/cli",
-      "https://cursor.com/docs/agent-sdk/reference/sessions",
-      "https://cursor.com/docs/agent-sdk/troubleshooting"
+      "https://code.claude.com/docs/en/tools-reference",
+      "https://cursor.com/docs/vulnerability-remediation"
     ]
   }
 }
