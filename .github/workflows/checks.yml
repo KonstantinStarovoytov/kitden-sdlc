@@ -25,8 +25,11 @@ jobs:
       - run: uv run ruff check .
       - run: uv run pytest -q
       - run: uv run python scripts/check_agent_workflows.py .github/workflows
-      # Our own settings, not the ones a pull request brings.
+      # Our own settings, not the ones a pull request brings. The token lets zizmor ask GitHub
+      # whether each pinned action commit is real and has no known vulnerability.
       - run: uvx --no-config zizmor==1.32.0 --no-config --no-ignores .github/workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: >-
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
