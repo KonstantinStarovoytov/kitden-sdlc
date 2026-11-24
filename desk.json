@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-24T18:20:43Z",
+  "updated": "2026-11-24T22:20:59Z",
   "repo": "KonstantinStarovoytov/kitden",
   "overall": "green",
   "lights": [
@@ -43,38 +43,31 @@
   },
   "waiting": [
     {
-      "kind": "pull",
-      "title": "Kitden 0.12.0",
-      "url": "https://github.com/KonstantinStarovoytov/kitden/pull/196",
-      "do": "Review it; if it is a draft, fix what \"Fix before merge\" names and press Ready for review; merge it with a merge commit.",
-      "days": 0.0
-    },
-    {
       "kind": "spot-check",
       "title": "#168, reviewed with no findings",
       "url": "https://github.com/KonstantinStarovoytov/kitden/pull/168",
       "do": "Look at the change, then \ud83d\udc4d or \ud83d\udc4e on its Agent review comment.",
-      "days": 1.8
+      "days": 1.9
     }
   ],
   "week": [
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 76,
+      "runs": 73,
       "failed": 0,
-      "did": 42,
-      "agreed": 13,
+      "did": 43,
+      "agreed": 12,
       "disagreed": 2,
       "no_answer": 0
     },
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 76,
+      "runs": 73,
       "failed": 0,
-      "did": 42,
-      "agreed": 13,
+      "did": 43,
+      "agreed": 12,
       "disagreed": 2,
       "no_answer": 0
     },
@@ -98,7 +91,7 @@
     }
   ],
   "review": {
-    "clean": 80,
+    "clean": 82,
     "fixed": 17,
     "days_to_merge": 0.0
   },
@@ -220,12 +213,12 @@
     "agents": [
       {
         "agent": "claude",
-        "runs": 76,
+        "runs": 73,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 76,
+        "runs": 73,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
@@ -282,60 +275,60 @@
   },
   "bench": {
     "gate": {
-      "sha": "518b8e9d2a2a6f7c8067c583192ca2c78312ffb8",
-      "at": "2026-11-24T16:51:34Z",
-      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065",
+      "sha": "784a7f8925808d25a3bb9b056c300cc181266ee0",
+      "at": "2026-11-24T22:20:51Z",
+      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100",
       "state": "green",
       "steps": [
         {
           "name": "Lint",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Types",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Real keyring",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356981"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Page tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Start-up time",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Workflow security",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Dependency audit",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838356"
         },
         {
           "name": "Release check",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838635"
         },
         {
           "name": "Package",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45440608065/job/138610356359"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45498388100/job/138814838635"
         }
       ]
     },
@@ -1071,6 +1064,7 @@
         "0.10.3",
         "0.11.0",
         "0.11.1",
+        "0.12.0",
         "main"
       ],
       "systems": [
@@ -1097,6 +1091,7 @@
             0.4,
             0.6,
             0.6,
+            0.7,
             0.5
           ],
           "complete": [
@@ -1118,10 +1113,12 @@
             0.4,
             0.5,
             0.5,
+            0.8,
             0.6
           ],
           "runs": [
             0,
+            1,
             1,
             1,
             1,
@@ -1165,6 +1162,7 @@
             2.1,
             1.3,
             1.3,
+            1.4,
             1.45
           ],
           "complete": [
@@ -1186,9 +1184,11 @@
             1.4,
             2.2,
             1.5,
+            1.6,
             2.1
           ],
           "runs": [
+            1,
             1,
             1,
             1,
@@ -1233,6 +1233,7 @@
             0.4,
             0.5,
             0.2,
+            0.3,
             0.4
           ],
           "complete": [
@@ -1254,10 +1255,12 @@
             0.5,
             0.6,
             0.3,
+            0.5,
             0.45
           ],
           "runs": [
             0,
+            1,
             1,
             1,
             1,
@@ -1301,6 +1304,7 @@
             0.6,
             0.5,
             0.5,
+            0.6,
             0.4
           ],
           "complete": [
@@ -1322,9 +1326,11 @@
             0.6,
             0.5,
             0.5,
+            0.6,
             0.55
           ],
           "runs": [
+            1,
             1,
             1,
             1,
@@ -1355,9 +1361,9 @@
     },
     "stores": {
       "newest": {
-        "version": "0.11.1",
-        "at": "2026-11-23T18:46:32Z",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/releases/tag/v0.11.1"
+        "version": "0.12.0",
+        "at": "2026-11-24T22:18:50Z",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/releases/tag/v0.12.0"
       },
       "stores": [
         {
@@ -1365,15 +1371,15 @@
           "name": "PyPI",
           "state": "green",
           "listed": false,
-          "version": "0.11.1",
-          "at": "2026-11-23T18:46:07.190018Z",
-          "url": "https://pypi.org/project/kitden/0.11.1/",
+          "version": "0.12.0",
+          "at": "2026-11-24T22:18:33.211029Z",
+          "url": "https://pypi.org/project/kitden/0.12.0/",
           "note": null
         },
         {
           "id": "homebrew",
           "name": "Homebrew",
-          "state": "green",
+          "state": "amber",
           "listed": false,
           "version": "0.11.1",
           "at": null,
@@ -1385,8 +1391,8 @@
           "name": "MCP Registry",
           "state": "green",
           "listed": false,
-          "version": "0.11.1",
-          "at": "2026-11-23T18:46:56.259093Z",
+          "version": "0.12.0",
+          "at": "2026-11-24T22:19:56.175946Z",
           "url": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.KonstantinStarovoytov/kitden",
           "note": null
         },
@@ -1403,7 +1409,7 @@
         {
           "id": "mcprush",
           "name": "MCP Rush",
-          "state": "green",
+          "state": "amber",
           "listed": false,
           "version": "0.11.1",
           "at": null,
@@ -1428,7 +1434,7 @@
     "upstream": {
       "confirmed": 0,
       "unconfirmed": 0,
-      "watcher_days": 0.8,
+      "watcher_days": 0.9,
       "url": "https://github.com/KonstantinStarovoytov/kitden/issues?q=is%3Aissue+is%3Aopen+label%3Aclient-change"
     },
     "use": {
