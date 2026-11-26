@@ -124,18 +124,26 @@ def test_last_tag(tmp_path):
 
 @pytest.mark.parametrize(
     ("choice", "version"),
-    [("auto", ""), ("", ""), ("minor", "0.9.0"), ("patch", "0.8.1"), ("0.9.0", "0.9.0"),
-     ("0.8.1", "0.8.1")],
+    [
+        ("auto", ""),
+        ("", ""),
+        ("minor", "0.9.0"),
+        ("patch", "0.8.1"),
+        ("0.9.0", "0.9.0"),
+        ("0.8.1", "0.8.1"),
+        ("major", "1.0.0"),
+    ],
 )
 def test_resolve_version_turns_a_choice_into_a_version(choice, version):
     assert resolve_version(choice, "0.8.0") == version
 
 
 @pytest.mark.parametrize(
-    "choice", ["1.0.0", "0.10.0", "v0.9.0", "0.9.0\n", "0.9.0.", "0.9", "0.8.0", "Minor"]
+    "choice", ["1.0.0", "0.10.0", "v0.9.0", "0.9.0\n", "0.9.0.", "0.9", "0.8.0", "Minor", "Major"]
 )
 def test_resolve_version_refuses_others(choice):
-    with pytest.raises(ValueError, match="auto, minor"):
+    # A major goes only by the word: the later steps let it through on the owner's choice.
+    with pytest.raises(ValueError, match="auto, minor .* major"):
         resolve_version(choice, "0.8.0")
 
 

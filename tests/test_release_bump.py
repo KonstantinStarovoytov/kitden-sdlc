@@ -4,7 +4,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from release_bump import bump, main, next_versions
+from release_bump import bump, main, next_major, next_versions
 
 SCRIPT = Path(__file__).parent.parent / "scripts" / "release_bump.py"
 TODAY = date(2026, 12, 1)
@@ -45,6 +45,24 @@ def make_root(tmp_path: Path, roadmap: str = ROADMAP) -> Path:
 def test_next_versions():
     assert next_versions("0.8.0") == ("0.9.0", "0.8.1")
     assert next_versions("1.9.4") == ("1.10.0", "1.9.5")
+
+
+def test_next_major():
+    assert next_major("0.12.3") == "1.0.0"
+    assert next_major("1.9.4") == "2.0.0"
+
+
+def test_cli_takes_the_next_major_only_when_the_owner_chose_it(tmp_path, capsys):
+    root = make_root(tmp_path)
+    # The agent's pick (no choice, or auto) may not be a major.
+    assert main([str(root), "1.0.0"]) == 1
+    assert main([str(root), "1.0.0", "--choice", "auto"]) == 1
+    # With the owner's major, only the next major goes; minor and patch still do.
+    assert main([str(root), "2.0.0", "--choice", "major"]) == 1
+    assert "1.0.0" in capsys.readouterr().out
+    assert 'version = "0.8.0"' in (root / "pyproject.toml").read_text()
+    assert main([str(root), "1.0.0", "--choice", "major"]) == 0
+    assert 'version = "1.0.0"' in (root / "pyproject.toml").read_text()
 
 
 def test_bump_sets_eight_places(tmp_path):

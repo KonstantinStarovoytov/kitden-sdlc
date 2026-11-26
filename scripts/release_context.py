@@ -5,7 +5,7 @@ No model runs here. Two commands, both run by .github/workflows/release-prep.yml
   release_context.py guard PRS_JSON --enabled true|false
       PRS_JSON is `gh pr list --state open --json headRefName,author,isCrossRepository`.
       Prints why release prep must stop, or nothing when it may go.
-  release_context.py collect ROOT --version auto|minor|patch|X.Y.Z --out context.json
+  release_context.py collect ROOT --version auto|minor|patch|major|X.Y.Z --out context.json
       Turns the owner's choice into a version (auto or empty: the agent picks it later), and
       writes the git log since the last tag, the pull requests merged since it and the diff
       stat. The design is docs/superpowers/specs/2026-11-12-release-flow-design.md (B1, B2).
@@ -19,7 +19,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from release_bump import current_version, next_versions
+from release_bump import current_version, next_major, next_versions
 
 RELEASE_BRANCH = "prepare-v"
 # The owner reviews at most 3 pull requests at a time. Counted conservatively: every open
@@ -60,15 +60,19 @@ def _is_bot(author: dict) -> bool:
 
 def resolve_version(choice: str, current: str) -> str:
     """The version for the owner's `choice` after `current`: "" for auto (the agent picks),
-    the next minor or patch for those words, or an X.Y.Z that is one of the two.
+    the next minor, patch or major for those words, or an X.Y.Z that is the next minor or
+    patch. A major goes only by its word, which the later steps pass on to release_bump.py.
     Raises ValueError for anything else."""
     minor, patch = next_versions(current)
-    words = {"": "", "auto": "", "minor": minor, "patch": patch}
+    major = next_major(current)
+    words = {"": "", "auto": "", "minor": minor, "patch": patch, "major": major}
     if choice in words:
         return words[choice]
     if VERSION.match(choice) and choice in (minor, patch):
         return choice
-    raise ValueError(f"version {choice!r} must be auto, minor ({minor}) or patch ({patch})")
+    raise ValueError(
+        f"version {choice!r} must be auto, minor ({minor}), patch ({patch}) or major ({major})"
+    )
 
 
 def _git(root: Path, *args: str) -> str:
