@@ -32,8 +32,9 @@ on:
       max_turns:
         type: number
         default: 60
-      # auto (or empty): the agent picks the next minor or patch. minor or patch: that one.
-      # An exact X.Y.Z still works when it is one of the two.
+      # auto (or empty): the agent picks the next minor or patch. minor, patch or major: that
+      # one; a major only by this word, never by the agent. An exact X.Y.Z still works when it
+      # is the next minor or patch.
       version:
         type: string
         default: ""
@@ -166,7 +167,7 @@ jobs:
             tests "$DOCS_TESTS")"
           echo "docs_tests=$(printf '%s\n' "$tests" | paste -sd ' ' -)" >> "$GITHUB_OUTPUT"
       # The script turns the choice into a version (empty for auto) and refuses anything that
-      # is not auto, the next minor or the next patch; the output is the version it wrote.
+      # is not auto, the next minor, patch or major; the output is the version it wrote.
       - name: Collect the context
         id: context
         env:
@@ -325,9 +326,10 @@ jobs:
           retention-days: 1
 
   # The version is the owner's, or the agent's out/version.txt; release_bump.py refuses
-  # anything but the next minor or patch. The scenes are checked against the pictures Kitden
-  # has: all_scenes is every scene with pictures, expected is what the agent thinks will
-  # change. All three outputs are safe to use after these checks.
+  # anything but the next minor or patch, or the next major when the owner chose major. The
+  # scenes are checked against the pictures Kitden has: all_scenes is every scene with pictures,
+  # expected is what the agent thinks will change. All three outputs are safe to use after these
+  # checks.
   bump:
     needs: [guard, prepare, agent]
     if: vars.AGENTS_ENABLED == 'true'
@@ -374,6 +376,7 @@ jobs:
         id: bump
         env:
           OWNER_VERSION: ${{ needs.prepare.outputs.version }}
+          CHOICE: ${{ inputs.version }}
         run: |
           version="$OWNER_VERSION"
           if [ -z "$version" ]; then
@@ -388,7 +391,7 @@ jobs:
             exit 1
           fi
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_bump.py \
-            kitden "$version"
+            kitden "$version" --choice "$CHOICE"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version $version." >> "$GITHUB_STEP_SUMMARY"
       # Same check as in prepare, for the version the agent picked.
@@ -466,11 +469,12 @@ jobs:
       - name: Put the files in
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          CHOICE: ${{ inputs.version }}
         run: |
           lists="$RUNNER_TEMP/lists"
           mkdir -p "$lists"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_bump.py \
-            kitden "$VERSION"
+            kitden "$VERSION" --choice "$CHOICE"
           git -C kitden diff --name-only > "$lists/bump.txt"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_apply.py \
             apply kitden "$RUNNER_TEMP/out" --version "$VERSION" --lists "$lists" \
@@ -764,12 +768,13 @@ jobs:
       - name: Put the files in
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          CHOICE: ${{ inputs.version }}
           FIX_RESULT: ${{ needs.fix.result }}
         run: |
           lists="$RUNNER_TEMP/lists"
           mkdir -p "$lists"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_bump.py \
-            kitden "$VERSION"
+            kitden "$VERSION" --choice "$CHOICE"
           git -C kitden diff --name-only > "$lists/bump.txt"
           given=()
           if [ "$FIX_RESULT" = success ]; then given=(--given "$RUNNER_TEMP/verdict-first/problems.md"); fi
@@ -895,12 +900,13 @@ jobs:
       - name: Put the files in
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          CHOICE: ${{ inputs.version }}
           FIX_RESULT: ${{ needs.fix.result }}
         run: |
           lists="$RUNNER_TEMP/lists"
           mkdir -p "$lists"
           uv run --no-config --no-project python .kitden-sdlc/scripts/release_bump.py \
-            kitden "$VERSION"
+            kitden "$VERSION" --choice "$CHOICE"
           git -C kitden diff --name-only > "$lists/bump.txt"
           given=()
           if [ "$FIX_RESULT" = success ]; then given=(--given "$RUNNER_TEMP/verdict-first/problems.md"); fi

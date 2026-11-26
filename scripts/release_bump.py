@@ -1,8 +1,10 @@
 """Set Kitden's version for a release. No model, no network.
 
-Run `python scripts/release_bump.py ROOT X.Y.Z`. X.Y.Z must be the next minor or the next patch
-of the version in pyproject.toml. It edits the eight version places, uv.lock, and the ROADMAP
-heading and date. Nothing is written unless every place can be found.
+Run `python scripts/release_bump.py ROOT X.Y.Z [--choice CHOICE]`. X.Y.Z must be the next minor
+or the next patch of the version in pyproject.toml, or the next major when CHOICE (the owner's
+choice in release prep) is `major`: the agent's own pick is never a major. It edits the eight
+version places, uv.lock, and the ROADMAP heading and date. Nothing is written unless every place
+can be found.
 """
 
 import argparse
@@ -35,6 +37,17 @@ def next_versions(current: str) -> tuple[str, str]:
     """The next minor and the next patch version after `current`."""
     major, minor, patch = (int(part) for part in current.split("."))
     return f"{major}.{minor + 1}.0", f"{major}.{minor}.{patch + 1}"
+
+
+def next_major(current: str) -> str:
+    """The next major version after `current`: 0.12.3 gives 1.0.0."""
+    return f"{int(current.split('.')[0]) + 1}.0.0"
+
+
+def allowed_versions(current: str, choice: str = "") -> tuple[str, ...]:
+    """The versions a release may take after `current`: the next minor and patch, and the
+    next major only when the owner chose `major`."""
+    return (*next_versions(current), *((next_major(current),) if choice == "major" else ()))
 
 
 def current_version(root: Path) -> str:
@@ -77,9 +90,10 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path, help="the Kitden checkout")
     parser.add_argument("version", help="the new version, like 1.2.3")
+    parser.add_argument("--choice", default="", help="the owner's choice: minor, patch or major")
     args = parser.parse_args(argv)
     try:
-        allowed = next_versions(current_version(args.root))
+        allowed = allowed_versions(current_version(args.root), args.choice)
     except (OSError, KeyError, ValueError) as error:
         print(f"cannot read the current version: {error}")
         return 1
