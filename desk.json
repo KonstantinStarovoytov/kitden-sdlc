@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "updated": "2026-11-26T01:11:13Z",
+  "updated": "2026-11-26T17:20:26Z",
   "repo": "KonstantinStarovoytov/kitden",
-  "overall": "grey",
+  "overall": "green",
   "lights": [
     {
       "id": "works",
       "name": "Works",
-      "state": "grey",
-      "why": "Not measured yet: the nightly job test ended cancelled in the run made 2026-11-25: stopped, or past its time limit."
+      "state": "green",
+      "why": ""
     },
     {
       "id": "clients",
@@ -39,28 +39,28 @@
     "issues_from_others": 0,
     "pulls_from_others": 6,
     "stars": 1,
-    "downloads": null
+    "downloads": 2461
   },
   "waiting": [],
   "week": [
     {
       "agent": "claude",
       "name": "Claude reviewer",
-      "runs": 104,
+      "runs": 123,
       "failed": 0,
-      "did": 59,
-      "agreed": 15,
-      "disagreed": 2,
+      "did": 61,
+      "agreed": 16,
+      "disagreed": 1,
       "no_answer": 0
     },
     {
       "agent": "luna",
       "name": "Luna reviewer",
-      "runs": 104,
+      "runs": 123,
       "failed": 0,
-      "did": 59,
-      "agreed": 15,
-      "disagreed": 2,
+      "did": 61,
+      "agreed": 16,
+      "disagreed": 1,
       "no_answer": 0
     },
     {
@@ -83,14 +83,14 @@
     }
   ],
   "review": {
-    "clean": 93,
-    "fixed": 21,
+    "clean": 94,
+    "fixed": 29,
     "days_to_merge": 0.0
   },
   "found_by": [
     {
       "month": "2026-11",
-      "review": 21,
+      "review": 29,
       "nightly": 4,
       "tester": null,
       "watcher": 1,
@@ -124,8 +124,8 @@
       "part": "systems",
       "state": "green",
       "failed": [],
-      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
-      "night": "2026-11-25",
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
+      "night": "2026-11-26",
       "since": null,
       "grey_since": null,
       "grey_nights": null,
@@ -137,8 +137,8 @@
       "part": "clients",
       "state": "green",
       "failed": [],
-      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
-      "night": "2026-11-25",
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
+      "night": "2026-11-26",
       "since": null,
       "grey_since": null,
       "grey_nights": null,
@@ -150,8 +150,8 @@
       "part": "browser",
       "state": "green",
       "failed": [],
-      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
-      "night": "2026-11-25",
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
+      "night": "2026-11-26",
       "since": null,
       "grey_since": null,
       "grey_nights": null,
@@ -163,8 +163,8 @@
       "part": "engines",
       "state": "green",
       "failed": [],
-      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
-      "night": "2026-11-25",
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
+      "night": "2026-11-26",
       "since": null,
       "grey_since": null,
       "grey_nights": null,
@@ -174,14 +174,14 @@
       "workflow": "latest-deps.yml",
       "name": "Newest dependencies",
       "part": "test",
-      "state": "grey",
+      "state": "green",
       "failed": [],
-      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45646448573",
-      "night": "2026-11-25",
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45846006181",
+      "night": "2026-11-26",
       "since": null,
-      "grey_since": "2026-11-25",
-      "grey_nights": 1,
-      "why": "the nightly job test ended cancelled in the run made 2026-11-25: stopped, or past its time limit."
+      "grey_since": null,
+      "grey_nights": null,
+      "why": ""
     },
     {
       "workflow": "use.yml",
@@ -189,8 +189,8 @@
       "part": "use",
       "state": "green",
       "failed": [],
-      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45620181127",
-      "night": "2026-11-25",
+      "run": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45822786016",
+      "night": "2026-11-26",
       "since": null,
       "grey_since": null,
       "grey_nights": null,
@@ -205,12 +205,12 @@
     "agents": [
       {
         "agent": "claude",
-        "runs": 104,
+        "runs": 123,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
         "agent": "luna",
-        "runs": 104,
+        "runs": 123,
         "cap": "Kitden's AGENTS_REVIEW_DAILY_CAP reviews a day (23 today; 20 without it), 5 findings each"
       },
       {
@@ -267,60 +267,60 @@
   },
   "bench": {
     "gate": {
-      "sha": "e1bc04e987c2c492f57bf4380bbf9ab7ea63bffb",
-      "at": "2026-11-26T01:11:03Z",
-      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180",
+      "sha": "e010e8bed238e9b77824ab37bbbd502d140ea0fc",
+      "at": "2026-11-26T14:03:03Z",
+      "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267",
       "state": "green",
       "steps": [
         {
           "name": "Lint",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Types",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Real keyring",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956662323"
         },
         {
           "name": "Page tests",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Start-up time",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Workflow security",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Dependency audit",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Release check",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676939"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         },
         {
           "name": "Package",
           "state": "green",
-          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676939"
+          "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45833649267/job/139956661854"
         }
       ]
     },
@@ -333,18 +333,18 @@
           {
             "label": "Python 3.13",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059143"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989182"
           },
           {
             "label": "Python 3.14",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059059"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989143"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -400,6 +400,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -411,18 +416,18 @@
           {
             "label": "Python 3.13",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059300"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989184"
           },
           {
             "label": "Python 3.14",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059093"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989211"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -478,6 +483,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -489,18 +499,18 @@
           {
             "label": "Python 3.13",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059216"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989228"
           },
           {
             "label": "Python 3.14",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059132"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989225"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -556,6 +566,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -567,18 +582,18 @@
           {
             "label": "Python 3.13",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059159"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989273"
           },
           {
             "label": "Python 3.14",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059181"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988924"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -634,6 +649,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -645,13 +665,13 @@
           {
             "label": "Linux \u00b7 x86_64",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178058438"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988851"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -707,6 +727,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -718,23 +743,23 @@
           {
             "label": "Chrome",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178058911"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988915"
           },
           {
             "label": "Firefox",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178058987"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989178"
           },
           {
             "label": "WebKit",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178058928"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988934"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -790,6 +815,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -801,28 +831,28 @@
           {
             "label": "macOS \u00b7 arm64",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059059"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989143"
           },
           {
             "label": "macOS \u00b7 x86_64",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059093"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989184"
           },
           {
             "label": "Linux \u00b7 x86_64",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059132"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875989225"
           },
           {
             "label": "Linux \u00b7 arm64",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059159"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988924"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -878,6 +908,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
@@ -889,13 +924,13 @@
           {
             "label": "Linux \u00b7 x86_64",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45620181127/job/139225906630"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45822786016/job/139919060387"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45620181127",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45822786016",
         "nights": [
           {
             "night": "2026-11-22",
@@ -916,6 +951,11 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45620181127"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45822786016"
           }
         ]
       },
@@ -927,18 +967,18 @@
           {
             "label": "macOS",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178059200"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988996"
           },
           {
             "label": "Linux",
             "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344/job/139178058905"
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939/job/139875988496"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939",
         "nights": [
           {
             "night": "2026-11-15",
@@ -994,30 +1034,30 @@
             "night": "2026-11-25",
             "state": "green",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45606340344"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45810274939"
           }
         ]
       },
       {
         "group": "compatibility",
         "name": "Newest dependencies",
-        "state": "grey",
+        "state": "green",
         "cells": [
           {
             "label": "macOS \u00b7 arm64",
-            "state": "grey",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45646448573/job/139318619329"
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45846006181/job/139999721870"
           }
         ],
         "since": null,
         "failed": [],
-        "night": "2026-11-25",
-        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45646448573",
+        "night": "2026-11-26",
+        "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45846006181",
         "nights": [
-          {
-            "night": "2026-11-12",
-            "state": "green",
-            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/43230141494"
-          },
           {
             "night": "2026-11-13",
             "state": "green",
@@ -1082,6 +1122,11 @@
             "night": "2026-11-25",
             "state": "grey",
             "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45646448573"
+          },
+          {
+            "night": "2026-11-26",
+            "state": "green",
+            "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45846006181"
           }
         ]
       }
@@ -1136,7 +1181,7 @@
             0.6,
             0.7,
             0.6,
-            0.55
+            0.75
           ],
           "complete": [
             null,
@@ -1159,7 +1204,7 @@
             0.5,
             0.8,
             0.8,
-            0.75
+            0.8
           ],
           "runs": [
             0,
@@ -1210,7 +1255,7 @@
             1.3,
             1.4,
             1.5,
-            1.9
+            1.35
           ],
           "complete": [
             1.4,
@@ -1233,7 +1278,7 @@
             1.5,
             1.6,
             1.2,
-            3.0
+            1.75
           ],
           "runs": [
             1,
@@ -1284,7 +1329,7 @@
             0.2,
             0.3,
             0.4,
-            0.5
+            0.35
           ],
           "complete": [
             null,
@@ -1307,7 +1352,7 @@
             0.3,
             0.5,
             0.5,
-            0.65
+            0.45
           ],
           "runs": [
             0,
@@ -1358,7 +1403,7 @@
             0.5,
             0.6,
             0.5,
-            0.45
+            0.5
           ],
           "complete": [
             0.6,
@@ -1381,7 +1426,7 @@
             0.5,
             0.6,
             0.6,
-            0.6
+            0.65
           ],
           "runs": [
             1,
@@ -1412,7 +1457,7 @@
         "first": 2.0,
         "complete": 5.0
       },
-      "main_night": "2026-11-25"
+      "main_night": "2026-11-26"
     },
     "stores": {
       "newest": {
@@ -1434,9 +1479,9 @@
         {
           "id": "homebrew",
           "name": "Homebrew",
-          "state": "amber",
+          "state": "green",
           "listed": false,
-          "version": "0.12.0",
+          "version": "0.13.0",
           "at": null,
           "url": "https://github.com/konstantinstarovoytov/homebrew-tap",
           "note": null
@@ -1464,9 +1509,9 @@
         {
           "id": "mcprush",
           "name": "MCP Rush",
-          "state": "amber",
+          "state": "green",
           "listed": false,
-          "version": "0.12.0",
+          "version": "0.13.0",
           "at": null,
           "url": "https://mcprush.com/konstantinstarovoytov/kitden-mcp",
           "note": null
@@ -1489,7 +1534,7 @@
     "upstream": {
       "confirmed": 0,
       "unconfirmed": 0,
-      "watcher_days": 2.0,
+      "watcher_days": 0.7,
       "url": "https://github.com/KonstantinStarovoytov/kitden/issues?q=is%3Aissue+is%3Aopen+label%3Aclient-change"
     },
     "use": {
