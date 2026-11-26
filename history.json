@@ -3967,5 +3967,136 @@
     "startup": null
    }
   ]
+ },
+ {
+  "id": 45732801180,
+  "attempt": 1,
+  "unread_logs": 0,
+  "tries": 0,
+  "workflow": "release.yml",
+  "night": "2026-11-26",
+  "sha": "e1bc04e987c2c492f57bf4380bbf9ab7ea63bffb",
+  "version": "0.13.0",
+  "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180",
+  "jobs": [
+   {
+    "name": "build (ubuntu-latest)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676500",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.4,
+     "complete": 0.5,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "startup (ubuntu-24.04-arm)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676831",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.5,
+     "complete": 0.6,
+     "demo": 0.1
+    }
+   },
+   {
+    "name": "version",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676894",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "startup (macos-15-intel)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676921",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 1.5,
+     "complete": 1.2,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "build (macos-latest)",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139618676939",
+    "failed_step": null,
+    "startup": "green",
+    "times": {
+     "first": 0.6,
+     "complete": 0.8,
+     "demo": 0.2
+    }
+   },
+   {
+    "name": "publish",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139621952001",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "autotag",
+    "state": "grey",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139621954491",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "release",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622079266",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "stores / check",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622228419",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "stores / homebrew",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622301095",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "stores / release-branch",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622301101",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "stores / registry",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622301120",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "stores / summary",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622471163",
+    "failed_step": null,
+    "startup": null
+   },
+   {
+    "name": "stores / desk",
+    "state": "green",
+    "url": "https://github.com/KonstantinStarovoytov/kitden/actions/runs/45732801180/job/139622569995",
+    "failed_step": null,
+    "startup": null
+   }
+  ]
  }
 ]
