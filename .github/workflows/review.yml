@@ -78,7 +78,7 @@ jobs:
       # Records every host this job connects to (rule 9). After a week of records the list
       # becomes a limit.
       - name: Watch where this job connects
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
       # Without these two the checkout below would fall back to the pull request's code.
@@ -130,7 +130,7 @@ jobs:
         if: steps.prepare.outputs.skip != 'true'
         continue-on-error: true
         timeout-minutes: 12
-        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
+        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
         with:
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           github_token: ${{ github.token }}
@@ -168,7 +168,7 @@ jobs:
       # Records every host this job connects to (rule 9). After a week of records the list
       # becomes a limit.
       - name: Watch where this job connects
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
       # Without these two the checkout below would fall back to the pull request's code.
@@ -225,7 +225,7 @@ jobs:
         if: steps.prepare.outputs.skip != 'true'
         continue-on-error: true
         timeout-minutes: 12
-        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec # v1.14
         with:
           openai-api-key: ${{ secrets.openai_api_key }}
           codex-version: "0.167.0"
@@ -294,7 +294,7 @@ jobs:
         with:
           name: findings-luna
           path: luna
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: "0.10.10"
       # If the app is not installed this step fails, and the job's own token posts instead.
@@ -302,7 +302,7 @@ jobs:
         id: app
         if: inputs.app_client_id != ''
         continue-on-error: true
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ inputs.app_client_id }}
           private-key: ${{ secrets.app_private_key }}
