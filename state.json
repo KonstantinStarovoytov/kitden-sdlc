@@ -677,21 +677,21 @@
       "Load skills from a directory outside the project": "02ed891d6f9f5b05cc956800ea5e9a11177aa7ea6d55344e4bd7546db464deaa",
       "Resolve skills that share a name": "00327a74c291a2118c35ed822bd4ae2fa2a5da61fd1c30d46fc13021abee7d2e",
       "Use skills in Cowork and cloud sessions": "b389ce7a0b36dde85d4012d72adc1281acbab865e24cd9f6d22fe9c6f9df0e90",
-      "Skills synced from claude.ai": "923240a5116778b4aaf60f8349b889adf3005e903acf0219b3c5d90a354d4f24",
+      "Skills synced from claude.ai": "460a08274cc0cb1f432a090f5276e8910b5e83282012c03911d43a0876ff4e03",
       "Edit a skill during a session": "eaa3be1c2b072dff055a5b6051e3b3c6502fa6b0dc0df04412c2befe82561a0d",
       "Remove a skill": "12e48976fbc094f0c932071b68634636f7c139a54f2e3d390754f3281076aae0",
       "Configure skills": "f9f7eb230527fa32bf4a2c523f49e15169e0cf1150cc84779b9212bbd23b7ee2",
       "Types of skill content": "351a4d326d79f4c25995584434844fc4aa05c9b096412da27ae15e71bafd42f3",
-      "Frontmatter reference": "18bd9c6ca2aec8c326554dc9ee846eb541c42915e0994aa4c8b53ba390ba4cf0",
+      "Frontmatter reference": "ae35c279bafcd3945c261a79f11e92f3b6815ce3d42a13e497a38f79e4466ac3",
       "Add supporting files": "b072d4ceddebf97c584ab1d5b6566233ee40fdbf1a6b1f643857f4244f57a6bd",
       "Control who invokes a skill": "9c75ee7b915585932e85d070b44525f6385d71caa24aa011690a2c0d462b02ed",
       "Skill content lifecycle": "c2a4cf04caac09c3abd53864c86df0e5aed5834a7125bba8bdf5e2db361a1493",
       "Pre-approve tools for a skill": "79da113135a6429f6f702346d5493ddb169c3933b1bba2a11cae2f446808595f",
-      "Pass arguments to skills": "870c25c7c6bb17f1ac4ccb47bd7107396c41a61d19421e2e5309bf7ce7fad146",
+      "Pass arguments to skills": "8fa7ae7adc4adac54a1f74188d185751e250508e653b2556a0b4853ac758c825",
       "Advanced patterns": "d103051ce027da30c4ba63124998464cdd759b0a89154f9755beeaa4f9beec4e",
-      "Inject dynamic context": "8243d0055cd345f5672333a83d29e10e15eab0d3e4d8ed61a2b223a6509a19c4",
+      "Inject dynamic context": "d11cadc685641996764fbd09cc7d66c868a6149935d378595786f6779cf3ab2d",
       "Run skills in a subagent": "8a4da5ae7dc01f475219c49bdecaf5b667a070b557a3f424f3aacefd5982ec24",
-      "Restrict Claude's skill access": "36fc457b14fde58d45d6a55c83123772c7d4b9ebc54701019c5273ff55d57877",
+      "Restrict Claude's skill access": "e1528d7eda88105930337a6e83e77ae3128f5f1eb6b663922ae70ac4b7f540a2",
       "Override skill visibility from settings": "1901d20c0d4e5969d27f8bb46f732a7388136574b58002c5b01567930be90cd5",
       "Find unused skills": "2d75ba39cb03536dac887b0b3fecf8b13e681145810d0a928c43897a5c7e3aa4",
       "Evaluate and iterate on a skill": "492ead7a0604155ef57f9dcf2efe66abdbb25ad4aae7a8864eb59a76f118967d",
@@ -705,7 +705,8 @@
       "Skill descriptions are cut short": "5c8635c89b6df90a6c07148e1b190805fbd20b88496fbc9999f404cac3404e81",
       "Angle brackets in a skill description show as `&lt;` and `&gt;`": "d73789ef5cc7282725354e3bc63c8d33f4f2a4763446548ce77d0490850ad8ba",
       "Personal skills disappeared": "d12a5f2d41b5837163ce1edba6cd37b36bd06c71c5846338f4710a02667c679b",
-      "Related resources": "6c3ca9d5e79526d43f0872c31f4ca3b11122c98e21085f21170077266d4e772e"
+      "Related resources": "6c3ca9d5e79526d43f0872c31f4ca3b11122c98e21085f21170077266d4e772e",
+      "Skills from MCP servers": "b4a29efc22f2e5fdcd23bc4eef215ddab8b582dea81408373f35925f92690aec"
     },
     "https://code.claude.com/docs/en/memory": {
       "": "01a733b4887c0ee9901460b6a03dfb280d76816a338522640f4d3ffd49b51ff2",
@@ -819,7 +820,7 @@
       "Creating plugins": "013c3202ec4a63a58eebcc2b3a8cac70d9b14cfa59b338d4461b42cf43620b7b",
       "Agent Plugin": "cf7d9ce99f5befbeae75e2121f774845caba2a5ee04eb4f7201071284e9ce090",
       "Cursor Plugin": "edac2b70e1e6fbb357a20b55701681bd41ff3c1ffb539c4d1fd8ef00bb4f813a",
-      "Test plugins locally": "1b1e21445cb1686a57d21c0018698426803cf7f393da198701886980aefc3844",
+      "Test plugins locally": "d104af02025d0efce0e90bd9920d17a595767c5efbb124e2a06c1ed6c3988a7b",
       "Team and Enterprise marketplaces": "c53e2c2549b5a78d8d7e21ba44d2f97f82110dded6b8a6fe1dce393981446c38",
       "FAQ": "b07ed55203f0d88ebed77a69ea750333f4f62ec38193b32272aa2987376f7b86",
       "Are marketplace plugins reviewed for security?": "fe175d27aa0994a7bfa14d50b0aa5fec59ca65dec9d28ba9ea7806f6c9e32bec",
@@ -1001,7 +1002,7 @@
       "Extension API reference": "36b2016222b09834890ca9bf37a525e705d5f69ec690fa94b7f79974a22e9a36",
       "Configuration locations": "99adf60a415bcbf249d46eee480de90ccf830731c132e7597ea594cadbc12134",
       "Project Configuration": "988d51ed9e46f79771d75f3c68aa769ce050fc1a5ba7cd8817893665823b438b",
-      "Global Configuration": "fad8aecc886f97c2ed9a15e3ce09fc120951fe1fda3315bafb0b105e54d14377",
+      "Global Configuration": "dced2dc90bcf8b2ff2b2449d47ce83faf8f861a89c37860ad7d8bb83c0ec3447",
       "Config interpolation": "21b3e7df006866130d9554a96c5cfcb3b15f9106c85959460f126c64ff27f8ac",
       "Authentication": "2c59698c9662699f48eb0e96abc29bf9ec1acdf09f3ab9b8e7bc4dc3cba9a6cf",
       "Enterprise admin controls": "79c6d696d679d5d25d5ffdb41e11943f34d3e075ea6b08adc6a6186044116a5e",
@@ -1073,7 +1074,7 @@
       "Progressive": "ed030a95bb88b3438d3261327380e513b8a2ae1c5c7c1a30844c19898e0bd86a",
       "How skills work": "0f0597f88df1fc19115bd4e3e8ead7fd5bf2ef09bfaf8987aab7bceba1f71e47",
       "Built-in Cursor skills": "4e5869c26a6697f47ad59562391ebed7a8c50314b4dcdf9efd93252208d54429",
-      "Skill directories": "3bb33ec4eefda8e02d0906d11b3c7ac5e23ffe735b808d6a7c03d2015f8a1be7",
+      "Skill directories": "6374855749eee972bd9d9a1cadeade63f0a96b0763369ce9a8eb51bb6a364d09",
       "Nested skill directories": "3a0214c2e51b8d91aa3983a0695faa3080c9169df0fd1fcdb64cd46f9e41fd65",
       "SKILL.md file format": "78cf97e67e9b5c2f844e3d5b0b23fb3af2df5dc48f9191cf9d5bc91f31f7ad6c",
       "Frontmatter fields": "31e5f20f88b87719a3b5c05754f32f25a694b27f005a04a804e5a9a8dd2385a1",
@@ -1083,7 +1084,7 @@
       "Including scripts in skills": "e4359011b3ff11ab9963a6178cbdc1be68eab827b514187a0c8024ad05177ff2",
       "Optional directories": "f88e51e1a87e0938fe0d2a618c7ec62a4c1b8de149a97613d24481821f188542",
       "Viewing skills": "f75202f559ff2bf397bc867d37c68fee409ecb509e3c7514f82969dee487f70c",
-      "Use personal skills with Cloud Agents": "b74fa768962e0225e5f5bb2b3cd56a42dff85cdf5f1c2ee3c597563bde65c7d4",
+      "Use personal skills with Cloud Agents": "ef2201a41c95254027678c79a9d31d6abfe5934b26a309ed3b4705ea9a560e64",
       "Sync your skills": "4aab1125f5a81bcc41ae344e0c20b0743985495d4c5b2300da8a2d24480dd539",
       "Stop syncing": "5d95bfbf4b3dfb96b3b176a484292e645bef07b96f44a44b1455724f5030c668",
       "Team admin controls": "a2dd5b4cb2b8390bb41bb690f10a7b2d900203aae04495183a65ce0f02a9ca10",
@@ -1119,8 +1120,8 @@
       "Settings for Local computer access with Work Cloud": "bcd2160697717f8f62528036a7331bc3967cd1700f4d05da6a08e5cf4a96bd99",
       "Agent Security requirements for Local computer access with Work Cloud": "94c8b49b5b1a0241f8085e3cbde8ef6c32a7bcb227bd96c7553f583af4990063",
       "Local computer access with Work Cloud compatibility limits": "99a28e6d981c911713bfde70e3b401e64b381542b00562a8da4e085307cf52a1",
-      "`config.toml`": "677cce6e93180c74545d811aba01d8fc9e466fd78ae6077885349dba62102cf0",
-      "`requirements.toml`": "55550f2d73ce118941c01c0bd30f68839aa5703eb8cdc45d66b555be73788655"
+      "`config.toml`": "750b1380b0a46b51d0923a525ccb188dc654c198657657e79b3dcdf0a5b710d3",
+      "`requirements.toml`": "9b4c1c85795d72dc5a8aeab92eae3857babe393d726108e80b4cbb205aac3cfe"
     },
     "https://learn.chatgpt.com/docs/extend/mcp": {
       "Model Context Protocol": "360fa03d2a9235fa9dbc862905a947c98f39f668163d69c218c2a80c64112341",
@@ -1142,7 +1143,7 @@
       "Use MCP-backed tools in ChatGPT web": "4172d43f368387b4dc22cee3764d98cfef90eca83ceaa75b8ac6671475527a48",
       "Configure with the CLI": "aada7834882cd1b0f4791fb313de61d3f2b6a4b5bf9d019256aba03388a891b4",
       "Configure in the IDE extension": "bbc9a77e06dad151810e1cb6fb30150f364b917316242ce55cc03abfdc3ec5d9",
-      "Configure with config.toml": "96755b334c07528817785d10ee9c5605ca6c064073497f77551c40d70558054b",
+      "Configure with config.toml": "a1a0d13bbebe0fa815f94d4521b00ba2e6e2e00df56e71186be82c11f0df7cef",
       "Plugin-provided MCP servers": "00f482f4576f4034d784fb4bab0162c0d44cff0f57d43cf1c5e0fd271f46352f",
       "Examples of useful MCP servers": "80ccc7ce9a5d3c265667ee96f408507ebbbb15f6c6776a1235ef344fe120ce75"
     },
@@ -1430,7 +1431,7 @@
       "`awaySummaryEnabled`": "25f4755aa01d4001925c0351c1bf702c8444b8c2aa7dda086a8fd88620571094",
       "`disableArtifact`": "4a10da6db1190b59135b394b3a631115c76e55b826c813c279fcb34ad076f5f6",
       "`disableDeepLinkRegistration`": "9abe8f32d1076c34b034b9f9d77e3250a8b0428c46c1abc833fbdcca1816e69f",
-      "`disableDesktopLocalSessions`": "f1aa8e641ab08981a5125b6fc0024d69231ac5347fc7d13166a66db0025a5de5",
+      "`disableDesktopLocalSessions`": "6867abb95d303379fb9d23ebe300f6e5daa38a97aef0b1b053a90780d2127c7e",
       "`disableRemoteControl`": "d41680c2b8e96d6630417fe3335b08b1635f5a3518c802a4076b9213427a1702",
       "`disableRemotePreviewScripts`": "a7680a351e620d11322ce575b3bac9b65066fe7155fb44786d4a31939341ca57",
       "`enableArtifact`": "a3154d41df67cfa27b45918e25c5ab2560fb02852eea5ee12d6d440147cefcaf",
@@ -1439,7 +1440,7 @@
       "`remote.defaultEnvironmentId`": "fc38ddaec60a3b5a56cd94c0171f6ab0c595c3126d5c5aab58681ffe5f10cbb7",
       "`remoteControlAtStartup`": "654e382588554a9a16c81c7a3b49a0fd8cfb88c773299268017ac1734a94539e",
       "`sshConfigs`": "8bb35668a6ad973f502b8b3b2edb6912c94b2466936605ff81f490823d69de79",
-      "`sshHostAllowlist`": "ac3de657a6e0c2f37c3ac73d1a2574c2381a3bafa0266b02c6ee203c2bacd78e",
+      "`sshHostAllowlist`": "65234a2e92ee1ab589a195149b9c4de1c6ca358baf6888ea8cf484f199646542",
       "`sshHostCommands`": "b0c7a4da88bd407f3a2ebe11f6004a56a2ca717efa7d043d1c6443fae2eaac13",
       "Authentication and providers": "6e57638a7e3eb29fb02cde1a735000da4c8198bd5a333ea4ee68cb6b521fe1a6",
       "`allowedProviders`": "6c428c68a68ae2c24c40abb3c639dd472dd8987b87787968966d5f68cb909363",
@@ -1473,7 +1474,7 @@
       "`forceRemoteSettingsRefresh`": "e52df35fc12059b3160e173143810d7803d4eda86fa02ba4be015b155834b634",
       "`managedSourcesBehavior`": "3e874ccb06d28c15d49cb2f86715628d48a7258a40d83f01a06e6670ce61dd53",
       "`parentSettingsBehavior`": "593cb70bffdcf9bb83fb9fb79065898a067fc3a6e5a8a4510f04fe7d2784d946",
-      "`policyHelper`": "90171c5cd575725fbfba8f3104872b223ca93d72322ca82ea647180a61657336",
+      "`policyHelper`": "34c2759563d8817a41466c9b9d22095984fd8d808f3375284822092fd5b16eae",
       "`policyHelper.path`": "464d2b7700777d70b35bcb80c14fbe558de9806b898ff905cfd78d0d9aea77a8",
       "`policyHelper.timeoutMs`": "a3f3da6ab4fad1ff9c108537ea51689d1186bc2bc19b64e1eb75eccaa292d477",
       "`policyHelper.refreshIntervalMs`": "50e898c4f6e3bc9f755a77cdec1ac61bdc8945dabd52159490c89d3fc774bd8f",
@@ -1664,7 +1665,7 @@
     "https://code.claude.com/docs/en/claude-directory": 0,
     "https://code.claude.com/docs/en/env-vars": 0,
     "https://code.claude.com/docs/en/worktrees": 0,
-    "https://github.com/openai/codex/pull/39837": 2,
+    "https://github.com/openai/codex/pull/39837": 3,
     "https://cursor.com/docs/subagents": 0
   },
   "kept": [
@@ -2913,6 +2914,193 @@
       "user_gets": "not checked",
       "systems": "not checked",
       "why": "The word is in the text; the model reported nothing for this row."
+    },
+    {
+      "effect": "unknown",
+      "severity": "medium",
+      "sure": true,
+      "title": "Cannot read https://github.com/openai/codex/pull/39837 for 3 days",
+      "client": "codex",
+      "changed": "https://github.com/openai/codex/pull/39837 could not be read",
+      "why": "The watcher cannot see new changes from this source.",
+      "user_gets": "Nothing yet.",
+      "systems": "",
+      "row": "",
+      "files": [],
+      "version": "",
+      "url": "https://github.com/openai/codex/pull/39837"
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Skills synced from claude.ai",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "A skill in the last chat's list with no `SKILL.md` now, that is not built in, not from the Claude app and has no plugin prefix, was removed since: the next list does not hold it. A skill of the user's named like a built-in one: a name the list holds once is the built-in's, unless the text sent is the start of the user's file; when the list holds the name twice, one entry is each. What Claude Code does on such a name clash is not checked (2026-11-27)",
+      "files": [
+        "src/kitden/views/context_view.py"
+      ],
+      "title": "Name clash between synced and local skills resolved in docs",
+      "changed": "The doc states that on a name clash the other command keeps the short name and the synced skill runs only under the full name; the row says what Claude Code does on a clash is not checked.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden's behaviour on skill list entries is unchanged; only the row's note that the name-clash behaviour is not checked is now partly answered by the docs.",
+      "systems": "not checked",
+      "why": "The quote is about which command /<name> invokes for synced skills (anthropic-skills:), not about how the skill list is built or how _own_entries matches entries, so the code does not show anything wrong. The row's remark that the clash behaviour is unchecked is now partly out of date.",
+      "fix": "Update the row to note that the docs state a local or other command keeps the short name, and the synced skill runs only under its anthropic-skills: full name.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Skills synced from claude.ai",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "Skills in `~/.claude/skills` and `<project>/.claude/skills`, each a folder with `SKILL.md`",
+      "files": [
+        "src/kitden/clients/claude_code.py",
+        "src/kitden/clients/base.py"
+      ],
+      "title": "Claude Code no longer loads skills with the reserved anthropic-skills name",
+      "changed": "A skill folder or frontmatter name using the reserved `anthropic-skills` name does not load, so such a skill folder on disk is not a loaded skill.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees a skill shown as on that Claude Code refuses to load, and believes it is available.",
+      "systems": "not checked",
+      "why": "skills_in and skill_items in base.py return every folder with a SKILL.md with enabled=ON and do not exclude the reserved `anthropic-skills` name. The quote does not say exactly which names are reserved or how the match works, so the exact rule is a guess.",
+      "fix": "In src/kitden/clients/base.py, have skills_in or skill_items mark a skill as off or unknown when its folder or frontmatter name is the reserved `anthropic-skills`, once the exact rule is confirmed in the docs.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Skills synced from claude.ai",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "Instruction files: `CLAUDE.md`, `CLAUDE.local.md` at the project root, `rules/*.md`, `commands/*.md`, `agents/*.md` in `.claude`, sub-folders too (2026-10-22)",
+      "files": [
+        "src/kitden/clients/claude_code.py"
+      ],
+      "title": "Reserved names stop commands files from loading",
+      "changed": "A file or subfolder in `.claude/commands/` with the reserved name does not load.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "The user sees a command in the list that Claude Code skips because of its reserved name, and believes it is available.",
+      "systems": "not checked",
+      "why": "_instruction_files uses expand(folder / \"commands\", \"command\") with no check of reserved names, so a skipped file is still shown as loaded. The quote does not say which names are reserved, so the exact set Kitden gets wrong is a guess.",
+      "fix": "In src/kitden/clients/claude_code.py, skip or mark as not loaded the commands/ files and subfolders whose names are reserved, once the reserved names are confirmed from the client docs.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Frontmatter reference",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "`disable-model-invocation: true` in SKILL.md keeps the description out of context (2026-11-06)",
+      "files": [
+        "src/kitden/clients/base.py"
+      ],
+      "title": "disable-model-invocation described as preventing automatic loading",
+      "changed": "Doc says the field prevents Claude from automatically loading the skill and also blocks subagent preload and scheduled tasks; row says it keeps the description out of context.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "Kitden still marks such skills as only-asked, which stays right; only the row wording and the code comment about the description being out of context are less precise.",
+      "systems": "not checked",
+      "why": "waits_to_be_asked() treats `true` as only invoked on request, which matches the new wording of preventing automatic loading. The quote does not state that the description is now in context, so the row's 'keeps the description out of context' and the code comment are just worded differently.",
+      "fix": "Reword the row and the comment in waits_to_be_asked() in src/kitden/clients/base.py to say the skill is not loaded automatically and is only run via /name.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Frontmatter reference",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "The skill list may use 1% of the window; one description is cut at 1536 characters (2026-11-07)",
+      "files": [
+        "src/kitden/context/tables.py"
+      ],
+      "title": "Skill listing cap of 1,536 characters now covers description and when_to_use combined",
+      "changed": "Doc states the 1,536-character cap applies to description plus when_to_use combined; row states one description cut at 1536.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "The comment and row say one description is cut at 1536, while the client cuts description plus when_to_use together; the estimate may differ for skills that use when_to_use.",
+      "systems": "not checked",
+      "why": "CLAUDE_DESCRIPTION_CAP is the number the row relies on, and it stays 1536. The tables file does not show whether `when_to_use` is joined to the description before the cut, so only the wording of the row and comment is shown to be out of date.",
+      "fix": "In src/kitden/context/tables.py, update the CLAUDE_DESCRIPTION_CAP comment to say the 1536 cap covers description and when_to_use combined. Check the code that uses the cap and make it cut the combined text.",
+      "sure": false
+    },
+    {
+      "piece": "https://code.claude.com/docs/en/skills#Frontmatter reference",
+      "client": "claude-code",
+      "version": "",
+      "url": "https://code.claude.com/docs/en/skills",
+      "row": "A list entry holds `description - when_to_use`; the size Kitden counts for a skill on disk is both together. With no description Claude Code uses the start of the skill's text, which Kitden does not read: it counts `when_to_use` alone (2026-11-25, version 2.1.311, read in the program file)",
+      "files": [
+        "src/kitden/views/skills.py",
+        "src/kitden/views/context_view.py"
+      ],
+      "title": "Missing description falls back to first non-empty line of skill content",
+      "changed": "Doc says that with no description Claude uses the first non-empty line of the content; row says it uses the start of the skill's text.",
+      "effect": "outdated",
+      "severity": "minor",
+      "user_gets": "For a skill with no description, Kitden counts only when_to_use (or nothing) while the client sends the first non-empty line of the skill's text, so the size may be slightly off; the row wording is also imprecise.",
+      "systems": "not checked",
+      "why": "list_text() already documents that it does not read the skill's text and counts when_to_use alone. The doc only narrows 'the start of the text' to 'the first non-empty line', which is a wording change, and Kitden was already off in the same way before.",
+      "fix": "Optionally update the row and the list_text() docstring in src/kitden/views/skills.py to say the client uses the first non-empty line of the content when description is missing.",
+      "sure": false
+    },
+    {
+      "piece": "https://cursor.com/docs/plugins#Test plugins locally",
+      "client": "cursor",
+      "version": "",
+      "url": "https://cursor.com/docs/plugins",
+      "row": "",
+      "files": [],
+      "title": "Cursor local plugins folder ~/.cursor/plugins/local",
+      "changed": "Plugins placed in ~/.cursor/plugins/local load in the editor and CLI without being installed, in either Agent Plugin or Cursor Plugin format.",
+      "effect": "gap",
+      "severity": "major",
+      "user_gets": "Kitden does not show local plugins, nor their rules, skills or MCP servers, that Cursor loads from this folder.",
+      "systems": "not checked",
+      "why": "CU-10 covers only the cache and marketplaces folders, and CU-07 and CU-09 cover installed plugin rows in the state database; none names a folder of plugins loaded without install.",
+      "fix": "Read the plugin folders under ~/.cursor/plugins/local, each with plugin.json or .cursor-plugin/plugin.json, and list them as local plugins.",
+      "sure": true
+    },
+    {
+      "piece": "https://cursor.com/docs/plugins#Test plugins locally",
+      "client": "cursor",
+      "version": "",
+      "url": "https://cursor.com/docs/plugins",
+      "row": "Plugin cache `~/.cursor/plugins/cache/<marketplace>/<plugin>/<version>/`, version a commit-hash folder (2026-10-20); marketplaces in `~/.cursor/plugins/marketplaces`",
+      "files": [
+        "src/kitden/clients/cursor.py"
+      ],
+      "title": "Cursor loads plugins from ~/.cursor/plugins/local",
+      "changed": "Cursor discovers plugins placed in ~/.cursor/plugins/local, a folder beside the cache and marketplaces folders the row names.",
+      "effect": "wrong-data",
+      "severity": "major",
+      "user_gets": "A locally developed plugin that Cursor loads does not appear in Kitden's plugin list, so the user believes it is not loaded.",
+      "systems": "not checked",
+      "why": "CursorAdapter._plugins, _cached_plugins and plugin_folders read only the cache and marketplaces folders plus install records, never plugins/local. The quote says Cursor takes plugins from that folder, but not whether they show up in installedIds, so it is unclear whether they are missed. That uncertainty is why sure is false.",
+      "fix": "In src/kitden/clients/cursor.py, scan ~/.cursor/plugins/local and list each plugin folder as a user-scope plugin item. Do this in _plugins, and also in _cached_plugins and plugin_folders if local plugins need to be found there too.",
+      "sure": false
+    },
+    {
+      "piece": "https://learn.chatgpt.com/docs/extend/mcp#Configure with config.toml",
+      "client": "codex",
+      "version": "",
+      "url": "https://learn.chatgpt.com/docs/extend/mcp",
+      "row": "What the client writes: `codex mcp add` keeps a stdio server as `command`, `args` with no `enabled`, and an http one with `--bearer-token-env-var` as `url`, `bearer_token_env_var`; `plugin marketplace add <folder>` writes `source_type` `local` and `source`; `plugin add` writes `[plugins.\"<id>\"] enabled = true`. The fixture `codex/0.169.0` holds this `config.toml`; 0.167.0 on macOS writes the same shapes (2026-11-15, version 0.169.0, Linux)",
+      "files": [
+        "src/kitden/clients/codex.py",
+        "src/kitden/clients/entries.py"
+      ],
+      "title": "codex mcp add writes an OAuth client secret into config.toml",
+      "changed": "codex mcp add with --oauth-client-id/--oauth-client-secret writes an oauth sub-table to config.toml, a shape the fixture row does not list.",
+      "effect": "wrong-data",
+      "severity": "medium",
+      "user_gets": "A Codex MCP server with OAuth may be offered for a move into the gateway, where it would run without its OAuth credentials and fail to authenticate.",
+      "systems": "not checked",
+      "why": "gateway_entry copies only command, args, env, cwd, url and headers, so an oauth table is silently dropped. entry_refusal does not refuse such an entry, because FROM_ELSEWHERE does not list oauth. The quote only says where the secret is stored, not how Codex uses it.",
+      "fix": "In src/kitden/clients/entries.py, treat an `oauth` key on an entry as a reason to keep it direct (add it to FROM_ELSEWHERE or refuse it in entry_refusal). Update the row's description of what codex mcp add writes.",
+      "sure": false
     }
   ],
   "urgent": {
@@ -2992,8 +3180,8 @@
       "unstable": false
     },
     "https://code.claude.com/docs/en/settings-reference": {
-      "hash": "66c72211799f966098fbf7c3305a2cea44307410129fdaa985a3cd5a908b9454",
-      "changed": "2026-11-26",
+      "hash": "6241973ba5ef3c31730a058d06f19e863a34b2155e38ac07f36972610d79ddce",
+      "changed": "2026-11-28",
       "unstable": false
     },
     "https://learn.chatgpt.com/docs/extend/mcp": {
@@ -3057,13 +3245,13 @@
       "unstable": false
     },
     "https://claude.com/docs/plugins/submit": {
-      "hash": "215381491441f3120528eadde8942d713d2d999e44ade1508dd5fe0f92eedb43",
-      "changed": "2026-11-27",
+      "hash": "1ddb933fad5e6813d7312d76507238c1533279d3809c20099425569c6a3f35a0",
+      "changed": "2026-11-28",
       "unstable": false
     },
     "https://claude.com/docs/plugins/pre-submission-checklist": {
-      "hash": "9513bcc89094300aa93a7a0d242de336bf5f5236e22a966d46a80909a1ca5511",
-      "changed": "2026-11-27",
+      "hash": "d29af4321c3c831401d5acb1773613d9ea832a780d831aad44294d4b68f7e3eb",
+      "changed": "2026-11-28",
       "unstable": false
     },
     "https://code.claude.com/docs/en/plugins-reference": {
@@ -3159,62 +3347,8 @@
   },
   "stale_week": "2026-W48",
   "feed": {
-    "day": "2026-11-25",
+    "day": "2026-11-27",
     "wait": [
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/plugins/dependencies.md",
-        "product": "claude-code",
-        "sections": [
-          "When a dependency installs automatically"
-        ]
-      },
-      {
-        "day": "2026-11-20",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/troubleshoot-install.md",
-        "product": "claude-code",
-        "sections": [
-          "That doesn't look like the full code"
-        ]
-      },
-      {
-        "day": "2026-11-21",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/plugins/mods/overview.md",
-        "product": "claude-code",
-        "sections": [
-          "Check the charts mod requirements"
-        ]
-      },
-      {
-        "day": "2026-11-25",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/tools-reference.md",
-        "product": "claude-code",
-        "sections": [
-          "Allow a domain",
-          "Block a site or turn WebFetch off",
-          "When a fetch prompts, fails, or WebFetch is missing",
-          "The web-fetch subagent",
-          "Identify WebFetch requests to your site",
-          "Working directory and variables in PowerShell commands",
-          "Fix unexpected WebFetch prompts and denials",
-          "Fix a failed WebFetch request",
-          "Fix missing or outdated page content",
-          "Find out why WebFetch is unavailable"
-        ]
-      },
-      {
-        "day": "2026-11-23",
-        "kind": "changed",
-        "url": "https://code.claude.com/docs/en/agent-view.md",
-        "product": "claude-code",
-        "sections": [
-          "A background session shows `Not logged in`"
-        ]
-      },
       {
         "day": "2026-11-25",
         "kind": "changed",
@@ -3522,27 +3656,17 @@
       }
     ],
     "dropped": 0,
-    "held": 35,
+    "held": 42,
     "gone": 0,
     "failed": 0,
     "taken": [
-      "https://code.claude.com/docs/en/approvals-policy",
-      "https://code.claude.com/docs/en/approvals-troubleshooting",
-      "https://code.claude.com/docs/en/claude-security",
-      "https://code.claude.com/docs/en/code-mode",
-      "https://code.claude.com/docs/en/errors",
-      "https://code.claude.com/docs/en/llm-gateway-connect",
-      "https://code.claude.com/docs/en/plugin-evals",
-      "https://code.claude.com/docs/en/plugins/mods/interface",
-      "https://code.claude.com/docs/en/plugins/mods/troubleshoot",
-      "https://code.claude.com/docs/en/routines",
-      "https://code.claude.com/docs/en/scheduled-tasks",
-      "https://code.claude.com/docs/en/ship-command-troubleshooting",
-      "https://code.claude.com/docs/en/ship-command",
-      "https://code.claude.com/docs/en/tools-reference",
-      "https://code.claude.com/docs/en/voice-dictation",
-      "https://cursor.com/docs/cloud-agent/settings",
-      "https://cursor.com/docs/integrations/slack"
+      "https://cursor.com/docs/security",
+      "https://cursor.com/docs/security/api-keys",
+      "https://cursor.com/docs/security/network-controls",
+      "https://cursor.com/docs/security/oauth-applications",
+      "https://cursor.com/docs/security/sessions",
+      "https://cursor.com/docs/account/organizations/organization-admin-api",
+      "https://cursor.com/docs/account/teams/admin-api"
     ]
   }
 }
